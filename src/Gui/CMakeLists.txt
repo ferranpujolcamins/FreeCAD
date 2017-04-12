@@ -264,6 +264,7 @@ set(Gui_MOC_HDRS
     PropertyPage.h
     PropertyView.h
     PythonConsole.h
+    PythonDebuggerView.h
     PythonDebugger.h
     PythonEditor.h
     QuantitySpinBox.h
@@ -594,6 +595,7 @@ SET(Dock_Windows_CPP_SRCS
     CombiView.cpp
     DockWindow.cpp
     PropertyView.cpp
+    PythonDebuggerView.cpp
     ReportView.cpp
     SelectionView.cpp
     ToolBox.cpp
@@ -610,6 +612,7 @@ SET(Dock_Windows_HPP_SRCS
     CombiView.h
     DockWindow.h
     PropertyView.h
+    PythonDebuggerView.h
     ReportView.h
     SelectionView.h
     ToolBox.h
