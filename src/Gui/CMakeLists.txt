@@ -263,6 +263,7 @@ set(Gui_MOC_HDRS
     ProgressBar.h
     PropertyPage.h
     PropertyView.h
+    PythonCode.h
     PythonConsole.h
     PythonDebuggerView.h
     PythonDebugger.h
@@ -636,6 +637,7 @@ SET(Editor_CPP_SRCS
     CallTips.cpp
     EditorView.cpp
     TextDocumentEditorView.cpp
+    PythonCode.cpp
     PythonConsole.cpp
     PythonConsolePy.cpp
     PythonDebugger.cpp
@@ -647,6 +649,7 @@ SET(Editor_HPP_SRCS
     CallTips.h
     EditorView.h
     TextDocumentEditorView.h
+    PythonCode.h
     PythonConsole.h
     PythonConsolePy.h
     PythonDebugger.h
