@@ -372,19 +372,30 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     }   break;
     default:
     {
+        // auto insert closing char
+        QTextCursor cursor = textCursor();
+        cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+        QString nextChr = cursor.selectedText();
         QString insertAfter;
-        static QString previousKeyText;
         bool clearPrevious = false;
+
+        static QString previousKeyText;
+
         if (e->key() == Qt::Key_ParenLeft) {
-            insertAfter = QLatin1String(")");
+            if (nextChr != QLatin1String(")"))
+                insertAfter = QLatin1String(")");
         } else if (e->key() == Qt::Key_BraceLeft) {
-            insertAfter = QLatin1String("}");
+            if (nextChr != QLatin1String("}"))
+                insertAfter = QLatin1String("}");
         } else if (e->key() == Qt::Key_BracketLeft) {
-            insertAfter = QLatin1String("]");
+            if (nextChr != QLatin1String("]"))
+                insertAfter = QLatin1String("]");
         } else if (e->key() == Qt::Key_QuoteDbl) {
-            insertAfter = QLatin1String("\"");
+            if (nextChr != QLatin1String("\""))
+                insertAfter = QLatin1String("\"");
         } else if (e->key() == Qt::Key_Apostrophe) {
-            insertAfter = QLatin1String("'");
+            if (nextChr != QLatin1String("'"))
+                insertAfter = QLatin1String("'");
         }
 
         autoIndented = false;
@@ -396,7 +407,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
                 cursor.insertText(insertAfter);
                 cursor.movePosition(QTextCursor::Left);
                 setTextCursor(cursor);
-            } else { // last char was autoinserted, we wwant to step over
+            } else { // last char was autoinserted, we want to step over
                 QTextCursor cursor = textCursor();
                 cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
                 setTextCursor(cursor);
@@ -742,6 +753,5 @@ void PythonEditorBreakpointDlg::accept()
 }
 
 // ------------------------------------------------------------------------
-
 
 #include "moc_PythonEditor.cpp"
