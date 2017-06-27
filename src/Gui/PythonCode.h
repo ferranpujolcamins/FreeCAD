@@ -39,63 +39,6 @@ class PythonEditorBreakpointDlg;
 class PythonCodeP;
 class TextEdit;
 
-/*
-class PythonCodeObject {
-public:
-    PythonCodeObject(PyObject *pyObj);
-    ~PythonCodeObject();
-    QString value() const;
-    QString typeName() const;
-    QString docString() const;
-
-    // type checks
-    bool isNone() const;
-    bool isType() const;
-    bool isBool() const;
-    bool isInt() const;
-    bool isLong() const;
-    bool isFloat() const;
-    bool isComplex() const;
-    bool isString(bool notUnicode = false) const;
-    bool isUnicode() const;
-    bool isTuple() const;
-    bool isList() const;
-    bool isDict() const;
-    bool isFunction() const;
-//    bool isLambda() const;
-    bool isEnum() const;
-    bool isCode() const;
-    bool isClass() const;
-    bool isInstance() const;
-    bool isMethod() const;
-
-//    bool isBuiltinFunction() const;
-//    bool isBuiltInMethod() const;
-
-    bool isModule() const;
-//    bool isFile() const; // alias
-    bool isSlice() const;
-    bool isTraceBack() const;
-    bool isFrame() const;
-    bool isBuffer() const;
-    bool isNotImplemented() const;
-//    bool isMemberDescriptor() const;
-
-    // end type checks
-
-
-    PyObject *ptr();
-
-
-    bool hasChildren() const;
-    int length() const;
-    QString operator[] (const QString &key) const;
-    QString operator[] (int index) const;
-
-private:
-    PyObject *m_pyObject;
-};
-*/
 
 /**
  * @brief Handles code inspection from the python engine internals
@@ -117,10 +60,6 @@ public:
     //                                                    ^
     // must traverse from os, then os.path before os.path.join
     Py::Object getDeepObject(PyObject *obj, QString key, QString &foundKey);
-
-
-
-
 
 private:
     PythonCodeP *d;

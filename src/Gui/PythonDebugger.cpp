@@ -569,6 +569,17 @@ PythonDebugger::~PythonDebugger()
     globalInstance = nullptr;
 }
 
+bool PythonDebugger::hasBreakpoint(const QString &fn) const
+{
+    for (std::vector<Breakpoint>::const_iterator it = d->bps.begin(); it != d->bps.end(); ++it) {
+        if (fn == it->filename()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 Breakpoint PythonDebugger::getBreakpoint(const QString& fn) const
 {
     for (std::vector<Breakpoint>::const_iterator it = d->bps.begin(); it != d->bps.end(); ++it) {
@@ -722,8 +733,6 @@ void PythonDebugger::runFile(const QString& fn)
     }
 
     if (d->trystop) {
-        if (d->init)
-            PyErr_Clear();
         stop(); // de init tracer_function and reset object
     }
     d->state = RunningState::Stopped;
@@ -738,6 +747,11 @@ bool PythonDebugger::isHalted() const
 {
     Base::PyGILStateLocker locker;
     return d->halted;
+}
+
+bool PythonDebugger::isHaltOnNext() const
+{
+    return d->state == RunningState::HaltOnNext;
 }
 
 bool PythonDebugger::start()
@@ -978,7 +992,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
 #endif
     switch (what) {
     case PyTrace_CALL:
-        if (dbg->d->state != RunningState::Running) {
+        if (dbg->d->state != RunningState::Running && dbg->hasBreakpoint(file)) {
             try {
                 Q_EMIT dbg->functionCalled(frame);
             } catch(...){
@@ -987,7 +1001,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
         }
         return 0;
     case PyTrace_RETURN:
-        if (dbg->d->state != RunningState::Running) {
+        if (dbg->d->state != RunningState::Running && dbg->hasBreakpoint(file)) {
             try {
                 Q_EMIT dbg->functionExited(frame);
             } catch (...) {
@@ -1000,10 +1014,10 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
 
             int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
             bool halt = false;
-            if (dbg->d->state == RunningState::SingleStep ||
-                dbg->d->state == RunningState::HaltOnNext)
-            {
+            if (dbg->d->state == RunningState::SingleStep) {
                 halt = true;
+            } else if (dbg->d->state == RunningState::HaltOnNext) {
+                halt = dbg->hasBreakpoint(file);
             } else if((dbg->d->state == RunningState::StepOver ||
                        dbg->d->state == RunningState::StepOut) &&
                       dbg->d->maxHaltLevel >= dbg->callDepth(frame))

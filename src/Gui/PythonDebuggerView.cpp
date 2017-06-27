@@ -228,7 +228,7 @@ void PythonDebuggerView::enableButtons()
     d->m_stepIntoBtn->setEnabled(halted);
     d->m_stepOverBtn->setEnabled(halted);
     d->m_stepOutBtn->setEnabled(halted);
-    d->m_haltOnNextBtn->setEnabled(!halted);
+    d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
 }
 
 void PythonDebuggerView::currentChanged(const QModelIndex &current,
@@ -898,7 +898,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
     }
 
 
-    // first we traverse and compare before we o anything so
+    // first we traverse and compare before we do anything so
     // view dont get updated to manys times
 
     // traverse and compare
@@ -913,12 +913,14 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
         if (itm) {
             Py_XINCREF(itm);
             vl = PyObject_Str(itm);
-            char *vlu = PyBytes_AS_STRING(vl);
-            newValue = QString(QLatin1String(vlu));
-
             tp = PyObject_Str((PyObject*)Py_TYPE(itm));
-            char *typ = PyBytes_AS_STRING(tp);
-            newType = QString(QLatin1String(typ));
+            if (vl && tp) {
+                char *vlu = PyBytes_AS_STRING(vl);
+                newValue = QString(QLatin1String(vlu));
+
+                char *typ = PyBytes_AS_STRING(tp);
+                newType = QString(QLatin1String(typ));
+            }
             Py_DECREF(itm);
             Py_XDECREF(vl);
             Py_XDECREF(tp);

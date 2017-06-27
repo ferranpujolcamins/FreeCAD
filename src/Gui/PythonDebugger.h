@@ -216,6 +216,7 @@ class GuiExport PythonDebugger : public QObject
 public:
     PythonDebugger();
     ~PythonDebugger();
+    bool hasBreakpoint(const QString &fn) const;
     Breakpoint getBreakpoint(const QString&) const;
     BreakpointLine *getBreakpointLine(const QString fn, int line);
     void setBreakpoint(const QString fn, int line);
@@ -226,6 +227,7 @@ public:
     void runFile(const QString& fn);
     bool isRunning() const;
     bool isHalted() const;
+    bool isHaltOnNext() const;
     PyFrameObject *currentFrame() const;
 
     /**
