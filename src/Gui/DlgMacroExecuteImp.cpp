@@ -288,7 +288,6 @@ void DlgMacroExecuteImp::on_editButton_clicked()
 
     QString file = QString::fromLatin1("%1/%2").arg(dir.absolutePath()).arg(item->text(0));
     PythonEditor* editor = new PythonEditor();
-    editor->setWindowIcon(Gui::BitmapFactory().iconFromTheme("applications-python"));
     PythonEditorView* edit = new PythonEditorView(editor, getMainWindow());
     edit->open(file);
     edit->resize(400, 300);
