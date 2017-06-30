@@ -128,6 +128,9 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(getMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
             this, SLOT(markerAreaContextMenu(int,QContextMenuEvent*)));
 
+    //connect(document(), SIGNAL(contentsChange(int, int, int)),
+    //        this, SLOT(contentsChange(int, int, int)));
+
     PythonDebugger *dbg = PythonDebugger::instance();
     connect(dbg, SIGNAL(stopped()), this, SLOT(hideDebugMarker()));
 
@@ -197,6 +200,20 @@ void PythonEditor::OnChange(Base::Subject<const char *> &rCaller, const char *rc
         d->loadIcons(rowHeight);
     }
 }
+
+void PythonEditor::cut()
+{
+    // track breakpoint movements
+    breakpointPasteOrCut(true);
+}
+
+void PythonEditor::paste()
+{
+    // track breakpoint movements
+    breakpointPasteOrCut(false);
+}
+
+
 
 void PythonEditor::toggleBreakpoint()
 {
@@ -270,14 +287,19 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     inputLineBegin.movePosition( QTextCursor::StartOfLine );
     static bool autoIndented = false;
 
-    /**
-    * The cursor sits somewhere on the input line (after the prompt)
-    *   - restrict cursor movement to input line range (excluding the prompt characters)
-    *   - roam the history by Up/Down keys
-    *   - show call tips on period
-    */
     QTextBlock inputBlock = inputLineBegin.block();              //< get the last paragraph's text
     QString    inputLine  = inputBlock.text();
+
+    // track lineNr changes before and after textChange
+    int beforeLineNr = cursor.block().blockNumber();
+    int afterLineNr = -1;
+    int lineCountBefore = document()->blockCount();
+    if (this->textCursor().hasSelection()) {
+        int posEnd = qMax(cursor.selectionEnd(), cursor.selectionStart());
+        int posStart = qMin(cursor.selectionEnd(), cursor.selectionStart());
+        beforeLineNr = document()->findBlock(posEnd).blockNumber();
+        afterLineNr = document()->findBlock(posStart).blockNumber();
+    }
 
     switch (e->key())
     {
@@ -323,6 +345,16 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     case Qt::Key_Return:
     case Qt::Key_Enter:
     {
+        // for breakpoint move
+        if (cursor.hasSelection()) {
+            // add one because this Key adds a row
+            afterLineNr += 1;
+        } else if (cursor.atBlockEnd()) {
+            // dont move breakpoint if we are at line end
+            beforeLineNr += 1;
+            afterLineNr = beforeLineNr +1;
+        }
+
         // auto indent
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         if (hPrefGrp->GetBool( "EnableAutoIndent", true)) {
@@ -370,6 +402,15 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             TextEditor::keyPressEvent(e);
         }
     }   break;
+    case Qt::Key_Delete:
+    {
+        // move breakpoint if we are at line end
+        if (cursor.atBlockEnd() && !cursor.hasSelection()) {
+            beforeLineNr += 1;
+            afterLineNr = cursor.block().blockNumber();
+        }
+
+    } // intentional fallthrough
     default:
     {
         // auto insert closing char
@@ -421,6 +462,19 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         else if (e->text().size())
             previousKeyText = e->text();
     }   break;
+    }
+
+    // move breakpoints?
+    if (lineCountBefore != document()->blockCount()) {
+        if (afterLineNr == -1)
+            afterLineNr = this->textCursor().block().blockNumber();
+        if (beforeLineNr != afterLineNr) {
+            int move = afterLineNr - beforeLineNr;
+            Breakpoint *bp = PythonDebugger::instance()->getBreakpoint(d->filename);
+            if (bp) {
+                bp->moveLines(beforeLineNr +1, move);
+            }
+        }
     }
 
     // This can't be done in CallTipsList::eventFilter() because we must first perform
@@ -479,7 +533,6 @@ bool PythonEditor::event(QEvent *event)
     return TextEditor::event(event);
 }
 
-
 void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
 {
     static const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
@@ -531,6 +584,30 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
     event->accept();
 }
 
+
+void PythonEditor::breakpointPasteOrCut(bool doCut)
+{
+    // track breakpoint movements
+    QTextCursor cursor = textCursor();
+    int beforeLineNr = cursor.block().blockNumber();
+    if (cursor.hasSelection()) {
+        int posEnd = qMax(cursor.selectionEnd(), cursor.selectionStart());
+        beforeLineNr = document()->findBlock(posEnd).blockNumber();
+    }
+
+    if (doCut)
+        TextEditor::cut();
+    else
+        TextEditor::paste();
+
+    int currentLineNr = textCursor().block().blockNumber();
+    if (beforeLineNr != currentLineNr) {
+        int move = beforeLineNr - currentLineNr;
+        Breakpoint *bp = PythonDebugger::instance()->getBreakpoint(d->filename);
+        if (bp)
+            bp->moveLines(beforeLineNr, move);
+    }
+}
 
 void PythonEditor::onComment()
 {

@@ -91,6 +91,11 @@ int BreakpointLine::lineNr() const
     return m_lineNr;
 }
 
+void BreakpointLine::setLineNr(int lineNr)
+{
+    m_lineNr = lineNr;
+}
+
 // inline
 bool BreakpointLine::hit()
 {
@@ -239,6 +244,18 @@ bool Breakpoint::disabled(int line)
             return bp.disabled();
     }
     return false;
+}
+
+int Breakpoint::moveLines(int startLine, int moveSteps)
+{
+    int count = 0;
+    for (BreakpointLine &bp : _lines) {
+        if (bp.lineNr() >= startLine) {
+            bp.setLineNr(bp.lineNr() + moveSteps);
+            ++count;
+        }
+    }
+    return count;
 }
 
 BreakpointLine *Breakpoint::getBreakPointLine(int line)
@@ -580,15 +597,14 @@ bool PythonDebugger::hasBreakpoint(const QString &fn) const
     return false;
 }
 
-Breakpoint PythonDebugger::getBreakpoint(const QString& fn) const
+Breakpoint *PythonDebugger::getBreakpoint(const QString& fn) const
 {
-    for (std::vector<Breakpoint>::const_iterator it = d->bps.begin(); it != d->bps.end(); ++it) {
-        if (fn == it->filename()) {
-            return Breakpoint(*it);
-        }
+    for (Breakpoint &bp : d->bps) {
+        if (fn == bp.filename())
+            return &bp;
     }
 
-    return Breakpoint();
+    return nullptr;
 }
 
 BreakpointLine *PythonDebugger::getBreakpointLine(const QString fn, int line)

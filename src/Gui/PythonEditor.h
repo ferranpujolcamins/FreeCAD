@@ -87,6 +87,9 @@ public Q_SLOTS:
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
+    void cut();
+    void paste();
+
 protected:
     /** Pops up the context menu with some extensions */
     void contextMenuEvent ( QContextMenuEvent* e );
@@ -98,7 +101,7 @@ private Q_SLOTS:
     void markerAreaContextMenu(int line, QContextMenuEvent *event);
 
 private:
-    //PythonSyntaxHighlighter* pythonSyntax;
+    void breakpointPasteOrCut(bool doCut);
     struct PythonEditorP* d;
     QString introspect(QString varName);
 };

@@ -46,6 +46,7 @@ public:
     bool operator<(const int &line) const;
 
     int lineNr() const;
+    void setLineNr(int lineNr);
 
     inline bool hit();
     void reset();
@@ -105,6 +106,13 @@ public:
     bool disabled(int line);
 
     int countLines()const;
+    /**
+     * @brief moveLines moves all breakpoints
+     * @param startLine, the line to start from, all lines above this is moved
+     * @param moveSteps, positive = move forward, negative = backwards
+     * @return moved lines count
+     */
+    int moveLines(int startLine, int moveSteps);
 
     bool checkBreakpoint(const QString& fn, int line);
     BreakpointLine *getBreakPointLine(int line);
@@ -217,7 +225,7 @@ public:
     PythonDebugger();
     ~PythonDebugger();
     bool hasBreakpoint(const QString &fn) const;
-    Breakpoint getBreakpoint(const QString&) const;
+    Breakpoint *getBreakpoint(const QString&) const;
     BreakpointLine *getBreakpointLine(const QString fn, int line);
     void setBreakpoint(const QString fn, int line);
     void setBreakpoint(const QString fn, BreakpointLine bpl);
