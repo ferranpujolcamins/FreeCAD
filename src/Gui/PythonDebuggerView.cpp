@@ -265,13 +265,26 @@ void PythonDebuggerView::enableButtons()
     PythonDebugger *debugger = PythonDebugger::instance();
     bool running = debugger->isRunning();
     bool halted = debugger->isHalted();
-    d->m_startDebugBtn->setEnabled(!running);
-    d->m_continueBtn->setEnabled(running);
-    d->m_stopDebugBtn->setEnabled(running);
-    d->m_stepIntoBtn->setEnabled(halted);
-    d->m_stepOverBtn->setEnabled(halted);
-    d->m_stepOutBtn->setEnabled(halted);
-    d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
+    if (d->m_startDebugBtn->isEnabled() != !running)
+        d->m_startDebugBtn->setEnabled(!running);
+
+    if (d->m_continueBtn->isEnabled() != running)
+        d->m_continueBtn->setEnabled(running);
+
+    if (d->m_stopDebugBtn->isEnabled() != running)
+        d->m_stopDebugBtn->setEnabled(running);
+
+    if (d->m_stepIntoBtn->isEnabled() != halted)
+        d->m_stepIntoBtn->setEnabled(halted);
+
+    if (d->m_stepOverBtn->isEnabled() != halted)
+        d->m_stepOverBtn->setEnabled(halted);
+
+    if (d->m_stepOutBtn->isEnabled() != halted)
+        d->m_stepOutBtn->setEnabled(halted);
+
+    if (d->m_haltOnNextBtn->isEnabled() != running && !debugger->isHaltOnNext() && !halted)
+        d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
 }
 
 void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
