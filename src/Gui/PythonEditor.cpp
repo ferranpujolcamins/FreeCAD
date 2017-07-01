@@ -188,10 +188,13 @@ int PythonEditor::findText(const QString find)
 
 void PythonEditor::startDebug()
 {
+
+    d->debugger->stop();
+
     if (d->debugger->start()) {
         d->debugger->runFile(d->filename);
-        if (d) // if app gets closed during debugging halt, d is deleted
-            d->debugger->stop();
+        //if (d) // if app gets closed during debugging halt, d is deleted
+        //    d->debugger->stop();
     }
 }
 
