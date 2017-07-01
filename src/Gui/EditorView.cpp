@@ -796,6 +796,15 @@ PythonEditorView::~PythonEditorView()
     delete d;
 }
 
+bool PythonEditorView::open(const QString &f)
+{
+    // notify debugger that we are tracing this file
+    bool res = EditorView::open(f);
+    if (res)
+        PythonDebugger::instance()->setBreakpointFile(f);
+    return res;
+}
+
 /**
  * Runs the action specified by \a pMsg.
  */

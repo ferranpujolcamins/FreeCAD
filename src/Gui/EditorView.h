@@ -161,6 +161,7 @@ public:
     PythonEditorView(PythonEditor* editor, QWidget* parent);
     ~PythonEditorView();
 
+    bool open   (const QString &f);
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 

@@ -116,7 +116,7 @@ public:
     void setDisable(int line, bool disable);
     bool disabled(int line);
 
-    int countLines()const;
+    int count() const;
     /**
      * @brief moveLines moves all breakpoints
      * @param startLine, the line to start from, all lines above this is moved
@@ -139,7 +139,7 @@ inline const QString& BreakpointFile::fileName()const
     return _filename;
 }
 
-inline int BreakpointFile::countLines()const
+inline int BreakpointFile::count() const
 {
     return static_cast<int>(_lines.size());
 }
@@ -254,13 +254,29 @@ public:
     BreakpointFile *getBreakpointFile(const BreakpointLine &bpl) const;
     BreakpointLine *getBreakpointLine(const QString fn, int line) const;
     BreakpointLine *getBreakpointFromUniqueNr(int uniqueNr) const;
+
+    /**
+     * @brief Returns which number in store bpl has
+     * @param bpl = BreakpointLine instance
+     * @return the n-th number
+     */
     int getIdxFromBreakpointLine(const BreakpointLine &bpl) const;
 
-
+    /**
+     * @brief setBreakpointFile used to notify that we are tracing this file
+     * @param fn = fileName
+     */
+    void setBreakpointFile(const QString &fn);
     void setBreakpoint(const QString fn, int line);
     void setBreakpoint(const QString fn, BreakpointLine bpl);
+    /**
+     * @brief deleteBreakpointFile stop tracing this file, used when editor closes file
+     * @param fn = fileName
+     */
+    void deleteBreakpointFile(const QString &fn);
     void deleteBreakpoint(const QString fn, int line);
     void deleteBreakpoint(BreakpointLine *bpl);
+
     void setDisableBreakpoint(const QString fn, int line, bool disable);
     bool toggleBreakpoint(int line, const QString&);
     void clearAllBreakPoints();

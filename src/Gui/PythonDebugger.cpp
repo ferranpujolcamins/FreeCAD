@@ -639,7 +639,7 @@ int PythonDebugger::breakpointCount() const
 {
     int count = 0;
     for (BreakpointFile *bp : d->bps)
-        count += bp->countLines();
+        count += bp->count();
     return count;
 }
 
@@ -660,7 +660,7 @@ BreakpointFile *PythonDebugger::getBreakpointFileFromIdx(int idx) const
 {
     int count = -1;
     for (BreakpointFile *bp : d->bps) {
-        for (int i = 0; i < bp->countLines(); ++i) {
+        for (int i = 0; i < bp->count(); ++i) {
             ++count;
             if (count == idx)
                 return bp;
@@ -721,8 +721,19 @@ int PythonDebugger::getIdxFromBreakpointLine(const BreakpointLine &bpl) const
     return -1;
 }
 
+void PythonDebugger::setBreakpointFile(const QString &fn)
+{
+    if (hasBreakpoint(fn))
+        return;
+
+    BreakpointFile *bp = new BreakpointFile;
+    bp->setFilename(fn);
+    d->bps.push_back(bp);
+}
+
 void PythonDebugger::setBreakpoint(const QString fn, int line)
 {
+    // if set, remove old to replace
     for (BreakpointFile *bp : d->bps) {
         if (fn == bp->fileName()) {
             bp->removeLine(line);
@@ -739,6 +750,7 @@ void PythonDebugger::setBreakpoint(const QString fn, int line)
 
 void PythonDebugger::setBreakpoint(const QString fn, BreakpointLine bpl)
 {
+    // if set, remove old to replace
     for (BreakpointFile *bp : d->bps) {
         if (fn == bp->fileName()) {
             bp->removeLine(bpl.lineNr());
@@ -751,6 +763,16 @@ void PythonDebugger::setBreakpoint(const QString fn, BreakpointLine bpl)
     bp->setFilename(fn);
     bp->addLine(bpl);
     d->bps.push_back(bp);
+}
+
+void PythonDebugger::deleteBreakpointFile(const QString &fn)
+{
+    for (BreakpointFile *bpf : d->bps) {
+        if (bpf->fileName() == fn) {
+            for (int i = 0; i < bpf->count(); ++i)
+                bpf->removeLine(i);
+        }
+    }
 }
 
 void PythonDebugger::deleteBreakpoint(const QString fn, int line)
@@ -986,42 +1008,6 @@ void PythonDebugger::stepContinue()
     d->state = RunningState::Running;
     _signalNextStep();
 }
-
-//void PythonDebugger::showDebugMarker(const QString& fn, int line)
-//{
-//    PythonEditorView* edit = 0;
-//    QList<QWidget*> mdis = getMainWindow()->windows();
-//    for (QList<QWidget*>::iterator it = mdis.begin(); it != mdis.end(); ++it) {
-//        edit = qobject_cast<PythonEditorView*>(*it);
-//        if (edit && edit->fileName() == fn)
-//            break;
-//    }
-
-//    if (!edit) {
-//        PythonEditor* editor = new PythonEditor();
-//        editor->setWindowIcon(Gui::BitmapFactory().iconFromTheme("applications-python"));
-//        edit = new PythonEditorView(editor, getMainWindow());
-//        edit->open(fn);
-//        edit->resize(400, 300);
-//        getMainWindow()->addWindow(edit);
-//    }
-
-//    getMainWindow()->setActiveWindow(edit);
-//    edit->showDebugMarker(line);
-//}
-
-//void PythonDebugger::hideDebugMarker(const QString& fn)
-//{
-//    PythonEditorView* edit = 0;
-//    QList<QWidget*> mdis = getMainWindow()->windows();
-//    for (QList<QWidget*>::iterator it = mdis.begin(); it != mdis.end(); ++it) {
-//        edit = qobject_cast<PythonEditorView*>(*it);
-//        if (edit && edit->fileName() == fn) {
-//            edit->hideDebugMarker();
-//            break;
-//        }
-//    }
-//}
 
 PyFrameObject *PythonDebugger::currentFrame() const
 {
