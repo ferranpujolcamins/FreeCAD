@@ -161,7 +161,6 @@ public:
     PythonEditorView(PythonEditor* editor, QWidget* parent);
     ~PythonEditorView();
 
-    bool open   (const QString &f);
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
@@ -253,8 +252,28 @@ public:
     QList<const EditorViewWrapper*> openedByType(QStringList types = QStringList());
 
 Q_SIGNALS:
+    /**
+     * @brief emitted when number of opened files has changed
+     */
     void openFilesChanged();
+
+    /**
+     * @brief emitted when editor document isModfied signal is emitted
+     * @param fn = filename
+     * @param changed = true if changed, false when not (such as undo)
+     */
     void modifiedChanged(const QString &fn, bool changed);
+
+    /**
+     * @brief emitted when all instances of file is closed
+     * @param fn = filename
+     */
+    void fileClosed(const QString &fn);
+    /**
+     * @brief fileOpened emitted when first editor instance opened file
+     * @param fn = filename
+     */
+    void fileOpened(const QString &fn);
 
 private Q_SLOTS:
     void docModifiedChanged(bool changed);

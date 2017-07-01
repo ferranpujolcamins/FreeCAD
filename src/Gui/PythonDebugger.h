@@ -116,7 +116,8 @@ public:
     void setDisable(int line, bool disable);
     bool disabled(int line);
 
-    int count() const;
+    int size() const;
+    void clear();
     /**
      * @brief moveLines moves all breakpoints
      * @param startLine, the line to start from, all lines above this is moved
@@ -139,7 +140,7 @@ inline const QString& BreakpointFile::fileName()const
     return _filename;
 }
 
-inline int BreakpointFile::count() const
+inline int BreakpointFile::size() const
 {
     return static_cast<int>(_lines.size());
 }
@@ -319,6 +320,11 @@ public Q_SLOTS:
     void stepOut();
     void stepContinue();
 
+private Q_SLOTS:
+    void onFileOpened(const QString &fn);
+    void onFileClosed(const QString &fn);
+    void onAppQuit();
+
 Q_SIGNALS:
     void _signalNextStep(); // used internally
     void started();
@@ -336,6 +342,7 @@ private:
     static int tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg);
     static bool evalCondition(const char *condition, PyFrameObject *frame);
     static void finalizeFunction(); // called when interpreter finalizes
+    bool frameRelatedToOpenedFiles(const PyFrameObject *frame) const;
 
     struct PythonDebuggerP* d;
     static PythonDebugger *globalInstance;

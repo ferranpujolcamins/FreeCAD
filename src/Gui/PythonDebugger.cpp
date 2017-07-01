@@ -31,6 +31,7 @@
 
 #include "PythonDebugger.h"
 #include "BitmapFactory.h"
+#include "EditorView.h"
 #include <Base/Interpreter.h>
 #include <Base/Console.h>
 
@@ -273,6 +274,11 @@ bool BreakpointFile::disabled(int line)
             return bp.disabled();
     }
     return false;
+}
+
+void BreakpointFile::clear()
+{
+    _lines.clear();
 }
 
 int BreakpointFile::moveLines(int startLine, int moveSteps)
@@ -613,6 +619,12 @@ PythonDebugger::PythonDebugger()
 {
     globalInstance = this;
 
+    connect(EditorViewSingleton::instance(), SIGNAL(fileOpened(QString)),
+            this, SLOT(onFileOpened(QString)));
+    connect(EditorViewSingleton::instance(), SIGNAL(fileClosed(QString)),
+            this, SLOT(onFileClosed(QString)));
+    connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(onAppQuit()));
+
     typedef void (*STATICFUNC)( );
     STATICFUNC fp = PythonDebugger::finalizeFunction;
     Py_AtExit(fp);
@@ -639,7 +651,7 @@ int PythonDebugger::breakpointCount() const
 {
     int count = 0;
     for (BreakpointFile *bp : d->bps)
-        count += bp->count();
+        count += bp->size();
     return count;
 }
 
@@ -660,7 +672,7 @@ BreakpointFile *PythonDebugger::getBreakpointFileFromIdx(int idx) const
 {
     int count = -1;
     for (BreakpointFile *bp : d->bps) {
-        for (int i = 0; i < bp->count(); ++i) {
+        for (int i = 0; i < bp->size(); ++i) {
             ++count;
             if (count == idx)
                 return bp;
@@ -768,10 +780,8 @@ void PythonDebugger::setBreakpoint(const QString fn, BreakpointLine bpl)
 void PythonDebugger::deleteBreakpointFile(const QString &fn)
 {
     for (BreakpointFile *bpf : d->bps) {
-        if (bpf->fileName() == fn) {
-            for (int i = 0; i < bpf->count(); ++i)
-                bpf->removeLine(i);
-        }
+        if (bpf->fileName() == fn)
+            bpf->clear();
     }
 }
 
@@ -1009,6 +1019,31 @@ void PythonDebugger::stepContinue()
     _signalNextStep();
 }
 
+void PythonDebugger::onFileOpened(const QString &fn)
+{
+    QFileInfo fi(fn);
+    if (fi.suffix().toLower() == QLatin1String("py") ||
+        fi.suffix().toLower() == QLatin1String("fcmacro"))
+    {
+        setBreakpointFile(fn);
+    }
+}
+
+void PythonDebugger::onFileClosed(const QString &fn)
+{
+    QFileInfo fi(fn);
+    if (fi.suffix().toLower() == QLatin1String("py") ||
+        fi.suffix().toLower() == QLatin1String("fcmacro"))
+    {
+        deleteBreakpointFile(fn);
+    }
+}
+
+void PythonDebugger::onAppQuit()
+{
+    stop();
+}
+
 PyFrameObject *PythonDebugger::currentFrame() const
 {
     Base::PyGILStateLocker locker;
@@ -1116,7 +1151,9 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
 #endif
     switch (what) {
     case PyTrace_CALL:
-        if (dbg->d->state != RunningState::Running && dbg->hasBreakpoint(file)) {
+        if (dbg->d->state != RunningState::Running &&
+            dbg->frameRelatedToOpenedFiles(frame))
+        {
             try {
                 Q_EMIT dbg->functionCalled(frame);
             } catch(...){
@@ -1125,7 +1162,9 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
         }
         return 0;
     case PyTrace_RETURN:
-        if (dbg->d->state != RunningState::Running && dbg->hasBreakpoint(file)) {
+        if (dbg->d->state != RunningState::Running &&
+            dbg->frameRelatedToOpenedFiles(frame))
+        {
             try {
                 Q_EMIT dbg->functionExited(frame);
             } catch (...) {
@@ -1138,10 +1177,10 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
 
             int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
             bool halt = false;
-            if (dbg->d->state == RunningState::SingleStep) {
+            if (dbg->d->state == RunningState::SingleStep ||
+                dbg->d->state == RunningState::HaltOnNext)
+            {
                 halt = true;
-            } else if (dbg->d->state == RunningState::HaltOnNext) {
-                halt = dbg->hasBreakpoint(file);
             } else if((dbg->d->state == RunningState::StepOver ||
                        dbg->d->state == RunningState::StepOut) &&
                       dbg->d->maxHaltLevel >= dbg->callDepth(frame))
@@ -1160,6 +1199,9 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             }
 
             if (halt) {
+                // prevent halting on non opened files
+                if (!dbg->frameRelatedToOpenedFiles(frame))
+                    return 0;
 
                 while(dbg->d->halted) {
                     // already halted, must be another thread here
@@ -1259,6 +1301,20 @@ void PythonDebugger::finalizeFunction()
     if (globalInstance != nullptr) {
         globalInstance->stop(); // release a pending halt on app close
     }
+}
+
+bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
+{
+    do {
+        QString file = QString::fromUtf8(PyString_AsString(frame->f_code->co_filename));
+        if (hasBreakpoint(file))
+            return true;
+
+        frame = frame->f_back;
+
+    } while (frame != nullptr);
+
+    return false;
 }
 
 #include "moc_PythonDebugger.cpp"

@@ -796,15 +796,6 @@ PythonEditorView::~PythonEditorView()
     delete d;
 }
 
-bool PythonEditorView::open(const QString &f)
-{
-    // notify debugger that we are tracing this file
-    bool res = EditorView::open(f);
-    if (res)
-        PythonDebugger::instance()->setBreakpointFile(f);
-    return res;
-}
-
 /**
  * Runs the action specified by \a pMsg.
  */
@@ -971,8 +962,9 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
             d->textEdit = nullptr;
         }
 
-        // emit changes in openedFiles
-        EditorViewSingleton::instance()->openFilesChanged();
+        // emit changes
+        Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
+        Q_EMIT EditorViewSingleton::instance()->fileClosed(d->fileName);
 
         delete this;
         return true;
@@ -1156,6 +1148,7 @@ EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
     connect(ew->editor(), SIGNAL(modificationChanged(bool)),
                         this, SLOT(docModifiedChanged(bool)));
     Q_EMIT openFilesChanged();
+    Q_EMIT fileOpened(fn);
     return ew;
 }
 
