@@ -70,6 +70,7 @@ struct PythonEditorP
     PythonCode *pythonCode;
     CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
+    const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     PythonEditorP()
         : debugLine(-1),
           callTipsList(0)
@@ -128,11 +129,14 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(getMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
             this, SLOT(markerAreaContextMenu(int,QContextMenuEvent*)));
 
-    //connect(document(), SIGNAL(contentsChange(int, int, int)),
-    //        this, SLOT(contentsChange(int, int, int)));
-
     PythonDebugger *dbg = PythonDebugger::instance();
     connect(dbg, SIGNAL(stopped()), this, SLOT(hideDebugMarker()));
+    connect(dbg, SIGNAL(breakpointAdded(const BreakpointLine*)),
+            this, SLOT(breakpointAdded(const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointChanged(const BreakpointLine*)),
+            this, SLOT(breakpointChanged(const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
+            this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
 
     d->matchingChars = new PythonMatchingChars(this);
 
@@ -186,7 +190,7 @@ void PythonEditor::startDebug()
 {
     if (d->debugger->start()) {
         d->debugger->runFile(d->filename);
-        if (d) // if app gets cloded during debugging halt, d is deleted
+        if (d) // if app gets closed during debugging halt, d is deleted
             d->debugger->stop();
     }
 }
@@ -470,7 +474,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             afterLineNr = this->textCursor().block().blockNumber();
         if (beforeLineNr != afterLineNr) {
             int move = afterLineNr - beforeLineNr;
-            Breakpoint *bp = PythonDebugger::instance()->getBreakpoint(d->filename);
+            BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFile(d->filename);
             if (bp) {
                 bp->moveLines(beforeLineNr +1, move);
             }
@@ -535,14 +539,17 @@ bool PythonEditor::event(QEvent *event)
 
 void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
 {
-    static const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     QMenu menu;
     BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     if (bpl != nullptr) {
-        QAction disable(tr("Disable breakpoint"), &menu);
-        QAction enable(tr("Enable breakpoint"), &menu);
-        QAction edit(tr("Edit breakpoint"), &menu);
-        QAction del(tr("Delete breakpoint"), &menu);
+        QAction disable(BitmapFactory().iconFromTheme("breakpoint-disabled"),
+                        tr("Disable breakpoint"), &menu);
+        QAction enable(BitmapFactory().iconFromTheme("breakpoint"),
+                       tr("Enable breakpoint"), &menu);
+        QAction edit(BitmapFactory().iconFromTheme("preferences-general"),
+                        tr("Edit breakpoint"), &menu);
+        QAction del(BitmapFactory().iconFromTheme("delete"),
+                       tr("Delete breakpoint"), &menu);
 
         if (bpl->disabled())
             menu.addAction(&enable);
@@ -557,31 +564,56 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
         } else if(res == &enable) {
             bpl->setDisabled(false);
         } else if (res == &edit) {
-            PythonEditorBreakpointDlg dlg(this, d->debugger, d->filename, line);
+            PythonEditorBreakpointDlg dlg(this, bpl);
             dlg.exec();
         } else if (res == &del) {
             d->debugger->deleteBreakpoint(d->filename, line);
-            AnnotatedScrollBar *vBar =
-                    qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
-            if (vBar)
-                vBar->clearMarker(line, breakPointScrollBarMarkerColor);
         }
 
     } else {
-        QAction create(tr("Add breakpoint"), this);
+        QAction create(BitmapFactory().iconFromTheme("breakpoint"),
+                       tr("Add breakpoint"), this);
         menu.addAction(&create);
         QAction *res = menu.exec(event->globalPos());
-        if (res == &create) {
+        if (res == &create)
             d->debugger->setBreakpoint(d->filename, line);
-            AnnotatedScrollBar *vBar =
-                    qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
-            if (vBar)
-                vBar->setMarker(line, breakPointScrollBarMarkerColor);
-        }
     }
 
-    getMarkerArea()->repaint();
     event->accept();
+}
+
+void PythonEditor::breakpointAdded(const BreakpointLine *bpl)
+{
+    if (bpl->parent()->fileName() != d->filename)
+        return;
+
+    AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+    if (vBar)
+        vBar->setMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
+
+    getMarkerArea()->update();
+}
+
+void PythonEditor::breakpointChanged(const BreakpointLine *bpl)
+{
+    if (bpl->parent()->fileName() != d->filename)
+        return;
+
+    getMarkerArea()->update();
+}
+
+void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
+{
+    Q_UNUSED(idx);
+
+    if (bpl->parent()->fileName() != d->filename)
+        return;
+
+    AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+    if (vBar)
+        vBar->clearMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
+
+    getMarkerArea()->update();
 }
 
 
@@ -603,7 +635,7 @@ void PythonEditor::breakpointPasteOrCut(bool doCut)
     int currentLineNr = textCursor().block().blockNumber();
     if (beforeLineNr != currentLineNr) {
         int move = beforeLineNr - currentLineNr;
-        Breakpoint *bp = PythonDebugger::instance()->getBreakpoint(d->filename);
+        BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFile(d->filename);
         if (bp)
             bp->moveLines(beforeLineNr, move);
     }
@@ -758,9 +790,9 @@ void PythonEditor::onAutoIndent()
 
 // ------------------------------------------------------------------------
 
-PythonEditorBreakpointDlg::PythonEditorBreakpointDlg(QWidget *parent, PythonDebugger *deb,
-                                                      const QString fn, int line):
-    QDialog(parent), m_filename(fn), m_line(line), m_dbg(deb)
+PythonEditorBreakpointDlg::PythonEditorBreakpointDlg(QWidget *parent,
+                                                      BreakpointLine *bp):
+    QDialog(parent), m_bpl(bp)
 {
     QLabel *lblMsg   = new QLabel(this);
     QLabel *lblEnable = new QLabel(this);
@@ -780,7 +812,7 @@ PythonEditorBreakpointDlg::PythonEditorBreakpointDlg(QWidget *parent, PythonDebu
     connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
 
-    lblMsg->setText(tr("Breakpoint on line: %1").arg(line));
+    lblMsg->setText(tr("Breakpoint on line: %1").arg(bp->lineNr()));
     lblEnable->setText(tr("Enable breakpoint"));
     ignoreFromLbl->setText(tr("Ignore after hits"));
     ignoreFromLbl->setToolTip(tr("0 = Disabled"));
@@ -803,13 +835,10 @@ PythonEditorBreakpointDlg::PythonEditorBreakpointDlg(QWidget *parent, PythonDebu
     layout->addWidget(buttonBox, 7, 0, 1, 2);
     setLayout(layout);
 
-    BreakpointLine *bpl = m_dbg->getBreakpointLine(m_filename, line);
-    if (bpl != nullptr) {
-        m_enabled->setChecked(!bpl->disabled());
-        m_ignoreFromHits->setValue(bpl->ignoreFrom());
-        m_ignoreToHits->setValue(bpl->ignoreTo());
-        m_condition->setText(bpl->condition());
-    }
+    m_enabled->setChecked(!m_bpl->disabled());
+    m_ignoreFromHits->setValue(m_bpl->ignoreFrom());
+    m_ignoreToHits->setValue(m_bpl->ignoreTo());
+    m_condition->setText(m_bpl->condition());
 }
 
 PythonEditorBreakpointDlg::~PythonEditorBreakpointDlg()
@@ -818,13 +847,10 @@ PythonEditorBreakpointDlg::~PythonEditorBreakpointDlg()
 
 void PythonEditorBreakpointDlg::accept()
 {
-    BreakpointLine *bpl = m_dbg->getBreakpointLine(m_filename, m_line);
-    if (bpl != nullptr) {
-        bpl->setDisabled(!m_enabled->isChecked());
-        bpl->setCondition(m_condition->text());
-        bpl->setIgnoreTo(m_ignoreToHits->value());
-        bpl->setIgnoreFrom(m_ignoreFromHits->value());
-    }
+    m_bpl->setDisabled(!m_enabled->isChecked());
+    m_bpl->setCondition(m_condition->text());
+    m_bpl->setIgnoreTo(m_ignoreToHits->value());
+    m_bpl->setIgnoreFrom(m_ignoreFromHits->value());
 
     QDialog::accept();
 }

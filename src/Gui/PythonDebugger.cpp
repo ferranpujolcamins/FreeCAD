@@ -37,11 +37,12 @@
 using namespace Gui;
 
 
-BreakpointLine::BreakpointLine(int lineNr):
-    m_lineNr(lineNr), m_hitCount(0),
-    m_ignoreTo(0), m_ignoreFrom(0),
-    m_disabled(false)
+BreakpointLine::BreakpointLine(int lineNr, const BreakpointFile *parent):
+    m_parent(parent), m_lineNr(lineNr), m_hitCount(0),
+    m_ignoreTo(0), m_ignoreFrom(0), m_disabled(false)
 {
+    static int globalNumber = 0;
+    m_uniqueNumber = ++globalNumber;
 }
 
 BreakpointLine::BreakpointLine(const BreakpointLine &other)
@@ -61,6 +62,8 @@ BreakpointLine& BreakpointLine::operator=(const BreakpointLine& other)
     m_ignoreTo = other.m_ignoreTo;
     m_ignoreFrom = other.m_ignoreFrom;
     m_disabled = other.m_disabled;
+    m_uniqueNumber = other.m_uniqueNumber;
+    m_parent = other.m_parent;
     return *this;
 }
 
@@ -94,6 +97,7 @@ int BreakpointLine::lineNr() const
 void BreakpointLine::setLineNr(int lineNr)
 {
     m_lineNr = lineNr;
+    PythonDebugger::instance()->breakpointChanged(this);
 }
 
 // inline
@@ -118,6 +122,7 @@ void BreakpointLine::reset()
 void BreakpointLine::setCondition(const QString condition)
 {
     m_condition = condition;
+    PythonDebugger::instance()->breakpointChanged(this);
 }
 
 const QString BreakpointLine::condition() const
@@ -128,6 +133,7 @@ const QString BreakpointLine::condition() const
 void BreakpointLine::setIgnoreTo(int ignore)
 {
     m_ignoreTo = ignore;
+    PythonDebugger::instance()->breakpointChanged(this);
 }
 
 int BreakpointLine::ignoreTo() const
@@ -138,6 +144,7 @@ int BreakpointLine::ignoreTo() const
 void BreakpointLine::setIgnoreFrom(int ignore)
 {
     m_ignoreFrom = ignore;
+    PythonDebugger::instance()->breakpointChanged(this);
 }
 
 int BreakpointLine::ignoreFrom() const
@@ -148,6 +155,7 @@ int BreakpointLine::ignoreFrom() const
 void BreakpointLine::setDisabled(bool disable)
 {
     m_disabled = disable;
+    PythonDebugger::instance()->breakpointChanged(this);
 }
 
 bool BreakpointLine::disabled() const
@@ -155,98 +163,119 @@ bool BreakpointLine::disabled() const
     return m_disabled;
 }
 
+int BreakpointLine::uniqueNr() const
+{
+    return m_uniqueNumber;
+}
+
+const BreakpointFile *BreakpointLine::parent() const
+{
+    return m_parent;
+}
+
 
 
 
 // -------------------------------------------------------------------------------------
 
-Breakpoint::Breakpoint()
+BreakpointFile::BreakpointFile()
 {
 }
 
-Breakpoint::Breakpoint(const Breakpoint& rBp)
+BreakpointFile::BreakpointFile(const BreakpointFile& rBp)
 {
-    setFilename(rBp.filename());
+    setFilename(rBp.fileName());
     for (BreakpointLine bp : rBp._lines) {
         _lines.push_back(bp);
     }
 }
 
-Breakpoint& Breakpoint::operator= (const Breakpoint& rBp)
+BreakpointFile& BreakpointFile::operator= (const BreakpointFile& rBp)
 {
     if (this == &rBp)
         return *this;
-    setFilename(rBp.filename());
+    setFilename(rBp.fileName());
     _lines.clear();
-    for (BreakpointLine bp : rBp._lines) {
+    for (const BreakpointLine &bp : rBp._lines) {
         _lines.push_back(bp);
     }
     return *this;
 }
 
-Breakpoint::~Breakpoint()
+BreakpointFile::~BreakpointFile()
 {
 
 }
 
-void Breakpoint::setFilename(const QString& fn)
+void BreakpointFile::setFilename(const QString& fn)
 {
     _filename = fn;
 }
 
-void Breakpoint::addLine(int line)
+void BreakpointFile::addLine(int line)
 {
-    removeLine(line);
-    BreakpointLine bLine(line);
+    for (BreakpointLine &bpl : _lines)
+        if (bpl.lineNr() == line)
+            return;
+
+    BreakpointLine bLine(line, this);
     _lines.push_back(bLine);
+    PythonDebugger::instance()->breakpointAdded(&_lines.back());
 }
 
-void Breakpoint::addLine(BreakpointLine bpl)
+void BreakpointFile::addLine(BreakpointLine bpl)
 {
-    removeLine(bpl.lineNr());
+    for (BreakpointLine &_bpl : _lines)
+        if (_bpl.lineNr() == bpl.lineNr())
+            return;
+
     _lines.push_back(bpl);
+    PythonDebugger::instance()->breakpointAdded(&_lines.back());
 }
 
-void Breakpoint::removeLine(int line)
+void BreakpointFile::removeLine(int line)
 {
     for (std::vector<BreakpointLine>::iterator it = _lines.begin();
          it != _lines.end(); ++it)
     {
         if (line == it->lineNr()) {
             _lines.erase(it);
+            BreakpointLine *bpl = &(*it);
+            int idx = PythonDebugger::instance()->getIdxFromBreakpointLine(*bpl);
+            PythonDebugger::instance()->breakpointRemoved(idx, bpl);
             return;
         }
     }
 }
 
-bool Breakpoint::containsLine(int line)
+bool BreakpointFile::containsLine(int line)
 {
-    for (BreakpointLine bp : _lines) {
-        if (bp == line)
+    for (BreakpointLine &bp : _lines) {
+        if (bp.lineNr() == line)
             return true;
     }
 
     return false;
 }
 
-void Breakpoint::setDisable(int line, bool disable)
+void BreakpointFile::setDisable(int line, bool disable)
 {
-    for (BreakpointLine bp : _lines) {
-        if (bp == line)
+    for (BreakpointLine &bp : _lines) {
+        if (bp.lineNr() == line)
             bp.setDisabled(disable);
     }
 }
 
-bool Breakpoint::disabled(int line)
+bool BreakpointFile::disabled(int line)
 {
-    for (BreakpointLine bp : _lines) {
-        if (bp == line)
+    for (BreakpointLine &bp : _lines) {
+        if (bp.lineNr() == line)
             return bp.disabled();
     }
     return false;
 }
 
-int Breakpoint::moveLines(int startLine, int moveSteps)
+int BreakpointFile::moveLines(int startLine, int moveSteps)
 {
     int count = 0;
     for (BreakpointLine &bp : _lines) {
@@ -258,13 +287,20 @@ int Breakpoint::moveLines(int startLine, int moveSteps)
     return count;
 }
 
-BreakpointLine *Breakpoint::getBreakPointLine(int line)
+BreakpointLine *BreakpointFile::getBreakpointLine(int line)
 {
     for (BreakpointLine &bp : _lines) {
-        if (bp == line)
+        if (bp.lineNr() == line)
             return &bp;
     }
     return nullptr;
+}
+
+BreakpointLine *BreakpointFile::getBreakpointLineFromIdx(int idx)
+{
+    if (idx >= static_cast<int>(_lines.size()))
+        return nullptr;
+    return &_lines[idx];
 }
 
 // -----------------------------------------------------
@@ -537,7 +573,7 @@ struct PythonDebuggerP {
     int showStackLevel;
     QEventLoop loop;
     PyObject* pydbg;
-    std::vector<Breakpoint> bps;
+    std::vector<BreakpointFile*> bps;
 
     PythonDebuggerP(PythonDebugger* that) :
         init(false), trystop(false), halted(false),
@@ -563,6 +599,9 @@ struct PythonDebuggerP {
         Py_DECREF(exc_n);
         Py_DECREF(pypde);
         Py_DECREF(pydbg);
+
+        for (BreakpointFile *bpf : bps)
+            delete bpf;
     }
 };
 }
@@ -588,80 +627,155 @@ PythonDebugger::~PythonDebugger()
 
 bool PythonDebugger::hasBreakpoint(const QString &fn) const
 {
-    for (std::vector<Breakpoint>::const_iterator it = d->bps.begin(); it != d->bps.end(); ++it) {
-        if (fn == it->filename()) {
+    for (BreakpointFile *bpf : d->bps) {
+        if (fn == bpf->fileName())
             return true;
-        }
     }
 
     return false;
 }
 
-Breakpoint *PythonDebugger::getBreakpoint(const QString& fn) const
+int PythonDebugger::breakpointCount() const
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename())
-            return &bp;
+    int count = 0;
+    for (BreakpointFile *bp : d->bps)
+        count += bp->countLines();
+    return count;
+}
+
+BreakpointLine *PythonDebugger::getBreakpointLineFromIdx(int idx) const
+{
+    int count = -1;
+    for (BreakpointFile *bp : d->bps) {
+        for (BreakpointLine &bpl : *bp) {
+            ++count;
+            if (count == idx)
+                return &bpl;
+        }
+    }
+    return nullptr;
+}
+
+BreakpointFile *PythonDebugger::getBreakpointFileFromIdx(int idx) const
+{
+    int count = -1;
+    for (BreakpointFile *bp : d->bps) {
+        for (int i = 0; i < bp->countLines(); ++i) {
+            ++count;
+            if (count == idx)
+                return bp;
+        }
+    }
+    return nullptr;
+}
+
+BreakpointFile *PythonDebugger::getBreakpointFile(const QString& fn) const
+{
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName())
+            return bp;
     }
 
     return nullptr;
 }
 
-BreakpointLine *PythonDebugger::getBreakpointLine(const QString fn, int line)
+BreakpointFile *PythonDebugger::getBreakpointFile(const BreakpointLine &bpl) const
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename())
-            return bp.getBreakPointLine(line);
+    for (BreakpointFile *bp : d->bps) {
+        for (BreakpointLine &bpl_l : *bp)
+            if (bpl_l.uniqueNr() == bpl.uniqueNr())
+                return bp;
     }
     return nullptr;
+}
+
+BreakpointLine *PythonDebugger::getBreakpointLine(const QString fn, int line) const
+{
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName())
+            return bp->getBreakpointLine(line);
+    }
+    return nullptr;
+}
+
+BreakpointLine *PythonDebugger::getBreakpointFromUniqueNr(int uniqueNr) const
+{
+    for (BreakpointFile *bpf : d->bps) {
+        for (BreakpointLine &bpl : *bpf)
+            if (bpl.uniqueNr() == uniqueNr)
+                return &bpl;
+    }
+    return nullptr;
+}
+
+int PythonDebugger::getIdxFromBreakpointLine(const BreakpointLine &bpl) const
+{
+    int count = 0;
+    for (BreakpointFile *bpf : d->bps) {
+        for (BreakpointLine &bp : *bpf) {
+            if (bp.uniqueNr() == bpl.uniqueNr())
+                return count;
+            ++count;
+        }
+    }
+    return -1;
 }
 
 void PythonDebugger::setBreakpoint(const QString fn, int line)
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename()) {
-            bp.removeLine(line);
-            bp.addLine(line);
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName()) {
+            bp->removeLine(line);
+            bp->addLine(line);
             return;
         }
     }
 
-    Breakpoint bp;
-    bp.setFilename(fn);
-    bp.addLine(line);
+    BreakpointFile *bp = new BreakpointFile;
+    bp->setFilename(fn);
+    bp->addLine(line);
     d->bps.push_back(bp);
 }
 
 void PythonDebugger::setBreakpoint(const QString fn, BreakpointLine bpl)
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename()) {
-            bp.removeLine(bpl.lineNr());
-            bp.addLine(bpl.lineNr());
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName()) {
+            bp->removeLine(bpl.lineNr());
+            bp->addLine(bpl.lineNr());
             return;
         }
     }
 
-    Breakpoint bp;
-    bp.setFilename(fn);
-    bp.addLine(bpl);
+    BreakpointFile *bp = new BreakpointFile;
+    bp->setFilename(fn);
+    bp->addLine(bpl);
     d->bps.push_back(bp);
 }
 
 void PythonDebugger::deleteBreakpoint(const QString fn, int line)
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename()) {
-            bp.removeLine(line);
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName()) {
+            bp->removeLine(line);
         }
+    }
+}
+
+void PythonDebugger::deleteBreakpoint(BreakpointLine *bpl)
+{
+    for (BreakpointFile *bpf : d->bps) {
+        for (BreakpointLine &bp : *bpf)
+            if (bp.uniqueNr() == bpl->uniqueNr())
+                bpf->removeLine(bp.lineNr());
     }
 }
 
 void PythonDebugger::setDisableBreakpoint(const QString fn, int line, bool disable)
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename()) {
-            bp.setDisable(line, disable);
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName()) {
+            bp->setDisable(line, disable);
         }
     }
 }
@@ -670,22 +784,30 @@ void PythonDebugger::setDisableBreakpoint(const QString fn, int line, bool disab
 
 bool PythonDebugger::toggleBreakpoint(int line, const QString& fn)
 {
-    for (Breakpoint &bp : d->bps) {
-        if (fn == bp.filename()) {
-            if (bp.containsLine(line)) {
-                bp.removeLine(line);
+    for (BreakpointFile *bp : d->bps) {
+        if (fn == bp->fileName()) {
+            if (bp->containsLine(line)) {
+                bp->removeLine(line);
                 return false;
             }
-            bp.addLine(line);
+            bp->addLine(line);
             return true;
         }
     }
 
-    Breakpoint bp;
-    bp.setFilename(fn);
-    bp.addLine(line);
-    d->bps.push_back(bp);
+    setBreakpoint(fn, line);
     return true;
+}
+
+void PythonDebugger::clearAllBreakPoints()
+{
+    while (!d->bps.empty()) {
+        BreakpointFile *bpf = d->bps.back();
+        d->bps.pop_back();
+        for (BreakpointLine &bpl : *bpf)
+            bpf->removeLine(bpl.lineNr());
+        delete bpf;
+    }
 }
 
 void PythonDebugger::runFile(const QString& fn)

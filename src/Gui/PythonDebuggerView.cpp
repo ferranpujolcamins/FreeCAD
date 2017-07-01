@@ -54,9 +54,11 @@
 #include <QPushButton>
 #include <QTableView>
 #include <QTreeView>
+#include <QTabWidget>
 #include <QHeaderView>
 #include <QFileDialog>
 #include <QSplitter>
+#include <QMenu>
 #include <QDebug>
 
 
@@ -78,10 +80,11 @@ public:
     QPushButton *m_continueBtn;
     QLabel      *m_varLabel;
     QTreeView   *m_varView;
-    QLabel      *m_stackLabel;
     QTableView  *m_stackView;
-    QCheckBox   *m_varSuperChk;
-    QLabel      *m_varSuperLbl;
+    QTableView  *m_breakpointView;
+    QTabWidget  *m_stackTabWgt;
+    QTabWidget  *m_varTabWgt;
+    QSplitter   *m_splitter;
     PythonDebuggerViewP() { }
     ~PythonDebuggerViewP() { }
 };
@@ -105,64 +108,109 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
 
     initButtons(vLayout);
 
-    QSplitter *splitter = new QSplitter(this);
-    splitter->setOrientation(Qt::Vertical);
-    vLayout->addWidget(splitter);
+    d->m_splitter = new QSplitter(this);
+    d->m_splitter->setOrientation(Qt::Vertical);
+    vLayout->addWidget(d->m_splitter);
 
     // variables explorer view
-    QFrame *varFrame = new QFrame(this);
-    QVBoxLayout *varLayout = new QVBoxLayout(varFrame);
-    varFrame->setLayout(varLayout);
-    d->m_varLabel = new QLabel(this);
-    d->m_varLabel->setText(tr("Variables"));
-    varLayout->addWidget(d->m_varLabel);
+    d->m_varTabWgt = new QTabWidget(d->m_splitter);
+    d->m_splitter->addWidget(d->m_varTabWgt);
+
     d->m_varView = new QTreeView(this);
+    d->m_varTabWgt->addTab(d->m_varView, tr("Variables"));
     VariableTreeModel *varModel = new VariableTreeModel(this);
     d->m_varView->setModel(varModel);
     d->m_varView->setIndentation(10);
-    varLayout->addWidget(d->m_varView);
-    splitter->addWidget(varFrame);
+
+    QWidget *dummy = new QWidget(this);
+    d->m_varTabWgt->addTab(dummy, tr("dummy1"));
 
     connect(d->m_varView, SIGNAL(expanded(const QModelIndex)),
             varModel, SLOT(lazyLoad(const QModelIndex)));
 
 
-    // the stacktrace view
-    QFrame *stackFr = new QFrame(this);
-    QVBoxLayout *stackLayout = new QVBoxLayout(stackFr);
-    stackFr->setLayout(stackLayout);
-    splitter->addWidget(stackFr);
-    d->m_stackLabel = new QLabel(this);
-    d->m_stackLabel->setText(tr("Stack frames"));
+    // stack and breakpoints tabwidget
+    d->m_stackTabWgt = new QTabWidget(d->m_splitter);
+    d->m_splitter->addWidget(d->m_stackTabWgt);
+
+    // stack view
     d->m_stackView = new QTableView(this);
     StackFramesModel *stackModel = new StackFramesModel(this);
     d->m_stackView->setModel(stackModel);
     d->m_stackView->verticalHeader()->hide();
-    QHeaderView *header = d->m_stackView->horizontalHeader();
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
-    //header->setSectionResizeMode(QHeaderView::ResizeToContents);
-#else
-    //header->setResizeMode(QHeaderView::ResizeToContents);
-#endif
     d->m_stackView->setShowGrid(false);
     d->m_stackView->setTextElideMode(Qt::ElideLeft);
-    stackLayout->addWidget(d->m_stackLabel);
-    stackLayout->addWidget(d->m_stackView);
-
+    d->m_stackView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    d->m_stackTabWgt->addTab(d->m_stackView, tr("Stack"));
 
     connect(d->m_stackView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex&)),
-                                        this, SLOT(currentChanged(const QModelIndex&, const QModelIndex&)));
+            this, SLOT(stackViewCurrentChanged(const QModelIndex&, const QModelIndex&)));
+
+    // breakpoints view
+    d->m_breakpointView = new QTableView(this);
+    PythonBreakpointModel *bpModel = new PythonBreakpointModel(this);
+    d->m_breakpointView->setModel(bpModel);
+    d->m_breakpointView->verticalHeader()->hide();
+    d->m_breakpointView->setShowGrid(false);
+    d->m_breakpointView->setTextElideMode(Qt::ElideLeft);
+    d->m_breakpointView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    d->m_breakpointView->setContextMenuPolicy(Qt::CustomContextMenu);
+    d->m_stackTabWgt->addTab(d->m_breakpointView, tr("Breakpoints"));
+
+    connect(d->m_breakpointView, SIGNAL(customContextMenuRequested(const QPoint&)),
+            this, SLOT(customBreakpointContextMenu(const QPoint&)));
+    connect(d->m_breakpointView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex&)),
+            this, SLOT(breakpointViewCurrentChanged(const QModelIndex&, const QModelIndex&)));
+
 
     setLayout(vLayout);
+
     // raise the tab page set in the preferences
-    //ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("General");
-    //int index = hGrp->GetInt("AutoloadTab", 0);
-    //tabWidget->setCurrentIndex(index);
+    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("DebugView");
+    d->m_stackTabWgt->setCurrentIndex(hGrp->GetInt("AutoloadStackViewTab", 0));
+    d->m_varTabWgt->setCurrentIndex(hGrp->GetInt("AutoloadVarViewTab", 0));
+
+
+    // restore header data such column width etc
+    const char *state = hGrp->GetASCII("BreakpointHeaderState", "").c_str();
+    d->m_breakpointView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
+
+    // restore header data such column width etc
+    state = hGrp->GetASCII("StackHeaderState", "").c_str();
+    d->m_stackView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
+
+    // restore header data such column width etc
+    state = hGrp->GetASCII("VarViewHeaderState", "").c_str();
+    d->m_varView->header()->restoreState(QByteArray::fromBase64(state));
+
+    // splitter setting
+    state = hGrp->GetASCII("SplitterState", "").c_str();
+    d->m_splitter->restoreState(QByteArray::fromBase64(state));
 }
 
 PythonDebuggerView::~PythonDebuggerView()
 {
+    // save currently viewed tab
+    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("DebugView");
+    hGrp->SetInt("AutoloadStackViewTab", d->m_stackTabWgt->currentIndex());
+    hGrp->SetInt("AutoloadVarViewTab", d->m_varTabWgt->currentIndex());
+
+    // save column width for breakpointView
+    QByteArray state = d->m_breakpointView->horizontalHeader()->saveState();
+    hGrp->SetASCII("BreakpointHeaderState", state.toBase64().data());
+
+    // save column width for stackView
+    state = d->m_stackView->horizontalHeader()->saveState();
+    hGrp->SetASCII("StackHeaderState", state.toBase64().data());
+
+    // save column width for varView
+    state = d->m_varView->header()->saveState();
+    hGrp->SetASCII("VarViewHeaderState", state.toBase64().data());
+
+    // splitter setting
+    state = d->m_splitter->saveState();
+    hGrp->SetASCII("SplitterState", state.toBase64().data());
+
     delete d;
 }
 
@@ -170,12 +218,9 @@ void PythonDebuggerView::changeEvent(QEvent *e)
 {
     QWidget::changeEvent(e);
     if (e->type() == QEvent::LanguageChange) {
-//        tabOutput->setWindowTitle(trUtf8("Output"));
-//        tabPython->setWindowTitle(trUtf8("Python console"));
-//        for (int i=0; i<tabWidget->count();i++)
-//            tabWidget->setTabText(i, tabWidget->widget(i)->windowTitle());
-        d->m_stackLabel->setText(tr("Stack frames"));
-        d->m_varLabel->setText(tr("Variables"));
+        d->m_stackTabWgt->setTabText(0, tr("Stack"));
+        d->m_stackTabWgt->setTabText(1, tr("Breakpoints"));
+        d->m_varTabWgt->setTabText(0, tr("Variables"));
     }
 }
 
@@ -201,8 +246,6 @@ void PythonDebuggerView::startDebug()
                                                             tr("Python (*.py *.FCMacro)"));
             if (!fileName.isEmpty()) {
                 PythonEditor* editor = new PythonEditor();
-                editor->setWindowIcon(Gui::BitmapFactory()
-                                      .iconFromTheme("applications-python"));
                 editView = new PythonEditorView(editor, getMainWindow());
                 editView->open(fileName);
                 editView->resize(400, 300);
@@ -231,8 +274,8 @@ void PythonDebuggerView::enableButtons()
     d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
 }
 
-void PythonDebuggerView::currentChanged(const QModelIndex &current,
-                                        const QModelIndex &previous)
+void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
+                                                 const QModelIndex &previous)
 {
     Q_UNUSED(previous);
 
@@ -252,6 +295,82 @@ void PythonDebuggerView::currentChanged(const QModelIndex &current,
     QVariant idx = model->data(stackIdx, Qt::DisplayRole);
 
     PythonDebugger::instance()->setStackLevel(idx.toInt());
+}
+
+void PythonDebuggerView::breakpointViewCurrentChanged(const QModelIndex &current,
+                                                      const QModelIndex &previous)
+{
+    Q_UNUSED(previous);
+    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
+                                        getMainWindow()->activeWindow());
+
+    if (!editView)
+        return;
+
+    BreakpointLine *bpl = PythonDebugger::instance()->
+                                        getBreakpointLineFromIdx(current.row());
+    if (!bpl)
+        return;
+
+    // switch file in editor so we can view current breakpoint
+    //getMainWindow()->setActiveWindow(editView);
+    if (editView->fileName() != bpl->parent()->fileName())
+        editView->open(bpl->parent()->fileName());
+
+    // scroll to view
+    QTextCursor cursor(editView->editor()->document()->
+                       findBlockByLineNumber(bpl->lineNr() - 1)); // ln-1 because line number starts from 0
+    editView->editor()->setTextCursor(cursor);
+
+
+}
+
+void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
+{
+    QModelIndex currentItem = d->m_breakpointView->indexAt(pos);
+    if (!currentItem.isValid())
+        return;
+
+    BreakpointLine *bpl = PythonDebugger::instance()->
+                                getBreakpointLineFromIdx(currentItem.row());
+    if (!bpl)
+        return;
+
+    QMenu menu;
+    QAction disable(BitmapFactory().iconFromTheme("breakpoint-disabled"),
+                    tr("Disable breakpoint"), &menu);
+    QAction enable(BitmapFactory().iconFromTheme("breakpoint"),
+                   tr("Enable breakpoint"), &menu);
+    QAction edit(BitmapFactory().iconFromTheme("preferences-general"),
+                    tr("Edit breakpoint"), &menu);
+    QAction del(BitmapFactory().iconFromTheme("delete"),
+                   tr("Delete breakpoint"), &menu);
+    QAction clear(BitmapFactory().iconFromTheme("process-stop"),
+                  tr("Clear all breakpoints"), &menu);
+
+    if (bpl->disabled())
+        menu.addAction(&enable);
+    else
+        menu.addAction(&disable);
+    menu.addAction(&edit);
+    menu.addAction(&del);
+    menu.addSeparator();
+    menu.addAction(&clear);
+
+
+    QAction *res = menu.exec(d->m_breakpointView->mapToGlobal(pos));
+    if (res == &disable) {
+        bpl->setDisabled(true);
+    } else if(res == &enable) {
+        bpl->setDisabled(false);
+    } else if (res == &edit) {
+        PythonEditorBreakpointDlg dlg(this, bpl);
+        dlg.exec();
+    } else if (res == &del) {
+        PythonDebugger::instance()->deleteBreakpoint(bpl);
+    } else if (res == &clear) {
+        PythonDebugger::instance()->clearAllBreakPoints();
+    }
 }
 
 void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
@@ -289,6 +408,10 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
     d->m_stepOverBtn->setToolTip(tr("Next instruction, dont step into functions"));
     d->m_stepOutBtn->setToolTip(tr("Continue until current function ends"));
     d->m_haltOnNextBtn->setToolTip(tr("Halt on any python code"));
+    d->m_continueBtn->setAutoRepeat(true);
+    d->m_stepIntoBtn->setAutoRepeat(true);
+    d->m_stepOverBtn->setAutoRepeat(true);
+    d->m_stepOutBtn->setAutoRepeat(true);
     enableButtons();
 
     PythonDebugger *debugger = PythonDebugger::instance();
@@ -307,9 +430,8 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
 
 }
 
-
-
 // ---------------------------------------------------------------------------
+
 StackFramesModel::StackFramesModel(QObject *parent) :
     QAbstractTableModel(parent),
     m_currentFrame(nullptr)
@@ -331,7 +453,6 @@ StackFramesModel::~StackFramesModel()
 int StackFramesModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent);
-
     return PythonDebugger::instance()->callDepth(m_currentFrame);
 }
 
@@ -438,6 +559,131 @@ void StackFramesModel::updateFrames(PyFrameObject *frame)
     }
 }
 
+// --------------------------------------------------------------------
+
+
+PythonBreakpointModel::PythonBreakpointModel(QObject *parent) :
+    QAbstractTableModel(parent)
+{
+    PythonDebugger *dbg = PythonDebugger::instance();
+    connect(dbg, SIGNAL(breakpointAdded(const BreakpointLine*)),
+            this, SLOT(added(const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointChanged(const BreakpointLine*)),
+            this, SLOT(changed(const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointRemoved(int, const BreakpointLine*)),
+            this, SLOT(removed(int, const BreakpointLine*)));
+}
+
+PythonBreakpointModel::~PythonBreakpointModel()
+{
+}
+
+int PythonBreakpointModel::rowCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return PythonDebugger::instance()->breakpointCount();
+}
+
+int PythonBreakpointModel::columnCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return colCount +1;
+}
+
+QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || (role != Qt::DisplayRole &&
+                             role != Qt::ToolTipRole &&
+                             role != Qt::DecorationRole))
+    {
+        return QVariant();
+    }
+
+    if (index.column() > colCount)
+        return QVariant();
+
+    BreakpointLine *bpl = PythonDebugger::instance()->getBreakpointLineFromIdx(index.row());
+    if (!bpl)
+        return QVariant();
+
+    if (role == Qt::DecorationRole) {
+        if (index.column() != 0)
+            return QVariant();
+        const char *icon = bpl->disabled() ? "breakpoint-disabled" : "breakpoint" ;
+
+        return QVariant(BitmapFactory().iconFromTheme(icon));
+
+    } else if (role == Qt::ToolTipRole) {
+        QString enabledStr(QLatin1String("enabled"));
+        if (bpl->disabled())
+            enabledStr = QLatin1String("disabled");
+
+        QString txt = QString(QLatin1String("line %1 [%2] number: %3\n%4"))
+                    .arg(bpl->lineNr()).arg(enabledStr)
+                    .arg(bpl->uniqueNr()).arg(bpl->parent()->fileName());
+        return QVariant(txt);
+    }
+
+    switch(index.column()) {
+    case 0:
+        return QString::number(bpl->uniqueNr());
+    case 1: {// file
+        BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFileFromIdx(index.row());
+        if (bp)
+            return bp->fileName();
+        return QVariant();
+    }
+    case 2: {// line
+        return QString::number(bpl->lineNr());
+    }
+    default:
+        return QVariant();
+    }
+
+    return QVariant();
+}
+
+QVariant PythonBreakpointModel::headerData(int section,
+                                           Qt::Orientation orientation,
+                                           int role) const
+{
+    if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
+        return QVariant();
+
+    switch (section) {
+    case 0:
+        return QString(tr("Number"));
+    case 1:
+        return QString(tr("File"));
+    case 2:
+        return QString(tr("Line"));
+    default:
+        return QVariant();
+    }
+}
+
+void PythonBreakpointModel::added(const BreakpointLine *bp)
+{
+    Q_UNUSED(bp);
+    int count = rowCount();
+    beginInsertRows(QModelIndex(), count, count);
+    endInsertRows();
+}
+
+void PythonBreakpointModel::changed(const BreakpointLine *bp)
+{
+    int idx = PythonDebugger::instance()->getIdxFromBreakpointLine(*bp);
+    if (idx > -1) {
+        Q_EMIT dataChanged(index(idx, 0), index(idx, colCount));
+    }
+}
+
+void PythonBreakpointModel::removed(int idx, const BreakpointLine *bpl)
+{
+    Q_UNUSED(bpl);
+    beginRemoveRows(QModelIndex(), idx, idx);
+    endRemoveRows();
+}
 
 // --------------------------------------------------------------------
 

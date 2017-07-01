@@ -43,6 +43,7 @@ class PythonSyntaxHighlighter;
 class PythonSyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
 class PythonDebugger;
+class BreakpointLine;
 
 /**
  * Python text editor with syntax highlighting.
@@ -99,6 +100,9 @@ protected:
 
 private Q_SLOTS:
     void markerAreaContextMenu(int line, QContextMenuEvent *event);
+    void breakpointAdded(const BreakpointLine *bpl);
+    void breakpointChanged(const BreakpointLine *bpl);
+    void breakpointRemoved(int idx, const BreakpointLine *bpl);
 
 private:
     void breakpointPasteOrCut(bool doCut);
@@ -112,15 +116,12 @@ class PythonEditorBreakpointDlg : public QDialog
 {
     Q_OBJECT
 public:
-    PythonEditorBreakpointDlg(QWidget *parent, PythonDebugger *deb,
-                              const QString fn, int line);
+    PythonEditorBreakpointDlg(QWidget *parent, BreakpointLine *bp);
     ~PythonEditorBreakpointDlg();
 protected:
     void accept();
  private:
-    QString         m_filename;
-    int             m_line;
-    PythonDebugger  *m_dbg;
+    BreakpointLine *m_bpl;
 
     QSpinBox  *m_ignoreToHits;
     QSpinBox  *m_ignoreFromHits;

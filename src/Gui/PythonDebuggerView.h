@@ -37,6 +37,8 @@ class QVBoxLayout;
 //} // namespace Py
 
 namespace Gui {
+class BreakpointLine;
+
 namespace DockWnd {
 
 class PythonDebuggerViewP;
@@ -60,7 +62,9 @@ protected:
 private Q_SLOTS:
     void startDebug();
     void enableButtons();
-    void currentChanged(const QModelIndex & current, const QModelIndex & previous);
+    void stackViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
+    void breakpointViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
+    void customBreakpointContextMenu(const QPoint &pos);
 
 private:
     void initButtons(QVBoxLayout *vLayout);
@@ -94,6 +98,34 @@ private Q_SLOTS:
 private:
     PyFrameObject *m_currentFrame;
     static const int colCount = 3;
+};
+
+// --------------------------------------------------------------------------------
+/**
+ * @brief Summary of all breakpoints
+ */
+class PythonBreakpointModel : public QAbstractTableModel
+{
+    Q_OBJECT
+
+public:
+    PythonBreakpointModel(QObject *parent = 0);
+    ~PythonBreakpointModel();
+
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const;
+    QVariant data(const QModelIndex &index, int role) const;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const;
+
+private Q_SLOTS:
+    void added(const BreakpointLine *bp);
+    void changed(const BreakpointLine *bp);
+    void removed(int idx, const BreakpointLine *bpl);
+
+private:
+    static const int colCount = 2;
 };
 
 // -------------------------------------------------------------------------------
