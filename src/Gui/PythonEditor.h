@@ -37,6 +37,10 @@ class QLineEdit;
 class QCheckBox;
 QT_END_NAMESPACE
 
+namespace Py {
+class ExceptionInfo;
+}
+
 namespace Gui {
 
 class PythonSyntaxHighlighter;
@@ -96,18 +100,26 @@ protected:
     void contextMenuEvent ( QContextMenuEvent* e );
     void drawMarker(int line, int x, int y, QPainter*);
     void keyPressEvent(QKeyEvent * e);
-    bool event(QEvent *event);
+    bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
+    bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
+
+public Q_SLOTS:
+    void clearAllExceptions();
+    void clearException(const QString &fn, int line);
 
 private Q_SLOTS:
     void markerAreaContextMenu(int line, QContextMenuEvent *event);
     void breakpointAdded(const BreakpointLine *bpl);
     void breakpointChanged(const BreakpointLine *bpl);
     void breakpointRemoved(int idx, const BreakpointLine *bpl);
+    void exception(const Py::ExceptionInfo *exc);
+
 
 private:
     void breakpointPasteOrCut(bool doCut);
-    struct PythonEditorP* d;
     QString introspect(QString varName);
+    void renderExceptionExtraSelections();
+    struct PythonEditorP* d;
 };
 
 // ---------------------------------------------------------------

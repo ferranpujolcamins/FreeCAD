@@ -32,9 +32,9 @@
 #include <QVariant>
 
 class QVBoxLayout;
-//namespace  Py {
-//class Object;
-//} // namespace Py
+namespace  Py {
+    class ExceptionInfo;
+} // namespace Py
 
 namespace Gui {
 class BreakpointLine;
@@ -54,6 +54,7 @@ class PythonDebuggerView : public QWidget
 public:
     PythonDebuggerView(QWidget *parent = 0);
     ~PythonDebuggerView();
+    static void setFileAndScrollToLine(const QString &fn, int line);
 
 
 protected:
@@ -64,7 +65,9 @@ private Q_SLOTS:
     void enableButtons();
     void stackViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
     void breakpointViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
+    void issuesViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
     void customBreakpointContextMenu(const QPoint &pos);
+    void customIssuesContextMenu(const QPoint &pos);
 
 private:
     void initButtons(QVBoxLayout *vLayout);
@@ -102,7 +105,7 @@ private:
 
 // --------------------------------------------------------------------------------
 /**
- * @brief Summary of all breakpoints
+ * @brief Summary view of all breakpoints
  */
 class PythonBreakpointModel : public QAbstractTableModel
 {
@@ -111,7 +114,6 @@ class PythonBreakpointModel : public QAbstractTableModel
 public:
     PythonBreakpointModel(QObject *parent = 0);
     ~PythonBreakpointModel();
-
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
@@ -126,6 +128,33 @@ private Q_SLOTS:
 
 private:
     static const int colCount = 2;
+};
+
+// --------------------------------------------------------------------------------
+class IssuesModel : public QAbstractTableModel
+{
+    Q_OBJECT
+
+public:
+    IssuesModel(QObject *parent = 0);
+    ~IssuesModel();
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const;
+    QVariant data(const QModelIndex &index, int role) const;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const;
+    bool removeRows(int row, int count, const QModelIndex & parent = QModelIndex());
+
+private Q_SLOTS:
+    void exceptionOccured(const Py::ExceptionInfo *exc);
+    void exception(const Py::ExceptionInfo *exc);
+    void clear();
+    void clearException(const QString &fn, int line);
+
+private:
+    static const int colCount = 3;
+    QList<Py::ExceptionInfo*> m_exceptions;
 };
 
 // -------------------------------------------------------------------------------

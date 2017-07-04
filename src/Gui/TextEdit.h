@@ -108,6 +108,9 @@ protected:
     LineMarkerArea* getMarkerArea() const
     { return lineNumberArea; }
     virtual void drawMarker(int line, int x, int y, QPainter*);
+    bool event(QEvent *event);
+    virtual bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
+    virtual bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
 
 private:
     SyntaxHighlighter* highlighter;

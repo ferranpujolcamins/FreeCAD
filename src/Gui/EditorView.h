@@ -164,6 +164,8 @@ public:
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
+    static PythonEditorView *setAsActive();
+
 public Q_SLOTS:
     void executeScript();
     void startDebug();

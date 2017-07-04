@@ -568,6 +568,80 @@ void TextEditor::paintEvent (QPaintEvent * e)
     TextEdit::paintEvent( e );
 }
 
+bool TextEditor::event(QEvent *event)
+{
+    if (event->type() == QEvent::ToolTip)
+    {
+        QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
+        QPoint point = helpEvent->pos();
+        if (point.rx() < lineNumberAreaWidth()) {
+            // on linenumberarea
+            QTextBlock block = firstVisibleBlock();
+            QRectF rowSize = blockBoundingGeometry(block);
+            int line = 0;
+            if (rowSize.height() > 0)
+                line = ((point.ry()) / rowSize.height()) + block.blockNumber() + 1;
+
+            return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
+        }
+
+        // in editor window
+        point.rx() -= lineNumberAreaWidth();
+        QTextCursor cursor = cursorForPosition(point);
+        cursor.select(QTextCursor::WordUnderCursor);
+        if (cursor.hasSelection()) {
+            int endPos = cursor.selectionEnd();
+            int startPos = cursor.selectionStart();
+            int pos = startPos;
+            QChar ch;
+            QTextDocument *doc = document();
+
+
+            // find the root (leftmost char)
+            do {
+                --pos;
+                ch = doc->characterAt(pos);
+            } while(ch.isLetterOrNumber() ||
+                    ch == QLatin1Char('.') ||
+                    ch == QLatin1Char('_'));
+            startPos = pos+1;
+
+            // find the end (rightmost char)
+            do {
+                ++pos;
+                ch = doc->characterAt(pos);
+            } while(pos < endPos &&
+                    (ch.isLetterOrNumber() ||
+                    ch == QLatin1Char('.') ||
+                    ch == QLatin1Char('_')));
+
+            endPos = pos;
+            cursor.setPosition(startPos);
+            cursor.setPosition(endPos, QTextCursor::KeepAnchor);
+            return editorToolTipEvent(helpEvent->globalPos(), cursor.selectedText());
+
+        } else {
+            return editorToolTipEvent(helpEvent->globalPos(), QString());
+        }
+        return true;
+    }
+    return TextEdit::event(event);
+}
+
+bool TextEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
+{
+    Q_UNUSED(pos);
+    Q_UNUSED(textUnderPos);
+    return false;
+}
+
+bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
+{
+    Q_UNUSED(pos);
+    Q_UNUSED(line);
+    return false;
+}
+
 // ------------------------------------------------------------------------------
 
 LineMarkerArea::LineMarkerArea(TextEditor* editor)

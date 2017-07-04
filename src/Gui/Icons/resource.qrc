@@ -161,6 +161,10 @@
         <file>debug-continue.svg</file>
         <file>clear-text.svg</file>
         <file>search-setting.svg</file>
+        <file>exception.svg</file>
+        <file>syntax-error.svg</file>
+        <file>warning.svg</file>
+        <file>indentation-error.svg</file>
     </qresource>
     <!-- Alternative directory names for icons that should be loaded from a theme -->
     <!-- See also http://permalink.gmane.org/gmane.comp.lib.qt.general/26374 -->
@@ -243,5 +247,9 @@
         <file>debug-continue.svg</file>
         <file>clear-text.svg</file>
         <file>search-setting.svg</file>
+        <file>exception.svg</file>
+        <file>syntax-error.svg</file>
+        <file>warning.svg</file>
+        <file>indentation-error.svg</file>
     </qresource>
 </RCC>

@@ -114,62 +114,6 @@ PyObject *PythonCode::deepCopy(PyObject *obj)
     return result;
 }
 
-
-//QString PythonCode::introspectFrame(PyObject *dictVars, const char *varName, const char *access)
-//{
-//    PyObject *key, *value;
-//    Py_ssize_t pos = 0;
-//    char *name, *valueStr;
-
-//   // dict = traverseFromRoot(dictVars, varName, findName);
-
-//    while (PyDict_Next(dictVars, &pos, &key, &value)) {
-//        name = PyBytes_AS_STRING(key);
-//        if (name != nullptr && strcmp(name, list[0].toLatin1()) == 0) {
-//            // found correct object
-//            valueStr = PyBytes_AS_STRING(value);
-//            return QString(QLatin1String("%4 %1: %2=%3\n%5"))
-//                        .arg(QLatin1String(Py_TYPE(value)->tp_name))
-//                        .arg(QLatin1String(name))
-//                        .arg(QLatin1String(valueStr))
-//                        .arg(QLatin1String(access))
-//                        .arg(QLatin1String(Py_TYPE(value)->tp_doc));
-//        }
-//    }
-
-//    return QString();
-//}
-
-
-//PyObject* PythonCode::traverseFromRoot(PyObject *obj, char const *varName)
-//{
-//    // get thee root of the parent identifier ie os.path.join
-//    //                                                    ^
-//    // must traverse from os, then os.path before os.path.join
-//    char const *c = varName;
-//    int i = 1; // 1 for the \0 char
-//    while (*c) {
-//        i++;
-//        if (*c == '.') {
-//            char *var = (char*)malloc(sizeof(c) * i);
-//            memcpy(var, varName, i);
-//            obj = traverseFromRoot(obj, var);
-//            free(var);
-//            break;
-//        } else if ((*c < '0') ||
-//                   (*c > '9' && *c < 'A') ||
-//                   (*c > '>' && *c < 'a') ||
-//                   (*c > 'z'))
-//        {
-//            // not valid chars
-//            return obj;
-//        }
-//    }
-
-//    return obj;
-//}
-
-
 // get thee root of the parent identifier ie os.path.join
 //                                                    ^
 // must traverse from os, then os.path before os.path.join

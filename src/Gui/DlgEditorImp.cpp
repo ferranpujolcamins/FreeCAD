@@ -167,6 +167,8 @@ void DlgSettingsEditorImp::saveSettings()
     EnableFolding->onSave();
     EnableTrimTrailingWhitespaces->onSave();
     EnableAutoIndent->onSave();
+    EnableScrollToExceptionLine->onSave();
+    EnableHaltDebuggerOnExceptions->onSave();
     tabSize->onSave();
     indentSize->onSave();
     radioTabs->onSave();
@@ -187,6 +189,8 @@ void DlgSettingsEditorImp::loadSettings()
     EnableFolding->onRestore();
     EnableTrimTrailingWhitespaces->onRestore();
     EnableAutoIndent->onRestore();
+    EnableScrollToExceptionLine->onRestore();
+    EnableHaltDebuggerOnExceptions->onRestore();
     tabSize->onRestore();
     indentSize->onRestore();
     radioTabs->onRestore();

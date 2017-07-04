@@ -32,6 +32,7 @@
 #endif
 
 #include "PythonEditor.h"
+#include "EditorView.h"
 #include "PythonCode.h"
 #include "PythonDebugger.h"
 #include "Application.h"
@@ -68,9 +69,11 @@ struct PythonEditorP
     QString filename;
     PythonDebugger* debugger;
     PythonCode *pythonCode;
+    QHash <int, Py::ExceptionInfo> exceptions;
     CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
+    const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     PythonEditorP()
         : debugLine(-1),
           callTipsList(0)
@@ -137,8 +140,21 @@ PythonEditor::PythonEditor(QWidget* parent)
             this, SLOT(breakpointChanged(const BreakpointLine*)));
     connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
             this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
+            this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
+    connect(dbg, SIGNAL(exceptionFatal(const Py::ExceptionInfo*)),
+            this, SLOT(exception(const Py::ExceptionInfo*)));
+    connect(dbg, SIGNAL(exceptionOccured(const Py::ExceptionInfo*)),
+            this, SLOT(exception(const Py::ExceptionInfo*)));
+    connect(dbg, SIGNAL(started()), this, SLOT(clearAllExceptions()));
+    connect(dbg, SIGNAL(clearAllExceptions()), this, SLOT(clearAllExceptions()));
+    connect(dbg, SIGNAL(clearException(QString,int)), this, SLOT(clearException(QString,int)));
+
 
     d->matchingChars = new PythonMatchingChars(this);
+
+    // tooltips on this widget must use a monospaced font to display code info correctly
+    setStyleSheet(QLatin1String("QToolTip {font-size:12pt; font-family:'DejaVu Sans Mono', Courier; }"));
 
     // create the window for call tips
     d->callTipsList = new CallTipsList(this);
@@ -262,6 +278,12 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
             p->drawPixmap(x, y, d->breakpointDisabled);
         else
             p->drawPixmap(x, y, d->breakpoint);
+    }
+    if (d->exceptions.contains(line)) {
+        const Py::ExceptionInfo *exp = &d->exceptions[line];
+        QIcon icon = BitmapFactory().iconFromTheme(exp->iconName());
+        p->drawPixmap(x +d->breakpoint.width(), y,
+                      icon.pixmap(d->breakpoint.height()));
     }
     if (d->debugLine == line) {
         p->drawPixmap(x, y, d->debugMarker);
@@ -490,59 +512,55 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     { d->callTipsList->validateCursor(); }
 }
 
-bool PythonEditor::event(QEvent *event)
+bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 {
-    if (event->type() == QEvent::ToolTip)
-    {
-        QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
-        QPoint point = helpEvent->pos();
-        point.rx() -= lineNumberAreaWidth();
-        QTextCursor cursor = cursorForPosition(point);
-        cursor.select(QTextCursor::WordUnderCursor);
-        if (cursor.hasSelection()) {
-            int endPos = cursor.selectionEnd();
-            int startPos = cursor.selectionStart();
-            int pos = startPos;
-            QChar ch;
-            QTextDocument *doc = document();
-
-
-            // find the root (leftmost char)
-            do {
-                --pos;
-                ch = doc->characterAt(pos);
-            } while(ch.isLetterOrNumber() ||
-                    ch == QLatin1Char('.') ||
-                    ch == QLatin1Char('_'));
-            startPos = pos+1;
-
-            // find the end (rightmost char)
-            do {
-                ++pos;
-                ch = doc->characterAt(pos);
-            } while(pos < endPos &&
-                    (ch.isLetterOrNumber() ||
-                    ch == QLatin1Char('.') ||
-                    ch == QLatin1Char('_')));
-
-            endPos = pos;
-            cursor.setPosition(startPos);
-            cursor.setPosition(endPos, QTextCursor::KeepAnchor);
-
-            QString str = d->pythonCode->findFromCurrentFrame(
-                                            cursor.selectedText());
-            QToolTip::showText(helpEvent->globalPos(), str);
-        } else {
-            QToolTip::hideText();
-        }
-        return true;
+    if (textUnderPos.isEmpty()) {
+        QToolTip::hideText();
+    } else {
+        QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
+        QToolTip::showText(pos, str, this);
     }
-    return TextEditor::event(event);
+    return true;
+}
+
+bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
+{
+    if (d->exceptions.contains(line)) {
+        QString srcText = d->exceptions[line].text();
+        int offset = d->exceptions[line].offset();
+        if (offset > 0) {
+            if (!srcText.endsWith(QLatin1String("\n")))
+                srcText += QLatin1String("\n");
+            for (int i = 0; i < offset -1; ++i) {
+                srcText += QLatin1Char('-');
+            }
+            srcText += QLatin1Char('^');
+        }
+
+        QString txt = QString((tr("%1 on line %2\nreason: '%4'\n\n%5")))
+                                .arg(d->exceptions[line].typeString())
+                                .arg(QString::number(d->exceptions[line].lineNr()))
+                                .arg(d->exceptions[line].message())
+                                .arg(srcText);
+        QToolTip::showText(pos, txt, this);
+    } else {
+        QToolTip::hideText();
+    }
+    return true;
 }
 
 void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
 {
     QMenu menu;
+    QAction *clearException = nullptr;
+
+    if (d->exceptions.contains(line)) {
+        clearException = new QAction(BitmapFactory().iconFromTheme(d->exceptions[line].iconName()),
+                               tr("Clear exception"), &menu);
+        menu.addAction(clearException);
+        menu.addSeparator();
+    }
+
     BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     if (bpl != nullptr) {
         QAction disable(BitmapFactory().iconFromTheme("breakpoint-disabled"),
@@ -571,6 +589,8 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
             dlg.exec();
         } else if (res == &del) {
             d->debugger->deleteBreakpoint(d->filename, line);
+        } else if (res == clearException) {
+            PythonDebugger::instance()->sendClearException(d->filename, line);
         }
 
     } else {
@@ -580,7 +600,12 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
         QAction *res = menu.exec(event->globalPos());
         if (res == &create)
             d->debugger->setBreakpoint(d->filename, line);
+        else if (res == clearException)
+            PythonDebugger::instance()->sendClearException(d->filename, line);
     }
+
+    if (clearException)
+        delete clearException;
 
     event->accept();
 }
@@ -619,6 +644,63 @@ void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
     getMarkerArea()->update();
 }
 
+void PythonEditor::exception(const Py::ExceptionInfo *exc)
+{
+    if (exc->fileName() != d->filename)
+        return;
+
+    if (d->exceptions.contains(exc->lineNr()))
+        return; // already set
+
+    d->exceptions[exc->lineNr()] = *exc;
+    renderExceptionExtraSelections();
+    getMarkerArea()->update();
+
+    AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+    if (vBar)
+        vBar->setMarker(exc->lineNr(), d->exceptionScrollBarMarkerColor);
+
+    ParameterGrp::handle hPrefGrp = getWindowParameter();
+    if (hPrefGrp->GetBool("EnableScrollToExceptionLine", true)) {
+        // scroll into view on exceptions
+        PythonEditorView *editView = PythonEditorView::setAsActive();
+        if (!editView)
+            return;
+
+        editView->open(d->filename);
+
+        // scroll to view
+        QTextCursor cursor(editView->editor()->document()->
+                           findBlockByLineNumber(exc->lineNr() - 1)); // ln-1 because line number starts from 0
+        editView->editor()->setTextCursor(cursor);
+    }
+}
+
+void PythonEditor::clearAllExceptions()
+{
+    for (int i : d->exceptions.keys()) {
+        Py::ExceptionInfo exc = d->exceptions.take(i);
+        AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+        if (vBar)
+            vBar->setMarker(exc.lineNr(), d->exceptionScrollBarMarkerColor);
+    }
+
+    renderExceptionExtraSelections();
+    getMarkerArea()->update();
+}
+
+void PythonEditor::clearException(const QString &fn, int line)
+{
+    if (fn == d->filename && d->exceptions.contains(line)) {
+        d->exceptions.remove(line);
+        renderExceptionExtraSelections();
+        getMarkerArea()->update();
+
+        AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+        if (vBar)
+            vBar->setMarker(line, d->exceptionScrollBarMarkerColor);
+    }
+}
 
 void PythonEditor::breakpointPasteOrCut(bool doCut)
 {
@@ -642,6 +724,32 @@ void PythonEditor::breakpointPasteOrCut(bool doCut)
         if (bp)
             bp->moveLines(beforeLineNr, move);
     }
+}
+
+// render the underlining for syntax errors in editor
+void PythonEditor::renderExceptionExtraSelections()
+{
+    QList<QTextEdit::ExtraSelection> selections;
+
+    for (Py::ExceptionInfo &exc : d->exceptions) {
+        if (exc.offset() > 0) {
+            // highlight text up to error in editor
+            QTextEdit::ExtraSelection sel;
+            sel.cursor = textCursor();
+            QTextBlock block = document()->findBlockByLineNumber(exc.lineNr() -1);
+            sel.cursor.setPosition(block.position());
+            sel.cursor.setPosition(sel.cursor.position() + exc.offset(),
+                               QTextCursor::KeepAnchor);
+
+            sel.format.setBackground(QColor("#e5e5de")); // lightgray
+            sel.format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+            sel.format.setUnderlineColor(QColor("#ff1635")); // red
+
+            selections.append(sel);
+        }
+    }
+
+    setTextMarkers(QLatin1String("exceptionStyling"), selections);
 }
 
 void PythonEditor::onComment()

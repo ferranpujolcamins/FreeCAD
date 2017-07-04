@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>494</width>
-    <height>553</height>
+    <height>552</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,209 +30,300 @@
     <number>6</number>
    </property>
    <item row="1" column="0">
-    <widget class="QGroupBox" name="GroupBox2">
-     <property name="title">
-      <string>Options</string>
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>1</number>
      </property>
-     <layout class="QVBoxLayout">
-      <property name="spacing">
-       <number>6</number>
-      </property>
-      <property name="leftMargin">
-       <number>9</number>
-      </property>
-      <property name="topMargin">
-       <number>9</number>
-      </property>
-      <property name="rightMargin">
-       <number>9</number>
-      </property>
-      <property name="bottomMargin">
-       <number>9</number>
-      </property>
-      <item>
-       <widget class="Gui::PrefCheckBox" name="EnableLineNumber">
-        <property name="focusPolicy">
-         <enum>Qt::TabFocus</enum>
+     <widget class="QWidget" name="tabGeneral">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <widget class="QGroupBox" name="GroupBox2">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>0</y>
+         <width>221</width>
+         <height>160</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>Options</string>
+       </property>
+       <layout class="QVBoxLayout">
+        <property name="spacing">
+         <number>6</number>
         </property>
-        <property name="text">
-         <string>Enable line numbers</string>
+        <property name="leftMargin">
+         <number>9</number>
         </property>
-        <property name="checked">
-         <bool>true</bool>
+        <property name="topMargin">
+         <number>9</number>
         </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>EnableLineNumber</cstring>
+        <property name="rightMargin">
+         <number>9</number>
         </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
+        <property name="bottomMargin">
+         <number>9</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="Gui::PrefCheckBox" name="EnableFolding">
-        <property name="text">
-         <string>Enable folding</string>
+        <item>
+         <widget class="Gui::PrefCheckBox" name="EnableLineNumber">
+          <property name="focusPolicy">
+           <enum>Qt::TabFocus</enum>
+          </property>
+          <property name="text">
+           <string>Enable line numbers</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>EnableLineNumber</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="Gui::PrefCheckBox" name="EnableFolding">
+          <property name="text">
+           <string>Enable folding</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>EnableFolding</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer>
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Ignored</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QGroupBox" name="groupBoxIndent">
+       <property name="geometry">
+        <rect>
+         <x>230</x>
+         <y>0</y>
+         <width>231</width>
+         <height>160</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>Indentation</string>
+       </property>
+       <layout class="QGridLayout">
+        <property name="leftMargin">
+         <number>9</number>
         </property>
-        <property name="checked">
-         <bool>true</bool>
+        <property name="topMargin">
+         <number>9</number>
         </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>EnableFolding</cstring>
+        <property name="rightMargin">
+         <number>9</number>
         </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
+        <property name="bottomMargin">
+         <number>9</number>
         </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="Gui::PrefCheckBox" name="EnableTrimTrailingWhitespaces">
-        <property name="focusPolicy">
-         <enum>Qt::TabFocus</enum>
+        <property name="spacing">
+         <number>6</number>
         </property>
-        <property name="text">
-         <string>Trim trailing whitespaces</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>EnableTrimTrailingWhitespaces</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="Gui::PrefCheckBox" name="EnableAutoIndent">
-        <property name="focusPolicy">
-         <enum>Qt::TabFocus</enum>
-        </property>
-        <property name="text">
-         <string>Autoindent python</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>EnableAutoIndent</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer>
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Ignored</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>40</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QGroupBox" name="groupBoxIndent">
-     <property name="title">
-      <string>Indentation</string>
-     </property>
-     <layout class="QGridLayout">
-      <property name="leftMargin">
-       <number>9</number>
-      </property>
-      <property name="topMargin">
-       <number>9</number>
-      </property>
-      <property name="rightMargin">
-       <number>9</number>
-      </property>
-      <property name="bottomMargin">
-       <number>9</number>
-      </property>
-      <property name="spacing">
-       <number>6</number>
-      </property>
-      <item row="3" column="0" colspan="2">
-       <widget class="Gui::PrefRadioButton" name="radioSpaces">
-        <property name="text">
-         <string>Insert spaces</string>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>Spaces</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="textLabel1">
-        <property name="text">
-         <string>Tab size:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="Gui::PrefSpinBox" name="tabSize">
-        <property name="value">
-         <number>4</number>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>TabSize</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="textLabel2">
-        <property name="text">
-         <string>Indent size:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="Gui::PrefSpinBox" name="indentSize">
-        <property name="value">
-         <number>4</number>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>IndentSize</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="Gui::PrefRadioButton" name="radioTabs">
-        <property name="text">
-         <string>Keep tabs</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="prefEntry" stdset="0">
-         <cstring>Tabs</cstring>
-        </property>
-        <property name="prefPath" stdset="0">
-         <cstring>Editor</cstring>
-        </property>
-       </widget>
-      </item>
-     </layout>
+        <item row="3" column="0" colspan="2">
+         <widget class="Gui::PrefRadioButton" name="radioSpaces">
+          <property name="text">
+           <string>Insert spaces</string>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>Spaces</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="Gui::PrefSpinBox" name="tabSize">
+          <property name="value">
+           <number>4</number>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>TabSize</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="textLabel2">
+          <property name="text">
+           <string>Indent size:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="Gui::PrefSpinBox" name="indentSize">
+          <property name="value">
+           <number>4</number>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>IndentSize</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="2">
+         <widget class="Gui::PrefRadioButton" name="radioTabs">
+          <property name="text">
+           <string>Keep tabs</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>Tabs</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="textLabel1">
+          <property name="text">
+           <string>Tab size:</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+     <widget class="QWidget" name="tabPython">
+      <attribute name="title">
+       <string>Python</string>
+      </attribute>
+      <widget class="Gui::PrefCheckBox" name="EnableAutoIndent">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>40</y>
+         <width>191</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <property name="text">
+        <string>Autoindent python</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="prefEntry" stdset="0">
+        <cstring>EnableAutoIndent</cstring>
+       </property>
+       <property name="prefPath" stdset="0">
+        <cstring>Editor</cstring>
+       </property>
+      </widget>
+      <widget class="Gui::PrefCheckBox" name="EnableTrimTrailingWhitespaces">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>470</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <property name="text">
+        <string>Trim trailing whitespaces</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="prefEntry" stdset="0">
+        <cstring>EnableTrimTrailingWhitespaces</cstring>
+       </property>
+       <property name="prefPath" stdset="0">
+        <cstring>Editor</cstring>
+       </property>
+      </widget>
+      <widget class="Gui::PrefCheckBox" name="EnableScrollToExceptionLine">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>70</y>
+         <width>191</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <property name="text">
+        <string>Jump to exception line</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="prefEntry" stdset="0">
+        <cstring>EnableAutoIndent</cstring>
+       </property>
+       <property name="prefPath" stdset="0">
+        <cstring>Editor</cstring>
+       </property>
+      </widget>
+      <widget class="Gui::PrefCheckBox" name="EnableHaltDebuggerOnExceptions">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>241</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <property name="text">
+        <string>Halt debugger at exception line</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="prefEntry" stdset="0">
+        <cstring>EnableAutoIndent</cstring>
+       </property>
+       <property name="prefPath" stdset="0">
+        <cstring>Editor</cstring>
+       </property>
+      </widget>
+     </widget>
     </widget>
    </item>
    <item row="0" column="0" colspan="2">
@@ -388,8 +479,6 @@
   <tabstop>fontFamily</tabstop>
   <tabstop>EnableLineNumber</tabstop>
   <tabstop>EnableFolding</tabstop>
-  <tabstop>EnableTrimTrailingWhitespaces</tabstop>
-  <tabstop>EnableAutoIndent</tabstop>
   <tabstop>tabSize</tabstop>
   <tabstop>indentSize</tabstop>
   <tabstop>colorButton</tabstop>

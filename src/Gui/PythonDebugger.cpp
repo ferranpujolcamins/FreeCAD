@@ -35,7 +35,341 @@
 #include <Base/Interpreter.h>
 #include <Base/Console.h>
 
+
 using namespace Gui;
+
+Py::ExceptionInfo::ExceptionInfo() :
+    m_pyType(nullptr),
+    m_pyValue(nullptr),
+    m_pyTraceback(nullptr),
+    m_pyState(PyThreadState_GET()),
+    m_tracebackLevel(0)
+{
+    PyErr_Fetch(&m_pyType, &m_pyValue,&m_pyTraceback);
+    if (!m_pyType)
+        return;
+
+    PyErr_NormalizeException(&m_pyType, &m_pyValue, &m_pyTraceback);
+
+    if (PyErr_GivenExceptionMatches(m_pyType, PyExc_KeyboardInterrupt) ||
+        PyErr_GivenExceptionMatches(m_pyType, PyExc_SystemExit))
+    {
+        m_pyType = nullptr; // invalidate
+    }
+
+    Py_XINCREF(m_pyType);
+    Py_XINCREF(m_pyTraceback);
+    Py_XINCREF(m_pyValue);
+
+    //need to restore error unset by PyErr_Fetch
+    PyErr_Restore(m_pyType, m_pyValue, m_pyTraceback);
+
+    m_tracebackLevel = tracebackSize() -1;
+}
+
+Py::ExceptionInfo::ExceptionInfo(PyObject *tracebackArg) :
+    m_pyType(nullptr),
+    m_pyValue(nullptr),
+    m_pyTraceback(nullptr),
+    m_pyState(PyThreadState_GET()),
+    m_tracebackLevel(0)
+{
+    if (!PyTuple_Check(tracebackArg))
+        return;
+
+    m_pyType = PyTuple_GET_ITEM(tracebackArg, 0);
+    m_pyValue = PyTuple_GET_ITEM(tracebackArg, 1);
+    m_pyTraceback = PyTuple_GET_ITEM(tracebackArg, 2);
+
+    if (PyErr_GivenExceptionMatches(m_pyType, PyExc_KeyboardInterrupt) ||
+        PyErr_GivenExceptionMatches(m_pyType, PyExc_SystemExit))
+    {
+        m_pyType = nullptr; // invalidate
+    }
+
+    Py_XINCREF(m_pyType);
+    Py_XINCREF(m_pyTraceback);
+    Py_XINCREF(m_pyValue);
+
+    m_tracebackLevel = tracebackSize() -1;
+}
+
+Py::ExceptionInfo::ExceptionInfo(const Py::ExceptionInfo &other)
+{
+    m_tracebackLevel = other.m_tracebackLevel;
+    m_pyType = other.m_pyType;
+    m_pyTraceback = other.m_pyTraceback;
+    m_pyValue = other.m_pyValue;
+    m_pyState =  other.m_pyState;
+    Py_XINCREF(m_pyType);
+    Py_XINCREF(m_pyTraceback);
+    Py_XINCREF(m_pyValue);
+}
+
+Py::ExceptionInfo::~ExceptionInfo()
+{
+    // we might get deleted after file has ended
+    // and some other python code is running
+    Base::PyGILStateLocker lock;
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    Py_XDECREF(m_pyType);
+    Py_XDECREF(m_pyValue);
+    Py_XDECREF(m_pyTraceback);
+    PyThreadState_Swap(state);
+}
+
+int Py::ExceptionInfo::lineNr() const
+{
+    if (!isValid())
+        return -1;
+
+    if (m_pyTraceback) { // no traceback when in global space
+        PyTracebackObject* tb = getTracebackFrame();
+        return PyCode_Addr2Line(tb->tb_frame->f_code, tb->tb_frame->f_lasti);
+    }
+
+    PyObject *vlu = getAttr("lineno"); // new ref
+    if (!vlu)
+        return -1;
+
+    long lVlu = PyInt_AS_LONG(vlu);
+    Py_XDECREF(vlu);
+    return static_cast<int>(lVlu);
+}
+
+int Py::ExceptionInfo::offset() const
+{
+    if (!isValid() || m_tracebackLevel > 0)
+        return -1;
+
+    if (!isSyntaxError() && !isIndentationError())
+        return -1;
+
+    Base::PyGILStateLocker lock;
+    Q_UNUSED(lock); // quiet compiler
+
+    PyObject *vlu = getAttr("offset"); // new ref
+    if (!vlu)
+        return -1;
+
+    long lVlu = PyInt_AS_LONG(vlu);
+    Py_XDECREF(vlu);
+    return static_cast<int>(lVlu);
+}
+
+QString Py::ExceptionInfo::message() const
+{
+    if (!isValid())
+        return QString();
+
+    PyObject *vlu = getAttr("msg"); // new ref
+    if (!vlu){
+        vlu = getAttr("message");
+        if (!vlu)
+            return QString();
+    }
+
+    const char *msg = PyString_AS_STRING(vlu);
+    Py_XDECREF(vlu);
+    return QLatin1String(msg);
+}
+
+QString Py::ExceptionInfo::fileName() const
+{
+    if (!isValid())
+        return QString();
+
+    if (m_pyTraceback) {
+        PyTracebackObject* tb = getTracebackFrame();
+        const char *filename = PyString_AsString(tb->tb_frame->f_code->co_filename);
+        return QLatin1String(filename);
+    }
+
+    PyObject *vlu = getAttr("filename"); // new ref
+    if (!vlu)
+        return QString();
+
+    const char *msg = PyString_AS_STRING(vlu);
+    Py_XDECREF(vlu);
+    return QLatin1String(msg);
+}
+
+QString Py::ExceptionInfo::functionName() const
+{
+    if (!isValid() || !m_pyTraceback)
+        return QString();
+
+    PyTracebackObject* tb = getTracebackFrame();
+    const char *funcname = PyString_AsString(tb->tb_frame->f_code->co_name);
+    return QLatin1String(funcname);
+}
+
+QString Py::ExceptionInfo::text() const
+{
+    if (!isValid())
+        return QString();
+
+    PyObject *vlu = getAttr("text"); // new ref
+    if (!vlu)
+        return QString();
+
+    const char *txt = PyString_AS_STRING(vlu);
+    Py_XDECREF(vlu);
+    return QLatin1String(txt);
+}
+
+QString Py::ExceptionInfo::typeString() const
+{
+    if (!isValid())
+        return QString();
+    Base::PyGILStateLocker lock;
+    Q_UNUSED(lock); // quiet compiler
+
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    PyObject *vlu = PyObject_Str(m_pyType); // new ref
+    PyThreadState_Swap(state);
+    if (!vlu)
+        return QString();
+
+    Py_INCREF(vlu);
+    const char *txt = PyString_AS_STRING(vlu);
+    Py_XDECREF(vlu);
+    QRegExp re(QLatin1String("<.*\\.(\\w+).*>")); // extract typename from repr string
+    if (re.indexIn(QLatin1String(txt)) > -1)
+        return re.cap(1);
+
+    return QString();
+}
+
+const PyObject *Py::ExceptionInfo::type() const
+{
+    if (!isValid())
+        return nullptr;
+    return m_pyType;
+}
+
+const PyThreadState *Py::ExceptionInfo::threadState() const
+{
+    return m_pyState;
+}
+
+bool Py::ExceptionInfo::isValid() const
+{
+    if (m_pyType == nullptr)
+        return false;
+
+    PyThreadState *currentState = PyThreadState_GET();
+    if (currentState && m_pyState) {
+        if (currentState->interp == m_pyState->interp)
+            return true;
+        return false; // another interpreter
+    }
+
+    // no currentState, rely on ThreadState swapping
+    return true;
+}
+
+int Py::ExceptionInfo::tracebackSize() const
+{
+    if (!isValid())
+        return -1;
+
+    int count = 0;
+    PyTracebackObject* tb = (PyTracebackObject*)m_pyTraceback;
+    while (tb != nullptr) {
+        tb = tb->tb_next;
+        ++count;
+    }
+    return count;
+}
+
+void Py::ExceptionInfo::setTracebackLevel(int level)
+{
+    if (!isValid())
+        return;
+
+    if (level < 0 && level >= tracebackSize())
+        return;
+
+    m_tracebackLevel = level;
+}
+
+bool Py::ExceptionInfo::isWarning() const
+{
+    if (!isValid())
+        return false;
+
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_Warning);
+    PyThreadState_Swap(state);
+    return res;
+}
+
+bool Py::ExceptionInfo::isSyntaxError() const
+{
+    if (!isValid())
+        return false;
+
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_SyntaxError);
+    PyThreadState_Swap(state);
+    return res;
+}
+
+bool Py::ExceptionInfo::isIndentationError() const
+{
+    if (!isValid())
+        return false;
+
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_IndentationError) ||
+               PyErr_GivenExceptionMatches(m_pyType, PyExc_TabError);
+    PyThreadState_Swap(state);
+    return res;
+}
+
+const char *Py::ExceptionInfo::iconName() const
+{
+    const char *iconStr = "exception";
+
+    if (isIndentationError())
+        iconStr = "indentation-error";
+    else if (isSyntaxError())
+        iconStr = "syntax-error";
+    else if (isWarning())
+        iconStr = "warning";
+    return iconStr;
+}
+
+PyTracebackObject *Py::ExceptionInfo::getTracebackFrame() const
+{
+    int lvl = m_tracebackLevel;
+    PyTracebackObject* tb = (PyTracebackObject*)m_pyTraceback;
+    while (lvl > 0) {
+        tb = tb->tb_next;
+        --lvl;
+    }
+    return tb;
+}
+
+PyObject *Py::ExceptionInfo::getAttr(const char *attr) const
+{
+
+    Base::PyGILStateLocker lock;
+    Q_UNUSED(lock); // quiet compiler
+
+    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    PyObject *vlu = nullptr;
+    if (PyObject_HasAttrString(m_pyValue, attr))
+        vlu = PyObject_GetAttrString(m_pyValue, attr); // new ref
+    PyThreadState_Swap(state);
+    if (!vlu)
+        return nullptr;
+    return vlu;
+}
+
+
+// -----------------------------------------------------------------------------
 
 
 BreakpointLine::BreakpointLine(int lineNr, const BreakpointFile *parent):
@@ -173,9 +507,6 @@ const BreakpointFile *BreakpointLine::parent() const
 {
     return m_parent;
 }
-
-
-
 
 // -------------------------------------------------------------------------------------
 
@@ -531,10 +862,12 @@ namespace Gui {
 class PythonDebuggerPy : public Py::PythonExtension<PythonDebuggerPy> 
 {
 public:
-    PythonDebuggerPy(PythonDebugger* d) : dbg(d)/*,depth(0)*/ { }
+    PythonDebuggerPy(PythonDebugger* d) :
+        dbg(d), runtimeException(nullptr)
+    { }
     ~PythonDebuggerPy() {}
     PythonDebugger* dbg;
-    //int depth;
+    Py::ExceptionInfo *runtimeException;
 };
 
 // -----------------------------------------------------
@@ -889,7 +1222,15 @@ void PythonDebugger::runFile(const QString& fn)
         Py_DECREF(dict);
 
         if (!result) {
-            PyErr_Print();
+            // script failed, syntax error, import error, etc
+            Py::ExceptionInfo exp;
+            if (exp.isValid())
+                Q_EMIT exceptionFatal(&exp);
+
+            // user code exit() makes PyErr_Print segfault
+            if (!PyErr_ExceptionMatches(PyExc_SystemExit))
+                PyErr_Print();
+
             d->state = RunningState::Stopped;
          } else
             Py_DECREF(result);
@@ -1019,6 +1360,16 @@ void PythonDebugger::stepContinue()
     _signalNextStep();
 }
 
+void PythonDebugger::sendClearException(const QString &fn, int line)
+{
+    Q_EMIT clearException(fn, line);
+}
+
+void PythonDebugger::sendClearAllExceptions()
+{
+    Q_EMIT clearAllExceptions();
+}
+
 void PythonDebugger::onFileOpened(const QString &fn)
 {
     QFileInfo fi(fn);
@@ -1130,7 +1481,7 @@ PythonDebugger *PythonDebugger::instance()
 // http://www.koders.com/cpp/fid191F7B13CF73133935A7A2E18B7BF43ACC6D1784.aspx?s=PyEval_SetTrace
 // http://stuff.mit.edu/afs/sipb/project/python/src/python2.2-2.2.2/Modules/_hotshot.c
 // static
-int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject * /*arg*/)
+int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg)
 {
     PythonDebuggerPy* self = static_cast<PythonDebuggerPy*>(obj);
     PythonDebugger* dbg = self->dbg;
@@ -1169,6 +1520,29 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
                 Q_EMIT dbg->functionExited(frame);
             } catch (...) {
                 PyErr_Clear();
+            }
+        }
+
+        // we need to check for exceptions and throw them here as
+        // PyTrace_EXCEPTION throws on all exceptions including them that are handled in user code
+        if (self->runtimeException &&
+            self->runtimeException->threadState() == PyThreadState_GET())
+        {
+            // if arg is set, no exception occured
+            if (arg) {
+                // error has been cleared
+                delete self->runtimeException;
+                self->runtimeException = nullptr;
+
+            } else if (self->runtimeException->isValid()) {
+                Q_EMIT dbg->exceptionOccured(self->runtimeException);
+
+                // halt debugger so we can view stack?
+                ParameterGrp::handle hPrefGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");;
+                if (hPrefGrp->GetBool("EnableHaltDebuggerOnExceptions", true)) {
+                    dbg->d->state = RunningState::HaltOnNext;
+                    return PythonDebugger::tracer_callback(obj, frame, PyTrace_LINE, arg);
+                }
             }
         }
         return 0;
@@ -1243,6 +1617,13 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             return 0;
         }
     case PyTrace_EXCEPTION:
+        if (dbg->frameRelatedToOpenedFiles(frame)) {
+            Py::ExceptionInfo *exc = new Py::ExceptionInfo(arg);
+            if (exc->isValid())
+                self->runtimeException = exc;
+            else
+                delete exc;
+        }
         return 0;
     case PyTrace_C_CALL:
         return 0;
@@ -1299,6 +1680,12 @@ bool PythonDebugger::evalCondition(const char *condition, PyFrameObject *frame)
 void PythonDebugger::finalizeFunction()
 {
     if (globalInstance != nullptr) {
+        // user code with exit() finalizes interpreter so we start over
+        if (!Py_IsInitialized()) {
+            PythonDebugger::instance()->sendClearAllExceptions();
+            Base::InterpreterSingleton::Instance().init(App::Application::GetARGC(),
+                                         App::Application::GetARGV());
+        }
         globalInstance->stop(); // release a pending halt on app close
     }
 }

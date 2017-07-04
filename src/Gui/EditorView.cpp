@@ -57,6 +57,7 @@
 
 #include "EditorView.h"
 #include "Application.h"
+#include "MainWindow.h"
 #include "BitmapFactory.h"
 #include "FileDialog.h"
 #include "Macro.h"
@@ -826,6 +827,43 @@ bool PythonEditorView::onHasMsg(const char* pMsg) const
     if (strcmp(pMsg,"StartDebug")==0)  return true;
     if (strcmp(pMsg,"ToggleBreakpoint")==0)  return true;
     return EditorView::onHasMsg(pMsg);
+}
+
+/* static*/
+PythonEditorView *PythonEditorView::setAsActive()
+{
+    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
+                                        getMainWindow()->activeWindow());
+
+    if (!editView) {
+        // not yet opened editor
+        QList<QWidget*> mdis = getMainWindow()->windows();
+        for (QList<QWidget*>::iterator it = mdis.begin(); it != mdis.end(); ++it) {
+            editView = qobject_cast<PythonEditorView*>(*it);
+            if (editView) break;
+        }
+
+        if (!editView) {
+            WindowParameter param("PythonDebuggerView");
+            std::string path = param.getWindowParameter()->GetASCII("MacroPath",
+                App::Application::getUserMacroDir().c_str());
+            QString fileName = QFileDialog::getOpenFileName(getMainWindow(), tr("Open python file"),
+                                                            QLatin1String(path.c_str()),
+                                                            tr("Python (*.py *.FCMacro)"));
+            if (!fileName.isEmpty()) {
+                PythonEditor* editor = new PythonEditor();
+                editView = new PythonEditorView(editor, getMainWindow());
+                editView->open(fileName);
+                editView->resize(400, 300);
+                getMainWindow()->addWindow(editView);
+            } else {
+                return nullptr;
+            }
+        }
+    }
+
+    getMainWindow()->setActiveWindow(editView);
+    return editView;
 }
 
 

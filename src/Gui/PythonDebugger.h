@@ -30,6 +30,44 @@
 #include <string>
 #include <vector>
 
+//class PyTracebackObject;
+
+namespace Py {
+class ExceptionInfo
+{
+    PyObject *m_pyType,
+             *m_pyValue,
+             *m_pyTraceback;
+    PyThreadState *m_pyState;
+    int m_tracebackLevel;
+public:
+    ExceptionInfo();
+    ExceptionInfo(PyObject *tracebackArg); // only for traceback function
+    ExceptionInfo(const ExceptionInfo &other);
+    ~ExceptionInfo();
+    int lineNr() const;
+    int offset() const;
+    QString message() const;
+    QString fileName() const;
+    QString functionName() const;
+    QString text() const;
+    QString typeString() const;
+    const PyObject *type() const;
+    const PyThreadState *threadState() const;
+    bool isValid() const;
+    int tracebackSize() const;
+    void setTracebackLevel(int level);
+    bool isWarning() const;
+    bool isSyntaxError() const;
+    bool isIndentationError() const;
+    const char *iconName() const;
+
+private:
+    PyTracebackObject *getTracebackFrame() const;
+    PyObject *getAttr(const char *attr) const;
+};
+}
+
 namespace Gui {
 
 class BreakpointFile;
@@ -319,6 +357,8 @@ public Q_SLOTS:
     void stepInto();
     void stepOut();
     void stepContinue();
+    void sendClearException(const QString &fn, int line);
+    void sendClearAllExceptions();
 
 private Q_SLOTS:
     void onFileOpened(const QString &fn);
@@ -337,6 +377,10 @@ Q_SIGNALS:
     void breakpointAdded(const BreakpointLine *bpl);
     void breakpointChanged(const BreakpointLine *bpl);
     void breakpointRemoved(int idx, const BreakpointLine *bpl);
+    void exceptionOccured(const Py::ExceptionInfo *exeption);
+    void exceptionFatal(const Py::ExceptionInfo *exception);
+    void clearException(const QString &fn, int line);
+    void clearAllExceptions();
 
 private:
     static int tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg);

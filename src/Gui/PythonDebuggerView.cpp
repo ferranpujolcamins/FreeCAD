@@ -31,8 +31,6 @@
 # include <QTextStream>
 #endif
 
-
-#include <Python.h>
 #include "PythonDebuggerView.h"
 #include "PythonDebugger.h"
 #include "BitmapFactory.h"
@@ -82,6 +80,7 @@ public:
     QTreeView   *m_varView;
     QTableView  *m_stackView;
     QTableView  *m_breakpointView;
+    QTableView  *m_issuesView;
     QTabWidget  *m_stackTabWgt;
     QTabWidget  *m_varTabWgt;
     QSplitter   *m_splitter;
@@ -162,6 +161,22 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
     connect(d->m_breakpointView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex&)),
             this, SLOT(breakpointViewCurrentChanged(const QModelIndex&, const QModelIndex&)));
 
+    // issues view
+    d->m_issuesView = new QTableView(this);
+    IssuesModel *issueModel = new IssuesModel(this);
+    d->m_issuesView->setModel(issueModel);
+    d->m_issuesView->verticalHeader()->hide();
+    d->m_issuesView->setShowGrid(false);
+    d->m_issuesView->setTextElideMode(Qt::ElideLeft);
+    d->m_issuesView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    d->m_issuesView->setContextMenuPolicy(Qt::CustomContextMenu);
+    d->m_issuesView->setStyleSheet(QLatin1String("QToolTip {font-size:12pt; font-family:'DejaVu Sans Mono', Courier; }"));
+    d->m_stackTabWgt->addTab(d->m_issuesView, tr("Issues"));
+
+    connect(d->m_issuesView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex&)),
+            this, SLOT(issuesViewCurrentChanged(const QModelIndex&, const QModelIndex&)));
+    connect(d->m_issuesView, SIGNAL(customContextMenuRequested(const QPoint&)),
+            this, SLOT(customIssuesContextMenu(const QPoint&)));
 
     setLayout(vLayout);
 
@@ -182,6 +197,10 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
     // restore header data such column width etc
     state = hGrp->GetASCII("VarViewHeaderState", "").c_str();
     d->m_varView->header()->restoreState(QByteArray::fromBase64(state));
+
+    // restore header data such column width etc
+    state = hGrp->GetASCII("IssuesHeaderState", "").c_str();
+    d->m_issuesView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
 
     // splitter setting
     state = hGrp->GetASCII("SplitterState", "").c_str();
@@ -207,6 +226,10 @@ PythonDebuggerView::~PythonDebuggerView()
     state = d->m_varView->header()->saveState();
     hGrp->SetASCII("VarViewHeaderState", state.toBase64().data());
 
+    // save column width for stackView
+    state = d->m_issuesView->horizontalHeader()->saveState();
+    hGrp->SetASCII("IssuesHeaderState", state.toBase64().data());
+
     // splitter setting
     state = d->m_splitter->saveState();
     hGrp->SetASCII("SplitterState", state.toBase64().data());
@@ -220,43 +243,14 @@ void PythonDebuggerView::changeEvent(QEvent *e)
     if (e->type() == QEvent::LanguageChange) {
         d->m_stackTabWgt->setTabText(0, tr("Stack"));
         d->m_stackTabWgt->setTabText(1, tr("Breakpoints"));
+        d->m_stackTabWgt->setTabText(2, tr("Issues"));
         d->m_varTabWgt->setTabText(0, tr("Variables"));
     }
 }
 
 void PythonDebuggerView::startDebug()
 {
-    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
-                                        getMainWindow()->activeWindow());
-
-    if (!editView) {
-        // not yet opened editor
-        QList<QWidget*> mdis = getMainWindow()->windows();
-        for (QList<QWidget*>::iterator it = mdis.begin(); it != mdis.end(); ++it) {
-            editView = qobject_cast<PythonEditorView*>(*it);
-            if (editView) break;
-        }
-
-        if (!editView) {
-            WindowParameter param("PythonDebuggerView");
-            std::string path = param.getWindowParameter()->GetASCII("MacroPath",
-                App::Application::getUserMacroDir().c_str());
-            QString fileName = QFileDialog::getOpenFileName(this, tr("Open python file"),
-                                                            QLatin1String(path.c_str()),
-                                                            tr("Python (*.py *.FCMacro)"));
-            if (!fileName.isEmpty()) {
-                PythonEditor* editor = new PythonEditor();
-                editView = new PythonEditorView(editor, getMainWindow());
-                editView->open(fileName);
-                editView->resize(400, 300);
-                getMainWindow()->addWindow(editView);
-            } else {
-                return;
-            }
-        }
-    }
-
-    getMainWindow()->setActiveWindow(editView);
+    PythonEditorView *editView = PythonEditorView::setAsActive();
     editView->startDebug();
 }
 
@@ -292,7 +286,6 @@ void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
 {
     Q_UNUSED(previous);
 
-    //QItemSelectionModel *sel = d->m_stackView->selectionModel();
     QAbstractItemModel *viewModel = d->m_stackView->model();
     QModelIndex idxLeft = viewModel->index(current.row(), 0, QModelIndex());
     QModelIndex idxRight = viewModel->index(current.row(),
@@ -314,28 +307,24 @@ void PythonDebuggerView::breakpointViewCurrentChanged(const QModelIndex &current
                                                       const QModelIndex &previous)
 {
     Q_UNUSED(previous);
-    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
-                                        getMainWindow()->activeWindow());
-
-    if (!editView)
-        return;
-
     BreakpointLine *bpl = PythonDebugger::instance()->
                                         getBreakpointLineFromIdx(current.row());
     if (!bpl)
         return;
 
-    // switch file in editor so we can view current breakpoint
-    //getMainWindow()->setActiveWindow(editView);
-    if (editView->fileName() != bpl->parent()->fileName())
-        editView->open(bpl->parent()->fileName());
+    setFileAndScrollToLine(bpl->parent()->fileName(), bpl->lineNr());
+}
 
-    // scroll to view
-    QTextCursor cursor(editView->editor()->document()->
-                       findBlockByLineNumber(bpl->lineNr() - 1)); // ln-1 because line number starts from 0
-    editView->editor()->setTextCursor(cursor);
-
-
+void PythonDebuggerView::issuesViewCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    Q_UNUSED(previous);
+    QAbstractItemModel *model = d->m_issuesView->model();
+    QModelIndex idxLine = model->index(current.row(), 0);
+    QModelIndex idxFile = model->index(current.row(), 1);
+    QVariant vLine = model->data(idxLine);
+    QVariant vFile = model->data(idxFile);
+    if (vLine.isValid() && vFile.isValid())
+        setFileAndScrollToLine(vFile.toString(), vLine.toInt());
 }
 
 void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
@@ -384,6 +373,75 @@ void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
     } else if (res == &clear) {
         PythonDebugger::instance()->clearAllBreakPoints();
     }
+}
+
+void PythonDebuggerView::customIssuesContextMenu(const QPoint &pos)
+{
+    QAbstractItemModel *model = d->m_issuesView->model();
+    if (model->rowCount() < 1)
+        return;
+
+    int line = 0;
+    QMenu menu;
+    QAction *clearCurrent = nullptr;
+    QModelIndex currentItem = d->m_issuesView->indexAt(pos);
+    QString fn;
+    if (currentItem.isValid()) {
+        fn = model->data(currentItem.sibling(currentItem.row(), 1),
+                         Qt::DisplayRole).toString();
+        line = model->data(currentItem.sibling(currentItem.row(), 0),
+                         Qt::DisplayRole).toInt();
+        QVariant vIcon = model->data(currentItem.sibling(currentItem.row(), 0),
+                                     Qt::DecorationRole);
+
+        if (vIcon.isValid())
+            clearCurrent = new QAction(vIcon.value<QIcon>(), tr("Clear issue"), &menu);
+        else
+            clearCurrent = new QAction(tr("Clear issue"), &menu);
+        menu.addAction(clearCurrent);
+    }
+
+    QAction clearAll(BitmapFactory().iconFromTheme("process-stop"),
+                          tr("Clear all Issues"), &menu);
+    menu.addAction(&clearAll);
+
+    // run context menu
+    QAction *res = menu.exec(d->m_issuesView->mapToGlobal(pos));
+    // rely on signals between our model and PythonDebugger
+    if (res == clearCurrent)
+        PythonDebugger::instance()->sendClearException(fn, line);
+    else
+        PythonDebugger::instance()->sendClearAllExceptions();
+
+
+//    // locate editor
+//    QStringList types = { QLatin1String("py"), QLatin1String("fcmacro") };
+//    QList<const EditorViewWrapper*> editors = EditorViewSingleton::instance()->
+//                                                        openedByType(types);
+//
+//    if (res == clearCurrent || res == &clearAll) {
+//        //clear in issuesView
+//        if (res == clearCurrent)
+//            model->removeRows(currentItem.row(), 1);
+//        else
+//            model->removeRows(0, model->rowCount());
+
+//        // clear in editors
+//        for (const EditorViewWrapper *editW : editors) {
+//            if (editW->fileName() == fn) {
+//                PythonEditor *editor = qobject_cast<PythonEditor*>(editW->editor());
+//                if (editor) {
+//                    if (res == clearCurrent)
+//                        editor->clearException(line);
+//                    else
+//                        editor->clearAllExceptions();
+//                }
+//            }
+//        }
+//    }
+
+    if (clearCurrent)
+        delete clearCurrent;
 }
 
 void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
@@ -441,6 +499,26 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
     connect(debugger, SIGNAL(started()), this, SLOT(enableButtons()));
     connect(debugger, SIGNAL(stopped()), this, SLOT(enableButtons()));
 
+}
+
+/* static */
+void PythonDebuggerView::setFileAndScrollToLine(const QString &fn, int line)
+{
+    // switch file in editor so we can view line
+    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
+                                        getMainWindow()->activeWindow());
+    if (!editView)
+        return;
+
+    //getMainWindow()->setActiveWindow(editView);
+    if (editView->fileName() != fn)
+        editView->open(fn);
+
+
+    // scroll to view
+    QTextCursor cursor(editView->editor()->document()->
+                       findBlockByLineNumber(line - 1)); // ln-1 because line number starts from 0
+    editView->editor()->setTextCursor(cursor);
 }
 
 // ---------------------------------------------------------------------------
@@ -560,7 +638,6 @@ void StackFramesModel::clear()
 
 void StackFramesModel::updateFrames(PyFrameObject *frame)
 {
-
     Base::PyGILStateLocker locker;
     if (m_currentFrame != frame) {
         clear();
@@ -641,10 +718,7 @@ QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
     case 0:
         return QString::number(bpl->uniqueNr());
     case 1: {// file
-        BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFileFromIdx(index.row());
-        if (bp)
-            return bp->fileName();
-        return QVariant();
+        return bpl->parent()->fileName();
     }
     case 2: {// line
         return QString::number(bpl->lineNr());
@@ -700,6 +774,175 @@ void PythonBreakpointModel::removed(int idx, const BreakpointLine *bpl)
 
 // --------------------------------------------------------------------
 
+
+IssuesModel::IssuesModel(QObject *parent) :
+    QAbstractTableModel(parent)
+{
+    connect(PythonDebugger::instance(), SIGNAL(exceptionOccured(const Py::ExceptionInfo*)),
+            this, SLOT(exceptionOccured(const Py::ExceptionInfo*)));
+
+    connect(PythonDebugger::instance(), SIGNAL(exceptionFatal(const Py::ExceptionInfo*)),
+            this, SLOT(exception(const Py::ExceptionInfo*)));
+
+    connect(PythonDebugger::instance(), SIGNAL(started()), this, SLOT(clear()));
+    connect(PythonDebugger::instance(), SIGNAL(clearAllExceptions()), this, SLOT(clear()));
+    connect(PythonDebugger::instance(), SIGNAL(clearException(QString,int)),
+            this, SLOT(clearException(const QString &fn, int line)));
+}
+
+IssuesModel::~IssuesModel()
+{
+    qDeleteAll(m_exceptions);
+}
+
+int IssuesModel::rowCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return m_exceptions.size();
+}
+
+int IssuesModel::columnCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return colCount;
+}
+
+QVariant IssuesModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || (role != Qt::DisplayRole &&
+                             role != Qt::ToolTipRole &&
+                             role != Qt::DecorationRole))
+    {
+        return QVariant();
+    }
+
+    if (index.column() > colCount)
+        return QVariant();
+
+    Py::ExceptionInfo *exc = m_exceptions.at(index.row());
+    if (!exc || !exc->isValid())
+        return QVariant();
+
+    if (role == Qt::DecorationRole) {
+        if (index.column() != 0)
+            return QVariant();
+        return QVariant(BitmapFactory().iconFromTheme(exc->iconName()));
+
+    } else if (role == Qt::ToolTipRole) {
+
+        QString srcText = exc->text();
+        int offset = exc->offset();
+        if (offset > 0) {
+            if (!srcText.endsWith(QLatin1String("\n")))
+                srcText += QLatin1String("\n");
+            for (int i = 0; i < offset -1; ++i) {
+                srcText += QLatin1Char('-');
+            }
+            srcText += QLatin1Char('^');
+        }
+
+        return  QString(tr("%1 on line %2 in file %3\nreason: '%4'\n\n%5"))
+                                .arg(exc->typeString())
+                                .arg(QString::number(exc->lineNr()))
+                                .arg(exc->fileName())
+                                .arg(exc->message())
+                                .arg(srcText);
+    }
+
+    switch(index.column()) {
+    case 0:
+        return QString::number(exc->lineNr());
+    case 1: // file
+        return exc->fileName();
+    case 2: // msg
+        return exc->message();
+    case 3: // function
+        return exc->functionName();
+    default:
+        return QVariant();
+    }
+
+    return QVariant();
+}
+
+QVariant IssuesModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
+        return QVariant();
+
+    switch (section) {
+    case 0:
+        return QString(tr("Line"));
+    case 1:
+        return QString(tr("File"));
+    case 2:
+        return QString(tr("Msg"));
+    case 3:
+        return QString(tr("Function"));
+    default:
+        return QVariant();
+    }
+}
+
+bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
+{
+    Q_UNUSED(parent);
+    beginRemoveRows(QModelIndex(), row, count -1);
+    for (int i = row; i < row + count; ++i) {
+        m_exceptions.removeAt(i);
+    }
+    endRemoveRows();
+    return true;
+}
+
+void IssuesModel::exceptionOccured(const Py::ExceptionInfo *exc)
+{
+    // on runtime, we dont want to catch rentime exceptions before they are fatal
+    // but we do want to catch warnings
+    //if (exc->isWarning())
+        exception(exc);
+
+}
+
+void IssuesModel::exception(const Py::ExceptionInfo *exception)
+{
+    // already set?
+    for (const Py::ExceptionInfo *exc : m_exceptions) {
+        if (exc->fileName() == exception->fileName() &&
+            exc->lineNr() == exception->lineNr())
+            return;
+    }
+
+    // copy exception and store it
+    Py::ExceptionInfo *exc = new Py::ExceptionInfo(*exception);
+    beginInsertRows(QModelIndex(), m_exceptions.size(), m_exceptions.size());
+    m_exceptions.append(exc);
+    endInsertRows();
+}
+
+void IssuesModel::clear()
+{
+    beginRemoveRows(QModelIndex(), 0, m_exceptions.size() -1);
+    m_exceptions.clear();
+    endRemoveRows();
+}
+
+void IssuesModel::clearException(const QString &fn, int line)
+{
+    for (int i = 0; i < m_exceptions.size(); ++i) {
+        if (m_exceptions[i]->fileName() == fn &&
+            m_exceptions[i]->lineNr() == line)
+        {
+            beginRemoveRows(QModelIndex(), i, 1);
+            m_exceptions.removeAt(i);
+            endRemoveRows();
+            break;
+        }
+    }
+}
+
+
+// --------------------------------------------------------------------
 
 
 VariableTreeItem::VariableTreeItem(const QList<QVariant> &data,
@@ -899,7 +1142,7 @@ VariableTreeModel::VariableTreeModel(QObject *parent)
 
 VariableTreeModel::~VariableTreeModel()
 {
-    delete m_rootItem; // root item hadles delete of children
+    delete m_rootItem; // root item handles delete of children
 }
 
 int VariableTreeModel::columnCount(const QModelIndex &parent) const
