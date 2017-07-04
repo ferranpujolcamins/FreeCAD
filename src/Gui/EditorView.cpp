@@ -1165,12 +1165,14 @@ EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
             }
         }
 
-        // find the registered editor for this mimetype
-        for (EditorViewSingletonP::EditorType *et : d->editorTypes) {
-            if (et->mimetypes.contains(mime, Qt::CaseInsensitive))
-                ew = new EditorViewWrapper(et->factory(), fn);
-                icon = et->iconName;
-                break;
+        if (!ew) {
+            // find the registered editor for this mimetype
+            for (EditorViewSingletonP::EditorType *et : d->editorTypes) {
+                if (et->mimetypes.contains(mime, Qt::CaseInsensitive))
+                    ew = new EditorViewWrapper(et->factory(), fn);
+                    icon = et->iconName;
+                    break;
+            }
         }
 
         // default to TextEditor
@@ -1268,7 +1270,6 @@ void PythonEditorViewTopBar::rebuildOpenedFiles()
     for (const EditorViewWrapper *wrapper : EditorViewSingleton::instance()->
                                     openedByType())
     {
-        QFileInfo fi(wrapper->fileName());
         m_openFiles->addItem(wrapper->editor()->windowIcon(),
                              createViewName(wrapper->fileName(),
                                             wrapper->editor()->document()->isModified()),
