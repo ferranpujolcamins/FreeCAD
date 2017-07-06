@@ -31,7 +31,6 @@
 # include <QTextCursor>
 #endif
 
-#include <Python.h>
 #include "PythonCode.h"
 #include "PythonEditor.h"
 #include "PythonDebugger.h"
@@ -46,18 +45,13 @@
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
 
-
-class QModelIndex;
-
 namespace Gui {
 struct PythonCodeP
 {
     PythonCodeP()
-    {
-    }
+    {  }
     ~PythonCodeP()
-    {
-    }
+    {  }
 };
 } // namespace Gui
 
@@ -647,6 +641,10 @@ MatchingCharInfo::MatchingCharInfo(char chr, int pos):
 {
 }
 
+MatchingCharInfo::~MatchingCharInfo()
+{
+}
+
 //static
 char MatchingCharInfo::matchChar(char match)
 {
@@ -829,5 +827,842 @@ void PythonMatchingChars::cursorPositionChange()
     }
 }
 
+
+// -------------------------------------------------------------------------
+
+namespace Gui {
+struct JediCommonP
+{
+    // helper functions that GIL locks and swaps interpreter
+    static QString callStr(Py::Callable self, const char *method,
+                           Py::Tuple *args = nullptr, Py::Dict *kw = nullptr);
+
+    static int callInt(Py::Callable self, const char *method,
+                       Py::Tuple *args = nullptr, Py::Dict *kw = nullptr);
+
+    static bool callBool(Py::Callable self, const char *method,
+                        Py::Tuple *args = nullptr, Py::Dict *kw = nullptr);
+
+    static JediDefinition_ptr_t callDefinition(Py::Callable self, const char *method,
+                                               Py::Tuple *args = nullptr,
+                                               Py::Dict *kw = nullptr);
+
+    static JediDefinition_list_t callDefinitionsList(Py::Callable self, const char *method,
+                                                         Py::Tuple *args = nullptr,
+                                                         Py::Dict *kw = nullptr);
+
+    static JediCompletion_list_t callCompletionsList(Py::Callable self, const char *method,
+                                                     Py::Tuple *args = nullptr,
+                                                     Py::Dict *kw = nullptr);
+
+    static JediCallSignature_list_t callCallSignaturesList(Py::Callable self, const char *method,
+                                                           Py::Tuple *args = nullptr,
+                                                           Py::Dict *kw = nullptr);
+
+    // state should be swapped and GIL lock held before entering these
+    static JediDefinition_list_t createDefinitionsList(const Py::List lst);
+    static JediCompletion_list_t createCompletionsList(const Py::List lst);
+    static JediCallSignature_list_t createCallSignaturesList(const Py::List lst);
+};
+}
+
+QString JediCommonP::callStr(Py::Callable self, const char *method, Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return QString();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isString())
+            return QString::fromStdString(Py::String(res.as_string()).as_std_string());
+
+    } catch(Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return QString();
+}
+
+int JediCommonP::callInt(Py::Callable self, const char *method, Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return -1;
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn me;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isNumeric())
+            return static_cast<int>(Py::Long(res).as_long());
+
+    } catch(Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return -1;
+}
+
+bool JediCommonP::callBool(Py::Callable self, const char *method, Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return false;
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn me;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isBoolean())
+            return Py::Boolean(res);
+
+    } catch(Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return false;
+}
+
+JediDefinition_ptr_t JediCommonP::callDefinition(Py::Callable self, const char *method,
+                                                 Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return nullptr;
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn me;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isCallable())
+            return JediDefinition_ptr_t(new JediDefinitionObj(res));
+
+    } catch(Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return nullptr;
+}
+
+JediDefinition_list_t JediCommonP::callDefinitionsList(Py::Callable self, const char *method,
+                                                           Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return JediDefinition_list_t();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isList())
+            return JediCommonP::createDefinitionsList(res);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return JediDefinition_list_t();
+}
+
+JediCompletion_list_t JediCommonP::callCompletionsList(Py::Callable self, const char *method,
+                                                           Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return JediCompletion_list_t();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isList())
+            return JediCommonP::createCompletionsList(res);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return JediCompletion_list_t();
+}
+
+JediCallSignature_list_t JediCommonP::callCallSignaturesList(Py::Callable self, const char *method,
+                                                                 Py::Tuple *args, Py::Dict *kw)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return  JediCallSignature_list_t();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        if (args == nullptr) {
+            Py::Tuple t;
+            args = &t;
+        }
+        Py::Object res;
+        if (kw == nullptr)
+            res = self.callMemberFunction(method, *args);
+        else
+            res = self.callMemberFunction(method, *args, *kw);
+
+        if (res.isList())
+            return JediCommonP::createCallSignaturesList(res);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return  JediCallSignature_list_t();
+}
+
+
+// state should be swapped and GIL lock held before entering
+JediDefinition_list_t JediCommonP::createDefinitionsList(const Py::List lst)
+{
+    JediDefinition_list_t ret;
+
+    for (const Py::Object &o : lst) {
+        JediDefinitionObj *defObj = new JediDefinitionObj(o);
+        if (defObj->isValid())
+            ret.append(JediDefinition_ptr_t(defObj));
+        else
+            delete defObj;
+    }
+
+    return ret;
+}
+
+
+// state should be swapped and GIL lock held before entering
+JediCompletion_list_t JediCommonP::createCompletionsList(const Py::List lst)
+{
+    JediCompletion_list_t ret;
+
+    for (const Py::Object &o : lst) {
+        JediCompletionObj *defObj = new JediCompletionObj(o);
+        if (defObj->isValid())
+            ret.append(JediCompletion_ptr_t(defObj));
+        else
+            delete defObj;
+    }
+
+    return ret;
+}
+
+
+// state should be swapped and GIL lock held before entering
+JediCallSignature_list_t JediCommonP::createCallSignaturesList(const Py::List lst)
+{
+    JediCallSignature_list_t ret;
+
+    for (const Py::Object &o : lst) {
+        JediCallSignatureObj *defObj = new JediCallSignatureObj(o);
+        if (defObj->isValid())
+            ret.append(JediCallSignature_ptr_t(defObj));
+        else
+            delete defObj;
+    }
+
+    return ret;
+}
+
+
+// -------------------------------------------------------------------------
+
+JediBaseDefinitionObj::JediBaseDefinitionObj(Py::Callable obj) :
+    m_obj(obj), m_type(JediBaseDefinitionObj::Base)
+{
+}
+
+JediBaseDefinitionObj::~JediBaseDefinitionObj()
+{
+}
+
+QString JediBaseDefinitionObj::name() const
+{
+    return JediCommonP::callStr(this->m_obj, "name");
+}
+
+QString JediBaseDefinitionObj::type() const
+{
+    return JediCommonP::callStr(this->m_obj, "type");
+}
+
+QString JediBaseDefinitionObj::module_name() const
+{
+    return JediCommonP::callStr(this->m_obj, "module_name");
+}
+
+bool JediBaseDefinitionObj::in_builtin_module() const
+{
+    return JediCommonP::callBool(this->m_obj, "in_builtin_module");
+}
+
+int JediBaseDefinitionObj::line() const
+{
+    return JediCommonP::callInt(this->m_obj, "line");
+}
+
+int JediBaseDefinitionObj::column() const
+{
+    return JediCommonP::callInt(this->m_obj, "column");
+}
+
+QString JediBaseDefinitionObj::docstring(bool raw, bool fast) const
+{
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn me;
+    Py::Dict kw;
+    Py::Tuple args;
+    kw["raw"] = Py::Long(0);
+    args[0] = Py::Boolean(raw);
+
+    kw["fast"] = Py::Long(1);
+    args[1] = Py::Boolean(fast);
+    return JediCommonP::callStr(this->m_obj, "docstring", &args, &kw);
+}
+
+QString JediBaseDefinitionObj::description() const
+{
+    return JediCommonP::callStr(this->m_obj, "description");
+}
+
+QString JediBaseDefinitionObj::full_name() const
+{
+    return JediCommonP::callStr(this->m_obj, "full_name");
+}
+
+JediDefinition_list_t JediBaseDefinitionObj::goto_assignments() const
+{
+    return JediCommonP::callDefinitionsList(this->m_obj, "goto_assignments");
+}
+
+JediDefinition_list_t JediBaseDefinitionObj::goto_definitions() const
+{
+    return JediCommonP::callDefinitionsList(this->m_obj, "goto_definitions");
+}
+
+JediDefinition_list_t JediBaseDefinitionObj::params() const
+{
+    return JediCommonP::callDefinitionsList(this->m_obj, "params");
+
+}
+
+int JediBaseDefinitionObj::get_line_code(int before, int after) const
+{
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn me;
+
+    Py::Dict kw;
+    Py::Tuple args(2);
+    kw["before"] = Py::Long(0);
+    args[0] = Py::Long(before);
+
+    kw["after"] = Py::Long(1);
+    args[1] = Py::Long(after);
+
+    return JediCommonP::callInt(this->m_obj, "get_line_code", &args, &kw);
+}
+
+JediDefinitionObj *JediBaseDefinitionObj::toDefinition(bool &ok)
+{
+    JediDefinitionObj *def = dynamic_cast<JediDefinitionObj*>(this);
+    ok = def != nullptr;
+    return def;
+}
+
+JediCompletionObj *JediBaseDefinitionObj::toCompletion(bool &ok)
+{
+    JediCompletionObj *def = dynamic_cast<JediCompletionObj*>(this);
+    ok = def != nullptr;
+    return def;
+}
+
+JediCallSignatureObj *JediBaseDefinitionObj::toCallSignature(bool &ok)
+{
+    JediCallSignatureObj *def = dynamic_cast<JediCallSignatureObj*>(this);
+    ok = def != nullptr;
+    return def;
+}
+
+
+// ------------------------------------------------------------------------
+
+JediCompletionObj::JediCompletionObj(Py::Callable obj) :
+    JediBaseDefinitionObj(obj)
+{
+    m_type = JediBaseDefinitionObj::Completion;
+}
+
+JediCompletionObj::~JediCompletionObj()
+{
+}
+
+QString JediCompletionObj::complete() const
+{
+    return JediCommonP::callStr(this->m_obj, "complete");
+}
+
+QString JediCompletionObj::name_with_symbols() const
+{
+    return JediCommonP::callStr(this->m_obj, "mane_with_symbols");
+}
+
+
+// ------------------------------------------------------------------------
+
+JediDefinitionObj::JediDefinitionObj(Py::Callable obj) :
+    JediBaseDefinitionObj(obj)
+{
+    m_type = JediBaseDefinitionObj::Definition;
+}
+
+JediDefinitionObj::~JediDefinitionObj()
+{
+}
+
+JediDefinition_list_t JediDefinitionObj::defined_names() const
+{
+    return JediCommonP::callDefinitionsList(this->m_obj, "defined_names");
+}
+
+bool JediDefinitionObj::is_definition() const
+{
+    return JediCommonP::callBool(this->m_obj, "is_definition");
+}
+
+// -----------------------------------------------------------------------
+
+JediCallSignatureObj::JediCallSignatureObj(Py::Callable obj) :
+    JediBaseDefinitionObj(obj)
+{
+    m_type = JediBaseDefinitionObj::CallSignature;
+}
+
+JediCallSignatureObj::~JediCallSignatureObj()
+{
+}
+
+JediDefinition_ptr_t JediCallSignatureObj::index() const
+{
+    return JediCommonP::callDefinition(m_obj, "index");
+}
+
+int JediCallSignatureObj::bracket_start() const
+{
+    return JediCommonP::callInt(m_obj, "brcket_start");
+}
+
+
+
+// -------------------------------------------------------------------------
+
+JediScriptObj::JediScriptObj(const QString source, int line, int column,
+                             const QString path, const QString encoding)
+{
+    if (!JediInterpreter::instance()->isValid())
+        return;
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        Py::Dict kw;
+        Py::Tuple args(5);
+
+        kw["source"] = Py::Long(0);
+        args[0] = Py::String(source.toStdString());
+
+        kw["line"] = Py::Long(1);
+        args[1] = Py::Long(line);
+
+        kw["column"] = Py::Long(2);
+        args[2] = Py::Long(column);
+
+        kw["path"] = Py::Long(3);
+        args[3] = Py::String(path.toStdString());
+
+        kw["encoding"] = Py::Long(4);
+        args[4] = Py::String(encoding.toStdString());
+
+        m_obj = JediInterpreter::instance()->api().
+                                             callMemberFunction("String", args, kw);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+}
+
+JediScriptObj::~JediScriptObj()
+{
+}
+
+JediCompletion_list_t JediScriptObj::completions() const
+{
+    return JediCommonP::callCompletionsList(m_obj, "completions");
+}
+
+JediDefinition_list_t JediScriptObj::goto_definitions() const
+{
+    return JediCommonP::callDefinitionsList(m_obj, "goto_definitions");
+}
+
+JediDefinition_list_t JediScriptObj::goto_assignments(bool follow_imports) const
+{
+    if (!isValid())
+        return JediDefinition_list_t();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        Py::Tuple args(1);
+        args[0] = Py::Boolean(follow_imports);
+        return JediCommonP::callDefinitionsList(m_obj, "goto_assignments");
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return JediDefinition_list_t();
+}
+
+JediDefinition_list_t JediScriptObj::usages(QStringList additional_module_paths) const
+{
+    if (!isValid())
+        return JediDefinition_list_t();
+
+    Base::PyGILStateLocker lock;
+    JediInterpreter::SwapIn jedi;
+
+    try {
+        Py::Tuple args(additional_module_paths.size());
+        for (int i = 0; i < additional_module_paths.size(); ++i)
+            args[i] = Py::String(additional_module_paths[i].toStdString());
+
+        return JediCommonP::callDefinitionsList(m_obj, "usages", &args);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return JediDefinition_list_t();
+}
+
+JediCallSignature_list_t JediScriptObj::call_signatures() const
+{
+    return JediCommonP::callCallSignaturesList(m_obj, "call_signatures");
+}
+
+bool JediScriptObj::isValid() const
+{
+    return JediInterpreter::instance()->isValid() &&
+           m_obj.ptr() != nullptr;
+}
+
+//--------------------------------------------------------------------------
+
+JediDebugProxy::JediDebugProxy()
+    : Py::ExtensionModule<JediDebugProxy>( ModuleName )
+{
+    add_varargs_method("callback", &JediDebugProxy::proxy, "callback(color, str)");
+    initialize( "Module for debug callback to C++" );
+}
+
+JediDebugProxy::~JediDebugProxy()
+{
+}
+
+Py::Object JediDebugProxy::proxy(const Py::Tuple &args)
+{
+    try {
+        Py::Tuple argsTuple(args);
+        if (argsTuple.length() >= 2) {
+            std::string color = Py::String(argsTuple[0]).as_std_string();
+            std::string str = Py::String(argsTuple[1]).as_std_string();
+            // need to lock here if our recievers uses anything python in recieving slots
+            Base::PyGILStateLocker lock;
+            Q_EMIT JediInterpreter::instance()->onDebugInfo(QString::fromStdString(color),
+                                                            QString::fromStdString(str));
+        }
+
+    } catch (Py::Exception e) {
+        e.clear();
+    }
+    return Py::None();
+}
+
+//-------------------------------------------------------------------------
+
+JediInterpreter::JediInterpreter() :
+    m_jedi(nullptr), m_api(nullptr)
+{
+    PyThreadState *oldState = PyThreadState_Get();
+    m_threadState = Py_NewInterpreter();// new sub interpreter
+    PyThreadState_Swap(oldState); // need restore here
+
+    if (m_threadState) {
+        SwapIn jedi; // scopeguarded to handle uncaught exceptions
+
+        // init with default modules
+        //Base::Interpreter().runString(Base::ScriptFactory().ProduceScript("CMakeVariables"));
+        //Base::Interpreter().runString(Base::ScriptFactory().ProduceScript("FreeCADInit"));
+
+        try {
+            // init jedi
+            m_jedi = Py::Module("jedi");
+            m_api = m_jedi.getAttr("api");
+            QStringList preLoads = {
+                QLatin1String("FreeCAD"), QLatin1String("FreeCAD.App"),
+                QLatin1String("FreeCAD.Gui"), QLatin1String("Part")
+            };
+
+            preload_module(preLoads);
+
+            // TODO jedi.settings
+
+        } catch(Py::Exception e) {
+            PyErr_Print();
+            e.clear();
+        }
+    }
+}
+
+JediInterpreter::~JediInterpreter()
+{
+    if (m_threadState) {
+        SwapIn swap;
+        Py_EndInterpreter(m_threadState);
+    }
+}
+
+JediInterpreter *JediInterpreter::instance()
+{
+    static JediInterpreter *instance = new JediInterpreter;
+    return instance;
+}
+
+bool JediInterpreter::isValid() const
+{
+    return m_threadState != nullptr &&
+           Py_IsInitialized() &&
+           !m_jedi.isNull();
+}
+
+Py::Object JediInterpreter::runString(const QString &src)
+{
+    Base::PyGILStateLocker lock;
+    SwapIn myself;
+    return Base::Interpreter().runStringObject(src.toLatin1());
+}
+
+const Py::Module &JediInterpreter::jedi() const
+{
+    return m_jedi;
+}
+
+const Py::Module &JediInterpreter::api() const
+{
+    return m_api;
+}
+
+PyThreadState *JediInterpreter::interp() const
+{
+    return m_threadState;
+}
+
+JediDefinition_list_t JediInterpreter::names(const QString source, const QString path,
+                                             const QString encoding, bool all_scopes,
+                                             bool definitions, bool references) const
+{
+    if (!isValid())
+        return JediDefinition_list_t();
+
+    JediDefinition_list_t ret;
+    try {
+        Base::PyGILStateLocker lock;
+        SwapIn jedi;
+
+        Py::Dict kw;
+        Py::Tuple args(6);
+
+        kw["source"] = Py::Long(0);
+        args[0] = Py::String(source.toStdString());
+
+        kw["path"] = Py::Long(1);
+        args[1] = Py::String(path.toStdString());
+
+        kw["encoding"] = Py::Long(2);
+        args[2] = Py::String(encoding.toStdString());
+
+        kw["all_scopes"] = Py::Long(3);
+        args[3] = Py::Boolean(all_scopes);
+
+        kw["definitions"] = Py::Long(4);
+        args[4] = Py::Boolean(definitions);
+
+        kw["references"] = Py::Long(5);
+        args[5] = Py::Boolean(references);
+
+        return JediCommonP::callDefinitionsList(m_api, "names", &args, &kw);
+
+    } catch (Py::Exception e) {
+        PyErr_Print();
+        e.clear();
+    }
+
+    return ret;
+}
+
+// preload means that Jedi parsers them now instead of when detected in code
+// it doesnt import them to local env. if they are not C modules
+bool JediInterpreter::preload_module(const QStringList modules) const
+{
+    if (isValid()) {
+        SwapIn jedi;
+
+        try {
+            Py::Tuple arg(modules.size());
+            int i = 0;
+            for (const QString &module : modules) {
+                arg[i++] = Py::String(module.toStdString());
+            }
+            m_api.callMemberFunction("preload_module", arg);
+            return true;
+
+        } catch (Py::Exception e) {
+            PyErr_Print();
+            e.clear();
+            return false;
+        }
+    }
+
+    return false;
+}
+
+bool JediInterpreter::setDebugging(bool on = true, bool warnings,
+                                   bool notices, bool speed) const
+{
+    if (isValid()) {
+        SwapIn jedi;
+        try {
+            // create and load the module
+            static JediDebugProxy *proxy = nullptr;
+            if (!proxy) {
+                proxy = new JediDebugProxy;
+                new Py::Module(JediDebugProxy::ModuleName);
+            }
+
+            Py::Dict kw;
+            kw["debug_func"] = Py::Long(0);
+            kw["warnings"] = Py::Long(1);
+            kw["notices"] = Py::Long(2);
+            kw["speed"] = Py::Long(3);
+
+            Py::Tuple arg(kw.length());
+            if (on)
+                arg[0] = Py::Callable(proxy->module());
+            else
+                arg[0] = Py::None();
+            arg[1] = Py::Boolean(warnings);
+            arg[2] = Py::Boolean(notices);
+            arg[3] = Py::Boolean(speed);
+
+            m_jedi.callMemberFunction("set_debug_func", arg, kw);
+            return true;
+
+        } catch (Py::Exception e) {
+            e.clear();
+            return false;
+        }
+    }
+
+    return false;
+}
+
+
+// -----------------------------------------------------------------------
+
+
+JediInterpreter::SwapIn::SwapIn()
+{
+    Base::PyGILStateLocker lock;
+    m_oldState = PyThreadState_Get();
+    PyThreadState_Swap(JediInterpreter::instance()->interp());
+}
+
+JediInterpreter::SwapIn::~SwapIn()
+{
+    Base::PyGILStateLocker lock;
+    PyThreadState_Swap(m_oldState);
+}
 
 #include "moc_PythonCode.cpp"
