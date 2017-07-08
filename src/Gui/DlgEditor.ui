@@ -253,7 +253,7 @@
         <rect>
          <x>10</x>
          <y>10</y>
-         <width>470</width>
+         <width>201</width>
          <height>23</height>
         </rect>
        </property>
@@ -312,6 +312,31 @@
        </property>
        <property name="text">
         <string>Halt debugger at exception line</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <property name="prefEntry" stdset="0">
+        <cstring>EnableAutoIndent</cstring>
+       </property>
+       <property name="prefPath" stdset="0">
+        <cstring>Editor</cstring>
+       </property>
+      </widget>
+      <widget class="Gui::PrefCheckBox" name="EnableCodeAnalyzer">
+       <property name="geometry">
+        <rect>
+         <x>290</x>
+         <y>10</y>
+         <width>191</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::TabFocus</enum>
+       </property>
+       <property name="text">
+        <string>Enable Code Analyzer</string>
        </property>
        <property name="checked">
         <bool>true</bool>

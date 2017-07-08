@@ -29,6 +29,7 @@
 #include "SyntaxHighlighter.h"
 #include "PythonCode.h"
 #include <QDialog>
+#include <QAbstractListModel>
 
 
 QT_BEGIN_NAMESPACE
@@ -46,6 +47,7 @@ namespace Gui {
 class PythonSyntaxHighlighter;
 class PythonSyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
+class PythonEditorCodeAnalyzer;
 class PythonDebugger;
 class BreakpointLine;
 
@@ -60,14 +62,16 @@ class GuiExport PythonEditor : public TextEditor
 public:
     PythonEditor(QWidget *parent = 0);
     ~PythonEditor();
+    const QString &fileName() const;
+    PythonEditorCodeAnalyzer *codeAnalyzer() const;
+    void setCodeAnalyzer(PythonEditorCodeAnalyzer *analyzer);
 
 public Q_SLOTS:
     void toggleBreakpoint();
     void showDebugMarker(int line);
     void hideDebugMarker();
-    // python modules for code completion
-    //void importModule(const QString name);
-    //void importModuleFrom(const QString from, const QString name);
+    void clearAllExceptions();
+    void clearException(const QString &fn, int line);
 
 
     /** Inserts a '#' at the beginning of each selected line or the current line if 
@@ -103,9 +107,8 @@ protected:
     bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
     bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
 
-public Q_SLOTS:
-    void clearAllExceptions();
-    void clearException(const QString &fn, int line);
+Q_SIGNALS:
+    void fileNameChanged(const QString &fn);
 
 private Q_SLOTS:
     void markerAreaContextMenu(int line, QContextMenuEvent *event);
@@ -139,6 +142,67 @@ protected:
     QSpinBox  *m_ignoreFromHits;
     QLineEdit *m_condition;
     QCheckBox *m_enabled;
+};
+
+// ---------------------------------------------------------------
+
+/**
+ * @brief PythonEditorCodeAnalyzer is a bridge between editor and Jedi* classes
+ * handles code completions, suggestions, etc
+ */
+class PythonEditorCodeAnalyzerP;
+class PythonEditorCodeAnalyzer : public QObject, public WindowParameter
+{
+    Q_OBJECT
+public:
+    PythonEditorCodeAnalyzer(PythonEditor *editor);
+    virtual ~PythonEditorCodeAnalyzer();
+
+    JediScript_ptr_t currentScriptObj() const;
+
+    void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
+
+
+public Q_SLOTS:
+    // reparses the whole document
+    void parseDocument();
+
+    // called after user has pressed a key
+    void keyPressed(const QKeyEvent *e);
+
+private Q_SLOTS:
+    void popupChoiceSelected(const QString txt);
+    void popupChoiceHighlighted(const QModelIndex &idx);
+
+
+private:
+    void createCompleter();
+    PythonEditorCodeAnalyzerP *d;
+};
+
+// -------------------------------------------------------------
+
+/**
+ * @brief The PythonCompleterModel class
+ * The model (data) class for QCompleter pop up
+ */
+class PythonCompleterModelP;
+class PythonCompleterModel : public QAbstractListModel
+{
+    Q_OBJECT
+
+public:
+    PythonCompleterModel(QObject *parent);
+    virtual ~PythonCompleterModel();
+
+
+    void setCompletions(JediCompletion_list_t newList);
+    QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    void clear();
+
+private:
+    PythonCompleterModelP *d;
 };
 
 } // namespace Gui

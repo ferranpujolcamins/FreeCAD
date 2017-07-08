@@ -34,6 +34,7 @@
 #include "SyntaxHighlighter.h"
 #include <QScrollBar>
 #include <QStyleOptionSlider>
+#include <QCompleter>
 
 using namespace Gui;
 
@@ -201,7 +202,9 @@ struct TextEditorP
 {
     QMap<QString, QColor> colormap; // Color map
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
-    TextEditorP()
+    QCompleter *completer;
+    TextEditorP() :
+        completer(nullptr)
     {
         colormap[QLatin1String("Text")] = Qt::black;
         colormap[QLatin1String("Bookmark")] = Qt::cyan;
@@ -219,6 +222,8 @@ struct TextEditorP
         colormap[QLatin1String("Python error")] = Qt::red;
         colormap[QLatin1String("Current line highlight")] = QColor(224,224,224);
     }
+    ~TextEditorP()
+    { }
 };
 } // namespace Gui
 
@@ -329,6 +334,17 @@ void TextEditor::setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> se
      setExtraSelections(show);
 }
 
+void TextEditor::setCompleter(QCompleter *completer) const
+{
+    d->completer = completer;
+    d->completer->setWidget(const_cast<TextEditor*>(this));
+}
+
+QCompleter *TextEditor::completer() const
+{
+    return d->completer;
+}
+
 void TextEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
 {
     setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
@@ -419,6 +435,17 @@ void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
 
 void TextEditor::keyPressEvent (QKeyEvent * e)
 {
+    // prevent these events from entering when showing suggestions
+    if (d->completer && d->completer->popup()->isVisible()) {
+        int key = e->key();
+        if (key == Qt::Key_Enter || key == Qt::Key_Return || key == Qt::Key_Escape ||
+            key == Qt::Key_Tab   || key == Qt::Key_Backtab)
+        {
+            e->ignore();
+            return;
+        }
+    }
+
     if ( e->key() == Qt::Key_Tab ) {
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         int indent = hPrefGrp->GetInt( "IndentSize", 4 );

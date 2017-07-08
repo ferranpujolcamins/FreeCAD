@@ -787,7 +787,7 @@ IssuesModel::IssuesModel(QObject *parent) :
     connect(PythonDebugger::instance(), SIGNAL(started()), this, SLOT(clear()));
     connect(PythonDebugger::instance(), SIGNAL(clearAllExceptions()), this, SLOT(clear()));
     connect(PythonDebugger::instance(), SIGNAL(clearException(QString,int)),
-            this, SLOT(clearException(const QString &fn, int line)));
+            this, SLOT(clearException(QString,int)));
 }
 
 IssuesModel::~IssuesModel()

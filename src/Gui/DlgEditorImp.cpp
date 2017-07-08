@@ -169,6 +169,7 @@ void DlgSettingsEditorImp::saveSettings()
     EnableAutoIndent->onSave();
     EnableScrollToExceptionLine->onSave();
     EnableHaltDebuggerOnExceptions->onSave();
+    EnableCodeAnalyzer->onSave();
     tabSize->onSave();
     indentSize->onSave();
     radioTabs->onSave();
@@ -191,6 +192,7 @@ void DlgSettingsEditorImp::loadSettings()
     EnableAutoIndent->onRestore();
     EnableScrollToExceptionLine->onRestore();
     EnableHaltDebuggerOnExceptions->onRestore();
+    EnableCodeAnalyzer->onRestore();
     tabSize->onRestore();
     indentSize->onRestore();
     radioTabs->onRestore();

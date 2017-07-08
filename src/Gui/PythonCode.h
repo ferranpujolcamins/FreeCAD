@@ -161,6 +161,8 @@ private:
 class JediDefinitionObj;
 class JediCompletionObj;
 class JediCallSignatureObj;
+class JediBaseDefinitionObj;
+class JediScriptObj;
 
 //
 typedef std::shared_ptr<JediCompletionObj> JediCompletion_ptr_t;
@@ -169,6 +171,9 @@ typedef std::shared_ptr<JediDefinitionObj> JediDefinition_ptr_t;
 typedef QList<JediDefinition_ptr_t> JediDefinition_list_t;
 typedef std::shared_ptr<JediCallSignatureObj> JediCallSignature_ptr_t;
 typedef QList<JediCallSignature_ptr_t> JediCallSignature_list_t;
+typedef std::shared_ptr<JediScriptObj> JediScript_ptr_t;
+typedef std::shared_ptr<JediBaseDefinitionObj> JediBaseDefinition_ptr_t;
+typedef QList<JediBaseDefinition_ptr_t> JediBaseDefinition_list_t;
 
 
 /**
@@ -179,11 +184,8 @@ typedef QList<JediCallSignature_ptr_t> JediCallSignature_list_t;
 class JediBaseDefinitionObj
 {
 public:
-    JediBaseDefinitionObj(Py::Callable obj);
+    JediBaseDefinitionObj(Py::Object obj);
     virtual ~JediBaseDefinitionObj();
-
-    typedef std::shared_ptr<JediBaseDefinitionObj> ptr_t;
-    typedef QList<ptr_t> list_t;
 
     enum Types {
         Base, Definition, Completion, CallSignature
@@ -195,22 +197,27 @@ public:
         For example, for ``x = None`` it returns ``'x'``.
 
         :rtype: str or None
+        @property
      */
     QString name() const;
 
     // The type of the definition.
+    //     @property
     QString type() const;
 
     // The module name.
+    //     @property
     QString module_name() const;
 
     // Whether this is a builtin module.
     bool in_builtin_module() const;
 
     // The line where the definition occurs (starting with 1).
+    //     @property
     int line() const;
 
     // The column where the definition occurs (starting with 0).
+    //     @property
     int column() const;
 
     // Return a document string for this completion object.
@@ -227,9 +234,11 @@ public:
     QString docstring(bool raw = false, bool fast = true) const;
 
     // A textual description of the object.
+    //     @property
     QString description() const;
 
     // Dot-separated path of this object.
+    //     @property
     QString full_name() const;
 
     // return a list with assignments
@@ -239,6 +248,7 @@ public:
     JediDefinition_list_t goto_definitions() const;
 
     // Return the original definitions. use with care see doumentation for jedi
+    //     @property
     JediDefinition_list_t params() const;
 
     // return parent Definition or nullptr   -> in c++ = empty list
@@ -260,7 +270,7 @@ public:
 
 protected:
 
-    Py::Callable m_obj;
+    Py::Object m_obj;
     Types m_type;
 };
 
@@ -276,10 +286,11 @@ class JediCompletionObj : public JediBaseDefinitionObj
     """
      */
 public:
-    JediCompletionObj(Py::Callable obj);
+    JediCompletionObj(Py::Object obj);
     ~JediCompletionObj();
 
     //  Return the rest of the word,
+    //     @property
     QString complete() const;
 
     //  Similar to :attr:`name`, but like :attr:`name` returns also the
@@ -288,6 +299,7 @@ public:
     //                    pass
     //          completing ``foo(`` would give a ``Completion`` which
     //          ``name_with_symbols`` would be "param=".
+    //     @property
     QString name_with_symbols() const;
 };
 
@@ -302,7 +314,7 @@ class JediDefinitionObj : public JediBaseDefinitionObj
     """
      */
 public:
-    JediDefinitionObj(Py::Callable obj);
+    JediDefinitionObj(Py::Object obj);
     ~JediDefinitionObj();
 
     /*
@@ -320,7 +332,7 @@ public:
 
 // --------------------------------------------------------------------------
 
-class JediCallSignatureObj : public JediBaseDefinitionObj
+class JediCallSignatureObj : public JediDefinitionObj
 {
     /*
     `CallSignature` objects is the return value of `Script.function_definition`.
@@ -328,18 +340,20 @@ class JediCallSignatureObj : public JediBaseDefinitionObj
     return the `isinstance` function. without `(` it would return nothing.
      */
 public:
-    JediCallSignatureObj(Py::Callable obj);
+    JediCallSignatureObj(Py::Object obj);
     ~JediCallSignatureObj();
 
     /*
         The Param index of the current call.
         Returns nullptr if the index cannot be found in the curent call.
+            @property
      */
     JediDefinition_ptr_t index() const;
 
     /*
         The indent of the bracket that is responsible for the last function
         call.
+            @property
      */
     int bracket_start() const;
 };
@@ -477,6 +491,8 @@ public:
     // scope guard to do work with this interpreter
     class SwapIn {
         PyThreadState *m_oldState;
+        PyGILState_STATE m_GILState;
+        static bool static_GILHeld;
     public:
         SwapIn();
         ~SwapIn();
@@ -492,9 +508,9 @@ public:
      */
     Py::Object runString(const QString &src);
 
-    const Py::Module &jedi() const;
-    const Py::Module &api() const;
-    PyThreadState *interp() const;
+    Py::Module &jedi() const;
+    Py::Module &api() const;
+    PyThreadState *threadState() const;
 
     /*
 
@@ -536,13 +552,18 @@ Q_SIGNALS:
 
 
 private:
+    void destroy();
     PyThreadState *m_threadState;
-    Py::Module m_jedi;
-    Py::Module m_api;
+    PyThreadState *m_interpState;
+    Py::Module *m_jedi;
+    Py::Module *m_api;
+    static JediInterpreter *m_instance;
 
     // so the proxy can emit as if originating from this class
     friend class JediDebugProxy;
 };
+
+// -------------------------------------------------------------------------------
 
 } // namespace Gui
 

@@ -30,6 +30,10 @@
 #include "View.h"
 #include "Window.h"
 
+QT_BEGIN_NAMESPACE
+class QCompleter;
+QT_END_NAMESPACE
+
 namespace Gui {
 class CompletionBox;
 class SyntaxHighlighter;
@@ -94,6 +98,9 @@ public:
     int findAndHighlight(const QString needle, QTextDocument::FindFlags flags = 0);
     // highlights text such as search for
     void setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> selections);
+
+    void setCompleter(QCompleter *completer) const;
+    QCompleter *completer() const;
 
 private Q_SLOTS:
     void updateLineNumberAreaWidth(int newBlockCount);
