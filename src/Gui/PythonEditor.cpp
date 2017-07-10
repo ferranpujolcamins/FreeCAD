@@ -40,7 +40,9 @@
 #include "Macro.h"
 #include "FileDialog.h"
 #include "DlgEditorImp.h"
-#include "CallTips.h"
+#include "App/PropertyContainer.h"
+#include "App/PropertyContainerPy.h"
+//#include "CallTips.h"
 
 
 #include <CXX/Objects.hxx>
@@ -62,6 +64,7 @@ using namespace Gui;
 namespace Gui {
 struct PythonEditorP
 {
+    bool  autoIndented;
     int   debugLine;
     QRect debugRect;
     QPixmap breakpoint;
@@ -71,14 +74,14 @@ struct PythonEditorP
     PythonDebugger* debugger;
     PythonCode *pythonCode;
     QHash <int, Py::ExceptionInfo> exceptions;
-    CallTipsList* callTipsList;
+    //CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     PythonEditorCodeAnalyzer *codeAnalyzer;
     PythonEditorP()
-        : debugLine(-1),
-          callTipsList(nullptr),
+        : autoIndented(false), debugLine(-1),
+//          callTipsList(nullptr),
           codeAnalyzer(nullptr)
     {
         debugger = Application::Instance->macroManager()->debugger();
@@ -104,7 +107,8 @@ public:
     PythonEditorCodeAnalyzerP(PythonEditor *editor) :
         editor(editor),
         completerModel(nullptr),
-        popupAtChar(0)
+        popupPos(0),
+        reparsedAt(-1)
     {
     }
     ~PythonEditorCodeAnalyzerP() {}
@@ -112,7 +116,8 @@ public:
     static bool isActive;
     JediScript_ptr_t currentScript;
     PythonCompleterModel *completerModel;
-    int popupAtChar;
+    int popupPos,
+        reparsedAt;
 };
 bool PythonEditorCodeAnalyzerP::isActive = false;
 
@@ -196,14 +201,14 @@ PythonEditor::PythonEditor(QWidget* parent)
     if (hPrefGrp->GetBool("EnableCodeAnalyzer", true))
         d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
 
-    // create the window for call tips
-    d->callTipsList = new CallTipsList(this);
-    d->callTipsList->setFrameStyle(QFrame::Box|QFrame::Raised);
-    d->callTipsList->setLineWidth(2);
-    installEventFilter(d->callTipsList);
-    viewport()->installEventFilter(d->callTipsList);
-    d->callTipsList->setSelectionMode( QAbstractItemView::SingleSelection );
-    d->callTipsList->hide();
+//    // create the window for call tips
+//    d->callTipsList = new CallTipsList(this);
+//    d->callTipsList->setFrameStyle(QFrame::Box|QFrame::Raised);
+//    d->callTipsList->setLineWidth(2);
+//    installEventFilter(d->callTipsList);
+//    viewport()->installEventFilter(d->callTipsList);
+//    d->callTipsList->setSelectionMode( QAbstractItemView::SingleSelection );
+//    d->callTipsList->hide();
 }
 
 /** Destroys the object and frees any allocated resources */
@@ -377,7 +382,10 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     QTextCursor cursor = this->textCursor();
     QTextCursor inputLineBegin = this->textCursor();
     inputLineBegin.movePosition( QTextCursor::StartOfLine );
-    static bool autoIndented = false;
+
+    bool popupShown = completer() && completer()->popup()->isVisible();
+    if (popupShown)
+        d->autoIndented = false;
 
     QTextBlock inputBlock = inputLineBegin.block();              //< get the last paragraph's text
     QString    inputLine  = inputBlock.text();
@@ -397,7 +405,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     {
     case Qt::Key_Backspace:
     {
-        if (autoIndented) {
+        if (d->autoIndented) {
             cursor.beginEditBlock();
             int oldPos = cursor.position(),
                 blockPos = cursor.block().position();
@@ -425,7 +433,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
                 cursor.removeSelectedText();
             }
             if (ind <= 0) {
-                autoIndented = false;
+                d->autoIndented = false;
             }
 
             cursor.endEditBlock();
@@ -437,6 +445,10 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
     case Qt::Key_Return:
     case Qt::Key_Enter:
     {
+        if (popupShown) {
+            e->ignore();
+            break;
+        }
         // for breakpoint move
         if (cursor.hasSelection()) {
             // add one because this Key adds a row
@@ -471,7 +483,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             TextEditor::keyPressEvent(e);
             insertPlainText(ind);
             cursor.endEditBlock();
-            autoIndented = true;
+            d->autoIndented = true;
         } else {
             TextEditor::keyPressEvent(e);
         }
@@ -479,7 +491,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
 
     case Qt::Key_Period:
     {
-        autoIndented = false;
+        d->autoIndented = false;
 
         // In Qt 4.8 there is a strange behaviour because when pressing ":"
         // then key is also set to 'Period' instead of 'Colon'. So we have
@@ -494,6 +506,13 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             TextEditor::keyPressEvent(e);
         }
     }   break;
+    case Qt::Key_Tab:
+        if (popupShown) {
+            e->ignore();
+            break;
+        }
+        TextEditor::keyPressEvent(e);
+        break;
     case Qt::Key_Delete:
     {
         // move breakpoint if we are at line end
@@ -531,7 +550,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
                 insertAfter = QLatin1String("'");
         }
 
-        autoIndented = false;
+        d->autoIndented = false;
         TextEditor::keyPressEvent(e);
 
         if (insertAfter.size()) {
@@ -569,14 +588,9 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         }
     }
 
+    // calltips
     if (d->codeAnalyzer)
         d->codeAnalyzer->keyPressed(e);
-
-
-    // This can't be done in CallTipsList::eventFilter() because we must first perform
-    // the event and afterwards update the list widget
-//    if (d->callTipsList->isVisible())
-//    { d->callTipsList->validateCursor(); }
 }
 
 bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
@@ -1049,7 +1063,9 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
             Base::Subject<const char *> caller;
             OnChange(caller, "EnableCodeAnalyzer");
             checkedForJedi = true;
-        } else if(d->isActive) {
+        }
+
+        if (d->isActive) {
             createCompleter();
         }
     }
@@ -1081,10 +1097,14 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
 
             } else {
                 createCompleter();
+                // we need to be sure that we only have one filter installed
+                d->editor->removeEventFilter(this);
+                d->editor->installEventFilter(this);
             }
 
         } else {
             d->isActive = false;
+            d->editor->removeEventFilter(this);
         }
     }
 }
@@ -1103,72 +1123,188 @@ void PythonEditorCodeAnalyzer::parseDocument()
                                              column, d->editor->fileName()));
 }
 
-void PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
+bool PythonEditorCodeAnalyzer::eventFilter(QObject *obj, QEvent *event)
+{
+    // This is a trick to avoid to hide the tooltip window after the defined time span
+    // of 10 seconds. We just filter out all timer events to keep the label visible.
+    QLabel* label = qobject_cast<QLabel*>(obj);
+
+    // Ignore the timer events to prevent from being closed
+    if (label && label->windowFlags() & Qt::ToolTip && event->type() == QEvent::Timer)
+        return true;
+
+    if  (obj == d->editor) {
+        // Ot doesnt let me snatch keypress originating from Completer
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent *e = static_cast<QKeyEvent*>(event);
+            if (e->text().isEmpty() && e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))
+            {
+                // popup on shift + space
+                keyPressed(e);
+                return true;
+            }
+        }
+
+        // other editor filters here
+
+    } else if  (obj == d->editor->completer()->popup()) {
+
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent *e = static_cast<QKeyEvent*>(event);
+
+            if (e->text().isEmpty() && e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))
+            {
+//                // stop event here
+//                //popupChoiceSelected(d->editor->completer()->currentIndex());
+//                //d->editor->completer()->popup()->hide();
+                event->ignore();
+                return true; // prevent new line when we select from completer popup
+            }
+        }
+        // popup events here
+    }
+
+    return false; // default is to allow events through
+}
+
+bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
 {
     if (!d->isActive || !d->completerModel)
-        return;
+        return false; // allow event to reach editor
 
-    bool forcePopup = e->modifiers() & Qt::ShiftModifier &&
-                      e->key() == Qt::Key_Space;
+    int key = e->key();
+    bool forcePopup = e->modifiers() & Qt::ShiftModifier && key == Qt::Key_Space;
+
+    // do nothing if ctrl or shift on ther own
+    if (!forcePopup && (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier)) &&
+        e->text().isEmpty())
+        return false;
+
+    if (!forcePopup && e->text().isEmpty())
+        return false;
+
 
     // find out what we have beneath cursor,
-    // if its a word (3 wordchars or more) and popup not shown -> parse and popup
+    // if its a word (2 wordchars or more) and popup not shown -> parse and popup
     // if its not and we are popup-ed, hide popup
-    QTextDocument *doc = d->editor->document();
     QTextCursor cursor = d->editor->textCursor();
 
     // find out how many ch it is in current word from cursor position
     // we cant use findWordUnderCursor exacliy because of it selects the whole word
-    int startPos = cursor.position() -1;
-    int pos = startPos;
-    QTextBlock startBlock = doc->findBlock(startPos);
-    QChar startChar = doc->characterAt(startPos);
-    QChar ch;
-    do {
-        ch = doc->characterAt(pos);
-        if (startBlock != doc->findBlock(pos)) // stop on previous line
-            break;
-        --pos;
-    } while (pos && ch.isLetterOrNumber());
-    int chrTyped = startPos - pos;
+    int startPos = cursor.position();
+    if (!e->text().isEmpty())
+        cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor); // select just typed chr
+    cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+    QString prefix = cursor.selectedText();
+    int pos = cursor.position();
+    int chrTyped = prefix.size();
+    QChar startChar;
+    if (chrTyped > 0)
+        startChar = prefix[chrTyped -1];
 
-    // optimization, only open on the third ch
-    static const int autoPopupCnt = 3;
+    // get completions when we type '.'
+    if (!forcePopup)
+        forcePopup = e->text() == QLatin1String(".");
 
-    bool shown = d->editor->completer()->popup()->isVisible();
+    // optimization, only open on the second ch
+    static const int autoPopupCnt = 2;
 
-    if (startChar.isLetterOrNumber()) {
-        if (forcePopup || // force by Ctrl + Space
-            (chrTyped == autoPopupCnt && chrTyped >= d->popupAtChar) ||  // initial open
-            (shown && chrTyped < d->popupAtChar)) // popup open but we have erased some of the starting chars
+
+    if (startChar.isLetterOrNumber() || forcePopup) {
+        /*if (forcePopup || // force by Ctrl + Space
+            (chrTyped == autoPopupCnt && startPos >= d->popupPos) ||  // initial open
+            (shown && startPos < d->popupPos)) // popup open but we have erased some of the starting chars
         {
-            parseDocument(); // runs in python, potentially slow?
-            d->popupAtChar = chrTyped;
-            // TODO suggestions?
-            d->completerModel->setCompletions(d->currentScript->completions());
-            d->editor->completer()->complete();
-        }
+            // rationale here is to parse on initial popup
+            // reparse each 4th char, as Jedi skips list if its to big
+            // if we step back we need to reparse each char to fill up the list again
+            if (d->popupPos == 0) { // initial opening
+//                parseDocument();// runs in python, potentially slow?
+                d->popupPos = startPos;
+//                d->completerModel->setCompletions(d->currentScript->completions());
 
-    } else if (shown) {
-        d->popupAtChar = 0;
-        d->editor->completer()->popup()->hide();
-        d->completerModel->clear();
+            } else if ((startPos > d->reparsedAt && chrTyped % 4 == 0) ||
+                       (startPos < d->reparsedAt)) {
+                // type forward backward with popup shown
+//                parseDocument(); // runs in python, potentially slow?
+                d->reparsedAt = startPos;
+//                d->completerModel->setCompletions(d->currentScript->completions());
+            }
+        }*/
+        parseDocument();// runs in python, potentially slow?
+        d->completerModel->setCompletions(d->currentScript->completions());
+
+
+        // TODO arguments suggestions?
+
+        // set prefix
+        cursor.setPosition(pos+2);
+        cursor.setPosition(startPos+1, QTextCursor::KeepAnchor);
+        QString completionPrefix = cursor.selectedText() + startChar;
+        d->editor->completer()->setCompletionPrefix(completionPrefix);
+
+        std::cout << /*"rowsProxy " << d->proxyModel->rowCount() <<*/ " prefix:" <<
+                      completionPrefix.toStdString() << " [0]:" <<
+                     /*d->currentScript->completions()[0]->name().toStdString()<<*/  std::endl;
+
+        std::cout << "rowCompleter:" << d->editor->completer()->completionCount() << " model:"<<d->completerModel->rowCount();
+
+        complete();
+
+    } else {
+        hide();
     }
+
+    return false;
 }
 
-void PythonEditorCodeAnalyzer::popupChoiceSelected(const QString txt)
+void PythonEditorCodeAnalyzer::popupChoiceSelected(const QModelIndex &idx)
 {
     QTextCursor cursor(d->editor->textCursor());
+    JediBaseDefinitionObj *def = d->completerModel->getCompletion(idx.row()).get();
+    QString txt = def->name();
+    int pos = cursor.position();
+    if (pos > 0) {
+        QChar triggerCh = d->editor->document()->characterAt(pos -1);
+        if (!triggerCh.isLetterOrNumber())
+            txt.prepend(triggerCh); // such as '.' completion
+    }
     int insertLen = txt.size() - d->editor->completer()->completionPrefix().size();
-    // select unwanted stuff
-    cursor.movePosition(QTextCursor::Left);
     cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+    cursor.setPosition(pos);
     cursor.insertText(txt.right(insertLen));
+
+    QString type = def->type();
+    if (type == QLatin1String("function")) {
+        cursor.insertText(QLatin1String("()"));
+        cursor.movePosition(QTextCursor::Left);
+        d->editor->setTextCursor(cursor); // must to move backward
+        // completion for call signatures
+        parseDocument();
+        d->completerModel->setCompletions(d->currentScript->completions());
+        complete();
+    }
 }
 
 void PythonEditorCodeAnalyzer::popupChoiceHighlighted(const QModelIndex &idx)
 {
-    // TODO implement tooltips?
+    // tooltips
+    if (!idx.isValid()) {
+        QToolTip::hideText();
+        return;
+    }
+
+    JediBaseDefinition_ptr_t def = d->completerModel->getCompletion(idx.row());
+    if (!def)
+        return;
+
+    QPoint pos = d->editor->completer()->popup()->pos();
+    pos.rx() += d->editor->completer()->popup()->width();
+
+    // for debug only, popup lock out all events so we cant debug
+    //d->editor->completer()->popup()->hide();
+
+    QToolTip::showText(pos, buildToolTipText(def), d->editor->completer()->popup());
 }
 
 void PythonEditorCodeAnalyzer::createCompleter()
@@ -1176,17 +1312,135 @@ void PythonEditorCodeAnalyzer::createCompleter()
     if (d->editor->completer() == nullptr) {
         // create a new completer
         QCompleter *completer = new QCompleter(d->editor);
+//        completer->setWidget(d->editor);
         d->completerModel = new PythonCompleterModel(completer);
         completer->setModel(d->completerModel);
         d->editor->setCompleter(completer);
-        completer->setCompletionMode(QCompleter::PopupCompletion);
+        completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
         completer->setModelSorting(QCompleter::UnsortedModel); // Jedi sorts it?
 
-        connect(completer, SIGNAL(activated(const QString&)), this,
-                SLOT(popupChoiceSelected(QString)));
+        completer->popup()->installEventFilter(this);
+        d->editor->removeEventFilter(this);
+        d->editor->installEventFilter(this);
+
+        connect(completer, SIGNAL(activated(const QModelIndex&)),
+                this, SLOT(popupChoiceSelected(const QModelIndex&)));
         connect(completer, SIGNAL(highlighted(const QModelIndex&)),
-                this, SLOT(popupChoiceHighlighted(QModelIndex)));
+                this, SLOT(popupChoiceHighlighted(const QModelIndex)));
     }
+}
+
+void PythonEditorCodeAnalyzer::complete()
+{
+    // set location in widget
+    QRect completerRect = d->editor->cursorRect();
+    completerRect.setWidth(d->editor->completer()->popup()->sizeHintForColumn(0) +
+                           d->editor->completer()->popup()->verticalScrollBar()->sizeHint().width());
+
+    // popup and search within internal data for prefix
+    d->editor->completer()->complete(completerRect);
+
+    if(!d->editor->completer()->popup()->isVisible()) {
+        // install this object to filter timer events for the tooltip label
+        qApp->installEventFilter(this);
+    }
+}
+
+void PythonEditorCodeAnalyzer::hide()
+{
+    d->popupPos = 0;
+    d->reparsedAt = -1;
+
+    if (d->editor->completer()->popup()->isVisible()) {
+        d->editor->completer()->popup()->hide();
+        qApp->removeEventFilter(this);
+    }
+}
+
+const QString PythonEditorCodeAnalyzer::buildToolTipText(JediBaseDefinition_ptr_t def)
+{
+    if (!def)
+        return QString();
+
+    bool isBuiltIn = def->in_builtin_module();
+
+    // try several different ways to get a docstring
+    QString docStr = def->docstring();
+
+    if (docStr.isEmpty()) {
+        // get docstring from definitions in script
+        QString name = def->name();
+        for (JediDefinition_ptr_t df :  d->currentScript->goto_definitions()) {
+            if (name == df->name()){
+                QString str = df->docstring();
+                if (!str.isEmpty()) {
+                    docStr = str;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (docStr.isEmpty() && isBuiltIn) {
+        // maybe a frecad object?, get doc from interpreter
+        JediInterpreter::SwapIn jedi;
+
+        try {
+            // first get the obj names up to root
+            QStringList names;
+            JediBaseDefinition_ptr_t obj = def;
+            QString name = def->name();
+
+            while(obj && !name.isEmpty()) {
+                names.prepend(name);
+                obj = obj->parent();
+                if (obj->pyObj().isNone())
+                    break;
+                name = obj->name();
+            }
+
+            // get getobject from Py in reversed order
+            Py::Object parentObj = Py::Module("__main__");
+            Py::Object foundObj;
+            for (const QString &n : names) {
+                Py::String attr(n.toStdString());
+                if (!parentObj.hasAttr(attr))
+                    break;
+                foundObj = parentObj.getAttr(attr);
+                if (foundObj.isNull())
+                    break;
+                parentObj = foundObj;
+            }
+
+            // it seems to throw here on mro objects?
+            if (!foundObj.isNull() && foundObj.hasAttr("__doc__"))
+            {
+                Py::Object doc(foundObj.getAttr("__doc__"));
+                if (doc.isString())
+                    docStr += QString::fromStdString(Py::String(doc).as_std_string());
+            }
+
+        } catch(Py::Exception) { /* quiet */
+            PyErr_Print();
+            PyErr_Clear();
+        }
+    }
+
+    if (docStr.isEmpty())
+        docStr = def->docstring(false, false); // try again without fast
+
+    if (docStr.isEmpty())
+        docStr = def->docstring(true, false); // take it raw
+
+    QString typeStr = QString(QLatin1String("%1: %2\nin module '%3'")).arg(def->type())
+                                                          .arg(def->description())
+                                                          .arg(def->module_name());
+    if (isBuiltIn)
+        typeStr += QLatin1String(" [built-in]");
+
+    QString txt = QString(QLatin1String("%1\n%2")).arg(typeStr)
+                                                  .arg(docStr);
+    return txt;
 }
 
 
@@ -1206,13 +1460,13 @@ PythonCompleterModel::~PythonCompleterModel()
 void PythonCompleterModel::setCompletions(JediCompletion_list_t newList)
 {
     if (!d->currentList.isEmpty()) {
-        beginRemoveRows(QModelIndex(), 0, d->currentList.size() -1);
+        beginRemoveRows(QModelIndex(), 0, d->currentList.size());
         d->currentList.clear();
         endRemoveRows();
     }
 
     if (!newList.isEmpty()) {
-        beginInsertRows(QModelIndex(), 0, newList.size() -1);
+        beginInsertRows(QModelIndex(), 0, newList.size());
         d->currentList = newList;
         endInsertRows();
     }
@@ -1220,15 +1474,17 @@ void PythonCompleterModel::setCompletions(JediCompletion_list_t newList)
 
 QVariant PythonCompleterModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid())
+    if (!index.isValid() || index.column() > 0 ||
+        index.row() > d->currentList.size() -1)
+    {
         return QVariant();
-    if (role != Qt::DisplayRole) {
+    }
+
+    if (role == Qt::DisplayRole) {
         JediBaseDefinitionObj *def = d->currentList.at(index.row()).get();
         return def->name();
 
     } else if (role == Qt::DecorationRole) {
-        return QVariant(); // TODO implement
-    } else if(role == Qt::ToolTipRole) {
         return QVariant(); // TODO implement
     }
 
@@ -1248,6 +1504,13 @@ void PythonCompleterModel::clear()
     beginRemoveRows(QModelIndex(), 0, d->currentList.size() -1);
     d->currentList.clear();
     endRemoveRows();
+}
+
+JediBaseDefinition_ptr_t PythonCompleterModel::getCompletion(int at)
+{
+    if (at < 0 || d->currentList.size() < at)
+        return JediCompletion_ptr_t();
+    return d->currentList.at(at);
 }
 
 

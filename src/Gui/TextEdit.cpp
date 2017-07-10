@@ -650,8 +650,8 @@ bool TextEditor::event(QEvent *event)
         } else {
             return editorToolTipEvent(helpEvent->globalPos(), QString());
         }
-        return true;
     }
+
     return TextEdit::event(event);
 }
 

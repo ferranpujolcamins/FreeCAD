@@ -847,62 +847,6 @@ struct JediCommonP
     static int fetchInt(Py::Object self, const char *name,
                         Py::Tuple *args = nullptr, Py::Dict *kw = nullptr);
 
-    /*
-    // wrapper func to simplify api
-    static JediBaseDefinition_ptr_t fetchBaseDefinition(Py::Object self, const char *name,
-                                                        Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchObj<JediBaseDefinition_ptr_t, JediBaseDefinitionObj>(self, name, args, kw);
-    }
-
-    static JediDefinition_ptr_t fetchDefinition(Py::Object self, const char *name,
-                                                Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchObj<JediDefinition_ptr_t, JediDefinitionObj>(self, name, args, kw);
-    }
-
-    static JediCompletion_ptr_t fetchCompletion(Py::Object self, const char *name,
-                                                Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchObj<JediCompletion_ptr_t, JediCompletionObj>(self, name, args, kw);
-    }
-
-    static JediCallSignature_ptr_t fetchCallSignature(Py::Object self, const char *name,
-                                                      Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchObj<JediCallSignature_ptr_t, JediCallSignatureObj>(self, name, args, kw);
-    }
-
-    static JediBaseDefinition_list_t fetchBaseDefinitionsList(Py::Object self, const char *name,
-                                                              Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchList<JediBaseDefinition_list_t, JediBaseDefinitionObj, JediBaseDefinition_ptr_t>(self, name, args, kw);
-    }
-
-    static JediDefinition_list_t fetchDefinitionsList(Py::Object self, const char *name,
-                                                      Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchList<JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>(self, name, args, kw);
-    }
-
-    static JediCompletion_list_t fetchCompletionsList(Py::Object self, const char *name,
-                                                      Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchList<JediCompletion_list_t, JediCompletionObj, JediCompletion_ptr_t>(self, name, args, kw);
-    }
-
-    static JediCallSignature_list_t fetchCompletionsList(Py::Object self, const char *name,
-                                                      Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchList<JediCallSignature_list_t, JediCallSignatureObj, JediCallSignature_ptr_t>(self, name, args, kw);
-    }
-
-    static JediCompletion_list_t createCompletionsList(Py::Object self, const char *name,
-                                                      Py::Tuple *args = nullptr, Py::Dict *kw = nullptr)
-    {
-        return fetchObj<JediCompletion_list_t, JediCompletionObj, JediCompletion_ptr_t>(self, name, args, kw);
-    }
-    */
 
     // templated functions, more generalized, reduce risk for bugs
     template <typename retT, typename objT>
@@ -913,10 +857,10 @@ struct JediCommonP
         try {
             Py::Object o;
             o = getProperty(self, name);
-            if (!args && !kw && o.isCallable())
+            if (o.isCallable())
                 o = callProperty(o, args, kw);
 
-            if (o.isCallable())
+            if (!o.isNull())
                 return retT(new objT(o));
 
         } catch (Py::Exception) {
@@ -934,7 +878,7 @@ struct JediCommonP
         try {
             Py::Object o;
             o = getProperty(self, name);
-            if (!args && !kw && o.isCallable())
+            if (o.isCallable())
                 o = callProperty(o, args, kw);
 
             if (o.isList())
@@ -981,7 +925,7 @@ QString JediCommonP::fetchStr(Py::Object self, const char *name,
     try {
         Py::Object o;
         o = getProperty(self, name);
-        if (!args && !kw && o.isCallable())
+        if (o.isCallable())
             o = callProperty(o, args, kw);
 
         if (o.isString())
@@ -1001,7 +945,7 @@ bool JediCommonP::fetchBool(Py::Object self, const char *name,
     try {
         Py::Object o;
         o = getProperty(self, name);
-        if (!args && !kw && o.isCallable())
+        if (o.isCallable())
             o = callProperty(o, args, kw);
 
         if (o.isBoolean())
@@ -1021,7 +965,7 @@ int JediCommonP::fetchInt(Py::Object self, const char *name,
     try {
         Py::Object o;
         o = getProperty(self, name);
-        if (!args && !kw && o.isCallable())
+        if (o.isCallable())
             o = callProperty(o, args, kw);
 
         if (o.isNumeric())
@@ -1170,9 +1114,17 @@ JediDefinition_list_t JediBaseDefinitionObj::goto_definitions() const
 {
     if (!isValid())
         return JediDefinition_list_t();
-    return JediCommonP::fetchList
-                <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
-                            (m_obj, "goto_definitions", nullptr, nullptr);
+    JediDefinition_list_t res = JediCommonP::fetchList
+                                      <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
+                                                (m_obj, "goto_definitions", nullptr, nullptr);
+
+    // questionable workaround, this function isnt public yet according to comment in code it seems be soon
+    if (res.size())
+        res = JediCommonP::fetchList
+            <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
+                      (m_obj, "_goto_definitions", nullptr, nullptr);
+
+    return res;
 }
 
 JediDefinition_list_t JediBaseDefinitionObj::params() const
@@ -1343,7 +1295,7 @@ JediScriptObj::JediScriptObj(const QString source, int line, int column,
     try {
         Py::Dict kw;
         Py::Tuple args;
-        kw["source"] = Py::String(source.toStdString());
+        kw["source"] = Py::String(source.toUtf8().constData());//source.toStdString());
         kw["line"] = Py::Long(line);
         kw["column"] = Py::Long(column);
         kw["path"] = Py::String(path.toStdString());

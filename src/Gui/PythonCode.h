@@ -264,6 +264,7 @@ public:
 
     Types cppType() const { return m_type; }
     bool isValid() const { return m_obj.ptr() != nullptr; }
+    const Py::Object pyObj() const { return m_obj; }
     JediDefinitionObj *toDefinition(bool &ok);
     JediCompletionObj *toCompletion(bool &ok);
     JediCallSignatureObj *toCallSignature(bool &ok);

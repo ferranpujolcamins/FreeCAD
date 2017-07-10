@@ -168,15 +168,23 @@ public Q_SLOTS:
     void parseDocument();
 
     // called after user has pressed a key
-    void keyPressed(const QKeyEvent *e);
+    bool keyPressed(const QKeyEvent *e);
+
+protected:
+    // snatches editors events and possibly filter them out
+    bool eventFilter(QObject *obj, QEvent *event);
+
 
 private Q_SLOTS:
-    void popupChoiceSelected(const QString txt);
+    void popupChoiceSelected(const QModelIndex &idx);
     void popupChoiceHighlighted(const QModelIndex &idx);
 
 
 private:
     void createCompleter();
+    void complete();
+    void hide();
+    const QString buildToolTipText(JediBaseDefinition_ptr_t def);
     PythonEditorCodeAnalyzerP *d;
 };
 
@@ -200,6 +208,8 @@ public:
     QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     void clear();
+
+    JediBaseDefinition_ptr_t getCompletion(int at);
 
 private:
     PythonCompleterModelP *d;
