@@ -44,6 +44,7 @@
 #include <Base/Interpreter.h>
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
+#include <QApplication>
 
 namespace Gui {
 struct PythonCodeP
@@ -835,6 +836,8 @@ void PythonMatchingChars::cursorPositionChange()
 namespace Gui {
 struct JediCommonP
 {
+    static void printErr();
+
     // helper functions that GIL locks and swaps interpreter
 
     // these must be specialized
@@ -864,8 +867,7 @@ struct JediCommonP
                 return retT(new objT(o));
 
         } catch (Py::Exception) {
-            PyErr_Print();
-            PyErr_Clear();
+            printErr();
         }
         return nullptr;
     }
@@ -885,8 +887,7 @@ struct JediCommonP
                 return createList<retT, objT, ptrT>(o);
 
         } catch (Py::Exception) {
-            PyErr_Print();
-            PyErr_Clear();
+            printErr();
         }
         return retT();
     }
@@ -914,9 +915,19 @@ struct JediCommonP
     static Py::Object callProperty(Py::Object prop, Py::Tuple *args = nullptr,
                                    Py::Dict *kw = nullptr);
 
+    static bool squelshError;
 };
 
 } // namespace Gui
+bool JediCommonP::squelshError = false;
+void JediCommonP::printErr()
+{
+    JediInterpreter::SwapIn jedi;
+    if (!squelshError)
+        PyErr_Print();
+
+    PyErr_Clear();
+}
 
 QString JediCommonP::fetchStr(Py::Object self, const char *name,
                               Py::Tuple *args, Py::Dict *kw)
@@ -932,8 +943,7 @@ QString JediCommonP::fetchStr(Py::Object self, const char *name,
             return QString::fromStdString(Py::String(o.as_string()).as_std_string());
 
     } catch (Py::Exception) {
-        PyErr_Print();
-        PyErr_Clear();
+        printErr();
     }
     return QString();
 }
@@ -952,8 +962,7 @@ bool JediCommonP::fetchBool(Py::Object self, const char *name,
             return Py::Boolean(o);
 
     } catch (Py::Exception) {
-        PyErr_Print();
-        PyErr_Clear();
+        printErr();
     }
     return false;
 }
@@ -972,8 +981,7 @@ int JediCommonP::fetchInt(Py::Object self, const char *name,
             return static_cast<int>(Py::Long(o).as_long());
 
     } catch (Py::Exception) {
-        PyErr_Print();
-        PyErr_Clear();
+        printErr();
     }
     return -1;
 }
@@ -984,8 +992,7 @@ Py::Object JediCommonP::getProperty(Py::Object self, const char *method)
         return self.getAttr(method);
 
     } catch(Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        printErr();
     }
 
     return Py::Object();
@@ -1003,8 +1010,7 @@ Py::Object JediCommonP::callProperty(Py::Object prop,
             throw Py::Exception(); // error msg is already set
 
     } catch(Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        printErr();
     }
 
     return res;
@@ -1039,6 +1045,13 @@ QString JediBaseDefinitionObj::type() const
 }
 
 QString JediBaseDefinitionObj::module_name() const
+{
+    if (!isValid())
+        return QString();
+    return JediCommonP::fetchStr(m_obj, "module_name");
+}
+
+QString JediBaseDefinitionObj::module_path() const
 {
     if (!isValid())
         return QString();
@@ -1080,8 +1093,7 @@ QString JediBaseDefinitionObj::docstring(bool raw, bool fast) const
         return JediCommonP::fetchStr(m_obj,"docstring", &args, &kw);
 
     } catch (Py::Exception) {
-        PyErr_Print();
-        PyErr_Clear();
+        JediCommonP::printErr();
     }
 
     return QString();
@@ -1114,15 +1126,21 @@ JediDefinition_list_t JediBaseDefinitionObj::goto_definitions() const
 {
     if (!isValid())
         return JediDefinition_list_t();
+
+    bool printErr = JediCommonP::squelshError;
+
+    JediCommonP::squelshError = true;
     JediDefinition_list_t res = JediCommonP::fetchList
                                       <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
                                                 (m_obj, "goto_definitions", nullptr, nullptr);
 
     // questionable workaround, this function isnt public yet according to comment in code it seems be soon
-    if (res.size())
+    if (!res.size())
         res = JediCommonP::fetchList
             <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
                       (m_obj, "_goto_definitions", nullptr, nullptr);
+
+    JediCommonP::squelshError = printErr;
 
     return res;
 }
@@ -1160,40 +1178,48 @@ int JediBaseDefinitionObj::get_line_code(int before, int after) const
         return JediCommonP::fetchInt(m_obj, "get_line_code", &args, &kw);
 
     } catch (Py::Exception) {
-        PyErr_Print();
-        PyErr_Clear();
+        JediCommonP::printErr();
     }
     return -1;
 }
 
-JediDefinitionObj *JediBaseDefinitionObj::toDefinition(bool &ok)
+JediDefinitionObj *JediBaseDefinitionObj::toDefinitionObj()
 {
     if (!isValid())
         return nullptr;
 
-    JediDefinitionObj *def = dynamic_cast<JediDefinitionObj*>(this);
-    ok = def != nullptr;
-    return def;
+    return dynamic_cast<JediDefinitionObj*>(this);
 }
 
-JediCompletionObj *JediBaseDefinitionObj::toCompletion(bool &ok)
+JediCompletionObj *JediBaseDefinitionObj::toCompletionObj()
 {
     if (!isValid())
         return nullptr;
 
-    JediCompletionObj *def = dynamic_cast<JediCompletionObj*>(this);
-    ok = def != nullptr;
-    return def;
+    return dynamic_cast<JediCompletionObj*>(this);
 }
 
-JediCallSignatureObj *JediBaseDefinitionObj::toCallSignature(bool &ok)
+JediCallSignatureObj *JediBaseDefinitionObj::toCallSignatureObj()
 {
     if (!isValid())
         return nullptr;
 
-    JediCallSignatureObj *def = dynamic_cast<JediCallSignatureObj*>(this);
-    ok = def != nullptr;
-    return def;
+    return dynamic_cast<JediCallSignatureObj*>(this);
+}
+
+bool JediBaseDefinitionObj::isDefinitionObj()
+{
+    return m_type == Definition;
+}
+
+bool JediBaseDefinitionObj::isCompletionObj()
+{
+    return m_type == Completion;
+}
+
+bool JediBaseDefinitionObj::isCallSignatureObj()
+{
+    return m_type == CallSignature;
 }
 
 
@@ -1318,8 +1344,7 @@ JediScriptObj::JediScriptObj(const QString source, int line, int column,
         m_obj = newCls;
 
     } catch (Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        JediCommonP::printErr();
     }
 }
 
@@ -1363,8 +1388,7 @@ JediDefinition_list_t JediScriptObj::goto_assignments(bool follow_imports) const
                                 (m_obj, "goto_assignments", &args, nullptr);
 
     } catch (Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        JediCommonP::printErr();
     }
 
     return JediDefinition_list_t();
@@ -1387,8 +1411,7 @@ JediDefinition_list_t JediScriptObj::usages(QStringList additional_module_paths)
                                 (m_obj, "usages", &args, nullptr);
 
     } catch (Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        JediCommonP::printErr();
     }
 
     return JediDefinition_list_t();
@@ -1449,6 +1472,18 @@ JediInterpreter::JediInterpreter() :
 {
     m_instance = const_cast<JediInterpreter*>(this);
 
+    // reconstruct command line args passed to application on startup
+    QStringList args = QApplication::arguments();
+    char **argv = new char*[args.size()];
+    int argc = 0;
+
+    for (const QString str : args) {
+        char *src = str.toLatin1().data();
+        char *dest = new char[sizeof(char) * (strlen(src))];
+        strcpy(dest, src);
+        argv[argc++] = dest;
+    }
+
     Base::PyGILStateLocker lock;
 
     // need to redirect in new interpreter
@@ -1461,11 +1496,20 @@ JediInterpreter::JediInterpreter() :
     m_threadState = PyThreadState_New(m_interpState->interp);
     int sr = PySys_SetObject("stdout", stdout);
     int er = PySys_SetObject("stderr", stderr);
+    PySys_SetArgvEx(argc, argv, 0);
 
     // restore to main interpreter and release GIL lock
     PyThreadState_Swap(oldState);
     Base::PyGILStateRelease release;
 
+
+    // delete argc again
+    while(argc > 0)
+        delete [] argv[--argc];
+    delete [] argv;
+
+
+    // is py interpreter is setup now?
     if (sr < 0 || er < 0 || !m_threadState) {
         // error handling
         destroy();
@@ -1512,8 +1556,7 @@ JediInterpreter::JediInterpreter() :
             // TODO jedi.settings
 
         } catch(Py::Exception e) {
-            PyErr_Print();
-            e.clear();
+            JediCommonP::printErr();
         }
     }
 }
@@ -1586,8 +1629,7 @@ JediDefinition_list_t JediInterpreter::names(const QString source, const QString
                                 (*m_api, "names", &args, &kw);
 
     } catch (Py::Exception e) {
-        PyErr_Print();
-        e.clear();
+        JediCommonP::printErr();
     }
 
     return ret;
@@ -1611,9 +1653,7 @@ bool JediInterpreter::preload_module(const QStringList modules) const
             return true;
 
         } catch (Py::Exception e) {
-            PyErr_Print();
-            e.clear();
-            return false;
+            JediCommonP::printErr();
         }
     }
 

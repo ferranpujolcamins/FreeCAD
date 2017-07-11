@@ -209,6 +209,8 @@ public:
     //     @property
     QString module_name() const;
 
+    QString module_path() const;
+
     // Whether this is a builtin module.
     bool in_builtin_module() const;
 
@@ -265,9 +267,12 @@ public:
     Types cppType() const { return m_type; }
     bool isValid() const { return m_obj.ptr() != nullptr; }
     const Py::Object pyObj() const { return m_obj; }
-    JediDefinitionObj *toDefinition(bool &ok);
-    JediCompletionObj *toCompletion(bool &ok);
-    JediCallSignatureObj *toCallSignature(bool &ok);
+    JediDefinitionObj *toDefinitionObj();
+    JediCompletionObj *toCompletionObj();
+    JediCallSignatureObj *toCallSignatureObj();
+    bool isDefinitionObj();
+    bool isCompletionObj();
+    bool isCallSignatureObj();
 
 protected:
 

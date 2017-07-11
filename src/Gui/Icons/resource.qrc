@@ -43,6 +43,20 @@
         <file>ClassBrowser/type_module.svg</file>
         <file>style/windows_branch_closed.png</file>
         <file>style/windows_branch_open.png</file>
+        <file>ClassBrowser/variable.svg</file>
+        <file>ClassBrowser/function.svg</file>
+        <file>ClassBrowser/type_none.svg</file>
+        <file>ClassBrowser/type_bool.svg</file>
+        <file>ClassBrowser/type_int.svg</file>
+        <file>ClassBrowser/type_float.svg</file>
+        <file>ClassBrowser/type_string.svg</file>
+        <file>ClassBrowser/type_tuple.svg</file>
+        <file>ClassBrowser/type_list.svg</file>
+        <file>ClassBrowser/type_dict.svg</file>
+        <file>ClassBrowser/type_keyword.svg</file>
+        <file>ClassBrowser/type_unknown.svg</file>
+        <file>ClassBrowser/imported_marker.svg</file>
+        <file>ClassBrowser/builtin_marker.svg</file>
         <file>Std_ViewScreenShot.svg</file>
         <file>bound-expression.svg</file>
         <file>bound-expression-unset.svg</file>
@@ -251,5 +265,9 @@
         <file>syntax-error.svg</file>
         <file>warning.svg</file>
         <file>indentation-error.svg</file>
+        <file>ClassBrowser/function.svg</file>
+        <file>ClassBrowser/variable.svg</file>
+        <file>ClassBrowser/imported_marker.svg</file>
+        <file>ClassBrowser/builtin_marker.svg</file>
     </qresource>
 </RCC>

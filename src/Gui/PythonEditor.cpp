@@ -131,6 +131,7 @@ public:
     ~PythonCompleterModelP()
     { }
     JediCompletion_list_t currentList;
+    PythonEditorCodeAnalyzer *analyzer;
 };
 
 } // namespace Gui
@@ -1109,6 +1110,108 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
     }
 }
 
+QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t def, bool allowMarkers)
+{
+    QSize iconSize(64, 64);
+    if (!def)
+        return QIcon(iconSize);
+
+    JediBaseDefinitionObj *obj = def.get();
+
+    QString name = obj->name();
+    QString type = obj->type();
+    QString module_name = obj->module_name();
+
+    QStringList imgLayers;
+    if (type == QLatin1String("function")) {
+        // class or member?
+        // TODO implement loockup backwards in document
+        // paint backlayer
+        imgLayers <<  QLatin1String("ClassBrowser/function.svg");
+
+    } else if (type == QLatin1String("class")) {
+        imgLayers << QLatin1String("ClassBrowser/type_class.svg");
+
+    } else if (type == QLatin1String("instance")) {
+        // find out what type it is can be quite tricky
+        if (name == QLatin1String("int"))
+            imgLayers << QLatin1String("ClassBrowser/type_int.svg");
+        else if (name == QLatin1String("float"))
+            imgLayers << QLatin1String("ClassBrowser/type_float.svg");
+        else if (name == QLatin1String("list"))
+            imgLayers << QLatin1String("ClassBrowser/type_list.svg");
+        else if (name == QLatin1String("False") ||
+                 name == QLatin1String("True"))
+            imgLayers << QLatin1String("ClassBrowser/type_bool.svg");
+        else if (name == QLatin1String("tuple"))
+            imgLayers << QLatin1String("ClassBrowser/type_tuple.svg");
+        else if (name == QLatin1String("dict"))
+            imgLayers << QLatin1String("ClassBrowser/type_dict.svg");
+        else if (name == QLatin1String("NoneType") ||
+                 name == QLatin1String("None"))
+            imgLayers << QLatin1String("ClassBrowser/type_none.svg");
+        else if (name == QLatin1String("string"))
+            imgLayers << QLatin1String("ClassBrowser/type_string.svg");
+        else
+            // default to variable
+            imgLayers << QLatin1String("ClassBrowser/variable.svg");
+
+    } else if (type == QLatin1String("module")) {
+        imgLayers << QLatin1String("ClassBrowser/type_module.svg");
+
+    } else if (type == QLatin1String("keyword")) {
+        imgLayers << QLatin1String("ClassBrowser/type_keyword.svg");
+        allowMarkers = false;
+
+    } else if(type == QLatin1String("statement")) {
+        JediDefinition_list_t lookups;
+
+        if (obj->isCompletionObj())
+            lookups = d->currentScript->goto_definitions();
+        else
+            lookups = obj->goto_definitions();
+
+        for (JediBaseDefinition_ptr_t lookObj : lookups) {
+            if (lookObj->type() != QLatin1String("statement"))
+                return getIconForDefinition(lookObj, false); // recursive
+        }
+    }
+
+    // if not set its unknown
+    if (imgLayers.isEmpty()) {
+        imgLayers << QLatin1String("ClassBrowser/type_unknown.svg");
+    }
+
+    // add extra markers
+    if (allowMarkers) {
+        QFileInfo fi_scr(d->editor->fileName());
+        if (module_name != fi_scr.fileName())
+            imgLayers << QLatin1String("ClassBrowser/imported_marker.svg");
+        if (obj->in_builtin_module())
+            imgLayers << QLatin1String("ClassBrowser/builtin_marker.svg");
+    }
+
+    // already in cache?
+    const QStringList pixmapCache = BitmapFactory().pixmapNames();
+    if (pixmapCache.contains(imgLayers.join(QLatin1String("|"))))
+        return QIcon(BitmapFactory().pixmap(imgLayers.join(QLatin1String("|")).toLatin1()));
+
+    // create the new icon and add it to cache
+    QPixmap img;
+    for (int i = 0; i < imgLayers.size(); ++i) {
+        if (i == 0)
+            img = BitmapFactory().pixmap(imgLayers[i].toLatin1());
+        else {
+            img = BitmapFactory().merge(img, BitmapFactory().pixmap(imgLayers[i].toLatin1()));
+        }
+    }
+    //img = img.scaledToWidth(32);
+
+    BitmapFactory().addPixmapToCache(imgLayers.join(QLatin1String("|")).toLatin1(), img);
+
+    return QIcon(img);
+}
+
 void PythonEditorCodeAnalyzer::parseDocument()
 {
     if (!d->isActive)
@@ -1263,27 +1366,11 @@ void PythonEditorCodeAnalyzer::popupChoiceSelected(const QModelIndex &idx)
     QTextCursor cursor(d->editor->textCursor());
     JediBaseDefinitionObj *def = d->completerModel->getCompletion(idx.row()).get();
     QString txt = def->name();
-    int pos = cursor.position();
-    if (pos > 0) {
-        QChar triggerCh = d->editor->document()->characterAt(pos -1);
-        if (!triggerCh.isLetterOrNumber())
-            txt.prepend(triggerCh); // such as '.' completion
-    }
-    int insertLen = txt.size() - d->editor->completer()->completionPrefix().size();
+    cursor.movePosition(QTextCursor::StartOfWord);
     cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
-    cursor.setPosition(pos);
-    cursor.insertText(txt.right(insertLen));
+    cursor.insertText(txt);
 
-    QString type = def->type();
-    if (type == QLatin1String("function")) {
-        cursor.insertText(QLatin1String("()"));
-        cursor.movePosition(QTextCursor::Left);
-        d->editor->setTextCursor(cursor); // must to move backward
-        // completion for call signatures
-        parseDocument();
-        d->completerModel->setCompletions(d->currentScript->completions());
-        complete();
-    }
+    afterChoiceInserted(def);
 }
 
 void PythonEditorCodeAnalyzer::popupChoiceHighlighted(const QModelIndex &idx)
@@ -1307,13 +1394,55 @@ void PythonEditorCodeAnalyzer::popupChoiceHighlighted(const QModelIndex &idx)
     QToolTip::showText(pos, buildToolTipText(def), d->editor->completer()->popup());
 }
 
+bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, int recursionGuard)
+{
+    if (recursionGuard > 10)
+        return false;
+
+    QString type = obj->type();
+    bool paranthesis = false;
+    if (type == QLatin1String("function") || type == QLatin1String("class")) {
+        paranthesis = true;
+
+    } else if(type == QLatin1String("statement")) {
+        JediDefinition_list_t lookups;
+
+        if (obj->isCompletionObj())
+            lookups = d->currentScript->goto_definitions();
+        else
+            lookups = obj->goto_definitions();
+
+        // take last, hopefully last assignment
+        for (JediBaseDefinition_ptr_t lookObj : lookups)
+        {
+            if (lookObj->type() != QLatin1String("statment")) {
+                return afterChoiceInserted(lookObj.get(), ++recursionGuard);
+            }
+        }
+    }
+
+    if (paranthesis) {
+        QTextCursor cursor(d->editor->textCursor());
+        cursor.insertText(QLatin1String("()"));
+        cursor.movePosition(QTextCursor::Left);
+        d->editor->setTextCursor(cursor); // must to move backward
+        // completion for call signatures
+        parseDocument();
+        d->completerModel->setCompletions(d->currentScript->completions());
+        complete();
+        return true;
+    }
+
+    return false; // as in no extra things was needed
+}
+
 void PythonEditorCodeAnalyzer::createCompleter()
 {
     if (d->editor->completer() == nullptr) {
         // create a new completer
         QCompleter *completer = new QCompleter(d->editor);
 //        completer->setWidget(d->editor);
-        d->completerModel = new PythonCompleterModel(completer);
+        d->completerModel = new PythonCompleterModel(this);
         completer->setModel(d->completerModel);
         d->editor->setCompleter(completer);
         completer->setCompletionMode(QCompleter::UnfilteredPopupCompletion);
@@ -1447,9 +1576,10 @@ const QString PythonEditorCodeAnalyzer::buildToolTipText(JediBaseDefinition_ptr_
 // ------------------------------------------------------------------------
 
 
-PythonCompleterModel::PythonCompleterModel(QObject *parent) :
+PythonCompleterModel::PythonCompleterModel(PythonEditorCodeAnalyzer *parent) :
     QAbstractListModel(parent), d(new PythonCompleterModelP)
 {
+    d->analyzer = parent;
 }
 
 PythonCompleterModel::~PythonCompleterModel()
@@ -1485,7 +1615,7 @@ QVariant PythonCompleterModel::data(const QModelIndex &index, int role) const
         return def->name();
 
     } else if (role == Qt::DecorationRole) {
-        return QVariant(); // TODO implement
+        return d->analyzer->getIconForDefinition(d->currentList[index.row()]);
     }
 
     return QVariant();

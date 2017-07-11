@@ -162,6 +162,8 @@ public:
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
+    QIcon getIconForDefinition(JediBaseDefinition_ptr_t def, bool allowMarkers = true);
+
 
 public Q_SLOTS:
     // reparses the whole document
@@ -178,6 +180,7 @@ protected:
 private Q_SLOTS:
     void popupChoiceSelected(const QModelIndex &idx);
     void popupChoiceHighlighted(const QModelIndex &idx);
+    bool afterChoiceInserted(JediBaseDefinitionObj *obj, int recursionGuard = 0);
 
 
 private:
@@ -200,7 +203,7 @@ class PythonCompleterModel : public QAbstractListModel
     Q_OBJECT
 
 public:
-    PythonCompleterModel(QObject *parent);
+    PythonCompleterModel(PythonEditorCodeAnalyzer *parent);
     virtual ~PythonCompleterModel();
 
 
