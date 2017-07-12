@@ -147,17 +147,25 @@ public:
 
 // ** register default editors, other editor types should register like this
 // in there own cpp files
-PythonEditor *_createPythonEditor() { return new PythonEditor; }
-bool _pyEditorRegister = EditorViewSingleton::registerTextEditorType(
-                            reinterpret_cast<EditorViewSingleton::createT>(&_createPythonEditor),
-                            QLatin1String("PythonEditor"),
-                            QStringList() = { QLatin1String("py") },
-                            QStringList() = {
-                                QLatin1String("text/x-script.python"),
-                                QLatin1String("text/x-script.phyton"),
-                                QLatin1String("text/x-python")
-                            },
-                            QLatin1String("applications-python"));
+struct _PyEditorRegister
+{
+    static PythonEditor *createPythonEditor() { return new PythonEditor; }
+    _PyEditorRegister() {
+        QStringList suffix;
+        suffix <<  QLatin1String("py");
+        QStringList mime;
+        mime << QLatin1String("text/x-script.python") <<
+                QLatin1String("text/x-script.phyton") <<
+                QLatin1String("text/x-python");
+
+        EditorViewSingleton::registerTextEditorType(
+                 reinterpret_cast<EditorViewSingleton::createT>(&createPythonEditor),
+                             QLatin1String("PythonEditor"),
+                             suffix,
+                             mime,
+                             QLatin1String("applications-python"));
+    }
+} _pyEditorRegisterSingleton;
 
 // -------------------------------------------------------
 

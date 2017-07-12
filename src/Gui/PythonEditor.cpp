@@ -1152,7 +1152,7 @@ QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t de
 {
     QSize iconSize(64, 64);
     if (!def && recursionGuard > 10)
-        return QIcon(iconSize);
+        return QPixmap(iconSize);
 
     JediBaseDefinitionObj *obj = def.get();
 
@@ -1354,7 +1354,7 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
         forcePopup = e->text() == QLatin1String(".");
 
     // optimization, only open on the second ch
-    static const int autoPopupCnt = 2;
+    //static const int autoPopupCnt = 2;
 
 
     if (startChar.isLetterOrNumber() || forcePopup) {
