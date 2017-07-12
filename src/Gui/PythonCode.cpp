@@ -268,8 +268,6 @@ public:
 
     QStringList keywords;
     QStringList builtins;
-    QString importName;
-    QString importFrom;
     PythonSyntaxHighlighter::States endStateOfLastPara;
 };
 } // namespace Gui
@@ -298,7 +296,6 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 {
   int i = 0;
   QChar prev, ch;
-  int endPos = text.length() - 1;
   int blockPos = currentBlock().position();
 
   PythonTextBlockData *blockData = new PythonTextBlockData;
@@ -348,6 +345,11 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         case '\t':
           {
             // ignore whitespaces
+          } break;
+        case '@':
+          {
+            setFormat(i, 1, this->colorByType(SyntaxHighlighter::Decorator));
+            d->endStateOfLastPara = Decorator;
           } break;
         case '(': case '[': case '{':
         case '}': case ')': case ']':
@@ -416,19 +418,19 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
       } break;
     case Literal1:
       {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::String));
-        if ( ch == QLatin1Char('"') )
+        setFormat( i, 1, this->colorByType(SyntaxHighlighter::StringDoubleQoute));
+        if ( ch == QLatin1Char('"') && prev != QLatin1Char('\\'))
           d->endStateOfLastPara = Standard;
       } break;
     case Literal2:
       {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::String));
+        setFormat( i, 1, this->colorByType(SyntaxHighlighter::StringSingleQoute));
         if ( ch == QLatin1Char('\'') )
           d->endStateOfLastPara = Standard;
       } break;
     case Blockcomment1:
       {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockComment));
+        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockCommentDoubleQoute));
         if ( i>=2 && ch == QLatin1Char('"') &&
             text.at(i-1) == QLatin1Char('"') &&
             text.at(i-2) == QLatin1Char('"'))
@@ -436,10 +438,16 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
       } break;
     case Blockcomment2:
       {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockComment));
+        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockCommentSingleQoute));
         if ( i>=2 && ch == QLatin1Char('\'') &&
             text.at(i-1) == QLatin1Char('\'') &&
             text.at(i-2) == QLatin1Char('\''))
+          d->endStateOfLastPara = Standard;
+      } break;
+    case Decorator:
+      {
+        setFormat( i, 1, this->colorByType(SyntaxHighlighter::Decorator));
+        if ( !ch.isLetterOrNumber() && ch != QLatin1Char('_') )
           d->endStateOfLastPara = Standard;
       } break;
     case DefineName:
@@ -495,41 +503,43 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         if ( ch.isLetterOrNumber() ||
              ch == QLatin1Char('_') || ch == QLatin1Char('*')  )
         {
-          QTextCharFormat format;
-          format.setForeground(this->colorByType(SyntaxHighlighter::Text));
-          format.setFontWeight(QFont::Bold);
-          setFormat(i, 1, format);
-          d->importName += ch;
-        }
-        else
-        {
-          if (ch.isSymbol() || ch.isPunct())
-          {
-            setFormat(i, 1, this->colorByType(SyntaxHighlighter::Operator));
-            if (ch == QLatin1Char('.'))
-                d->importName += ch;
+
+            QString buffer;
+            int j=i;
+            while ( ch.isLetterOrNumber() || ch == QLatin1Char('_') ) {
+              buffer += ch;
+              ++j;
+              if (j >= text.length())
+                break; // end of text
+              ch = text.at(j);
+            }
+
+          if (buffer == QLatin1String("as")) {
+            setKeyword(i, buffer.length());
+            d->endStateOfLastPara = ImportName;
+
+          } else {
+            QTextCharFormat format;
+            format.setForeground(this->colorByType(SyntaxHighlighter::Text));
+            format.setFontWeight(QFont::Bold);
+            setFormat(i, buffer.length(), format);
           }
-          else if (prev != QLatin1Char(' '))
-          {
-              if (ch == QLatin1Char(' '))
-              {
-                //d->emitName();
-              }
-              else if (!d->importFrom.isEmpty()) {
-                  d->importFrom.clear();
-              }
-          }
+
+          // increment i
+          if (!buffer.isEmpty())
+            i = j-1;
         }
-        if (i == endPos) { // last char in row
-            //d->emitName();
-            d->importFrom.clear();
+        else if (ch == QLatin1Char('.')) {
+          setFormat(i, 1, this->colorByType(SyntaxHighlighter::Operator));
+        } else if (!ch.isSpace()) {
+            d->endStateOfLastPara = Standard;
         }
       } break;
       case FromName:
       {
         if (prev.isLetterOrNumber() && ch == QLatin1Char(' '))
         {
-            // start import statement
+            // probably start import statement
             d->endStateOfLastPara = Standard; //ImportName;
         }
         else if ( ch.isLetterOrNumber() || ch == QLatin1Char('_') )
@@ -538,7 +548,6 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
           format.setForeground(this->colorByType(SyntaxHighlighter::Text));
           format.setFontWeight(QFont::Bold);
           setFormat(i, 1, format);
-          d->importFrom += ch;
         }
       } break;
     }
@@ -565,13 +574,13 @@ void PythonSyntaxHighlighter::setComment(int pos, int len)
 
 void PythonSyntaxHighlighter::setSingleQuotString(int pos, int len)
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::String));
+    setFormat(pos, len, this->colorByType(SyntaxHighlighter::StringSingleQoute));
     d->endStateOfLastPara = Literal2;
 }
 
 void PythonSyntaxHighlighter::setDoubleQuotString(int pos, int len)
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::String));
+    setFormat(pos, len, this->colorByType(SyntaxHighlighter::StringDoubleQoute));
     d->endStateOfLastPara = Literal1;
 
 }
@@ -829,7 +838,6 @@ void PythonMatchingChars::cursorPositionChange()
         }
     }
 }
-
 
 // -------------------------------------------------------------------------
 

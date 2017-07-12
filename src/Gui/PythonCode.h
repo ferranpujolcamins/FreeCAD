@@ -88,10 +88,11 @@ public:
         Literal2         = 4,     // Other string literal beginning with '
         Blockcomment1    = 5,     // Block comments beginning and ending with """
         Blockcomment2    = 6,     // Other block comments beginning and ending with '''
-        ClassName        = 7,     // Text after the keyword class
-        DefineName       = 8,     // Text after the keyword def
-        ImportName       = 9,    // Text after import statement
+        ClassName        = 7,     // Text after the keyword 'class'
+        DefineName       = 8,     // Text after the keyword 'def'
+        ImportName       = 9,     // Text after import statement
         FromName         = 10,    // Text after from statement before import statement
+        Decorator        = 11,    // member decorator like: @property
     };
 
 private:

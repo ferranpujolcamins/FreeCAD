@@ -39,11 +39,15 @@ public:
         cNumber.setRgb(0, 0, 255); cOperator.setRgb(160, 160, 164);
         cKeyword.setRgb(0, 0, 255); cClassName.setRgb(255, 170, 0);
         cDefineName.setRgb(255, 170, 0); cOutput.setRgb(170, 170, 127); 
-        cError.setRgb(255, 0, 0), cBuiltin.setRgb(210, 43, 216);
+        cError.setRgb(255, 0, 0); cBuiltin.setRgb(210, 43, 216);
+        cStringSingleQoute.setRgb(98, 124, 61);
+        cBlockCommentSingleQuote.setRgb(166, 196, 125);
+        cDecorator.setRgb(66, 134, 244);
     }
 
     QColor cNormalText, cComment, cBlockcomment, cLiteral, cNumber,
-    cOperator, cKeyword, cClassName, cDefineName, cOutput, cError, cBuiltin;
+    cOperator, cKeyword, cClassName, cDefineName, cOutput, cError, cBuiltin,
+    cStringSingleQoute, cBlockCommentSingleQuote, cDecorator;
 };
 } // namespace Gui
 
@@ -92,6 +96,12 @@ void SyntaxHighlighter::setColor(const QString& type, const QColor& col)
         d->cDefineName = col;
     else if (type == QLatin1String("Operator"))
         d->cOperator = col;
+    else if (type == QLatin1String("Decorator"))
+        d->cDecorator = col;
+    else if (type == QLatin1String("Single qoute string"))
+        d->cStringSingleQoute = col;
+    else if (type == QLatin1String("Single quote block"))
+        d->cBlockCommentSingleQuote = col;
     else if (type == QLatin1String("Python output"))
         d->cOutput = col;
     else if (type == QLatin1String("Python error"))
@@ -121,6 +131,12 @@ QColor SyntaxHighlighter::color(const QString& type)
         return d->cDefineName;
     else if (type == QLatin1String("Operator"))
         return d->cOperator;
+    else if (type == QLatin1String("Decorator"))
+        return d->cDecorator;
+    else if (type == QLatin1String("Single qoute string"))
+        return d->cStringSingleQoute;
+    else if (type == QLatin1String("Single quote block"))
+        return d->cBlockCommentSingleQuote;
     else if (type == QLatin1String("Python output"))
         return d->cOutput;
     else if (type == QLatin1String("Python error"))
@@ -137,11 +153,13 @@ QColor SyntaxHighlighter::colorByType(SyntaxHighlighter::TColor type)
         return d->cNormalText;
     else if (type == SyntaxHighlighter::Comment)
         return d->cComment;
-    else if (type == SyntaxHighlighter::BlockComment)
+    else if (type == SyntaxHighlighter::BlockComment ||
+             type == SyntaxHighlighter::BlockCommentDoubleQoute)
         return d->cBlockcomment;
     else if (type == SyntaxHighlighter::Number)
         return d->cNumber;
-    else if (type == SyntaxHighlighter::String)
+    else if (type == SyntaxHighlighter::String ||
+             type == SyntaxHighlighter::StringDoubleQoute)
         return d->cLiteral;
     else if (type == SyntaxHighlighter::Keyword)
         return d->cKeyword;
@@ -151,6 +169,12 @@ QColor SyntaxHighlighter::colorByType(SyntaxHighlighter::TColor type)
         return d->cDefineName;
     else if (type == SyntaxHighlighter::Operator)
         return d->cOperator;
+    else if (type == SyntaxHighlighter::Decorator)
+        return d->cDecorator;
+    else if (type == SyntaxHighlighter::StringSingleQoute)
+        return d->cStringSingleQoute;
+    else if (type == SyntaxHighlighter::BlockCommentSingleQoute)
+        return d->cBlockCommentSingleQuote;
     else if (type == SyntaxHighlighter::Output)
         return d->cOutput;
     else if (type == SyntaxHighlighter::Error)

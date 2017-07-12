@@ -52,7 +52,10 @@ protected:
     enum TColor
     {
         Text = 0, Comment = 1, BlockComment = 2, Number = 3, String = 4, Keyword = 5,
-        Classname = 6, Defname = 7, Operator = 8, Output = 9, Error = 10, Builtin = 11
+        Classname = 6, Defname = 7, Operator = 8, Output = 9, Error = 10, Builtin = 11,
+        StringSingleQoute = 12, BlockCommentSingleQoute = 13, Decorator = 14,
+        // alias
+        StringDoubleQoute = String, BlockCommentDoubleQoute = BlockComment
     };
 
     QColor colorByType(TColor type);
