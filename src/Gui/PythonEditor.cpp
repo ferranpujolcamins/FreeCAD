@@ -58,6 +58,7 @@
 #include <QCheckBox>
 #include <QToolTip>
 #include <QMessageBox>
+#include <QTimer>
 
 using namespace Gui;
 
@@ -108,7 +109,8 @@ public:
         editor(editor),
         completerModel(nullptr),
         popupPos(0),
-        reparsedAt(-1)
+        reparsedAt(-1),
+        callSignatureWgt(nullptr)
     {
     }
     ~PythonEditorCodeAnalyzerP() {}
@@ -118,6 +120,8 @@ public:
     PythonCompleterModel *completerModel;
     int popupPos,
         reparsedAt;
+    QTimer popupTimer;
+    PythonCallSignatureWidget *callSignatureWgt;
 };
 bool PythonEditorCodeAnalyzerP::isActive = false;
 
@@ -133,6 +137,30 @@ public:
     JediCompletion_list_t currentList;
     PythonEditorCodeAnalyzer *analyzer;
 };
+
+// -----------------------------------------------------------------------------------
+
+class PythonCallSignatureWidgetP
+{
+public:
+    PythonCallSignatureWidgetP(PythonEditorCodeAnalyzer *analyzer):
+        analyzer(analyzer), candidateIdx(-1),
+        currentParamIdx(-1), userSelectedSignature(-1),
+        lineNr(0)
+    {
+    }
+    ~PythonCallSignatureWidgetP()
+    {
+    }
+    JediCallSignature_list_t signatures;
+    PythonEditorCodeAnalyzer *analyzer;
+    int candidateIdx;
+    int currentParamIdx;
+    int userSelectedSignature;
+    int lineNr;
+    QString functionName;
+};
+
 
 } // namespace Gui
 
@@ -1056,6 +1084,8 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
     d( new PythonEditorCodeAnalyzerP(editor))
 {
     ParameterGrp::handle hPrefGrp = getWindowParameter();
+    d->callSignatureWgt = new PythonCallSignatureWidget(this);
+
     bool enable = hPrefGrp->GetBool("EnableCodeAnalyzer", true);
     static bool checkedForJedi = false;
 
@@ -1073,14 +1103,19 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
 
     if (d->isActive) {
         connect(editor, SIGNAL(fileNameChanged(QString)), this, SLOT(parseDocument()));
-
     }
 }
 
 PythonEditorCodeAnalyzer::~PythonEditorCodeAnalyzer()
 {
     getWindowParameter()->Detach(this);
+    delete d->callSignatureWgt;
     delete d;
+}
+
+JediScript_ptr_t PythonEditorCodeAnalyzer::currentScriptObj() const
+{
+    return d->currentScript;
 }
 
 void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
@@ -1094,7 +1129,8 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
             if (!d->isActive) {
                 QMessageBox::warning(d->editor, tr("Python editor"),
                                      tr("<h1>Jedi doesnt work!</h1>Are you sure it's installed correctly?"
-                                        "<br/> &nbsp;&nbsp; run:<i><b>pip install jedi</b></i> on command line"));
+                                        "<br/> &nbsp;&nbsp; run:<i><b>pip install jedi</b></i> on command line"
+                                        "<br/><a href='https://pypi.python.org/pypi/jedi/'>https://pypi.python.org/pypi/jedi</a>"));
 
             } else {
                 createCompleter();
@@ -1110,10 +1146,12 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
     }
 }
 
-QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t def, bool allowMarkers)
+QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t def,
+                                                     bool allowMarkers,
+                                                     int recursionGuard)
 {
     QSize iconSize(64, 64);
-    if (!def)
+    if (!def && recursionGuard > 10)
         return QIcon(iconSize);
 
     JediBaseDefinitionObj *obj = def.get();
@@ -1123,7 +1161,23 @@ QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t de
     QString module_name = obj->module_name();
 
     QStringList imgLayers;
-    if (type == QLatin1String("function")) {
+    if(type == QLatin1String("statement")) {
+        JediDefinition_list_t lookups;
+
+        if (obj->isCompletionObj())
+            lookups = d->currentScript->goto_definitions();
+        else
+            lookups = obj->goto_definitions();
+
+        for (JediBaseDefinition_ptr_t lookObj : lookups) {
+            if (lookObj->type() != QLatin1String("statement")) {
+                QIcon icon = getIconForDefinition(lookObj, false, ++recursionGuard); // recursive
+                if (!icon.isNull())
+                    return icon;
+            }
+        }
+
+    } else if (type == QLatin1String("function")) {
         // class or member?
         // TODO implement loockup backwards in document
         // paint backlayer
@@ -1162,19 +1216,6 @@ QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t de
     } else if (type == QLatin1String("keyword")) {
         imgLayers << QLatin1String("ClassBrowser/type_keyword.svg");
         allowMarkers = false;
-
-    } else if(type == QLatin1String("statement")) {
-        JediDefinition_list_t lookups;
-
-        if (obj->isCompletionObj())
-            lookups = d->currentScript->goto_definitions();
-        else
-            lookups = obj->goto_definitions();
-
-        for (JediBaseDefinition_ptr_t lookObj : lookups) {
-            if (lookObj->type() != QLatin1String("statement"))
-                return getIconForDefinition(lookObj, false); // recursive
-        }
     }
 
     // if not set its unknown
@@ -1210,6 +1251,11 @@ QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t de
     BitmapFactory().addPixmapToCache(imgLayers.join(QLatin1String("|")).toLatin1(), img);
 
     return QIcon(img);
+}
+
+PythonEditor *PythonEditorCodeAnalyzer::editor() const
+{
+    return d->editor;
 }
 
 void PythonEditorCodeAnalyzer::parseDocument()
@@ -1251,26 +1297,16 @@ bool PythonEditorCodeAnalyzer::eventFilter(QObject *obj, QEvent *event)
         // other editor filters here
 
     } else if  (obj == d->editor->completer()->popup()) {
+        if (event->type() == QEvent::Hide)
+            hide(); // and stop timer
 
-        if (event->type() == QEvent::KeyPress) {
-            QKeyEvent *e = static_cast<QKeyEvent*>(event);
-
-            if (e->text().isEmpty() && e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))
-            {
-//                // stop event here
-//                //popupChoiceSelected(d->editor->completer()->currentIndex());
-//                //d->editor->completer()->popup()->hide();
-                event->ignore();
-                return true; // prevent new line when we select from completer popup
-            }
-        }
-        // popup events here
+        // other popup events here
     }
 
     return false; // default is to allow events through
 }
 
-bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
+bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
 {
     if (!d->isActive || !d->completerModel)
         return false; // allow event to reach editor
@@ -1278,13 +1314,22 @@ bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
     int key = e->key();
     bool forcePopup = e->modifiers() & Qt::ShiftModifier && key == Qt::Key_Space;
 
+
+    bool bailout = false;
+
     // do nothing if ctrl or shift on ther own
     if (!forcePopup && (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier)) &&
         e->text().isEmpty())
-        return false;
+        bailout = true;
 
     if (!forcePopup && e->text().isEmpty())
-        return false;
+        bailout = true;
+
+    if (bailout) {
+        // reparse for call signature
+        parseDocument();
+        return d->callSignatureWgt->keyPressed(e);
+    }
 
 
     // find out what we have beneath cursor,
@@ -1293,7 +1338,6 @@ bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
     QTextCursor cursor = d->editor->textCursor();
 
     // find out how many ch it is in current word from cursor position
-    // we cant use findWordUnderCursor exacliy because of it selects the whole word
     int startPos = cursor.position();
     if (!e->text().isEmpty())
         cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor); // select just typed chr
@@ -1334,11 +1378,6 @@ bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
 //                d->completerModel->setCompletions(d->currentScript->completions());
             }
         }*/
-        parseDocument();// runs in python, potentially slow?
-        d->completerModel->setCompletions(d->currentScript->completions());
-
-
-        // TODO arguments suggestions?
 
         // set prefix
         cursor.setPosition(pos+2);
@@ -1346,19 +1385,19 @@ bool PythonEditorCodeAnalyzer::keyPressed(const QKeyEvent *e)
         QString completionPrefix = cursor.selectedText() + startChar;
         d->editor->completer()->setCompletionPrefix(completionPrefix);
 
-        std::cout << /*"rowsProxy " << d->proxyModel->rowCount() <<*/ " prefix:" <<
-                      completionPrefix.toStdString() << " [0]:" <<
-                     /*d->currentScript->completions()[0]->name().toStdString()<<*/  std::endl;
+        d->popupTimer.start(50); // user wont notice 50msec delay, but makes a lot of
+                                 // difference on machine strain
 
-        std::cout << "rowCompleter:" << d->editor->completer()->completionCount() << " model:"<<d->completerModel->rowCount();
-
-        complete();
+        // handle callsignatures after document parse here
+        return d->callSignatureWgt->keyPressed(e);
 
     } else {
         hide();
-    }
 
-    return false;
+        // handle callsignatures
+        parseDocument();
+        return d->callSignatureWgt->keyPressed(e);
+    }
 }
 
 void PythonEditorCodeAnalyzer::popupChoiceSelected(const QModelIndex &idx)
@@ -1366,7 +1405,11 @@ void PythonEditorCodeAnalyzer::popupChoiceSelected(const QModelIndex &idx)
     QTextCursor cursor(d->editor->textCursor());
     JediBaseDefinitionObj *def = d->completerModel->getCompletion(idx.row()).get();
     QString txt = def->name();
-    cursor.movePosition(QTextCursor::StartOfWord);
+    QString prefix = d->editor->completer()->completionPrefix();
+    if (prefix == QLatin1String("."))
+        cursor.setPosition(cursor.position() - prefix.size() +1);
+    else
+        cursor.setPosition(cursor.position() - prefix.size());
     cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
     cursor.insertText(txt);
 
@@ -1426,10 +1469,10 @@ bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, i
         cursor.insertText(QLatin1String("()"));
         cursor.movePosition(QTextCursor::Left);
         d->editor->setTextCursor(cursor); // must to move backward
-        // completion for call signatures
+
+        // suggestions for call signatures
         parseDocument();
-        d->completerModel->setCompletions(d->currentScript->completions());
-        complete();
+        d->callSignatureWgt->update();
         return true;
     }
 
@@ -1449,18 +1492,23 @@ void PythonEditorCodeAnalyzer::createCompleter()
         completer->setModelSorting(QCompleter::UnsortedModel); // Jedi sorts it?
 
         completer->popup()->installEventFilter(this);
-        d->editor->removeEventFilter(this);
+        d->editor->removeEventFilter(this); // assure no more than 1 eventfileter is installed
         d->editor->installEventFilter(this);
 
         connect(completer, SIGNAL(activated(const QModelIndex&)),
                 this, SLOT(popupChoiceSelected(const QModelIndex&)));
         connect(completer, SIGNAL(highlighted(const QModelIndex&)),
                 this, SLOT(popupChoiceHighlighted(const QModelIndex)));
+        connect(&d->popupTimer, SIGNAL(timeout()), this, SLOT(complete()));
+        d->popupTimer.setSingleShot(true);
     }
 }
 
 void PythonEditorCodeAnalyzer::complete()
 {
+    parseDocument();// runs in python, potentially slow?
+    d->completerModel->setCompletions(d->currentScript->completions());
+
     // set location in widget
     QRect completerRect = d->editor->cursorRect();
     completerRect.setWidth(d->editor->completer()->popup()->sizeHintForColumn(0) +
@@ -1471,7 +1519,7 @@ void PythonEditorCodeAnalyzer::complete()
 
     if(!d->editor->completer()->popup()->isVisible()) {
         // install this object to filter timer events for the tooltip label
-        qApp->installEventFilter(this);
+        //qApp->installEventFilter(this); // locks my system when debugging
     }
 }
 
@@ -1482,8 +1530,9 @@ void PythonEditorCodeAnalyzer::hide()
 
     if (d->editor->completer()->popup()->isVisible()) {
         d->editor->completer()->popup()->hide();
-        qApp->removeEventFilter(this);
+        //qApp->removeEventFilter(this);
     }
+    d->popupTimer.stop();
 }
 
 const QString PythonEditorCodeAnalyzer::buildToolTipText(JediBaseDefinition_ptr_t def)
@@ -1646,5 +1695,422 @@ JediBaseDefinition_ptr_t PythonCompleterModel::getCompletion(int at)
 
 // -------------------------------------------------------------------------
 
+PythonCallSignatureWidget::PythonCallSignatureWidget(PythonEditorCodeAnalyzer *analyzer) :
+    QLabel(analyzer->editor()->viewport()), d(new PythonCallSignatureWidgetP(analyzer))
+{
+    setStyleSheet(QLatin1String("QLabel { background: #f2de85; padding: 3px; border: 1px solid brown; }"));
+    hide();
+    setTextFormat(Qt::RichText);
+}
+
+PythonCallSignatureWidget::~PythonCallSignatureWidget()
+{
+    delete d;
+}
+
+void PythonCallSignatureWidget::reEvaluate()
+{
+    // compare this current callsignature with a new one if we should replace,
+    // switch candidate or
+    if (!d->signatures.size())
+        resetList();
+
+    // at which param are we?
+    int paramIdxBefore = d->currentParamIdx;
+    bool updateNeeded = setParamIdx(); // set where we at in argument chain and tells if we need update
+    if (updateNeeded) {
+        resetList();
+        setParamIdx();
+    }
+
+    bool shouldShow = isVisible();
+
+    // find the most likely signature (if more than one)
+    bool forceRepaint = setCurrentIdx();
+    if (forceRepaint)
+        rebuildContent();
+
+    if (paramIdxBefore != d->currentParamIdx || d->currentParamIdx < 0)
+        shouldShow = rebuildContent();
+
+    if (shouldShow) {
+        if (isVisible())
+            hide(); // to re-calculate showEvent
+        show();
+    } else
+        hide();
+}
+
+void PythonCallSignatureWidget::update()
+{
+    d->signatures.clear();
+    d->lineNr = 0;
+    d->functionName.clear();
+    reEvaluate();
+}
+
+void PythonCallSignatureWidget::showEvent(QShowEvent *event)
+{
+    // map to correct position
+    int moveLeft = 0;
+    QTextCursor cursor = d->analyzer->editor()->textCursor();
+    QTextDocument *doc = d->analyzer->editor()->document();
+    QChar currentChr = doc->characterAt(cursor.position());
+    int signatureLine = d->signatures[d->candidateIdx]->line();
+    while (cursor.block().blockNumber() >= signatureLine &&
+           currentChr != QLatin1Char('('))
+    {
+        cursor.movePosition(QTextCursor::Left);
+        currentChr = doc->characterAt(cursor.position());
+        ++moveLeft;
+    }
+
+    QRect pos = d->analyzer->editor()->cursorRect(cursor);
+    QRect newPos = pos;
+    QRect viewport = d->analyzer->editor()->viewport()->rect();
+    QSize thisSize = sizeHint();
+
+    // move slightly above current line and size as this widget
+    newPos.setSize(thisSize);
+    newPos.moveTo(newPos.x(),  newPos.y() -5 - newPos.height());
+
+
+    // move to within viewport
+    if (newPos.x() + newPos.width() > viewport.width())
+        newPos.moveLeft(viewport.width() - newPos.width());
+
+    if (newPos.y() < 0) {
+        // move below line
+        newPos.moveTo(newPos.x(), pos.y() + pos.height() + 5);
+    }
+
+    // move this widget
+    move(newPos.topLeft());
+
+    QLabel::showEvent(event);
+}
+
+bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape) {
+        hide();
+        return true; // as in accepted
+    }
+
+    if (d->candidateIdx == -1)
+        return false; // we should be in hidden state here
+
+    if (event->text() == QLatin1String("(") || event->text() == QLatin1String(")")) {
+        update();
+        return false; //  dont stop the event from propagating
+    }
+
+    switch (event->key()) {
+    case Qt::Key_Left: case Qt::Key_Right: {
+        // to bold the current selected parameter
+        // should not switch candidate here
+        QTextCursor cursor = d->analyzer->editor()->textCursor();
+        int lineNr = cursor.block().blockNumber();
+        if (lineNr != d->signatures[d->candidateIdx]->line()) {
+            hide();
+            return false;
+        }
+
+        setParamIdx();
+        bool shouldShow = rebuildContent();
+        if (shouldShow)
+            show();
+        else
+            hide();
+        return true;
+    }
+    case Qt::Key_Up: // select next signature (up)
+        if (d->signatures.size() > d->candidateIdx +1) {
+            d->userSelectedSignature = d->candidateIdx +1;
+            QTextCursor cursor = d->analyzer->editor()->textCursor();
+            cursor.movePosition(QTextCursor::Down); // editor have already moved up here at this point
+            d->analyzer->editor()->setTextCursor(cursor);
+            reEvaluate();
+            return true;
+        }
+        break;
+    case Qt::Key_Down: // select previous signature (down)
+        if (d->candidateIdx > 0 && d->signatures.size() > 1) {
+            d->userSelectedSignature = d->candidateIdx -1;
+            QTextCursor cursor = d->analyzer->editor()->textCursor();
+            cursor.movePosition(QTextCursor::Up); // editor have already moved down here at this point
+            d->analyzer->editor()->setTextCursor(cursor);
+            reEvaluate();
+            return true;
+        }
+        break;
+    case Qt::Key_Enter:     case Qt::Key_Return:  case Qt::Key_Delete:
+    case Qt::Key_Backspace: case Qt::Key_Backtab: case Qt::Key_Tab:
+    case Qt::Key_Insert:    case Qt:: Key_Pause:
+        return false;
+    default:
+        if (!event->text().isEmpty()) {
+            reEvaluate(); // may switch candidate here
+        }
+        return false;
+    }
+    return false;
+}
+
+bool PythonCallSignatureWidget::setParamIdx()
+{
+    if (d->signatures.isEmpty()) {
+        d->currentParamIdx = -1;
+        d->lineNr = 0;
+        d->functionName.clear();
+        return false;
+    }
+
+    // find current paramNr
+    d->currentParamIdx = -1;
+    QTextCursor cursor = d->analyzer->editor()->textCursor();
+    QTextDocument *doc = d->analyzer->editor()->document();
+    QChar currentChar = doc->characterAt(cursor.position());
+    int initialBlockNr  = cursor.block().blockNumber();
+
+    // if our current char is ) move so our param finder loop works
+    if (currentChar == QLatin1Char(')')) {
+        cursor.movePosition(QTextCursor::Left);
+        currentChar = doc->characterAt(cursor.position());
+    }
+
+    // finds all parameters
+    bool hasValidChar = false;
+    while (cursor.position() > 0 &&
+          (currentChar != QLatin1Char('(') && currentChar != QLatin1Char(')')))
+    {
+         if (currentChar == QLatin1Char(','))
+            d->currentParamIdx++;
+         if (!hasValidChar && currentChar.isLetterOrNumber()) {
+            d->currentParamIdx++;
+            hasValidChar = true;
+         }
+
+         cursor.movePosition(QTextCursor::Left);
+         currentChar = doc->characterAt(cursor.position());
+    }
+
+    // check if we are still on the same function, else we should update
+    if (!d->functionName.isEmpty() && d->lineNr > 0) {
+
+        bool forceUpdate = (currentChar == QLatin1Char(')') &&
+                            initialBlockNr != cursor.block().blockNumber());
+
+        // first move back until we find functionname
+        // ie      func [(] <- cursor here
+        // move to fun[c] (
+        while (!cursor.atBlockStart()) {
+            currentChar = doc->characterAt(cursor.position());
+            if (currentChar.isLetterOrNumber()) {
+                cursor.select(QTextCursor::WordUnderCursor);
+                break;
+            }
+            cursor.movePosition(QTextCursor::Left);
+        }
+
+        if (forceUpdate == true ||
+            (cursor.block().blockNumber() != d->lineNr ||
+             cursor.selectedText() != d->functionName))
+        {
+            // another line or another function name
+            return true; // as in should update
+        }
+    }
+    return false;
+}
+
+bool PythonCallSignatureWidget::setCurrentIdx() const
+{
+    if (d->signatures.isEmpty()) {
+        d->candidateIdx = -1;
+        d->functionName.clear();
+        d->lineNr = 0;
+        return false;
+    }
+
+    //maybe user has selected a signature?
+    if (d->userSelectedSignature > -1 && d->userSelectedSignature <= d->signatures.size() -1) {
+        d->candidateIdx = d->userSelectedSignature;
+        return true;
+    }
+
+    d->userSelectedSignature = -1;
+    d->candidateIdx = 0;
+
+    // walk the document to list all params written until now
+    QStringList paramsWritten;
+
+    auto walkDoc = [this, &paramsWritten] (int moveBy, const QList<QChar> endChrs) {
+        QTextCursor cursor = d->analyzer->editor()->textCursor();
+        QTextDocument *doc = d->analyzer->editor()->document();
+        int pos = cursor.position();
+        QChar currentChar = doc->characterAt(pos);
+        int currentPos = cursor.position();
+        bool haveValidChar = false;
+
+        while (cursor.position() > 0 && !endChrs.contains(currentChar)) {
+             currentChar = doc->characterAt(currentPos);
+             // signify that we have atleast one valid char typed as argument
+             if (!haveValidChar && currentChar.isLetterOrNumber())
+                 haveValidChar = true;
+
+             // a new parameter
+             if (currentChar == QLatin1Char(',') ||
+                 (endChrs.contains(currentChar) && haveValidChar))
+             {
+                while (!currentChar.isLetterOrNumber() && cursor.position() != pos) {
+                    // find the text for this parameter, we might be at a whitespace
+                    cursor.setPosition(cursor.position() - moveBy);
+                }
+
+                // get the param name
+                cursor.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+                if (doc->characterAt(cursor.position() +1) == QLatin1Char('='))
+                    cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+                QString name = cursor.selectedText();
+
+                // store result
+                if (moveBy < 0)
+                    paramsWritten.prepend(name);
+                else
+                    paramsWritten.append(name);
+             }
+
+             // next char in next loop
+             currentPos += moveBy;
+             cursor.setPosition(currentPos);
+        }
+    };
+
+    // fill the params written list
+    static QList<QChar> leftStopChars = { QLatin1Char('(') };
+    static QList<QChar> rightStopChars = { QLatin1Char(')'), QLatin1Char(':') };
+    walkDoc(-1, leftStopChars);
+    walkDoc(+1, rightStopChars);
+
+    if (paramsWritten.size() < 1) {
+        d->candidateIdx = 0; // just as likely to be correct
+        return false; // bail out, no params written yet
+    }
+
+    struct MatchSignature {
+        // find the most likely candidate
+        QMap<int, int> paramCnt;
+    };
+
+    QMap<int, MatchSignature> matchCnt;
+    int signatureCnt = 0;
+
+    for (JediCallSignature_ptr_t obj : d->signatures) {
+        JediCallSignatureObj *sig = obj.get();
+        int paramNr = 0;
+        //matchCnt[signatureCnt] = MatchSignature;
+
+        for (JediDefinition_ptr_t paramObj : sig->params()) {
+            if (paramNr > paramsWritten.size() -1)
+                goto selectFromScore; // break out of both for loops
+            JediDefinitionObj *param = paramObj.get();
+            QString name = param->name();
+            QString code = param->description();
+            if (name.size() > 1 && code.indexOf(QLatin1String("=")) > -1 &&
+                paramsWritten[paramNr].indexOf(QLatin1String("=")) > -1)
+            {
+                matchCnt[paramNr].paramCnt[paramNr] +=2; // twice the score
+            } else {
+                matchCnt[paramNr].paramCnt[paramNr] +=1;
+            }
+
+            ++paramNr;
+        }
+
+        ++signatureCnt;
+    }
+
+selectFromScore:
+
+    int highestScore = 0;
+    for (int i = 0;  i < matchCnt.keys().size(); ++i) {
+        MatchSignature &signature = matchCnt[i];
+        for (int paramIdx : signature.paramCnt.keys())
+            if (signature.paramCnt[paramIdx] > highestScore){
+                d->candidateIdx = i;
+                highestScore = signature.paramCnt[paramIdx];
+            }
+    }
+    return false;
+}
+
+void PythonCallSignatureWidget::resetList()
+{
+    d->signatures = d->analyzer->currentScriptObj()->call_signatures();
+
+    if (d->signatures.size()) {
+        // store these for later comparisson, so we dont open on another function call
+        d->functionName = d->signatures[0]->name();
+        d->lineNr = d->analyzer->editor()->textCursor().block().blockNumber();
+    }
+
+}
+
+bool PythonCallSignatureWidget::rebuildContent()
+{
+    if (d->candidateIdx < 0)
+        return false;
+
+    JediDefinition_list_t params = d->signatures[d->candidateIdx]->params();
+    if (params.size() < 1)
+        return false;
+
+    // bold the current one
+    QStringList paramsList;
+    int paramsCnt = 0;
+    QString currentParam;
+    for (JediDefinition_ptr_t obj : params) {
+        QString name = obj->description().replace(QLatin1String("param "), QLatin1String(""));
+        if (paramsCnt == d->currentParamIdx) {
+            currentParam = name;
+            name = QString(QLatin1String("<b>%1</b>")).arg(name);
+        }
+
+        paramsList.append(name);
+        ++paramsCnt;
+    }
+
+    // set docstring
+    QString docStr = d->signatures[d->candidateIdx]->docstring(true, false);
+    if (!currentParam.isEmpty()) {
+        // maybe docstr is formatted as :param name: is a ....
+        // n:param\s+name\s*:\s*([^:]*)
+        QRegExp re(QString(QLatin1String("\\n:param\\s+%1:\\s*([^:]*)")).arg(currentParam));
+        if (re.indexIn(docStr) != -1)
+            docStr = re.cap(1).trimmed();
+    }
+
+    QString txt;
+    if (!docStr.isEmpty())
+        txt = QString(QLatin1String("<pre>%1<pre>")).arg(docStr);
+
+    // if we have multiple signatures
+    if (d->signatures.size() > 1) // insert arrow chars
+        txt += QString(QLatin1String("&#9650;&#9660;&nbsp; %1 of %2: "))
+                .arg(d->candidateIdx + 1)
+                .arg(d->signatures.size());
+
+    // set text
+    txt += QString(QLatin1String("%1(%2)"))
+                        .arg(d->signatures[d->candidateIdx]->name())
+                        .arg(paramsList.join(QLatin1String(", ")));
+
+    setText(txt);
+
+    return true;
+}
+
+// -------------------------------------------------------------------------
 
 #include "moc_PythonEditor.cpp"

@@ -30,6 +30,7 @@
 #include "PythonCode.h"
 #include <QDialog>
 #include <QAbstractListModel>
+#include <QLabel>
 
 
 QT_BEGIN_NAMESPACE
@@ -162,7 +163,11 @@ public:
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
-    QIcon getIconForDefinition(JediBaseDefinition_ptr_t def, bool allowMarkers = true);
+    QIcon getIconForDefinition(JediBaseDefinition_ptr_t def,
+                               bool allowMarkers = true,
+                               int recursionGuard = 0);
+
+    PythonEditor *editor() const;
 
 
 public Q_SLOTS:
@@ -170,7 +175,7 @@ public Q_SLOTS:
     void parseDocument();
 
     // called after user has pressed a key
-    bool keyPressed(const QKeyEvent *e);
+    bool keyPressed(QKeyEvent *e);
 
 protected:
     // snatches editors events and possibly filter them out
@@ -181,12 +186,11 @@ private Q_SLOTS:
     void popupChoiceSelected(const QModelIndex &idx);
     void popupChoiceHighlighted(const QModelIndex &idx);
     bool afterChoiceInserted(JediBaseDefinitionObj *obj, int recursionGuard = 0);
-
+    void complete();
+    void hide();
 
 private:
     void createCompleter();
-    void complete();
-    void hide();
     const QString buildToolTipText(JediBaseDefinition_ptr_t def);
     PythonEditorCodeAnalyzerP *d;
 };
@@ -216,6 +220,45 @@ public:
 
 private:
     PythonCompleterModelP *d;
+};
+
+// ------------------------------------------------------------
+
+/**
+ * @breif displays arguments to functions
+ * and other usages to this function
+ */
+class PythonCallSignatureWidgetP;
+class PythonCallSignatureWidget : public QLabel
+{
+    Q_OBJECT
+public:
+    PythonCallSignatureWidget(PythonEditorCodeAnalyzer *analyzer);
+    virtual ~PythonCallSignatureWidget();
+
+    void reEvaluate();
+
+    void update();
+
+protected:
+    void showEvent(QShowEvent *event);
+
+
+public Q_SLOTS:
+    bool keyPressed(QKeyEvent *event);
+
+private:
+    // if true a rebuild content is needed
+    bool rebuildContent();
+    // finds which param its at iede (arg, arg2, #<- .. ) // would set paramIdx to 2
+    bool setParamIdx();
+    // if multiple callsignatures find the most likely one
+    bool setCurrentIdx() const;
+
+    void resetList();
+
+
+    PythonCallSignatureWidgetP *d;
 };
 
 } // namespace Gui
