@@ -428,6 +428,7 @@ PythonConsole::PythonConsole(QWidget *parent)
 
     // use the console highlighter
     pythonSyntax = new PythonConsoleHighlighter(this);
+    pythonSyntax->loadSettings();
     pythonSyntax->setDocument(this->document());
 
     // create the window for call tips
@@ -513,6 +514,8 @@ void PythonConsole::OnChange( Base::Subject<const char*> &rCaller,const char* sR
         int width = metric.width(QLatin1String("0000"));
         setTabStopWidth(width);
     } else {
+        pythonSyntax->loadSettings();
+        /*
         QMap<QString, QColor>::ConstIterator it = d->colormap.find(QString::fromLatin1(sReason));
         if (it != d->colormap.end()) {
             QColor color = it.value();
@@ -521,6 +524,7 @@ void PythonConsole::OnChange( Base::Subject<const char*> &rCaller,const char* sR
             color.setRgb((col>>24)&0xff, (col>>16)&0xff, (col>>8)&0xff);
             pythonSyntax->setColor(QString::fromLatin1(sReason), color);
         }
+        */
     }
 }
 

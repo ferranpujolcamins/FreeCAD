@@ -433,6 +433,11 @@ void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
     this->highlighter = sh;
 }
 
+SyntaxHighlighter *TextEditor::syntaxHighlighter()
+{
+    return highlighter;
+}
+
 void TextEditor::keyPressEvent (QKeyEvent * e)
 {
     // prevent these events from entering when showing suggestions

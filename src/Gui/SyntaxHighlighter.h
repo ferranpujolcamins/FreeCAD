@@ -40,24 +40,61 @@ public:
     SyntaxHighlighter(QObject* parent);
     virtual ~SyntaxHighlighter();
 
+    enum TColor
+    {
+        // ordering of these values as pythonconsole checks for last valid state
+        // as the one before Output
+        Text = 0, Comment = 1, BlockComment = 2, Number = 3, String = 4, Keyword = 5,
+        Classname = 6, Defname = 7, Operator = 8, Builtin = 9, StringSingleQoute = 10,
+        BlockCommentSingleQoute = 11, Decorator = 12,
+        // alias
+        StringDoubleQoute = String, BlockCommentDoubleQoute = BlockComment,
+
+        // these blocks are not copied to mimedata in pythonconsole
+        Output = 13, Error = 14,
+
+        // used as a Stopindicator in loops
+        NoColorInvalid // should be initialized by compiler to value after the last
+    };
+
+    //used as return value for get/set-AllColors()
+    struct ColorDataP;
+    struct ColorData {
+        ColorData();
+        ColorData(const QString key, const QColor color);
+        ColorData(const QString key, unsigned long rgbAsULong);
+        ColorData(const ColorData & other);
+        ~ColorData();
+        ColorData &operator= (ColorData &other);
+
+        QColor color() const;
+        void setColor(const QColor &color);
+        void setColor(unsigned long color);
+        const QString key() const;
+        const char *translateName() const;
+        void setTranslateName(const char *newName);
+        unsigned long colorAsULong() const;
+
+        ColorDataP *d; // for binary compatibility, not sure if its required but in anycase...
+    };
+
     int maximumUserState() const;
 
     void setColor(const QString& type, const QColor& col);
     QColor color(const QString& type);
 
+    QMap<QString, ColorData> allColors();
+
+    // rehighlights after operation but does not call colorchanged for each color
+    void setBatchOfColors(QMap<QString, ColorData> colors);
+
+    // for example when retranslateing ui or on startup of a editor
+    void loadSettings();
+
 protected:
     virtual void colorChanged(const QString& type, const QColor& col);
 
 protected:
-    enum TColor
-    {
-        Text = 0, Comment = 1, BlockComment = 2, Number = 3, String = 4, Keyword = 5,
-        Classname = 6, Defname = 7, Operator = 8, Output = 9, Error = 10, Builtin = 11,
-        StringSingleQoute = 12, BlockCommentSingleQoute = 13, Decorator = 14,
-        // alias
-        StringDoubleQoute = String, BlockCommentDoubleQoute = BlockComment
-    };
-
     QColor colorByType(TColor type);
 
 

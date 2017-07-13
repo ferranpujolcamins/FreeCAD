@@ -26,6 +26,7 @@
 
 #include "ui_DlgEditor.h"
 #include "PropertyPage.h"
+#include "SyntaxHighlighter.h"
 
 namespace Gui {
 class PythonSyntaxHighlighter;
@@ -50,7 +51,8 @@ public:
     void loadSettings();
 
 protected Q_SLOTS:
-    void on_displayItems_currentItemChanged(QTreeWidgetItem *i);
+    void displayItems_currentRowChanged(const QModelIndex & current, const QModelIndex & previous);
+    void on_displayItems_doubleClicked(const QModelIndex &current);
     void on_colorButton_changed();
     void on_fontFamily_activated(const QString&);
     void on_fontSize_valueChanged(const QString&);
@@ -60,10 +62,32 @@ protected:
 
 private:
     DlgSettingsEditorP* d;
-    Gui::PythonSyntaxHighlighter* pythonSyntax;
 
     DlgSettingsEditorImp( const DlgSettingsEditorImp & );
     DlgSettingsEditorImp& operator=( const DlgSettingsEditorImp & );
+};
+
+
+// --------------------------------------------------------------------------
+
+class DlgSettingsColorModel : public QAbstractListModel
+{
+    Q_OBJECT
+public:
+    DlgSettingsColorModel(QObject *parent = nullptr);
+    ~DlgSettingsColorModel();
+
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const;
+    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
+
+    void signalRowsInserted();
+
+    // make public
+    QModelIndex createNewIndex(int row, int col);
+
+    QMap<QString, SyntaxHighlighter::ColorData> colormap;
 };
 
 } // namespace Dialog

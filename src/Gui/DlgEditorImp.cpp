@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  *   Copyright (c) 2004 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
@@ -32,15 +32,27 @@
 #include "PrefWidgets.h"
 #include "PythonEditor.h"
 
+#include <QAbstractListModel>
+
 using namespace Gui;
 using namespace Gui::Dialog;
 
 namespace Gui {
 namespace Dialog {
+
 struct DlgSettingsEditorP
 {
-    QVector<QPair<QString, unsigned long> > colormap; // Color map
+    ~DlgSettingsEditorP()
+    {
+        if (pythonSyntax)
+            delete pythonSyntax;
+    }
+
+    //QVector<QPair<QString, unsigned long> > colormap; // Color map
+    Gui::PythonSyntaxHighlighter* pythonSyntax;
+    DlgSettingsColorModel colormodel;
 };
+
 } // namespace Dialog
 } // namespace Gui
 
@@ -58,84 +70,48 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
 {
     this->setupUi(this);
     d = new DlgSettingsEditorP();
-    QColor col;
-    col = Qt::black; 
-    unsigned long lText = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Text")), lText));
-    col = Qt::cyan; 
-    unsigned long lBookmarks = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Bookmark")), lBookmarks));
-    col = Qt::red; 
-    unsigned long lBreakpnts = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Breakpoint")), lBreakpnts));
-    col = Qt::blue; 
-    unsigned long lKeywords = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Keyword")), lKeywords));
-    col.setRgb(0, 170, 0); 
-    unsigned long lComments = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Comment")), lComments));
-    col.setRgb(160, 160, 164); 
-    unsigned long lBlockCom = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Block comment")), lBlockCom));
-    col = Qt::blue; 
-    unsigned long lNumbers = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Number")), lNumbers));
-    col = Qt::red; 
-    unsigned long lStrings = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("String")), lStrings));
-    col = Qt::red; 
-    unsigned long lCharacter = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Character")), lCharacter));
-    col.setRgb(255, 170, 0); 
-    unsigned long lClass = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Class name")), lClass));
-    col.setRgb(255, 170, 0); 
-    unsigned long lDefine = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Define name")), lDefine));
-    col.setRgb(160, 160, 164); 
-    unsigned long lOperat = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Operator")), lOperat));
-    col.setRgb(170, 170, 127); 
-    unsigned long lPyOutput = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Python output")), lPyOutput));
-    col = Qt::red; 
-    unsigned long lPyError = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Python error")), lPyError));
-    col.setRgb(224, 224, 224); 
-    unsigned long lCLine = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
-    d->colormap.push_back(QPair<QString, unsigned long>
-        (QString::fromLatin1(QT_TR_NOOP("Current line highlight")), lCLine));
 
-    QStringList labels; labels << tr("Items");
-    this->displayItems->setHeaderLabels(labels);
-    this->displayItems->header()->hide();
-    for (QVector<QPair<QString, unsigned long> >::ConstIterator it = d->colormap.begin(); it != d->colormap.end(); ++it) {
-        QTreeWidgetItem* item = new QTreeWidgetItem(this->displayItems);
-        item->setText(0, tr((*it).first.toLatin1()));
-    }
-    pythonSyntax = new PythonSyntaxHighlighter(textEdit1);
-    pythonSyntax->setDocument(textEdit1->document());
+
+    d->pythonSyntax = new PythonSyntaxHighlighter(textEdit1);
+    d->pythonSyntax->setDocument(textEdit1->document());
+
+    // get default colors from SyntaxHighlighter
+    d->colormodel.colormap = d->pythonSyntax->allColors();
+
+    // some other colors not related SyntaxHighlighter
+    QString newKey = QLatin1String("CurrentLineHighlight");
+    SyntaxHighlighter::ColorData highLightLine(newKey, QColor(224, 224, 224));
+    highLightLine.setTranslateName(QT_TR_NOOP("Current line highlight"));
+    d->colormodel.colormap[newKey] = highLightLine;
+
+
+    // not really sure what these 2 are supposed to do?
+    newKey = QLatin1String("Bookmark");
+    SyntaxHighlighter::ColorData bookmark(newKey, QColor(Qt::cyan));
+    bookmark.setTranslateName(QT_TR_NOOP("Bookmark"));
+    d->colormodel.colormap[newKey] = bookmark;
+
+    newKey = QLatin1String("Breakpoint");
+    SyntaxHighlighter::ColorData breakpoint(newKey, QColor(Qt::red));
+    breakpoint.setTranslateName(QT_TR_NOOP("Breakpoint"));
+    d->colormodel.colormap[newKey] = breakpoint;
+
+
+    // not actually changing anything just notifing that we have more rows
+    d->colormodel.setData(d->colormodel.createNewIndex(0,0),
+                          QVariant(), Qt::EditRole);
+
+    displayItems->setModel(&d->colormodel);
+
+    QItemSelectionModel *selection = displayItems->selectionModel();
+    connect(selection, SIGNAL(currentRowChanged(QModelIndex, QModelIndex)),
+            this, SLOT(displayItems_currentRowChanged(QModelIndex,QModelIndex)));
 }
 
 /** Destroys the object and frees any allocated resources */
 DlgSettingsEditorImp::~DlgSettingsEditorImp()
 {
     // no need to delete child widgets, Qt does it all for us
-    delete pythonSyntax;
     delete d;
 }
 
@@ -143,22 +119,31 @@ DlgSettingsEditorImp::~DlgSettingsEditorImp()
  *   settings ColorMap and assigns it to the color button
  *  @see Gui::ColorButton
  */
-void DlgSettingsEditorImp::on_displayItems_currentItemChanged(QTreeWidgetItem *item)
+void DlgSettingsEditorImp::displayItems_currentRowChanged(const QModelIndex & current, const QModelIndex & previous)
 {
-    int index = displayItems->indexOfTopLevelItem(item);
-    unsigned long col = d->colormap[index].second;
-    colorButton->setColor(QColor((col >> 24) & 0xff, (col >> 16) & 0xff, (col >> 8) & 0xff));
+    Q_UNUSED(previous);
+    QString key = d->colormodel.colormap.keys()[current.row()];
+    colorButton->setColor(d->colormodel.colormap[key].color());
 }
 
-/** Updates the color map if a color was changed */
+void DlgSettingsEditorImp::on_displayItems_doubleClicked(const QModelIndex &current)
+{
+    QString key = d->colormodel.colormap.keys()[current.row()];
+    colorButton->setColor(d->colormodel.colormap[key].color());
+    colorButton->click();
+}
+
+/** Updates the color if a color was changed */
 void DlgSettingsEditorImp::on_colorButton_changed()
 {
-    QColor col = colorButton->color();
-    unsigned long lcol = (col.red() << 24) | (col.green() << 16) | (col.blue() << 8);
+    QModelIndex index = displayItems->currentIndex();
+    if (!index.isValid())
+        return;
 
-    int index = displayItems->indexOfTopLevelItem(displayItems->currentItem());
-    d->colormap[index].second = lcol;
-    pythonSyntax->setColor( d->colormap[index].first, col );
+    QColor col = colorButton->color();
+
+    // change color in list
+    d->colormodel.setData(index, QVariant(col), Qt::DecorationRole);
 }
 
 void DlgSettingsEditorImp::saveSettings()
@@ -177,8 +162,10 @@ void DlgSettingsEditorImp::saveSettings()
 
     // Saves the color map
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
-    for (QVector<QPair<QString, unsigned long> >::ConstIterator it = d->colormap.begin(); it != d->colormap.end(); ++it)
-        hGrp->SetUnsigned((*it).first.toLatin1(), (*it).second);
+
+    for (const QString key : d->colormodel.colormap.keys()) {
+        hGrp->SetUnsigned(key.toLatin1(), d->colormodel.colormap[key].colorAsULong());
+    }
 
     hGrp->SetInt( "FontSize", fontSize->value() );
     hGrp->SetASCII( "Font", fontFamily->currentText().toLatin1() );
@@ -212,13 +199,16 @@ void DlgSettingsEditorImp::loadSettings()
 
     // Restores the color map
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
-    for (QVector<QPair<QString, unsigned long> >::Iterator it = d->colormap.begin(); it != d->colormap.end(); ++it){
-        unsigned long col = hGrp->GetUnsigned((*it).first.toLatin1(), (*it).second);
-        (*it).second = col;
-        QColor color;
-        color.setRgb((col >> 24) & 0xff, (col >> 16) & 0xff, (col >> 8) & 0xff);
-        pythonSyntax->setColor( (*it).first, color );
+    for (const QString key : d->colormodel.colormap.keys()) {
+        unsigned long col = hGrp->GetUnsigned(key.toLatin1(), d->colormodel.colormap[key].colorAsULong());
+        d->colormodel.colormap[key].setColor(col);
     }
+
+    displayItems->update();
+
+    // inform (current forms sampleview) syntax highlighter of these changes
+    d->pythonSyntax->setBatchOfColors(d->colormodel.colormap);
+
 
     // fill up font styles
     //
@@ -233,7 +223,7 @@ void DlgSettingsEditorImp::loadSettings()
     fontFamily->setCurrentIndex(index);
     on_fontFamily_activated(this->fontFamily->currentText());
 
-    displayItems->setCurrentItem(displayItems->topLevelItem(0));
+    displayItems->setCurrentIndex(d->colormodel.createNewIndex(0,0));
 }
 
 /**
@@ -242,9 +232,12 @@ void DlgSettingsEditorImp::loadSettings()
 void DlgSettingsEditorImp::changeEvent(QEvent *e)
 {
     if (e->type() == QEvent::LanguageChange) {
-        int index = 0;
-        for (QVector<QPair<QString, unsigned long> >::ConstIterator it = d->colormap.begin(); it != d->colormap.end(); ++it)
-            this->displayItems->topLevelItem(index++)->setText(0, tr((*it).first.toLatin1()));
+        for (int i = 0; i < d->colormodel.colormap.size(); ++i) {
+            QModelIndex idx = d->colormodel.createNewIndex(i, 0);
+            d->colormodel.setData(idx, QVariant(), Qt::EditRole); // no data is acutally changed, just mark as a update internally
+                                                                  // to model
+        }
+
         this->retranslateUi(this);
     } else {
         QWidget::changeEvent(e);
@@ -262,5 +255,79 @@ void DlgSettingsEditorImp::on_fontSize_valueChanged(const QString&)
 {
     on_fontFamily_activated(this->fontFamily->currentText());
 }
+
+// ---------------------------------------------------------------------------------------
+
+// model for color selections
+DlgSettingsColorModel::DlgSettingsColorModel(QObject *parent) :
+    QAbstractListModel(parent)
+{
+}
+
+DlgSettingsColorModel::~DlgSettingsColorModel()
+{
+}
+
+QVariant DlgSettingsColorModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() > colormap.size() -1)
+        return QVariant();
+
+    QString key = colormap.keys()[index.row()];
+
+    if (role == Qt::DisplayRole) {
+        const char *str = colormap[key].translateName();
+        QString trStr(DlgSettingsEditorImp::tr(str));
+        return QVariant(trStr);
+
+    } else if (role == Qt::BackgroundRole) {
+        QBrush brush(colormap[key].color());
+        return brush;
+
+    }
+    return QVariant();
+}
+
+int DlgSettingsColorModel::rowCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return colormap.keys().size() -1;
+}
+
+bool DlgSettingsColorModel::setData(const QModelIndex &index,
+                                    const QVariant &value, int role)
+{
+    if (!index.isValid() || index.row() > colormap.size() -1)
+        return false;
+
+    QString key = colormap.keys()[index.row()];
+    if  (role == Qt::EditRole) {
+        if (!value.toString().isEmpty())
+            colormap[key].setTranslateName(value.toString().toLatin1());
+        Q_EMIT dataChanged(index, index);
+        return true;
+
+    } else if (role == Qt::DecorationRole) {
+        QColor col = value.value<QColor>();
+        colormap[key].setColor(col);
+        Q_EMIT dataChanged(index, index);
+        return true;
+    }
+    return false;
+}
+
+void DlgSettingsColorModel::signalRowsInserted()
+{
+    beginInsertRows(QModelIndex(), 0, rowCount()-1);
+
+    endInsertRows();
+}
+
+// make public
+QModelIndex DlgSettingsColorModel::createNewIndex(int row, int col)
+{
+    return createIndex(row, col);
+}
+
 
 #include "moc_DlgEditorImp.cpp"

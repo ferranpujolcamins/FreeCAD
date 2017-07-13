@@ -90,6 +90,7 @@ public:
     TextEditor(QWidget *parent = 0);
     ~TextEditor();
     void setSyntaxHighlighter(SyntaxHighlighter*);
+    SyntaxHighlighter *syntaxHighlighter();
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 

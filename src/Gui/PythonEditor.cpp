@@ -113,14 +113,18 @@ public:
         callSignatureWgt(nullptr)
     {
     }
-    ~PythonEditorCodeAnalyzerP() {}
+    ~PythonEditorCodeAnalyzerP() {
+        if (callSignatureWgt != nullptr)
+            delete callSignatureWgt;
+    }
     PythonEditor *editor;
     static bool isActive;
     JediScript_ptr_t currentScript;
     PythonCompleterModel *completerModel;
     int popupPos,
         reparsedAt;
-    QTimer popupTimer;
+    QTimer completerTimer;
+    QTimer callSignatureTimer;
     PythonCallSignatureWidget *callSignatureWgt;
 };
 bool PythonEditorCodeAnalyzerP::isActive = false;
@@ -179,6 +183,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     d->loadIcons(fontMetrics().height());
 
     PythonSyntaxHighlighter *hl = new PythonSyntaxHighlighter(this);
+    hl->loadSettings();
     this->setSyntaxHighlighter(hl);            
 
     // set acelerators
@@ -229,15 +234,6 @@ PythonEditor::PythonEditor(QWidget* parent)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (hPrefGrp->GetBool("EnableCodeAnalyzer", true))
         d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
-
-//    // create the window for call tips
-//    d->callTipsList = new CallTipsList(this);
-//    d->callTipsList->setFrameStyle(QFrame::Box|QFrame::Raised);
-//    d->callTipsList->setLineWidth(2);
-//    installEventFilter(d->callTipsList);
-//    viewport()->installEventFilter(d->callTipsList);
-//    d->callTipsList->setSelectionMode( QAbstractItemView::SingleSelection );
-//    d->callTipsList->hide();
 }
 
 /** Destroys the object and frees any allocated resources */
@@ -318,6 +314,9 @@ void PythonEditor::OnChange(Base::Subject<const char *> &rCaller, const char *rc
     if (strcmp(rcReason, "FontSize") == 0 || strcmp(rcReason, "Font") == 0) {
         int rowHeight = fontMetrics().height();
         d->loadIcons(rowHeight);
+    } else {
+        // probably a color change
+        syntaxHighlighter()->loadSettings();
     }
 }
 
@@ -1084,7 +1083,6 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
     d( new PythonEditorCodeAnalyzerP(editor))
 {
     ParameterGrp::handle hPrefGrp = getWindowParameter();
-    d->callSignatureWgt = new PythonCallSignatureWidget(this);
 
     bool enable = hPrefGrp->GetBool("EnableCodeAnalyzer", true);
     static bool checkedForJedi = false;
@@ -1097,7 +1095,7 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
         }
 
         if (d->isActive) {
-            createCompleter();
+            createWidgets();
         }
     }
 
@@ -1109,7 +1107,6 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
 PythonEditorCodeAnalyzer::~PythonEditorCodeAnalyzer()
 {
     getWindowParameter()->Detach(this);
-    delete d->callSignatureWgt;
     delete d;
 }
 
@@ -1133,7 +1130,7 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
                                         "<br/><a href='https://pypi.python.org/pypi/jedi/'>https://pypi.python.org/pypi/jedi</a>"));
 
             } else {
-                createCompleter();
+                createWidgets();
                 // we need to be sure that we only have one filter installed
                 d->editor->removeEventFilter(this);
                 d->editor->installEventFilter(this);
@@ -1298,7 +1295,7 @@ bool PythonEditorCodeAnalyzer::eventFilter(QObject *obj, QEvent *event)
 
     } else if  (obj == d->editor->completer()->popup()) {
         if (event->type() == QEvent::Hide)
-            hide(); // and stop timer
+            hideCompleter(); // and stop timer
 
         // other popup events here
     }
@@ -1385,14 +1382,14 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
         QString completionPrefix = cursor.selectedText() + startChar;
         d->editor->completer()->setCompletionPrefix(completionPrefix);
 
-        d->popupTimer.start(50); // user wont notice 50msec delay, but makes a lot of
+        d->completerTimer.start(50); // user wont notice 50msec delay, but makes a lot of
                                  // difference on machine strain
 
         // handle callsignatures after document parse here
         return d->callSignatureWgt->keyPressed(e);
 
     } else {
-        hide();
+        hideCompleter();
 
         // handle callsignatures
         parseDocument();
@@ -1479,12 +1476,11 @@ bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, i
     return false; // as in no extra things was needed
 }
 
-void PythonEditorCodeAnalyzer::createCompleter()
+void PythonEditorCodeAnalyzer::createWidgets()
 {
     if (d->editor->completer() == nullptr) {
         // create a new completer
         QCompleter *completer = new QCompleter(d->editor);
-//        completer->setWidget(d->editor);
         d->completerModel = new PythonCompleterModel(this);
         completer->setModel(d->completerModel);
         d->editor->setCompleter(completer);
@@ -1499,8 +1495,13 @@ void PythonEditorCodeAnalyzer::createCompleter()
                 this, SLOT(popupChoiceSelected(const QModelIndex&)));
         connect(completer, SIGNAL(highlighted(const QModelIndex&)),
                 this, SLOT(popupChoiceHighlighted(const QModelIndex)));
-        connect(&d->popupTimer, SIGNAL(timeout()), this, SLOT(complete()));
-        d->popupTimer.setSingleShot(true);
+        connect(&d->completerTimer, SIGNAL(timeout()), this, SLOT(complete()));
+        d->completerTimer.setSingleShot(true);
+    }
+
+    if (d->callSignatureWgt == nullptr) {
+        d->callSignatureWgt = new PythonCallSignatureWidget(this);
+        d->callSignatureTimer.setSingleShot(true);
     }
 }
 
@@ -1523,7 +1524,7 @@ void PythonEditorCodeAnalyzer::complete()
     }
 }
 
-void PythonEditorCodeAnalyzer::hide()
+void PythonEditorCodeAnalyzer::hideCompleter()
 {
     d->popupPos = 0;
     d->reparsedAt = -1;
@@ -1532,7 +1533,7 @@ void PythonEditorCodeAnalyzer::hide()
         d->editor->completer()->popup()->hide();
         //qApp->removeEventFilter(this);
     }
-    d->popupTimer.stop();
+    d->completerTimer.stop();
 }
 
 const QString PythonEditorCodeAnalyzer::buildToolTipText(JediBaseDefinition_ptr_t def)

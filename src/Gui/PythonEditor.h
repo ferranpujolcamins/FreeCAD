@@ -187,10 +187,10 @@ private Q_SLOTS:
     void popupChoiceHighlighted(const QModelIndex &idx);
     bool afterChoiceInserted(JediBaseDefinitionObj *obj, int recursionGuard = 0);
     void complete();
-    void hide();
+    void hideCompleter();
 
 private:
-    void createCompleter();
+    void createWidgets();
     const QString buildToolTipText(JediBaseDefinition_ptr_t def);
     PythonEditorCodeAnalyzerP *d;
 };
