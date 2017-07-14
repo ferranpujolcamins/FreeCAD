@@ -113,7 +113,7 @@ protected:
     /** Draw a beam in the line where the cursor is. */
     void paintEvent (QPaintEvent * e);
     void resizeEvent(QResizeEvent* e);
-    LineMarkerArea* getMarkerArea() const
+    LineMarkerArea* lineMarkerArea() const
     { return lineNumberArea; }
     virtual void drawMarker(int line, int x, int y, QPainter*);
     bool event(QEvent *event);
@@ -130,6 +130,7 @@ private:
 };
 
 
+class LineMarkerAreaP;
 class LineMarkerArea : public QWidget
 {
     Q_OBJECT
@@ -153,8 +154,7 @@ protected:
     void contextMenuEvent(QContextMenuEvent * event);
 
 private:
-    TextEditor *textEditor;
-    bool lineNumberActive;
+    LineMarkerAreaP *d;
 };
 
 

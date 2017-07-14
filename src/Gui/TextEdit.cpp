@@ -36,6 +36,21 @@
 #include <QStyleOptionSlider>
 #include <QCompleter>
 
+
+namespace Gui {
+class LineMarkerAreaP
+{
+public:
+    LineMarkerAreaP() :
+        lineNumberActive(true)
+    { }
+    ~LineMarkerAreaP() {}
+    TextEditor *textEditor;
+    bool lineNumberActive;
+};
+
+}
+
 using namespace Gui;
 
 /**
@@ -678,42 +693,40 @@ bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 // ------------------------------------------------------------------------------
 
 LineMarkerArea::LineMarkerArea(TextEditor* editor) :
-    QWidget(editor), textEditor(editor),
-    lineNumberActive(true)
+    QWidget(editor),
+    d(new LineMarkerAreaP)
 {
+    d->textEditor = editor;
 }
 
 LineMarkerArea::~LineMarkerArea()
 {
+    delete d;
 }
 
 QSize LineMarkerArea::sizeHint() const
 {
     // at least the width is 4 '0'
     int fill;
-    if (lineNumberActive) {
-        QString w = QString::number(textEditor->document()->blockCount());
+    if (d->lineNumberActive) {
+        QString w = QString::number(d->textEditor->document()->blockCount());
         fill = qMax(w.size(), 4);
     } else
         fill = 1; // at least allow for breakpoints to be shown
 
     QString measureStr;
     measureStr.fill(QLatin1Char('0'), fill);
-    return QSize(textEditor->fontMetrics().width(measureStr) +10, 0);
-/*
-    return QSize(fontMetrics().width(QLatin1String("0000"))+10, 0);
-
-    return QSize(textEditor->lineNumberAreaWidth(), 0);*/
+    return QSize(d->textEditor->fontMetrics().width(measureStr) +10, 0);
 }
 
 bool LineMarkerArea::lineNumbersVisible() const
 {
-    return lineNumberActive;
+    return d->lineNumberActive;
 }
 
 void LineMarkerArea::setLineNumbersVisible(bool active)
 {
-    lineNumberActive = active;
+    d->lineNumberActive = active;
 }
 
 void LineMarkerArea::paintEvent(QPaintEvent* event)
@@ -722,19 +735,19 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     QPainter painter(this);
     //painter.fillRect(event->rect(), Qt::lightGray);
 
-    QTextBlock block = textEditor->firstVisibleBlock();
-    int curBlockNr = textEditor->textCursor().block().blockNumber();
+    QTextBlock block = d->textEditor->firstVisibleBlock();
+    int curBlockNr = d->textEditor->textCursor().block().blockNumber();
     int blockNumber = block.blockNumber();
-    int top = (int) textEditor->blockBoundingGeometry(block).translated(
-                                    textEditor->contentOffset()).top();
-    int bottom = top + (int) textEditor->blockBoundingRect(block).height();
+    int top = (int) d->textEditor->blockBoundingGeometry(block).translated(
+                                    d->textEditor->contentOffset()).top();
+    int bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
-            if (lineNumberActive) {
+            if (d->lineNumberActive) {
                 QString number = QString::number(blockNumber + 1);
                 QPalette pal = palette();
-                QFont font = textEditor->font();
+                QFont font = d->textEditor->font();
                 QColor color = pal.buttonText().color();
                 if (blockNumber == curBlockNr) {
                     color = pal.text().color();
@@ -746,20 +759,20 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
                                  Qt::AlignRight, number);
             }
 
-            textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
+            d->textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
         }
 
         block = block.next();
         top = bottom;
-        bottom = top + (int) textEditor->blockBoundingRect(block).height();
+        bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
         ++blockNumber;
     }
 }
 
 void LineMarkerArea::mouseReleaseEvent(QMouseEvent *event)
 {
-    QTextBlock block = textEditor->firstVisibleBlock();
-    QRectF rowSize = textEditor->blockBoundingGeometry(block);
+    QTextBlock block = d->textEditor->firstVisibleBlock();
+    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
     if (rowSize.height() > 0) {
         int line = ((event->y()) / rowSize.height()) + block.blockNumber() + 1;
         Q_EMIT clickedOnLine(line, event);
@@ -769,13 +782,13 @@ void LineMarkerArea::mouseReleaseEvent(QMouseEvent *event)
 void LineMarkerArea::wheelEvent(QWheelEvent *event)
 {
     event->ignore();
-    textEditor->wheelEvent(event);
+    d->textEditor->wheelEvent(event);
 }
 
 void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 {
-    QTextBlock block = textEditor->firstVisibleBlock();
-    QRectF rowSize = textEditor->blockBoundingGeometry(block);
+    QTextBlock block = d->textEditor->firstVisibleBlock();
+    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
     if (rowSize.height() > 0) {
         int line = ((event->y()) / rowSize.height()) + block.blockNumber() + 1;
         Q_EMIT contextMenuOnLine(line, event);
