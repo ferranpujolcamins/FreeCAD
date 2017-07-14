@@ -203,7 +203,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(autoIndent, SIGNAL(activated()),
             this, SLOT(onAutoIndent()));
 
-    connect(getMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
+    connect(lineMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
             this, SLOT(markerAreaContextMenu(int,QContextMenuEvent*)));
 
     PythonDebugger *dbg = PythonDebugger::instance();
@@ -339,13 +339,13 @@ void PythonEditor::toggleBreakpoint()
     QTextCursor cursor = textCursor();
     int line = cursor.blockNumber() + 1;
     d->debugger->toggleBreakpoint(line, d->filename);
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::showDebugMarker(int line)
 {
     d->debugLine = line;
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
     QTextCursor cursor = textCursor();
     cursor.movePosition(QTextCursor::StartOfBlock);
     int cur = cursor.blockNumber() + 1;
@@ -363,23 +363,27 @@ void PythonEditor::showDebugMarker(int line)
 void PythonEditor::hideDebugMarker()
 {
     d->debugLine = -1;
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
 {
     BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
+    bool hadBreakpoint = false;
     if (bpl != nullptr) {
         if (bpl->disabled())
             p->drawPixmap(x, y, d->breakpointDisabled);
         else
             p->drawPixmap(x, y, d->breakpoint);
+        hadBreakpoint = true;
     }
     if (d->exceptions.contains(line)) {
         const Py::ExceptionInfo *exp = &d->exceptions[line];
         QIcon icon = BitmapFactory().iconFromTheme(exp->iconName());
-        p->drawPixmap(x +d->breakpoint.width(), y,
-                      icon.pixmap(d->breakpoint.height()));
+        int excX = x;
+        if (lineMarkerArea()->lineNumbersVisible() && hadBreakpoint)
+            excX += d->breakpoint.width();
+        p->drawPixmap(excX, y, icon.pixmap(d->breakpoint.height()));
     }
     if (d->debugLine == line) {
         p->drawPixmap(x, y, d->debugMarker);
@@ -728,7 +732,7 @@ void PythonEditor::breakpointAdded(const BreakpointLine *bpl)
     if (vBar)
         vBar->setMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
 
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::breakpointChanged(const BreakpointLine *bpl)
@@ -736,7 +740,7 @@ void PythonEditor::breakpointChanged(const BreakpointLine *bpl)
     if (bpl->parent()->fileName() != d->filename)
         return;
 
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
@@ -750,7 +754,7 @@ void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
     if (vBar)
         vBar->clearMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
 
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::exception(const Py::ExceptionInfo *exc)
@@ -763,7 +767,7 @@ void PythonEditor::exception(const Py::ExceptionInfo *exc)
 
     d->exceptions[exc->lineNr()] = *exc;
     renderExceptionExtraSelections();
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
     if (vBar)
@@ -795,7 +799,7 @@ void PythonEditor::clearAllExceptions()
     }
 
     renderExceptionExtraSelections();
-    getMarkerArea()->update();
+    lineMarkerArea()->update();
 }
 
 void PythonEditor::clearException(const QString &fn, int line)
@@ -803,7 +807,7 @@ void PythonEditor::clearException(const QString &fn, int line)
     if (fn == d->filename && d->exceptions.contains(line)) {
         d->exceptions.remove(line);
         renderExceptionExtraSelections();
-        getMarkerArea()->update();
+        lineMarkerArea()->update();
 
         AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
         if (vBar)

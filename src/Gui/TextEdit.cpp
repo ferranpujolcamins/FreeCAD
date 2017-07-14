@@ -273,7 +273,7 @@ TextEditor::~TextEditor()
 
 int TextEditor::lineNumberAreaWidth()
 {
-    return fontMetrics().width(QLatin1String("0000"))+10;
+    return lineNumberArea->sizeHint().width();
 }
 
 int TextEditor::findAndHighlight(const QString needle, QTextDocument::FindFlags flags)
@@ -591,8 +591,9 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
     if(show) {
         lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
     } else {
-        lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 0, cr.height()));
+        lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
     }
+    lineNumberArea->setLineNumbersVisible(show);
 }
 
 void TextEditor::paintEvent (QPaintEvent * e)
@@ -676,8 +677,9 @@ bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 
 // ------------------------------------------------------------------------------
 
-LineMarkerArea::LineMarkerArea(TextEditor* editor)
-    : QWidget(editor), textEditor(editor)
+LineMarkerArea::LineMarkerArea(TextEditor* editor) :
+    QWidget(editor), textEditor(editor),
+    lineNumberActive(true)
 {
 }
 
@@ -687,7 +689,31 @@ LineMarkerArea::~LineMarkerArea()
 
 QSize LineMarkerArea::sizeHint() const
 {
-    return QSize(textEditor->lineNumberAreaWidth(), 0);
+    // at least the width is 4 '0'
+    int fill;
+    if (lineNumberActive) {
+        QString w = QString::number(textEditor->document()->blockCount());
+        fill = qMax(w.size(), 4);
+    } else
+        fill = 1; // at least allow for breakpoints to be shown
+
+    QString measureStr;
+    measureStr.fill(QLatin1Char('0'), fill);
+    return QSize(textEditor->fontMetrics().width(measureStr) +10, 0);
+/*
+    return QSize(fontMetrics().width(QLatin1String("0000"))+10, 0);
+
+    return QSize(textEditor->lineNumberAreaWidth(), 0);*/
+}
+
+bool LineMarkerArea::lineNumbersVisible() const
+{
+    return lineNumberActive;
+}
+
+void LineMarkerArea::setLineNumbersVisible(bool active)
+{
+    lineNumberActive = active;
 }
 
 void LineMarkerArea::paintEvent(QPaintEvent* event)
@@ -705,18 +731,21 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
-            QString number = QString::number(blockNumber + 1);
-            QPalette pal = palette();
-            QFont font = textEditor->font();
-            QColor color = pal.buttonText().color();
-            if (blockNumber == curBlockNr) {
-                color = pal.text().color();
-                font.setWeight(QFont::Bold);
+            if (lineNumberActive) {
+                QString number = QString::number(blockNumber + 1);
+                QPalette pal = palette();
+                QFont font = textEditor->font();
+                QColor color = pal.buttonText().color();
+                if (blockNumber == curBlockNr) {
+                    color = pal.text().color();
+                    font.setWeight(QFont::Bold);
+                }
+                painter.setFont(font);
+                painter.setPen(color);
+                painter.drawText(0, top, width(), fontMetrics().height(),
+                                 Qt::AlignRight, number);
             }
-            painter.setFont(font);
-            painter.setPen(color);
-            painter.drawText(0, top, width(), fontMetrics().height(),
-                             Qt::AlignRight, number);
+
             textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
         }
 

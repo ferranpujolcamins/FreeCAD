@@ -139,6 +139,8 @@ public:
     virtual ~LineMarkerArea();
 
     QSize sizeHint() const;
+    void setLineNumbersVisible(bool active);
+    bool lineNumbersVisible() const;
 
 Q_SIGNALS:
     void clickedOnLine(int line, QMouseEvent *event);
@@ -152,6 +154,7 @@ protected:
 
 private:
     TextEditor *textEditor;
+    bool lineNumberActive;
 };
 
 
