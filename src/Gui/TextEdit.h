@@ -157,7 +157,7 @@ private:
     LineMarkerAreaP *d;
 };
 
-
+class AnnotatedScrollBarP;
 /**
  * @breif A custom scrollbar that can show markers at different lines
  *      such as markers when searching for a word
@@ -166,8 +166,8 @@ class AnnotatedScrollBar : public QScrollBar
 {
     Q_OBJECT
 public:
-    AnnotatedScrollBar(TextEditor *parent = 0);
-    ~AnnotatedScrollBar();
+    explicit AnnotatedScrollBar(TextEditor *parent = 0);
+    virtual ~AnnotatedScrollBar();
 
     /**
      * @brief setMarker at a given line in document
@@ -198,8 +198,7 @@ protected:
     void paintEvent(QPaintEvent *e);
 
 private:
-    QMultiHash<int, QColor> m_markers;
-    TextEditor *m_editor;
+    AnnotatedScrollBarP *d;
 };
 
 /**

@@ -49,6 +49,17 @@ public:
     bool lineNumberActive;
 };
 
+class AnnotatedScrollBarP
+{
+public:
+    AnnotatedScrollBarP(TextEditor *editor) :
+        editor(editor)
+    {  }
+    ~AnnotatedScrollBarP() {}
+    QMultiHash<int, QColor> markers;
+    TextEditor *editor;
+};
+
 }
 
 using namespace Gui;
@@ -799,17 +810,18 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 // -----------------------------------------------------------------------------
 
 AnnotatedScrollBar::AnnotatedScrollBar(TextEditor *parent):
-    QScrollBar(parent), m_editor(parent)
+    QScrollBar(parent), d(new AnnotatedScrollBarP(parent))
 {
 }
 
 AnnotatedScrollBar::~AnnotatedScrollBar()
 {
+    delete d;
 }
 
 void AnnotatedScrollBar::setMarker(int line, QColor color)
 {
-    m_markers.insertMulti(line, color);
+    d->markers.insertMulti(line, color);
 
     repaint();
 }
@@ -818,7 +830,7 @@ void AnnotatedScrollBar::resetMarkers(QList<int> newMarkers, QColor color)
 {
     clearMarkers(color);
     for (int line : newMarkers) {
-        m_markers.insert(line, color);
+        d->markers.insert(line, color);
     }
 
     repaint();
@@ -826,7 +838,7 @@ void AnnotatedScrollBar::resetMarkers(QList<int> newMarkers, QColor color)
 
 void AnnotatedScrollBar::clearMarkers()
 {
-    m_markers.clear();
+    d->markers.clear();
     repaint();
 }
 
@@ -835,20 +847,20 @@ void AnnotatedScrollBar::clearMarkers(QColor color)
     // segfaults if we try to clear in one pass
     QList<int> found;
     QMultiHash<int, QColor>::iterator it;
-    for (it = m_markers.begin(); it != m_markers.end(); ++it) {
+    for (it = d->markers.begin(); it != d->markers.end(); ++it) {
         if (it.value() == color)
             found.append(it.key());
     }
 
     for (int i : found)
-        m_markers.remove(i, color);
+        d->markers.remove(i, color);
 
     repaint();
 }
 
 void AnnotatedScrollBar::clearMarker(int line, QColor color)
 {
-    m_markers.remove(line, color);
+    d->markers.remove(line, color);
     repaint();
 }
 
@@ -863,12 +875,12 @@ void AnnotatedScrollBar::paintEvent(QPaintEvent *e)
     QRect groove = style()->subControlRect(QStyle::CC_ScrollBar, &opt,
                                          QStyle::SC_ScrollBarGroove, this);
 
-    float yScale =  (float)groove.height() / (float)m_editor->document()->lineCount();
+    float yScale =  (float)groove.height() / (float)d->editor->document()->lineCount();
     int x1 = groove.x() +4,
         x2 = groove.x() + groove.width() -4;
     QColor color;
     QMultiHash<int, QColor>::iterator it;
-    for (it = m_markers.begin(); it != m_markers.end(); ++it) {
+    for (it = d->markers.begin(); it != d->markers.end(); ++it) {
         if (it.value() != color) {
             color = it.value();
             painter.setBrush(color);
