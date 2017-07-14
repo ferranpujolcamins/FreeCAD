@@ -103,8 +103,8 @@ public:
         translateNames[QLatin1String("Unknown")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Unknown");
 
         // aliases, only show the more detailed name in editor settings
+        // keys inserted here wont show up in editor settings dialog
         aliased << QLatin1String("String") << QLatin1String("BlockComment");
-
     }
 
     // define a c array of pointers to our colors
