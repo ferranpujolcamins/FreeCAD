@@ -40,6 +40,7 @@ QT_END_NAMESPACE
 namespace Gui {
 
 class EditorViewP;
+class EditorViewTopBar;
 class EditorViewWrapper;
 class EditorSearchClearEdit;
 /**
@@ -94,6 +95,10 @@ public:
     QStringList undoActions() const;
     QStringList redoActions() const;
     QString fileName() const;
+
+    // sets a topbar widget
+    void setTopbar(EditorViewTopBar *topBar);
+    EditorViewTopBar *topBar();
 
 public Q_SLOTS:
     void setWindowModified(bool modified);
@@ -293,13 +298,15 @@ private:
 /**
  * @brief holds the topbar (opened files, class browser etc)
  */
-
-class PythonEditorViewTopBar : public QWidget
+class EditorViewTopBarP;
+class EditorViewTopBar : public QWidget
 {
    Q_OBJECT
 public:
-    PythonEditorViewTopBar(PythonEditorView *parent);
-    ~PythonEditorViewTopBar();
+    EditorViewTopBar(EditorView *parent = nullptr);
+    ~EditorViewTopBar();
+
+    void setParent(QWidget *parent);
 
 private Q_SLOTS:
     void rebuildOpenedFiles();
@@ -310,9 +317,8 @@ private Q_SLOTS:
 
 private:
     QString createViewName(const QString &fn, bool changed) const;
-    PythonEditorView *m_editorView;
-    QComboBox    *m_openFiles;
-    QPushButton  *m_closeFile;
+    void init();
+    EditorViewTopBarP *d;
 };
 
 //-----------------------------------------------------------------------------------

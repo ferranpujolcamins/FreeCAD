@@ -779,9 +779,9 @@ void PythonEditor::exception(const Py::ExceptionInfo *exc)
         editView->open(d->filename);
 
         // scroll to view
-        QTextCursor cursor(editView->editor()->document()->
+        QTextCursor cursor(editView->getEditor()->document()->
                            findBlockByLineNumber(exc->lineNr() - 1)); // ln-1 because line number starts from 0
-        editView->editor()->setTextCursor(cursor);
+        editView->getEditor()->setTextCursor(cursor);
     }
 }
 

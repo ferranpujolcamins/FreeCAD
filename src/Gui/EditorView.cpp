@@ -78,18 +78,19 @@ public:
     QTimer*  activityTimer;
     QVBoxLayout *centralLayout;
     EditorViewWrapper *editWrapper;
+    EditorViewTopBar *topBar;
 };
 
 class PythonEditorViewP {
 public:
-    PythonEditorViewP(PythonEditorView *parent) :
-        topBar(new PythonEditorViewTopBar(parent))
+    PythonEditorViewP(/*PythonEditorView *parent*/)
+     //  : topBar(new EditorViewTopBar(parent))
     { }
     ~PythonEditorViewP()
     {
-        delete topBar;
+    //    delete topBar;
     }
-    PythonEditorViewTopBar *topBar;
+    //EditorViewTopBar *topBar;
 };
 
 /**
@@ -141,7 +142,22 @@ public:
         qDeleteAll(wrappers);
     }
 };
-}
+
+
+class EditorViewTopBarP
+{
+public:
+    explicit EditorViewTopBarP() :
+        editorView(nullptr)
+    { }
+    ~EditorViewTopBarP()
+    { }
+
+    EditorView *editorView;
+    QComboBox    *openFiles;
+    QPushButton  *closeFile;
+};
+};
 
 // ------------------------------------------------------------
 
@@ -619,6 +635,18 @@ QString EditorView::fileName() const
     return d->editWrapper->fileName();
 }
 
+void EditorView::setTopbar(EditorViewTopBar *topBar)
+{
+    d->topBar = topBar;
+    d->topBar->setParent(this);
+    insertWidget(d->topBar, 0);
+}
+
+EditorViewTopBar *EditorView::topBar()
+{
+    return d->topBar;
+}
+
 void EditorView::setWindowModified(bool modified)
 {
     MDIView::setWindowModified(modified);
@@ -781,9 +809,9 @@ EditorViewWrapper *EditorView::editorWrapper() const
 PythonEditorView::PythonEditorView(PythonEditor* editor, QWidget* parent)
   : EditorView(editor, parent)
 {
-    d = new PythonEditorViewP(this);
-
-    insertWidget(d->topBar, 0);
+    d = new PythonEditorViewP;
+    EditorViewTopBar *topBar = new EditorViewTopBar(this);
+    setTopbar(topBar);
 
     connect(this, SIGNAL(changeFileName(const QString&)),
             editor, SLOT(setFileName(const QString&)));
@@ -1225,100 +1253,136 @@ void EditorViewSingleton::docModifiedChanged(bool changed)
 
 // -------------------------------------------------------------------------------------
 
-PythonEditorViewTopBar::PythonEditorViewTopBar(PythonEditorView *parent):
-    QWidget(parent), m_editorView(parent)
+EditorViewTopBar::EditorViewTopBar(EditorView *parent):
+    QWidget(parent)
 {
+    d = new EditorViewTopBarP;
+
     QHBoxLayout *hLayout = new QHBoxLayout;
     hLayout->setContentsMargins(0,0,0,0);
-    m_openFiles = new QComboBox(this);
-    m_openFiles->setMinimumContentsLength(40);
-    m_openFiles->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    m_closeFile = new QPushButton(this);
-    m_closeFile->setIcon(BitmapFactory().iconFromTheme("delete"));
-    hLayout->addWidget(m_openFiles);
-    hLayout->addWidget(m_closeFile);
+    d->openFiles = new QComboBox(this);
+    d->openFiles->setMinimumContentsLength(40);
+    d->openFiles->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    d->closeFile = new QPushButton(this);
+    d->closeFile->setIcon(BitmapFactory().iconFromTheme("delete"));
+    hLayout->addWidget(d->openFiles);
+    hLayout->addWidget(d->closeFile);
     hLayout->addStretch();
     setLayout(hLayout);
 
-    connect(m_editorView, SIGNAL(changeFileName(QString)),
-                    this, SLOT(setCurrentIdx(QString)));
-    connect(m_editorView, SIGNAL(switchedFile(QString)),
-                    this, SLOT(setCurrentIdx(QString)));
+
+    if (parent)
+        setParent(parent);
+}
+
+EditorViewTopBar::~EditorViewTopBar()
+{
+    delete d;
+}
+
+void EditorViewTopBar::setParent(QWidget *parent)
+{
+    d->editorView = qobject_cast<EditorView*>(parent);
+    QWidget::setParent(parent);
+
+    if (!d->editorView)
+        return;
 
     EditorViewSingleton *evs = EditorViewSingleton::instance();
-    connect(evs, SIGNAL(openFilesChanged()),
-                   this, SLOT(rebuildOpenedFiles()));
-    connect(evs, SIGNAL(modifiedChanged(QString,bool)),
-                    this, SLOT(modifiedChanged(QString,bool)));
 
-    connect(m_closeFile, SIGNAL(clicked()),
-                   this, SLOT(closeCurrentFile()));
-    connect(m_openFiles, SIGNAL(currentIndexChanged(int)),
-                   this, SLOT(switchFile(int)));
+    EditorView *editView = qobject_cast<EditorView*>(parent);
+    if (editView) {
+        if (d->editorView) {
+           disconnect(d->closeFile, SIGNAL(clicked()),
+                      this, SLOT(closeCurrentFile()));
+           disconnect(d->openFiles, SIGNAL(currentIndexChanged(int)),
+                      this, SLOT(switchFile(int)));
+           disconnect(d->editorView, SIGNAL(changeFileName(QString)),
+                           this, SLOT(setCurrentIdx(QString)));
+           disconnect(d->editorView, SIGNAL(switchedFile(QString)),
+                           this, SLOT(setCurrentIdx(QString)));
 
+           disconnect(evs, SIGNAL(openFilesChanged()),
+                          this, SLOT(rebuildOpenedFiles()));
+           disconnect(evs, SIGNAL(modifiedChanged(QString,bool)),
+                           this, SLOT(modifiedChanged(QString,bool)));
+        }
+
+        connect(d->closeFile, SIGNAL(clicked()),
+                this, SLOT(closeCurrentFile()));
+        connect(d->openFiles, SIGNAL(currentIndexChanged(int)),
+                this, SLOT(switchFile(int)));
+
+        connect(d->editorView, SIGNAL(changeFileName(QString)),
+                        this, SLOT(setCurrentIdx(QString)));
+        connect(d->editorView, SIGNAL(switchedFile(QString)),
+                        this, SLOT(setCurrentIdx(QString)));
+
+        connect(evs, SIGNAL(openFilesChanged()),
+                       this, SLOT(rebuildOpenedFiles()));
+        connect(evs, SIGNAL(modifiedChanged(QString,bool)),
+                        this, SLOT(modifiedChanged(QString,bool)));
+    }
 }
 
-PythonEditorViewTopBar::~PythonEditorViewTopBar()
-{
-}
-
-void PythonEditorViewTopBar::rebuildOpenedFiles()
+void EditorViewTopBar::rebuildOpenedFiles()
 {
     // clear old
-    disconnect(m_openFiles, SIGNAL(currentIndexChanged(int)),
+    disconnect(d->openFiles, SIGNAL(currentIndexChanged(int)),
                    this, SLOT(switchFile(int)));
-    while (m_openFiles->count())
-        m_openFiles->removeItem(0);
+    while (d->openFiles->count())
+        d->openFiles->removeItem(0);
 
     for (const EditorViewWrapper *wrapper : EditorViewSingleton::instance()->
                                     openedByType())
     {
-        m_openFiles->addItem(wrapper->editor()->windowIcon(),
+        d->openFiles->addItem(wrapper->editor()->windowIcon(),
                              createViewName(wrapper->fileName(),
                                             wrapper->editor()->document()->isModified()),
                              wrapper->fileName());
     }
 
-    setCurrentIdx(m_editorView->fileName());
-    connect(m_openFiles, SIGNAL(currentIndexChanged(int)),
+    setCurrentIdx(d->editorView->fileName());
+
+    connect(d->openFiles, SIGNAL(currentIndexChanged(int)),
                    this, SLOT(switchFile(int)));
 }
 
-void PythonEditorViewTopBar::setCurrentIdx(const QString fileName)
+void EditorViewTopBar::setCurrentIdx(const QString fileName)
 {
-    int idx = m_openFiles->findData(fileName);
+    int idx = d->openFiles->findData(fileName);
     if (idx > -1)
-        m_openFiles->setCurrentIndex(idx);
+        d->openFiles->setCurrentIndex(idx);
 }
 
-void PythonEditorViewTopBar::closeCurrentFile()
+void EditorViewTopBar::closeCurrentFile()
 {
-    m_editorView->closeFile();
+    d->editorView->closeFile();
 }
 
-void PythonEditorViewTopBar::switchFile(int index) const
+void EditorViewTopBar::switchFile(int index) const
 {
-    QString fileName = m_openFiles->itemData(index).toString();
-    if (fileName != m_editorView->fileName())
-        m_editorView->open(fileName);
+    QString fileName = d->openFiles->itemData(index).toString();
+    if (d->editorView && fileName != d->editorView->fileName())
+        d->editorView->open(fileName);
 }
 
-void PythonEditorViewTopBar::modifiedChanged(const QString &fn, bool changed)
+void EditorViewTopBar::modifiedChanged(const QString &fn, bool changed)
 {
     int idx = 0;
-    for (; idx < m_openFiles->count(); ++idx) {
-        if (m_openFiles->itemData(idx) == fn)
+    for (; idx < d->openFiles->count(); ++idx) {
+        if (d->openFiles->itemData(idx) == fn)
             break;
     }
 
-    if (idx >= m_openFiles->count())
+    if (idx >= d->openFiles->count())
         return;
 
-    m_openFiles->setItemText(idx, createViewName(m_openFiles->itemData(idx).toString(),
+    d->openFiles->setItemText(idx, createViewName(d->openFiles->itemData(idx).toString(),
                                                  changed));
 }
 
-QString PythonEditorViewTopBar::createViewName(const QString &fn, bool changed) const
+QString EditorViewTopBar::createViewName(const QString &fn, bool changed) const
 {
     // set shown name
     QFileInfo fi(fn);

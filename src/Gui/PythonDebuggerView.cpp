@@ -516,9 +516,9 @@ void PythonDebuggerView::setFileAndScrollToLine(const QString &fn, int line)
 
 
     // scroll to view
-    QTextCursor cursor(editView->editor()->document()->
+    QTextCursor cursor(editView->getEditor()->document()->
                        findBlockByLineNumber(line - 1)); // ln-1 because line number starts from 0
-    editView->editor()->setTextCursor(cursor);
+    editView->getEditor()->setTextCursor(cursor);
 }
 
 // ---------------------------------------------------------------------------
