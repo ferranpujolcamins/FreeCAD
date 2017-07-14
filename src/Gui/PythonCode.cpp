@@ -740,10 +740,7 @@ PythonMatchingChars::~PythonMatchingChars()
 
 void PythonMatchingChars::cursorPositionChange()
 {
-    char leftChr = 0,
-         rightChr = 0;
     PythonTextBlockData *data = nullptr;
-
 
     QTextCharFormat format;
     format.setForeground(QColor(QLatin1String("#f43218")));
@@ -752,10 +749,7 @@ void PythonMatchingChars::cursorPositionChange()
     // clear old highlights
     QList<QTextEdit::ExtraSelection> selections = m_editor->extraSelections();
     for (int i = 0; i < selections.size(); ++i) {
-        if ((selections[i].cursor.position() == m_lastPos1 ||
-             selections[i].cursor.position() == m_lastPos2) &&
-            selections[i].format == format)
-        {
+        if (selections[i].format == format) {
             selections.removeAt(i);
             --i;
         }
@@ -766,10 +760,8 @@ void PythonMatchingChars::cursorPositionChange()
     int startPos = cursor.position(),
         matchSkip = 0;
 
-    // grab right char from cursor
-    if (cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor)) {
-        leftChr = cursor.selectedText()[0].toLatin1();
-    }
+    // opening chars tests for opening chars (right side of cursor)
+    char leftChr = cursor.document()->characterAt(cursor.position()).toLatin1();
 
     if (leftChr == '(' || leftChr == '[' || leftChr == '{') {
         for (QTextBlock block = cursor.block();
@@ -800,12 +792,9 @@ void PythonMatchingChars::cursorPositionChange()
         }
     }
 
-    // if we get here we didnt find any mathing char on right side
-    // grab left char from cursor
-    cursor.setPosition(startPos);
-    if (cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor)) {
-        rightChr = cursor.selectedText()[0].toLatin1();
-    }
+    // if we get here we didnt find any mathing opening chars (char on right side of cursor)
+    // test for closing char (left side of cursor)
+    char rightChr = cursor.document()->characterAt(startPos -1).toLatin1();
 
     if (rightChr == ')' || rightChr == ']' || rightChr == '}') {
         for (QTextBlock block = cursor.block();
