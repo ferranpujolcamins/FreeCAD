@@ -33,6 +33,7 @@
 //class PyTracebackObject;
 
 namespace Py {
+
 class ExceptionInfo
 {
     PyObject *m_pyType,
@@ -40,6 +41,17 @@ class ExceptionInfo
              *m_pyTraceback;
     PyThreadState *m_pyState;
     int m_tracebackLevel;
+
+    class SwapIn
+    {
+        PyThreadState *m_oldState;
+        PyGILState_STATE m_GILState;
+        static bool static_GILHeld;
+    public:
+        SwapIn(PyThreadState *newState);
+        ~SwapIn();
+    };
+
 public:
     ExceptionInfo();
     ExceptionInfo(PyObject *tracebackArg); // only for traceback function
@@ -65,6 +77,7 @@ public:
 private:
     PyTracebackObject *getTracebackFrame() const;
     PyObject *getAttr(const char *attr) const;
+    PyObject *getItem(const char *attr) const;
 };
 }
 

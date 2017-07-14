@@ -795,7 +795,7 @@ void PythonEditor::clearAllExceptions()
         Py::ExceptionInfo exc = d->exceptions.take(i);
         AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
         if (vBar)
-            vBar->setMarker(exc.lineNr(), d->exceptionScrollBarMarkerColor);
+            vBar->clearMarker(exc.lineNr(), d->exceptionScrollBarMarkerColor);
     }
 
     renderExceptionExtraSelections();
@@ -811,7 +811,7 @@ void PythonEditor::clearException(const QString &fn, int line)
 
         AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
         if (vBar)
-            vBar->setMarker(line, d->exceptionScrollBarMarkerColor);
+            vBar->clearMarker(line, d->exceptionScrollBarMarkerColor);
     }
 }
 

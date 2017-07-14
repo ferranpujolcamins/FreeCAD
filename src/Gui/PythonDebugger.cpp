@@ -38,6 +38,37 @@
 
 using namespace Gui;
 
+
+Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
+    m_oldState(nullptr)
+{
+    // ensure we dont re-swap and aquire lock (leads to deadlock)
+    if (!static_GILHeld) {
+        static_GILHeld = true;
+        // aquire for global thread
+        m_GILState = PyGILState_Ensure();
+        m_oldState = PyThreadState_Get();
+
+        // swap to and re-aquire lock for jedi thread
+        PyGILState_Release(m_GILState);
+        PyThreadState_Swap(newState);
+        m_GILState = PyGILState_Ensure();
+    }
+}
+Py::ExceptionInfo::SwapIn::~SwapIn()
+{
+    // ensure we only swap back if this instance was the swapping one
+    if (m_oldState) {
+        // release from jedi thread and swap back to old thread
+        PyGILState_Release(m_GILState);
+        PyThreadState_Swap(m_oldState);
+
+        if (static_GILHeld)
+            static_GILHeld = false;
+    }
+}
+bool Py::ExceptionInfo::SwapIn::static_GILHeld = false;
+
 Py::ExceptionInfo::ExceptionInfo() :
     m_pyType(nullptr),
     m_pyValue(nullptr),
@@ -77,6 +108,8 @@ Py::ExceptionInfo::ExceptionInfo(PyObject *tracebackArg) :
     if (!PyTuple_Check(tracebackArg))
         return;
 
+    SwapIn myState(m_pyState);
+
     m_pyType = PyTuple_GET_ITEM(tracebackArg, 0);
     m_pyValue = PyTuple_GET_ITEM(tracebackArg, 1);
     m_pyTraceback = PyTuple_GET_ITEM(tracebackArg, 2);
@@ -96,6 +129,9 @@ Py::ExceptionInfo::ExceptionInfo(PyObject *tracebackArg) :
 
 Py::ExceptionInfo::ExceptionInfo(const Py::ExceptionInfo &other)
 {
+
+    SwapIn myState(m_pyState);
+
     m_tracebackLevel = other.m_tracebackLevel;
     m_pyType = other.m_pyType;
     m_pyTraceback = other.m_pyTraceback;
@@ -110,18 +146,19 @@ Py::ExceptionInfo::~ExceptionInfo()
 {
     // we might get deleted after file has ended
     // and some other python code is running
-    Base::PyGILStateLocker lock;
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
+    SwapIn myState(m_pyState);
+
     Py_XDECREF(m_pyType);
     Py_XDECREF(m_pyValue);
     Py_XDECREF(m_pyTraceback);
-    PyThreadState_Swap(state);
 }
 
 int Py::ExceptionInfo::lineNr() const
 {
     if (!isValid())
         return -1;
+
+    SwapIn myState(m_pyState);
 
     if (m_pyTraceback) { // no traceback when in global space
         PyTracebackObject* tb = getTracebackFrame();
@@ -145,8 +182,7 @@ int Py::ExceptionInfo::offset() const
     if (!isSyntaxError() && !isIndentationError())
         return -1;
 
-    Base::PyGILStateLocker lock;
-    Q_UNUSED(lock); // quiet compiler
+    SwapIn myState(m_pyState);
 
     PyObject *vlu = getAttr("offset"); // new ref
     if (!vlu)
@@ -162,14 +198,43 @@ QString Py::ExceptionInfo::message() const
     if (!isValid())
         return QString();
 
+    SwapIn myState(m_pyState);
+
     PyObject *vlu = getAttr("msg"); // new ref
-    if (!vlu){
+    if (!vlu)
+        vlu = getItem("msg");
+    if (!vlu)
         vlu = getAttr("message");
         if (!vlu)
-            return QString();
+            vlu = getItem("message");
+    if (!vlu)
+        vlu = getAttr("what");
+        if (!vlu)
+            vlu = getItem("what");
+    if (!vlu)
+        vlu = getAttr("reason");
+        if (!vlu)
+            vlu = getItem("reason");
+    if (!vlu && PyErr_GivenExceptionMatches(m_pyType, Base::BaseExceptionFreeCADError))
+    {
+        vlu = getItem("swhat");
+        if (!vlu)
+            vlu = getItem("sErrMsg");
     }
 
-    const char *msg = PyString_AS_STRING(vlu);
+    if (!vlu) { // error just as a string
+        if (PyBytes_CheckExact(m_pyValue) && PyBytes_Size(m_pyValue) > 0) {
+            vlu = m_pyValue;
+            Py_INCREF(vlu);
+        } else if (PyBytes_CheckExact(m_pyType) && PyBytes_Size(m_pyType) > 0) {
+            vlu = m_pyType;
+            Py_INCREF(vlu);
+        }
+    }
+    if (!vlu)
+        return QString(); // unkown type
+
+    const char *msg = PyBytes_AS_STRING(vlu);
     Py_XDECREF(vlu);
     return QLatin1String(msg);
 }
@@ -179,9 +244,11 @@ QString Py::ExceptionInfo::fileName() const
     if (!isValid())
         return QString();
 
+    SwapIn myState(m_pyState);
+
     if (m_pyTraceback) {
         PyTracebackObject* tb = getTracebackFrame();
-        const char *filename = PyString_AsString(tb->tb_frame->f_code->co_filename);
+        const char *filename = PyBytes_AsString(tb->tb_frame->f_code->co_filename);
         return QLatin1String(filename);
     }
 
@@ -189,7 +256,7 @@ QString Py::ExceptionInfo::fileName() const
     if (!vlu)
         return QString();
 
-    const char *msg = PyString_AS_STRING(vlu);
+    const char *msg = PyBytes_AS_STRING(vlu);
     Py_XDECREF(vlu);
     return QLatin1String(msg);
 }
@@ -200,7 +267,7 @@ QString Py::ExceptionInfo::functionName() const
         return QString();
 
     PyTracebackObject* tb = getTracebackFrame();
-    const char *funcname = PyString_AsString(tb->tb_frame->f_code->co_name);
+    const char *funcname = PyBytes_AsString(tb->tb_frame->f_code->co_name);
     return QLatin1String(funcname);
 }
 
@@ -209,11 +276,13 @@ QString Py::ExceptionInfo::text() const
     if (!isValid())
         return QString();
 
+    SwapIn myState(m_pyState);
+
     PyObject *vlu = getAttr("text"); // new ref
     if (!vlu)
         return QString();
 
-    const char *txt = PyString_AS_STRING(vlu);
+    const char *txt = PyBytes_AS_STRING(vlu);
     Py_XDECREF(vlu);
     return QLatin1String(txt);
 }
@@ -222,17 +291,16 @@ QString Py::ExceptionInfo::typeString() const
 {
     if (!isValid())
         return QString();
-    Base::PyGILStateLocker lock;
-    Q_UNUSED(lock); // quiet compiler
 
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
+
+    SwapIn myState(m_pyState);
+
     PyObject *vlu = PyObject_Str(m_pyType); // new ref
-    PyThreadState_Swap(state);
     if (!vlu)
         return QString();
 
     Py_INCREF(vlu);
-    const char *txt = PyString_AS_STRING(vlu);
+    const char *txt = PyBytes_AS_STRING(vlu);
     Py_XDECREF(vlu);
     QRegExp re(QLatin1String("<.*\\.(\\w+).*>")); // extract typename from repr string
     if (re.indexIn(QLatin1String(txt)) > -1)
@@ -299,10 +367,8 @@ bool Py::ExceptionInfo::isWarning() const
     if (!isValid())
         return false;
 
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
-    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_Warning);
-    PyThreadState_Swap(state);
-    return res;
+    SwapIn myState(m_pyState);
+    return PyErr_GivenExceptionMatches(m_pyType, PyExc_Warning);
 }
 
 bool Py::ExceptionInfo::isSyntaxError() const
@@ -310,10 +376,8 @@ bool Py::ExceptionInfo::isSyntaxError() const
     if (!isValid())
         return false;
 
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
-    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_SyntaxError);
-    PyThreadState_Swap(state);
-    return res;
+    SwapIn myState(m_pyState);
+    return PyErr_GivenExceptionMatches(m_pyType, PyExc_SyntaxError);
 }
 
 bool Py::ExceptionInfo::isIndentationError() const
@@ -321,11 +385,9 @@ bool Py::ExceptionInfo::isIndentationError() const
     if (!isValid())
         return false;
 
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
-    bool res = PyErr_GivenExceptionMatches(m_pyType, PyExc_IndentationError) ||
-               PyErr_GivenExceptionMatches(m_pyType, PyExc_TabError);
-    PyThreadState_Swap(state);
-    return res;
+    SwapIn myState(m_pyState);
+    return PyErr_GivenExceptionMatches(m_pyType, PyExc_IndentationError) ||
+           PyErr_GivenExceptionMatches(m_pyType, PyExc_TabError);
 }
 
 const char *Py::ExceptionInfo::iconName() const
@@ -343,6 +405,8 @@ const char *Py::ExceptionInfo::iconName() const
 
 PyTracebackObject *Py::ExceptionInfo::getTracebackFrame() const
 {
+    SwapIn myState(m_pyState);
+
     int lvl = m_tracebackLevel;
     PyTracebackObject* tb = (PyTracebackObject*)m_pyTraceback;
     while (lvl > 0) {
@@ -354,17 +418,34 @@ PyTracebackObject *Py::ExceptionInfo::getTracebackFrame() const
 
 PyObject *Py::ExceptionInfo::getAttr(const char *attr) const
 {
+    SwapIn myState(m_pyState);
 
-    Base::PyGILStateLocker lock;
-    Q_UNUSED(lock); // quiet compiler
-
-    PyThreadState *state = PyThreadState_Swap(m_pyState);
     PyObject *vlu = nullptr;
     if (PyObject_HasAttrString(m_pyValue, attr))
         vlu = PyObject_GetAttrString(m_pyValue, attr); // new ref
-    PyThreadState_Swap(state);
     if (!vlu)
         return nullptr;
+    return vlu;
+}
+
+PyObject *Py::ExceptionInfo::getItem(const char *attr) const
+{
+
+    SwapIn myState(m_pyState);
+
+    PyObject *vlu = nullptr;
+    if (PyDict_Check(m_pyValue)) {
+        vlu = PyDict_GetItemString(m_pyValue, attr); // borrowed ref
+
+    } else if (PyList_Check(m_pyValue)) {
+        int idx = atoi(attr);
+        if (PyList_Size(m_pyValue) >= idx)
+            vlu = PyList_GET_ITEM(m_pyValue, idx); // borrowed ref
+    }
+
+    if (!vlu)
+        return nullptr;
+    Py_XINCREF(vlu); // we decref in caller functions so we need to inref here
     return vlu;
 }
 
@@ -848,7 +929,7 @@ Py::Object PythonDebugExcept::excepthook(const Py::Tuple& args)
             {
                 pTb = pTb->tb_next;
             }
-            PyFrameObject* frame = (PyFrameObject*)PyObject_GetAttr((PyObject*)pTb, PyString_FromString("tb_frame"));
+            PyFrameObject* frame = (PyFrameObject*)PyObject_GetAttr((PyObject*)pTb, PyBytes_FromString("tb_frame"));
             EnterBreakState(frame, (PyObject*)pTb);
         }
     }*/
@@ -1456,7 +1537,7 @@ bool PythonDebugger::setStackLevel(int level)
         PyFrameObject *frame = currentFrame();
         if (frame) {
             int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-            QString file = QString::fromUtf8(PyString_AsString(frame->f_code->co_filename));
+            QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
             Q_EMIT haltAt(file, line);
             Q_EMIT nextInstruction(frame);
         }
@@ -1494,11 +1575,11 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
     //int no;
 
     //no = frame->f_tstate->recursion_depth;
-    //std::string funcname = PyString_AsString(frame->f_code->co_name);
+    //std::string funcname = PyBytes_AsString(frame->f_code->co_name);
 #if PY_MAJOR_VERSION >= 3
     QString file = QString::fromUtf8(PyUnicode_AsUTF8(frame->f_code->co_filename));
 #else
-    QString file = QString::fromUtf8(PyString_AsString(frame->f_code->co_filename));
+    QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
 #endif
     switch (what) {
     case PyTrace_CALL:
@@ -1617,6 +1698,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             return 0;
         }
     case PyTrace_EXCEPTION:
+        // we need to store this exception for later as it might be a recoverable exception
         if (dbg->frameRelatedToOpenedFiles(frame)) {
             Py::ExceptionInfo *exc = new Py::ExceptionInfo(arg);
             if (exc->isValid())
@@ -1707,3 +1789,4 @@ bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
 }
 
 #include "moc_PythonDebugger.cpp"
+

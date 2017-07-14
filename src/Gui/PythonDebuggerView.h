@@ -162,7 +162,7 @@ private:
 class VariableTreeItem
 {
 public:
-    VariableTreeItem(const QList<QVariant> &data,
+    explicit VariableTreeItem(const QList<QVariant> &data,
                      VariableTreeItem *parent);
     ~VariableTreeItem();
 
@@ -189,18 +189,18 @@ public:
 
     // traverses up the tree and finds it way down again to find it selfs pointer
     // a workaround as python doesent seem to hold on to its pointers variables
-    PyObject *getAttr(const QString attrName) const;
+    Py::Object getAttr(const QString attrName) const;
     bool hasAttr(const QString attrName) const;
 
     // should only be set at locals, global, and builtin level at PyFrameLevel
-    void setMeAsRoot(PyObject *root);
+    void setMeAsRoot(Py::Object root);
 
 
 private:
     QList<VariableTreeItem*> childItems;
     QList<QVariant> itemData;
     VariableTreeItem *parentItem;
-    PyObject *rootObj;
+    Py::Object rootObj;
     bool lazyLoad;
 };
 

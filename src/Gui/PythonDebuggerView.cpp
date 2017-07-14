@@ -832,7 +832,7 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
 
         QString srcText = exc->text();
         int offset = exc->offset();
-        if (offset > 0) {
+        if (offset > 0) { // syntax error and such that give a column where it occured
             if (!srcText.endsWith(QLatin1String("\n")))
                 srcText += QLatin1String("\n");
             for (int i = 0; i < offset -1; ++i) {
@@ -946,12 +946,11 @@ void IssuesModel::clearException(const QString &fn, int line)
 
 
 VariableTreeItem::VariableTreeItem(const QList<QVariant> &data,
-                                   VariableTreeItem *parent)
+                                   VariableTreeItem *parent):
+    parentItem(parent),
+    lazyLoad(false)
 {
-    parentItem = parent;
     itemData = data;
-    lazyLoad = false;
-    rootObj = nullptr;
 }
 
 VariableTreeItem::~VariableTreeItem()
@@ -1048,29 +1047,47 @@ void VariableTreeItem::setLazyLoadChildren(bool lazy)
     lazyLoad = lazy;
 }
 
-PyObject *VariableTreeItem::getAttr(const QString attrName) const
+Py::Object VariableTreeItem::getAttr(const QString attrName) const
 {
-    PyObject *me;
-    if (rootObj == nullptr)
+    Py::Object me;
+    if (rootObj.isNull())
         me = parentItem->getAttr(itemData[0].toString());
     else
         me = rootObj;
 
-    if (!me)
-        return nullptr;
+    if (me.isNull())
+        return me; // return nullobj
 
-    PyObject *found;
+    Py::String attr(attrName.toStdString());
+
+    if (PyModule_Check(me.ptr())) {
+        if (me.hasAttr(attr))
+            return me.getAttr(attr);
+
+        me = PyModule_GetDict(me.ptr());
+    }
+    if (me.isDict() || me.isList())
+        return me.getItem(attr);
+    if (me.hasAttr(attr))
+        return me.getAttr(attr);
+    return Py::None();
+/*
+    PyObject *found = nullptr;
     PyObject *attr = PyBytes_FromString(attrName.toLatin1());
-    if (PyDict_Check(me))
-        found = PyDict_GetItem(me, attr);
-    else
-        found = PyObject_GetAttr(me, attr);
+    if (me.isDict())
+        found = PyDict_GetItem(me.ptr(), attr);
+    else if (me.isList())
+        found = PyList_GetItem(me.ptr(), attrName.toInt());
+    else if (!me.isNone() && !me.isNull())
+        found = PyObject_GetAttr(me.ptr(), attr);
 
-    return found;
+    return Py::Object(found); */
 }
 
 bool VariableTreeItem::hasAttr(const QString attrName) const
 {
+    return getAttr(attrName).isNull();
+    /*
      PyObject *me;
      if (rootObj == nullptr)
          me = parentItem->getAttr(itemData[0].toString());
@@ -1087,10 +1104,10 @@ bool VariableTreeItem::hasAttr(const QString attrName) const
      else
          found = PyObject_HasAttr(me, attr);
 
-     return found != 0;
+     return found != 0;*/
 }
 
-void VariableTreeItem::setMeAsRoot(PyObject *root)
+void VariableTreeItem::setMeAsRoot(Py::Object root)
 {
     rootObj = root;
 }
@@ -1290,24 +1307,27 @@ void VariableTreeModel::updateVariables(PyFrameObject *frame)
 
     // first locals
     VariableTreeItem *parentItem = m_localsItem;
-    //Py::Dict rootObject(frame->f_locals);
     PyObject *rootObject = (PyObject*)frame->f_locals;
-    m_localsItem->setMeAsRoot(rootObject);
-
-    scanObject(rootObject, parentItem, 0, true);
+    if (rootObject) {
+        m_localsItem->setMeAsRoot(Py::Object(rootObject));
+        scanObject(rootObject, parentItem, 0, true);
+    }
 
     // then globals
     parentItem = m_globalsItem;
     PyObject *globalsDict = frame->f_globals;
-    m_globalsItem->setMeAsRoot(rootObject);
-    scanObject(globalsDict, parentItem, 0, true);
+    if (globalsDict) {
+        m_globalsItem->setMeAsRoot(Py::Object(globalsDict));
+        scanObject(globalsDict, parentItem, 0, true);
+    }
 
     // and the builtins
     parentItem = m_builtinsItem;
     rootObject = (PyObject*)frame->f_builtins;
-    m_builtinsItem->setMeAsRoot(rootObject);
-    scanObject(rootObject, parentItem, 0, false);
-
+    if (rootObject) {
+        m_builtinsItem->setMeAsRoot(Py::Object(rootObject));
+        scanObject(rootObject, parentItem, 0, false);
+    }
 }
 
 void VariableTreeModel::lazyLoad(const QModelIndex &parent)
@@ -1323,16 +1343,16 @@ void VariableTreeModel::lazyLoad(VariableTreeItem *parentItem)
     Py::Dict dict;
     // workaround to not beeing able to store pointers to variables
     QString myName = parentItem->name();
-    PyObject *me = parentItem->parent()->getAttr(myName);
-    if (!me)
+    Py::Object me = parentItem->parent()->getAttr(myName);
+    if (me.isNull())
         return;
 
     try {
 
-        Py::List lst (PyObject_Dir(me));
+        Py::List lst (PyObject_Dir(me.ptr()));
 
         for (uint i = 0; i < lst.length(); ++i) {
-            Py::Object attr(PyObject_GetAttr(me, lst[i].str().ptr()));
+            Py::Object attr(PyObject_GetAttr(me.ptr(), lst[i].str().ptr()));
             dict.setItem(lst[i], attr);
         }
 
@@ -1342,7 +1362,6 @@ void VariableTreeModel::lazyLoad(VariableTreeItem *parentItem)
         PyErr_Print();
         e.clear();
     }
-
 }
 
 void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *parentItem,
@@ -1410,22 +1429,27 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
         // PyCXX metods throws here on type objects from class self type?
         // use Python C instead
         QString newValue, newType;
-        PyObject *vl, *tp, *itm;
+        PyObject *vl, *itm;
         itm = PyDict_GetItem(object.ptr(), key.ptr());
         if (itm) {
             Py_XINCREF(itm);
             vl = PyObject_Str(itm);
-            tp = PyObject_Str((PyObject*)Py_TYPE(itm));
-            if (vl && tp) {
+            if (vl) {
                 char *vlu = PyBytes_AS_STRING(vl);
                 newValue = QString(QLatin1String(vlu));
 
-                char *typ = PyBytes_AS_STRING(tp);
-                newType = QString(QLatin1String(typ));
+                if (!PyBytes_Check(itm)) {
+                    // extract memory adress if needed, but not on ordinary strings
+                    QRegExp re(QLatin1String("^<\\w+[\\w\\s'\"\\-]* at (?:0x)?([0-9a-fA-F]+)>$"));
+                    if (re.indexIn(newValue) != -1) {
+                        newValue = re.cap(1);
+                    }
+                }
+
+                newType = QString::fromLatin1(Py_TYPE(itm)->tp_name);
             }
             Py_DECREF(itm);
             Py_XDECREF(vl);
-            Py_XDECREF(tp);
             PyErr_Clear();
         }
 
@@ -1445,7 +1469,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
                 // check for subobject recursively
                 scanObject(itm, createdItem, depth +1, true);
 
-            } else if (PyDict_Size(Py_TYPE(itm)->tp_dict)) // && // members check
+            } else if (Py_TYPE(itm)->tp_dict && PyDict_Size(Py_TYPE(itm)->tp_dict)) // && // members check
                       // !createdItem->parent()->hasAttr(name)) // avoid cyclic child inclusions
             {
                 // set lazy load for these
