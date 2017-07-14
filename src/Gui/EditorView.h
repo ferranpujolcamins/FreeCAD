@@ -94,7 +94,6 @@ public:
     QStringList undoActions() const;
     QStringList redoActions() const;
     QString fileName() const;
-    QPlainTextEdit *editor() const;
 
 public Q_SLOTS:
     void setWindowModified(bool modified);
@@ -150,6 +149,7 @@ private:
 };
 
 
+// -----------------------------------------------------------------------------------
 
 class PythonEditor;
 class PythonEditorViewP;
@@ -176,6 +176,8 @@ public Q_SLOTS:
 private:
     PythonEditorViewP *d;
 };
+
+// ----------------------------------------------------------------------------------
 
 /**
  * @brief wrapps a editor with view data
@@ -214,6 +216,8 @@ public:
     QStringList &undos();
     QStringList &redos();
 };
+
+// ------------------------------------------------------------------------------------
 
 /**
  * @brief The EditorViewSingleton a singleton which owns all
@@ -284,6 +288,7 @@ private:
     friend class EditorViewWrapper;
 };
 
+// ---------------------------------------------------------------------------
 
 /**
  * @brief holds the topbar (opened files, class browser etc)
@@ -310,6 +315,7 @@ private:
     QPushButton  *m_closeFile;
 };
 
+//-----------------------------------------------------------------------------------
 
 /**
  * @brief The EditorSearchBar class
@@ -350,6 +356,7 @@ private:
     QTextDocument::FindFlags m_findFlags;
 };
 
+// ---------------------------------------------------------------------------------
 
 /**
  * @brief a lineedit class that shows a clear button and a settings button

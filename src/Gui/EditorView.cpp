@@ -619,11 +619,6 @@ QString EditorView::fileName() const
     return d->editWrapper->fileName();
 }
 
-QPlainTextEdit *EditorView::editor() const
-{
-    return d->editWrapper->editor();
-}
-
 void EditorView::setWindowModified(bool modified)
 {
     MDIView::setWindowModified(modified);
