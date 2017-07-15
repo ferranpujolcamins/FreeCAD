@@ -1461,6 +1461,7 @@ Py::Object JediDebugProxy::proxy(const Py::Tuple &args)
     }
     return Py::None();
 }
+const char *JediDebugProxy::ModuleName = "_jedi_debug_proxy";
 
 //-------------------------------------------------------------------------
 

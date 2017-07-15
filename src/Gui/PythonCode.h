@@ -475,7 +475,7 @@ public:
     JediDebugProxy();
 
     virtual ~JediDebugProxy();
-    static constexpr char *ModuleName = "_jedi_debug_proxy";
+    static const char *ModuleName;
 private:
     Py::Object proxy(const Py::Tuple &args);
 };
