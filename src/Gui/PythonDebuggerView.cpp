@@ -1071,40 +1071,11 @@ Py::Object VariableTreeItem::getAttr(const QString attrName) const
     if (me.hasAttr(attr))
         return me.getAttr(attr);
     return Py::None();
-/*
-    PyObject *found = nullptr;
-    PyObject *attr = PyBytes_FromString(attrName.toLatin1());
-    if (me.isDict())
-        found = PyDict_GetItem(me.ptr(), attr);
-    else if (me.isList())
-        found = PyList_GetItem(me.ptr(), attrName.toInt());
-    else if (!me.isNone() && !me.isNull())
-        found = PyObject_GetAttr(me.ptr(), attr);
-
-    return Py::Object(found); */
 }
 
 bool VariableTreeItem::hasAttr(const QString attrName) const
 {
     return getAttr(attrName).isNull();
-    /*
-     PyObject *me;
-     if (rootObj == nullptr)
-         me = parentItem->getAttr(itemData[0].toString());
-     else
-         me = rootObj;
-
-     if (!me)
-         return false;
-
-     int found;
-     PyObject *attr = PyBytes_FromString(attrName.toLatin1());
-     if (PyDict_Check(me))
-         found = PyDict_Contains(me, attr);
-     else
-         found = PyObject_HasAttr(me, attr);
-
-     return found != 0;*/
 }
 
 void VariableTreeItem::setMeAsRoot(Py::Object root)

@@ -45,6 +45,7 @@
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
 #include <QApplication>
+#include <QDebug>
 
 namespace Gui {
 struct PythonCodeP
@@ -54,6 +55,7 @@ struct PythonCodeP
     ~PythonCodeP()
     {  }
 };
+
 } // namespace Gui
 
 
@@ -217,7 +219,8 @@ class PythonSyntaxHighlighterP
 {
 public:
     PythonSyntaxHighlighterP():
-        endStateOfLastPara(PythonSyntaxHighlighter::Standard)
+        endStateOfLastPara(PythonSyntaxHighlighter::T_Undetermined),
+        activeBlock(nullptr)
     {
 
         { // GIL lock code block
@@ -237,7 +240,7 @@ public:
 
         // https://docs.python.org/3/reference/lexical_analysis.html#keywords
         keywords << QLatin1String("False")    << QLatin1String("None")
-                 << QLatin1String("None")     << QLatin1String("and")
+                 << QLatin1String("True")     << QLatin1String("and")
                  << QLatin1String("as")       << QLatin1String("assert")
                  << QLatin1String("async")    << QLatin1String("await") //2 new kewords from 3.6
                  << QLatin1String("break")    << QLatin1String("class")
@@ -253,7 +256,7 @@ public:
                  << QLatin1String("pass")     << QLatin1String("raise")
                  << QLatin1String("return")   << QLatin1String("try")
                  << QLatin1String("while")    << QLatin1String("with")
-                 << QLatin1String("yield")    << QLatin1String("True");
+                 << QLatin1String("yield");
 
         // keywords takes precedence over builtins
         for (QString name : keywords) {
@@ -268,7 +271,9 @@ public:
 
     QStringList keywords;
     QStringList builtins;
-    PythonSyntaxHighlighter::States endStateOfLastPara;
+    PythonSyntaxHighlighter::Tokens endStateOfLastPara;
+    PythonTextBlockData *activeBlock;
+
 };
 } // namespace Gui
 
@@ -294,343 +299,616 @@ PythonSyntaxHighlighter::~PythonSyntaxHighlighter()
  */
 void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 {
-  int i = 0;
-  QChar prev, ch;
-  int blockPos = currentBlock().position();
+    int i = 0;
+    QChar prev, ch;
+    int blockPos = currentBlock().position();
 
-  PythonTextBlockData *blockData = new PythonTextBlockData;
-  setCurrentBlockUserData(blockData);
+    d->activeBlock = new PythonTextBlockData(currentBlock());
+    setCurrentBlockUserData(d->activeBlock);
 
-  d->endStateOfLastPara = static_cast<PythonSyntaxHighlighter::States>(previousBlockState());
-  if (d->endStateOfLastPara < 0 || d->endStateOfLastPara > maximumUserState())
-    d->endStateOfLastPara = Standard;
+    d->endStateOfLastPara = static_cast<PythonSyntaxHighlighter::Tokens>(previousBlockState());
+    if (d->endStateOfLastPara < T_Undetermined)
+        d->endStateOfLastPara = T_Undetermined;
 
-  while ( i < text.length() )
-  {
-    ch = text.at( i );
+    bool isModuleLine = false;
 
-    switch ( d->endStateOfLastPara )
+    while ( i < text.length() )
     {
-    case Standard:
-      {
-        switch ( ch.unicode() )
+        ch = text.at( i );
+
+        switch ( d->endStateOfLastPara )
         {
-        case '#':
-            // begin a comment
-            setComment(i, 1);
-            break;
-        case '"':
-          {
-            // Begin either string literal or block comment
-            if ((i>=2) && text.at(i-1) == QLatin1Char('"') &&
-                text.at(i-2) == QLatin1Char('"'))
+        case T_Undetermined:
+        {
+            char nextCh = 0, thirdCh =0;
+            if (text.length() >= i+1)
+                nextCh = text.at(i+1).unicode();
+            if (text.length() >= i+2)
+                thirdCh = text.at(i+2).unicode();
+
+            switch ( ch.unicode() )
             {
-              setDoubleQuotBlockComment(i-2, 3);
-            } else {
-              setDoubleQuotString(i, 1);
-            }
-          } break;
-        case '\'':
-          {
-            // Begin either string literal or block comment
-            if ((i>=2) && text.at(i-1) == QLatin1Char('\'') &&
-                text.at(i-2) == QLatin1Char('\''))
+            // all these chars are described at: https://docs.python.org/3/reference/lexical_analysis.html
+            case '#':
+                // begin a comment
+                // it goes on to the end of the row
+                setRestOfLine(i, text, Tokens::T_Comment, TColor::Comment); // function advances i
+                break;
+            case '"':
             {
-              setSingleQuotBlockComment(i-2, 3);
-            } else {
-              setSingleQuotString(i, 1);
+                // Begin either string literal or block string
+                char compare = '"';
+                if (nextCh == compare && thirdCh == compare) {
+                    // block string
+                    int len = lastDblQuoteStringCh(i+3, text);
+                    int endPos = text.indexOf(QLatin1String("\"\"\""), len);
+                    if (endPos != -1)
+                        len = endPos;
+
+                    setLiteral(i, len, T_LiteralBlockDblQuote, StringBlockDoubleQoute);
+
+                } else {
+                    // single line string
+                    int len = lastDblQuoteStringCh(i + 1, text);
+                    if ((text.length() >= i + len +1) && (text.at(i+len) == QLatin1Char(compare)))
+                        len += 1;
+
+                    setLiteral(i, len, T_LiteralDblQuote, StringDoubleQoute);
+                }
+
+            } break;
+            case '\'':
+            {
+                // Begin either string literal or block comment
+                //int startPos = text.indexOf(QLatin1String("'''"), i)
+                char compare = '\'';
+                if (nextCh == compare && thirdCh == compare) {
+                    // block string
+                    int len = lastSglQuoteStringCh(i+3, text);
+                    int endPos = text.indexOf(QLatin1String("'''"), len);
+                    if (endPos != -1)
+                        len = endPos;
+
+                    setLiteral(i, len, T_LiteralBlockSglQuote, StringBlockSingleQoute);
+
+                } else {
+                    // single line string
+                    int len = lastSglQuoteStringCh(i + 1, text);
+                    if ((text.length() >= i + len +1) && (text.at(i+len) == QLatin1Char(compare)))
+                        len += 1;
+
+                    setLiteral(i, len, T_LiteralSglQuote, StringSingleQoute);
+                }
+
+            } break;
+
+            // handle indentation
+            case ' ': case '\t':
+            {
+                if (d->activeBlock->isEmpty()) {
+                    int count = 0, j = i;
+
+                    while (j++ < text.length()) {
+                        if (text.at(i) == QLatin1Char(' ')) {
+                            ++i;
+                            ++count;
+                        } else if (text.at(i) == QLatin1Char('\t')) {
+                            ++i;
+                            count += 4; // TODO Better figure out how to handle tabs
+                        } else {
+                            i = j -1;
+                            break;
+                        }
+                    }
+                    setIndentation(i, count);
+                    break;
+                }
+
+            } break;
+
+                // operators or delimiters
+                // These are the allowed operators
+                //  +       -       *       **      /       //      %      @
+                //  <<      >>      &       |       ^       ~
+                //  <       >       <=      >=      ==      !=
+
+                // These are the allowed Delimiters
+                // (       )       [       ]       {       }
+                // ,       :       .       ;       @       =       ->
+                // +=      -=      *=      /=      //=     %=      @=
+                // &=      |=      ^=      >>=     <<=     **=
+
+            // handle all with possibly 3 chrs
+            case '*': // specialcase * as it is also used as glob for modules
+                if (isModuleLine) {
+                    i -= 1;
+                    d->endStateOfLastPara = T_IdentifierModule;
+                    break;
+                } // else fallthrough
+
+            case '/':
+                if(nextCh == '=') {
+                    setOperator(i, 2, T_OperatorAssign);
+                    break;
+                } // else fallthrough
+
+            case '>': case '<': // might be 3 chars ie >>=
+            {
+                if (nextCh == ch.unicode()) {
+                    // test for **= or <<=
+                    if(thirdCh == '=') {
+                        setDelimiter(i, 3, T_Delimiter);
+                        break;
+                    }
+                    // no just ** or <<
+                    setOperator(i, 2, T_Operator);
+                    break;
+                } else if(nextCh == '=') {
+                    // ie  <= and not *= as that is stopped in the case '*' above
+                    setOperator(i, 2, T_OperatorCompare);
+                    break;
+                }
+                // no just single * or <
+                setOperator(i, 1, T_Operator);
+            } break;
+            // handle all left with possibly 2 chars
+            case '-':
+                if (nextCh == '>') {
+                    // -> is allowed function return type documentation
+                    setDelimiter(i, 2, T_DelimiterMetaData);
+                    break;
+                } // else fallthrough
+
+            case '+': case '%': case '&':
+            case '^': case '|':
+                if (nextCh == '=') {
+                    // possibly two characters
+                    setOperator(i, 1, T_OperatorAssign);
+                    break;
+                }
+                setOperator(i, 1, T_Operator);
+                break;
+            case '!': case '=':
+                setOperator(i, 1, T_OperatorCompare);
+            // only single char
+            case '~':
+                setOperator(i, 1, T_Operator);
+                break;
+            case '(':
+                setDelimiter(i, 1, T_DelimiterOpenParen);
+                break;
+            case '[':
+                setDelimiter(i, 1, T_DelimiterOpenBracket);
+                break;
+            case '{':
+                setDelimiter(i, 1, T_DelimiterOpenBrace);
+                break;
+            case '}':
+                setDelimiter(i, 1, T_DelimiterCloseBrace);
+                break;
+            case ')':
+                setDelimiter(i, 1, T_DelimiterCloseParen);
+                break;
+            case ']':
+                setDelimiter(i, 1, T_DelimiterCloseBracket);
+                break;
+            case ',':
+                setDelimiter(i, 1, T_DelimiterComma);
+                break;
+            case '.':
+                setDelimiter(i, 1, T_DelimiterPeriod);
+                break;
+            case ';':
+                isModuleLine = false;
+                setDelimiter(i, 1, T_DelimiterSemiColon);
+                break;
+            case ':':
+                setDelimiter(i, 1, T_DelimiterColon);
+                break;
+            case '@':
+            {
+                if (text.length() >= i + 1) {
+                   if(text.at(i+1).isLetter()) {
+                       int len = lastWordCh(i + 1, text);
+                       setWord(i, len, T_IdentifierDecorator, TColor::IdentifierDecorator);
+                       break;
+                   } else if (text.at(i+1) == QLatin1Char('=')) {
+                       setOperator(i, 2, T_OperatorAssign);
+                       break;
+                   }
+                 }
+                 setDelimiter(i, 1, T_Delimiter);
+            } break;
+            // illegal chars
+            case '$': case '?': case '`':
+                setSyntaxError(i, 1);
+                break;
+            // text or number?
+            default:
+            {
+                // Check for normal text
+                if ( ch.isLetter() || ch == QLatin1Char('_') )
+                {
+                    int endCh = lastWordCh(i, text);
+                    QString word = text.mid(i, endCh);
+
+                    if ( d->keywords.contains( word ) != 0 ) {
+                        if (word == QLatin1String("def")) {
+                            setBoldWord(i, endCh, Tokens::T_KeywordDef, SyntaxHighlighter::KeywordDef);
+                            d->endStateOfLastPara = T_IdentifierDefUnknown; // step out to handle def name
+
+                        } else if (word == QLatin1String("class")) {
+                            setBoldWord(i, endCh, Tokens::T_KeywordClass, SyntaxHighlighter::KeywordClass);
+                            d->endStateOfLastPara = T_IdentifierClass; // step out to handle class name
+
+                        } else if (word == QLatin1String("import")) {
+                            setBoldWord(i, endCh, Tokens::T_KeywordImport, SyntaxHighlighter::Keyword);
+                            d->endStateOfLastPara = T_IdentifierModule; // step out to handle module name
+                            isModuleLine = true;
+
+                        } else if (word == QLatin1String("from")) {
+                            setBoldWord(i, endCh, Tokens::T_KeywordFrom, SyntaxHighlighter::Keyword);
+                            d->endStateOfLastPara = T_IdentifierModule; // step out handle module name
+                            isModuleLine = true;
+
+                        } else if (word == QLatin1String("as")) {
+                            setBoldWord(i, endCh, T_KeywordAs, SyntaxHighlighter::Keyword);
+                            if (isModuleLine)
+                                d->endStateOfLastPara = T_IdentifierModule;
+                            else
+                                d->endStateOfLastPara = T_Undetermined;
+                        } else if (word == QLatin1String("in")) {
+                            setBoldWord(i, endCh, T_KeywordIn, SyntaxHighlighter::Keyword);
+                            d->endStateOfLastPara = T_Undetermined;
+
+                        } else {
+                            setBoldWord(i, endCh, Tokens::T_Keyword, SyntaxHighlighter::Keyword);
+                        }
+
+                    } else if(d->builtins.contains(word)) {
+                        setBoldWord(i, endCh, Tokens::T_IdentifierBuiltin, SyntaxHighlighter::IdentifierBuiltin);
+                    } else if (isModuleLine) {
+                        i -= 1; // jump to module block
+                        d->endStateOfLastPara = T_IdentifierModule;
+                    } else {
+                        setUndeterminedIdentifier(i, endCh, T_IdentifierUnknown, SyntaxHighlighter::IdentifierUnknown);
+                    }
+
+                    break;
+                    //i += word.length(); setWord increments
+                }
+
+                // is it the beginning of a number?
+                int endPos = lastNumberCh(i, text);
+                if ( endPos > i) {
+                    setNumber(i, endPos, numberType(text));
+                    break;
+                }
+                // its a error if we ever get here
+                setSyntaxError(i, 1);
+
+
+                qDebug() << "unknown state for: " << qPrintable(ch) <<
+                          " row:"<< qPrintable(blockPos) <<
+                          " col:" << qPrintable(i) << endl;
+
+            } // end default:
+            } // end switch
+
+        } break;// end T_Undetermined
+
+        // we should only arrive here when we start on a new line
+        case T_LiteralBlockDblQuote:
+        {
+            // multiline double quote string continued from previous line
+            int endPos = text.indexOf(QLatin1String("\"\"\""), i);
+            if (endPos != -1) {
+                setLiteral(i, endPos, T_LiteralBlockSglQuote, StringBlockSingleQoute);
+                d->endStateOfLastPara = T_Undetermined;
             }
-          } break;
-        case ' ':
-        case '\t':
-          {
-            // ignore whitespaces
-          } break;
-        case '@':
-          {
-            setFormat(i, 1, this->colorByType(SyntaxHighlighter::Decorator));
-            d->endStateOfLastPara = Decorator;
-          } break;
-        case '(': case '[': case '{':
-        case '}': case ')': case ']':
-          {
-            blockData->insert(ch.toLatin1(), blockPos + i);
-            setOperator(i, 1);
-          } break;
-        case '+': case '-': case '*': case '/':
-        case ':': case '%': case '^': case '~':
-        case '!': case '=': case '<': case '>': // possibly two characters
-            setOperator(i, 1);
-            break;
+
+        } break;
+        case T_LiteralBlockSglQuote:
+        {
+            // multiline single quote string continued from previous line
+            int endPos = text.indexOf(QLatin1String("'''"), i);
+            if (endPos != -1) {
+                setLiteral(i, endPos, T_LiteralBlockSglQuote, StringBlockSingleQoute);
+                d->endStateOfLastPara = T_Undetermined;
+            }
+
+        } break;
+        case T_IdentifierDefUnknown:
+        {   // before we now if its a class member or a function
+            for (; i < text.length(); ++i) {
+                if (!text.at(i).isSpace())
+                    break;
+            }
+            if (i == text.length()) {
+                d->endStateOfLastPara = T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            int len = lastWordCh(i, text);
+            setUndeterminedIdentifier(i, len, T_IdentifierDefUnknown, SyntaxHighlighter::IdentifierUnknown);
+            d->endStateOfLastPara = T_Undetermined;
+
+        } break;
+        case T_IdentifierClass:
+        {
+            for (; i < text.length(); ++i) {
+                if (!text.at(i).isSpace())
+                    break;
+            }
+            if (i == text.length()) {
+                d->endStateOfLastPara = T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            int len = lastWordCh(i, text);
+            setUndeterminedIdentifier(i, len, T_IdentifierClass, SyntaxHighlighter::IdentifierClass);
+            d->endStateOfLastPara = T_Undetermined;
+
+        } break;
+        case T_IdentifierModule:
+        {
+            // can import multiple modules separated  with ',' so we jump here between here and T_Undertermined
+            for (; i < text.length(); ++i) {
+                if (!text.at(i).isSpace())
+                    break;
+            }
+            if (i == text.length()) {
+                d->endStateOfLastPara = T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            int len = lastWordCh(i, text);
+            setUndeterminedIdentifier(i, len, T_IdentifierModule, SyntaxHighlighter::IdentifierModule);
+            d->endStateOfLastPara = T_Undetermined;
+
+        } break;
         default:
-          {
-            // Check for normal text
-            if ( ch.isLetter() || ch == QLatin1Char('_') )
-            {
-              QString buffer;
-              int j=i;
-              while ( ch.isLetterOrNumber() || ch == QLatin1Char('_') ) {
-                buffer += ch;
-                ++j;
-                if (j >= text.length())
-                  break; // end of text
-                ch = text.at(j);
-              }
-
-              if ( d->keywords.contains( buffer ) != 0 ) {
-                setKeyword(i, buffer.length());
-
-                if ( buffer == QLatin1String("def"))
-                  d->endStateOfLastPara = DefineName;
-                else if ( buffer == QLatin1String("class"))
-                  d->endStateOfLastPara = ClassName;
-                else if ( buffer == QLatin1String("import"))
-                  d->endStateOfLastPara = ImportName;
-                else if ( buffer == QLatin1String("from"))
-                  d->endStateOfLastPara = FromName;
-
-              } else if(d->builtins.contains(buffer)) {
-                setBuiltin(i, buffer.length());
-              } else {
-                setText(i, buffer.size());
-              }
-
-              // increment i
-              if ( !buffer.isEmpty() )
-                i = j-1;
-            }
-            // this is the beginning of a number
-            else if ( ch.isDigit() )
-            {
-              setNumber(i, 1);
-            }
-            // probably an operator
-            else if ( ch.isSymbol() || ch.isPunct() )
-            {
-              setOperator(i, 1);
-            }
-          }
-        }
-      } break;
-    case Comment:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::Comment));
-      } break;
-    case Literal1:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::StringDoubleQoute));
-        if ( ch == QLatin1Char('"') && prev != QLatin1Char('\\'))
-          d->endStateOfLastPara = Standard;
-      } break;
-    case Literal2:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::StringSingleQoute));
-        if ( ch == QLatin1Char('\'') )
-          d->endStateOfLastPara = Standard;
-      } break;
-    case Blockcomment1:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockCommentDoubleQoute));
-        if ( i>=2 && ch == QLatin1Char('"') &&
-            text.at(i-1) == QLatin1Char('"') &&
-            text.at(i-2) == QLatin1Char('"'))
-          d->endStateOfLastPara = Standard;
-      } break;
-    case Blockcomment2:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::BlockCommentSingleQoute));
-        if ( i>=2 && ch == QLatin1Char('\'') &&
-            text.at(i-1) == QLatin1Char('\'') &&
-            text.at(i-2) == QLatin1Char('\''))
-          d->endStateOfLastPara = Standard;
-      } break;
-    case Decorator:
-      {
-        setFormat( i, 1, this->colorByType(SyntaxHighlighter::Decorator));
-        if ( !ch.isLetterOrNumber() && ch != QLatin1Char('_') )
-          d->endStateOfLastPara = Standard;
-      } break;
-    case DefineName:
-      {
-        if ( ch.isLetterOrNumber() || ch == QLatin1Char(' ') || ch == QLatin1Char('_') )
         {
-          setFormat( i, 1, this->colorByType(SyntaxHighlighter::Defname));
-        }
-        else
-        {
-          if (MatchingCharInfo::matchChar(ch.toLatin1()))
-            blockData->insert(ch.toLatin1(), blockPos + i);
+            if (d->endStateOfLastPara > T_Invalid)
+                break;  // pythonCosole has some special values
 
-          if ( ch.isSymbol() || ch.isPunct() )
-            setFormat(i, 1, this->colorByType(SyntaxHighlighter::Operator));
-          d->endStateOfLastPara = Standard;
+            setSyntaxError(i, lastWordCh(i, text));
+            qDebug() << "unknown state for: " << qPrintable(ch) <<
+                        " row:"<< qPrintable(blockPos) <<
+                        " col:" << qPrintable(i) << endl;
         }
-      } break;
-    case ClassName:
-      {
-        if ( ch.isLetterOrNumber() || ch == QLatin1Char(' ') || ch == QLatin1Char('_') )
-        {
-          setFormat( i, 1, this->colorByType(SyntaxHighlighter::Classname));
-        }
-        else
-        {
-          if (MatchingCharInfo::matchChar(ch.toLatin1()))
-            blockData->insert(ch.toLatin1(), blockPos + i);
+        } // end switch
 
-          if (ch.isSymbol() || ch.isPunct() )
-            setFormat( i, 1, this->colorByType(SyntaxHighlighter::Operator));
-          d->endStateOfLastPara = Standard;
-        }
-      } break;
-    case Digit:
-      {
-        if (ch.isDigit() || ch == QLatin1Char('.'))
-        {
-          setFormat( i, 1, this->colorByType(SyntaxHighlighter::Number));
-        }
-        else
-        {
-          if (MatchingCharInfo::matchChar(ch.toLatin1()))
-            blockData->insert(ch.toLatin1(), blockPos + i);
+        prev = ch;
+        i++;
+    } // end loop
 
-          if ( ch.isSymbol() || ch.isPunct() )
-            setFormat( i, 1, this->colorByType(SyntaxHighlighter::Operator));
-          d->endStateOfLastPara = Standard;
-        }
-      } break;
-      case ImportName:
-      {
-        if ( ch.isLetterOrNumber() ||
-             ch == QLatin1Char('_') || ch == QLatin1Char('*')  )
-        {
 
-            QString buffer;
-            int j=i;
-            while ( ch.isLetterOrNumber() || ch == QLatin1Char('_') ) {
-              buffer += ch;
-              ++j;
-              if (j >= text.length())
-                break; // end of text
-              ch = text.at(j);
-            }
-
-          if (buffer == QLatin1String("as")) {
-            setKeyword(i, buffer.length());
-            d->endStateOfLastPara = ImportName;
-
-          } else {
-            QTextCharFormat format;
-            format.setForeground(this->colorByType(SyntaxHighlighter::Text));
-            format.setFontWeight(QFont::Bold);
-            setFormat(i, buffer.length(), format);
-          }
-
-          // increment i
-          if (!buffer.isEmpty())
-            i = j-1;
-        }
-        else if (ch == QLatin1Char('.')) {
-          setFormat(i, 1, this->colorByType(SyntaxHighlighter::Operator));
-        } else if (!ch.isSpace()) {
-            d->endStateOfLastPara = Standard;
-        }
-      } break;
-      case FromName:
-      {
-        if (prev.isLetterOrNumber() && ch == QLatin1Char(' '))
-        {
-            // probably start import statement
-            d->endStateOfLastPara = Standard; //ImportName;
-        }
-        else if ( ch.isLetterOrNumber() || ch == QLatin1Char('_') )
-        {
-          QTextCharFormat format;
-          format.setForeground(this->colorByType(SyntaxHighlighter::Text));
-          format.setFontWeight(QFont::Bold);
-          setFormat(i, 1, format);
-        }
-      } break;
+    // only block comments can have several lines
+    if ( d->endStateOfLastPara != T_LiteralBlockDblQuote &&
+         d->endStateOfLastPara != T_LiteralBlockSglQuote )
+    {
+        d->endStateOfLastPara = T_Undetermined ;
     }
 
-    prev = ch;
-    i++;
-  }
-
-  // only block comments can have several lines
-  if ( d->endStateOfLastPara != Blockcomment1 && d->endStateOfLastPara != Blockcomment2 )
-  {
-    d->endStateOfLastPara = Standard ;
-  }
-
-  setCurrentBlockState(static_cast<int>(d->endStateOfLastPara));
+    setCurrentBlockState(static_cast<int>(d->endStateOfLastPara));
+    d->activeBlock = nullptr;
 }
 
 
-void PythonSyntaxHighlighter::setComment(int pos, int len)
+
+int PythonSyntaxHighlighter::lastWordCh(int startPos, const QString &text) const
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::Comment));
-    d->endStateOfLastPara = Comment;
+    int end = startPos;
+    int maxPos = text.length();
+    for (;end < maxPos; ++end) {
+        QChar ch = text[end];
+        if (!ch.isLetterOrNumber() || ch != QLatin1Char('_'))
+            break;
+    }
+    return end - startPos;
 }
 
-void PythonSyntaxHighlighter::setSingleQuotString(int pos, int len)
+int PythonSyntaxHighlighter::lastNumberCh(int startPos, const QString &text) const
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::StringSingleQoute));
-    d->endStateOfLastPara = Literal2;
+    int len = startPos;
+    int maxPos = text.length();
+    ushort first = text[len].toLower().unicode();
+    for (;len < maxPos; ++len) {
+        ushort ch = text[len].toLower().unicode();
+        if (ch >= '0' && ch <= '9')
+            continue;
+        if (ch >= 'a' && ch <= 'f')
+            continue;
+        if (ch == '.')
+            continue;
+        // hex, binary, octal
+        if ((ch == 'x' || ch == 'b' || ch == 'o') &&  first == '0')
+            continue;
+        break;
+    }
+    // long integer or imaginary?
+    if (len == maxPos -1) {
+        QChar ch = text[len].toUpper();
+        if (ch == QLatin1Char('L') || ch == QLatin1Char('J'))
+            len += 1;
+
+    }
+
+    return len - startPos;
 }
 
-void PythonSyntaxHighlighter::setDoubleQuotString(int pos, int len)
+int PythonSyntaxHighlighter::lastDblQuoteStringCh(int startAt, const QString &text) const
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::StringDoubleQoute));
-    d->endStateOfLastPara = Literal1;
+    if (text.length() <= startAt)
+        return text.length() -1;
 
+    int len = startAt;
+    bool escape = false;
+    int maxLen = text.length();
+
+    for (; len < maxLen; ++len) {
+        if (text.at(len) == QLatin1Char('\\')) {
+            escape = true;
+            continue;
+        }
+        if (escape)
+            escape = false;
+        if (text.at(len) == QLatin1Char('"'))
+            break;
+    }
+    return len - startAt;
 }
 
-void PythonSyntaxHighlighter::setSingleQuotBlockComment(int pos, int len)
+int PythonSyntaxHighlighter::lastSglQuoteStringCh(int startAt, const QString &text) const
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::BlockComment));
-    d->endStateOfLastPara = Blockcomment2;
+    // no escapes in this type
+    if (text.length() <= startAt)
+        return text.length() -1;
+
+    int len = startAt;
+    int maxLen = text.length();
+
+    for (; len < maxLen; ++len) {
+        if (text.at(len) == QLatin1Char('\''))
+            break;
+    }
+    return len - startAt;
+
 }
 
-void PythonSyntaxHighlighter::setDoubleQuotBlockComment(int pos, int len)
+PythonSyntaxHighlighter::Tokens PythonSyntaxHighlighter::numberType(const QString &text) const
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::BlockComment));
-    d->endStateOfLastPara = Blockcomment1;
+    if (text.isEmpty())
+        return T_Invalid;
+    if (text.indexOf(QLatin1String(".")) != -1)
+        return T_NumberFloat;
+    if (text.length() >= 2){
+        QString two = text.toLower().left(2);
+        if (two[0] == QLatin1Char('0')) {
+            if (two[1] == QLatin1Char('x'))
+                return T_NumberHex;
+            if (two[1] == QLatin1Char('b'))
+                return T_NumberBinary;
+            if (two[1] == QLatin1Char('o') || two[0] == QLatin1Char('0'))
+                return T_NumberOctal;
+        }
+    }
+    return T_NumberDecimal;
 }
 
-void PythonSyntaxHighlighter::setOperator(int pos, int len)
+void PythonSyntaxHighlighter::setRestOfLine(int &pos, const QString &text,
+                                            PythonSyntaxHighlighter::Tokens token,
+                                            SyntaxHighlighter::TColor color)
+{
+    int len = text.size() -pos;
+    setFormat(pos, len, this->colorByType(color));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+}
+
+void PythonSyntaxHighlighter::setWord(int &pos, int len,
+                                      PythonSyntaxHighlighter::Tokens token,
+                                      SyntaxHighlighter::TColor color)
+{
+    setFormat(pos, len, this->colorByType(color));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+}
+
+void PythonSyntaxHighlighter::setBoldWord(int &pos, int len,
+                                          PythonSyntaxHighlighter::Tokens token,
+                                          SyntaxHighlighter::TColor color)
+{
+    QTextCharFormat format;
+    format.setForeground(this->colorByType(color));
+    format.setFontWeight(QFont::Bold);
+    setFormat(pos, len, format);
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+}
+
+
+void PythonSyntaxHighlighter::setIdentifier(int &pos, int len, Tokens token, TColor color)
+{
+    setFormat(pos, len, this->colorByType(color));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+}
+
+
+void PythonSyntaxHighlighter::setUndeterminedIdentifier(int &pos, int len,
+                                                        Tokens token, TColor color)
+{
+    setFormat(pos, len, this->colorByType(color));
+
+    // let parse tree figure out and color at a later stage
+    d->activeBlock->setUndeterminedToken(token, pos, len);
+    pos += len;
+}
+
+void PythonSyntaxHighlighter::setNumber(int &pos, int len,
+                                        PythonSyntaxHighlighter::Tokens token)
+{
+    SyntaxHighlighter::TColor color;
+    switch (token) {
+    case T_NumberHex:
+        color = SyntaxHighlighter::NumberHex;
+        break;
+    case T_NumberBinary:
+        color = SyntaxHighlighter::NumberBinary;
+        break;
+    case T_NumberFloat:
+        color = SyntaxHighlighter::NumberFloat;
+        break;
+    case T_NumberOctal:
+        color = SyntaxHighlighter::NumberOctal;
+        break;
+    default:
+        color = SyntaxHighlighter::Number;
+    }
+
+    setFormat(pos, len, this->colorByType(color));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+}
+
+void PythonSyntaxHighlighter::setOperator(int &pos, int len,
+                                          PythonSyntaxHighlighter::Tokens token)
 {
     setFormat(pos, len, this->colorByType(SyntaxHighlighter::Operator));
-    d->endStateOfLastPara = Standard;
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
+
 }
 
-void PythonSyntaxHighlighter::setKeyword(int pos, int len)
+void PythonSyntaxHighlighter::setDelimiter(int &pos, int len,
+                                           PythonSyntaxHighlighter::Tokens token)
 {
-    QTextCharFormat keywordFormat;
-    keywordFormat.setForeground(this->colorByType(SyntaxHighlighter::Keyword));
-    keywordFormat.setFontWeight(QFont::Bold);
-    setFormat(pos, len, keywordFormat);
-    d->endStateOfLastPara = Standard;
+    setFormat(pos, len, this->colorByType(SyntaxHighlighter::Delimiter));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
 }
 
-void PythonSyntaxHighlighter::setText(int pos, int len)
+void PythonSyntaxHighlighter::setSyntaxError(int &pos, int len)
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::Text));
-    d->endStateOfLastPara = Standard;
+    setFormat(pos, len, this->colorByType(SyntaxHighlighter::SyntaxError));
+    d->activeBlock->setDeterminedToken(T_SyntaxError, pos, len);
+    pos += len;
 }
 
-void PythonSyntaxHighlighter::setNumber(int pos, int len)
+void PythonSyntaxHighlighter::setLiteral(int &pos, int len,
+                                         Tokens token, SyntaxHighlighter::TColor color)
 {
-    setFormat(pos, len, this->colorByType(SyntaxHighlighter::Number));
-    d->endStateOfLastPara = Digit;
+    setFormat(pos, len, this->colorByType(color));
+    d->activeBlock->setDeterminedToken(token, pos, len);
+    pos += len;
 }
 
-void PythonSyntaxHighlighter::setBuiltin(int pos, int len)
+void PythonSyntaxHighlighter::setIndentation(int &pos, int len)
 {
-    QTextCharFormat keywordFormat;
-    keywordFormat.setForeground(this->colorByType(SyntaxHighlighter::Builtin));
-    keywordFormat.setFontWeight(QFont::Bold);
-    setFormat(pos, len, keywordFormat);
-    d->endStateOfLastPara = Standard;
+    d->activeBlock->setDeterminedToken(T_Indent, pos, len);
+    pos += len;
 }
 
 
@@ -685,17 +963,140 @@ char MatchingCharInfo::matchingChar() const
 
 // -------------------------------------------------------------------------------------------
 
+PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos) :
+    token(token), startPos(startPos), endPos(endPos)
+{
+}
 
+PythonToken::~PythonToken()
+{
+}
 
-PythonTextBlockData::PythonTextBlockData()
+// -------------------------------------------------------------------------------------------
+
+PythonTextBlockData::PythonTextBlockData(QTextBlock block) :
+    m_block(block)
 {
 }
 
 PythonTextBlockData::~PythonTextBlockData()
 {
-    qDeleteAll(m_matchingChrs);
+    //qDeleteAll(m_matchingChrs);
+    qDeleteAll(m_tokens);
 }
 
+const QTextBlock &PythonTextBlockData::block() const
+{
+    return m_block;
+}
+
+const QVector<PythonToken *> &PythonTextBlockData::tokens() const
+{
+    return m_tokens;
+}
+
+void PythonTextBlockData::setDeterminedToken(PythonSyntaxHighlighter::Tokens token,
+                                             int startPos, int len)
+{
+    PythonToken *tokenObj = new PythonToken(token, startPos, startPos + len);
+    m_tokens.push_back(tokenObj);
+}
+
+void PythonTextBlockData::setUndeterminedToken(PythonSyntaxHighlighter::Tokens token,
+                                               int startPos, int len)
+{
+    // TODO should call parse tree here to notify that we need to determine this
+    setDeterminedToken(token, startPos, startPos + len);
+}
+
+const PythonToken *PythonTextBlockData::findToken(PythonSyntaxHighlighter::Tokens token,
+                                                  int searchFrom) const
+{
+    int lineEnd = m_block.length();
+
+    if (searchFrom > lineEnd)
+        searchFrom = lineEnd;
+    else if (searchFrom < -lineEnd)
+        searchFrom = -lineEnd;
+
+    if (searchFrom < 0) {
+        // search reversed (from lineend)
+        // bah reverse loop is a pain with Qt iterators...
+        for (int i = m_tokens.size() -1; i >= 0; --i)
+        {
+            PythonToken *tok = m_tokens[i];
+            if (tok->token == token &&
+                searchFrom <= tok->startPos &&
+                tok->endPos > searchFrom)
+            {
+                return tok;
+            }
+        }
+    } else {
+        // search from front (linestart)
+        for (const PythonToken *tok : m_tokens) {
+            if (tok->token == token &&
+                searchFrom <= tok->startPos &&
+                tok->endPos > searchFrom)
+            {
+                return tok;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+const PythonToken *PythonTextBlockData::tokenAt(int pos) const
+{
+    for (const PythonToken *tok : m_tokens) {
+        if (tok->startPos <= pos && tok->endPos >= pos)
+            return tok;
+    }
+
+    return nullptr;
+}
+
+QString PythonTextBlockData::tokenAtAsString(int pos) const
+{
+    const PythonToken *tok = tokenAt(pos);
+    if (!tok)
+        return QString();
+
+    QTextCursor cursor(m_block);
+    cursor.setPosition(m_block.position());
+    cursor.setPosition(cursor.position() + tok->startPos, QTextCursor::KeepAnchor);
+    return cursor.selectedText();
+}
+
+bool PythonTextBlockData::isCodeLine() const
+{
+    for (const PythonToken *tok : m_tokens) {
+        if (tok->token != PythonSyntaxHighlighter::T_Comment)
+            return true;
+    }
+    return false;
+}
+
+bool PythonTextBlockData::isEmpty() const
+{
+    return m_tokens.isEmpty();
+}
+
+QString PythonTextBlockData::indention() const
+{
+    if (m_tokens.size() > 0) {
+        QTextCursor cursor(m_block);
+        cursor.setPosition(m_block.position());
+        cursor.setPosition(cursor.position() + m_tokens[0]->startPos,
+                           QTextCursor::KeepAnchor);
+        return cursor.selectedText();
+    }
+
+    return QString();
+}
+
+/*
 QVector<MatchingCharInfo *> PythonTextBlockData::matchingChars()
 {
     return m_matchingChrs;
@@ -717,6 +1118,7 @@ void PythonTextBlockData::insert(char chr, int pos)
     MatchingCharInfo *info = new MatchingCharInfo(chr, pos);
     insert(info);
 }
+*/
 
 // -------------------------------------------------------------------------------------
 
@@ -724,9 +1126,9 @@ void PythonTextBlockData::insert(char chr, int pos)
 
 PythonMatchingChars::PythonMatchingChars(TextEdit *parent):
     QObject(parent),
-    m_editor(parent),
-    m_lastPos1(-1),
-    m_lastPos2(-1)
+    m_editor(parent)
+   // m_lastPos1(-1),
+   // m_lastPos2(-1)
 {
     // for matching chars such as (, [, { etc.
     connect(parent, SIGNAL(cursorPositionChanged()),
@@ -740,7 +1142,6 @@ PythonMatchingChars::~PythonMatchingChars()
 
 void PythonMatchingChars::cursorPositionChange()
 {
-    PythonTextBlockData *data = nullptr;
 
     QTextCharFormat format;
     format.setForeground(QColor(QLatin1String("#f43218")));
@@ -756,14 +1157,91 @@ void PythonMatchingChars::cursorPositionChange()
     }
     m_editor->setExtraSelections(selections);
 
+
+    // start to search
     QTextCursor cursor = m_editor->textCursor();
+
+    // init current blok userdata
+    QTextBlock currentBlock = cursor.block();
+    if (!currentBlock.isValid())
+        return;
+
+    PythonTextBlockData *textData = static_cast<PythonTextBlockData*>(currentBlock.userData());
+    if (!textData)
+        return;
+
+    // query tokens
+    int linePos = cursor.position() - currentBlock.position();
+    PythonSyntaxHighlighter::Tokens token1 = textData->tokenAt(linePos)->token;
+    PythonSyntaxHighlighter::Tokens token2 = PythonSyntaxHighlighter::T_Invalid;
+
+    // no token here, nothing to do
+    if (token1 == PythonSyntaxHighlighter::T_Invalid)
+        return;
+
+    // which token?
+    int pos1 = -1, pos2 = -1;
+    bool forward = true;
+    switch (token1) {
+    case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+        token2 = PythonSyntaxHighlighter::T_DelimiterCloseParen;
+        break;
+    case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+        token2 = PythonSyntaxHighlighter::T_DelimiterCloseBracket;
+        break;
+    case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+        token2 = PythonSyntaxHighlighter::T_DelimiterCloseBrace;
+        break;
+    case PythonSyntaxHighlighter::T_DelimiterCloseBrace:
+        token2 = PythonSyntaxHighlighter::T_DelimiterOpenBrace;
+        forward = false;
+        break;
+    case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+        token2 = PythonSyntaxHighlighter::T_DelimiterOpenBracket;
+        forward = false;
+        break;
+    case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+        token2 = PythonSyntaxHighlighter::T_DelimiterOpenParen;
+        forward = false;
+        break;
+    default:
+        return;
+    }
+
+    // if we got here we should find a matching char
+    pos1 = cursor.position();
+    int startPos = pos1;
+
+    while (currentBlock.isValid()) {
+        const PythonToken *tok = textData->findToken(token2, startPos);
+        if (!tok) {
+            pos2 = tok->startPos;
+            break; // found it!
+        }
+
+        // look in next block
+        currentBlock = forward ? currentBlock.next() : currentBlock.previous();
+        textData = static_cast<PythonTextBlockData*>(currentBlock.userData());
+        if (!textData)
+            return;
+
+        startPos = forward ? 0 : (-currentBlock.length());
+    }
+
+    // highlight both
+    m_editor->highlightText(pos1, 1, format);
+    m_editor->highlightText(pos2, 1, format);
+
+
+/*
+    PythonTextBlockData *data = nullptr;
     int startPos = cursor.position(),
         matchSkip = 0;
 
     // opening chars tests for opening chars (right side of cursor)
-    char leftChr = cursor.document()->characterAt(cursor.position()).toLatin1();
+    char openingChr = cursor.document()->characterAt(cursor.position()).toLatin1();
 
-    if (leftChr == '(' || leftChr == '[' || leftChr == '{') {
+    if (openingChr == '(' || openingChr == '[' || openingChr == '{') {
         for (QTextBlock block = cursor.block();
              block.isValid(); block = block.next())
         {
@@ -774,9 +1252,9 @@ void PythonMatchingChars::cursorPositionChange()
             for (const MatchingCharInfo *match : matchingChars) {
                 if (match->position <= startPos)
                     continue;
-                if (match->character == leftChr) {
+                if (match->character == openingChr) {
                     ++matchSkip;
-                } else if (match->matchingChar() == leftChr) {
+                } else if (match->matchingChar() == openingChr) {
                     if (matchSkip) {
                         --matchSkip;
                     } else {
@@ -826,6 +1304,7 @@ void PythonMatchingChars::cursorPositionChange()
             }
         }
     }
+    */
 }
 
 // -------------------------------------------------------------------------
@@ -1755,5 +2234,6 @@ JediInterpreter::SwapIn::~SwapIn()
     }
 }
 bool JediInterpreter::SwapIn::static_GILHeld = false;
+
 
 #include "moc_PythonCode.cpp"

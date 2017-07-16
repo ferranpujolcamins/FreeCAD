@@ -80,34 +80,109 @@ public:
 
     void highlightBlock (const QString & text);
 
-    enum States {
-        Standard         = 0,     // Standard text
-        Digit            = 1,     // Digits
-        Comment          = 2,     // Comment begins with #
-        Literal1         = 3,     // String literal beginning with "
-        Literal2         = 4,     // Other string literal beginning with '
-        Blockcomment1    = 5,     // Block comments beginning and ending with """
-        Blockcomment2    = 6,     // Other block comments beginning and ending with '''
-        ClassName        = 7,     // Text after the keyword 'class'
-        DefineName       = 8,     // Text after the keyword 'def'
-        ImportName       = 9,     // Text after import statement
-        FromName         = 10,    // Text after from statement before import statement
-        Decorator        = 11,    // member decorator like: @property
+    enum Tokens {
+        T_Undetermined     = 0,     // Parser looks tries to figure out next char also Standard text
+        // python
+        T_Indent           = 1,
+        T_Comment          = 2,     // Comment begins with #
+        T_SyntaxError      = 3,
+
+        // numbers
+        T_NumberDecimal    = 10,     // Normal number
+        T_NumberHex        = 11,
+        T_NumberBinary     = 12,
+        T_NumberOctal      = 13,    // starting with 0 ie 011 = 9, different color to let it stand out
+        T_NumberFloat      = 14,
+
+        // strings
+        T_LiteralDblQuote      = 20,     // String literal beginning with "
+        T_LiteralSglQuote      = 21,     // Other string literal beginning with '
+        T_LiteralBlockDblQuote = 22,     // Block comments beginning and ending with """
+        T_LiteralBlockSglQuote = 23,     // Other block comments beginning and ending with '''
+
+        // Keywords
+        T_Keyword          = 30,
+        T_KeywordClass     = 31,
+        T_KeywordDef       = 32,
+        T_KeywordImport    = 33,
+        T_KeywordFrom      = 34,
+        T_KeywordAs        = 35, // not sure if needed? we arent exactly building a VM...
+        T_KeywordIn        = 36, // likwise
+        // leave some room for future keywords
+
+        // operators
+        T_Operator         = 60,   // **, |, &, ^, ~, +, -, *, /, %, ~, @
+        T_OperatorCompare  = 61,   // ==, !=, <=, >=, <, >,
+        T_OperatorAssign   = 70,   // =, +=, *=, -=, /=, @= introduced in py 3.5
+
+        // delimiters
+        T_Delimiter             = 80,   // all other non specified
+        T_DelimiterOpenParen    = 81,   // (
+        T_DelimiterCloseParen   = 82,   // )
+        T_DelimiterOpenBracket  = 83,   // [
+        T_DelimiterCloseBracket = 84,   // ]
+        T_DelimiterOpenBrace    = 85,   // {
+        T_DelimiterCloseBrace   = 86,   // }
+        T_DelimiterPeriod       = 87,   // .
+        T_DelimiterComma        = 88,   // ,
+        T_DelimiterColon        = 89,   // :
+        T_DelimiterSemiColon    = 90,   // ;
+        // metadata such def funcname(arg: "documentation") ->
+        //                            "returntype documentation":
+        T_DelimiterMetaData     = 91,   // -> might also be ':' inside arguments
+
+        // identifiers
+        T_IdentifierUnknown       = 110, // name is not identified at this point
+        T_IdentifierDefined       = 111, // variable is in current context
+        T_IdentifierModule        = 112, // its a module definition
+        T_IdentifierFunction      = 113, // its a function definition
+        T_IdentifierMethod        = 114, // its a method definition
+        T_IdentifierClass         = 115, // its a class definition
+        T_IdentifierSuperMethod   = 116, // its a method with name: __**__
+        T_IdentifierBuiltin       = 117, // its builtin
+        T_IdentifierDecorator     = 118, // member decorator like: @property
+        T_IdentifierDefUnknown    = 119, // before system has determined if its a
+                                         // method or function yet
+
+        // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
+        T_MetaData                = 140,
+
+
+        T_Invalid          = 512
     };
 
 private:
     PythonSyntaxHighlighterP* d;
 
-    inline void setComment(int pos, int len);
-    inline void setSingleQuotString(int pos, int len);
-    inline void setDoubleQuotString(int pos, int len);
-    inline void setSingleQuotBlockComment(int pos, int len);
-    inline void setDoubleQuotBlockComment(int pos, int len);
-    inline void setOperator(int pos, int len);
-    inline void setKeyword(int pos, int len);
-    inline void setText(int pos, int len);
-    inline void setNumber(int pos, int len);
-    inline void setBuiltin(int pos, int len);
+    //const QString getWord(int pos, const QString &text) const;
+    int lastWordCh(int startPos, const QString &text) const;
+    int lastNumberCh(int startPos, const QString &text) const;
+    int lastDblQuoteStringCh(int startAt, const QString &text) const;
+    int lastSglQuoteStringCh(int startAt, const QString &text) const;
+    Tokens numberType(const QString &text) const;
+
+    void setRestOfLine(int &pos, const QString &text, Tokens token,
+                       TColor color);
+
+    void setWord(int &pos, int len, Tokens token, TColor color);
+
+    void setBoldWord(int &pos, int len, Tokens token, TColor color);
+
+    void setIdentifier(int &pos, int len, Tokens token, TColor color);
+    void setUndeterminedIdentifier(int &pos, int len, Tokens token, TColor color);
+
+    void setNumber(int &pos, int len, Tokens token);
+
+    void setOperator(int &pos, int len, Tokens token);
+
+    void setDelimiter(int &pos, int len, Tokens token);
+
+    void setSyntaxError(int &pos, int len);
+
+    void setLiteral(int &pos, int len, Tokens token, TColor color);
+
+    void setIndentation(int &pos, int len);
+
 };
 
 // ------------------------------------------------------------------------
@@ -124,21 +199,82 @@ struct MatchingCharInfo
     static char matchChar(char match);
 };
 
+// ------------------------------------------------------------------------
+struct PythonToken
+{
+    explicit PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos);
+    ~PythonToken();
+    PythonSyntaxHighlighter::Tokens token;
+    int startPos;
+    int endPos;
+};
+
 // -----------------------------------------------------------------------
 
 class PythonTextBlockData : public QTextBlockUserData
 {
 public:
-    PythonTextBlockData();
+    PythonTextBlockData(QTextBlock block);
     ~PythonTextBlockData();
 
-    QVector<MatchingCharInfo *> matchingChars();
-    void insert(MatchingCharInfo *info);
-    void insert(char chr, int pos);
+    const QTextBlock &block() const;
+    const QVector<PythonToken *> &tokens() const;
+    /**
+     * @brief insert should only be used by PythonSyntaxHighlighter
+     */
+    void setDeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
+    /**
+     * @brief insert should only be used by PythonSyntaxHighlighter
+     *  signifies that parse tree lookup is needed
+     */
+    void setUndeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
+
+    /**
+     * @brief findToken searches for token in this block
+     * @param token needle to search for
+     * @param searchFrom start position in line to start the search
+     *                   if negative start from the back ie -10 searches from pos 10 to 0
+     * @return pointer to token if found, else nullptr
+     */
+    const PythonToken* findToken(PythonSyntaxHighlighter::Tokens token,
+                                 int searchFrom = 0) const;
+    /**
+     * @brief tokenAt returns the token defined under pos (in block)
+     * @param pos from start of line
+     * @return pointer to token or nullptr
+     */
+    const PythonToken* tokenAt(int pos) const;
+
+    /**
+     * @brief tokenAtAsString returns the token under pos (in block)
+     * @param pos from start of line
+     * @return token as string
+     */
+    QString tokenAtAsString(int pos) const;
+    /**
+     * @brief isCodeLine checks if line has any code
+     *        lines with only indent or comments return false
+     * @return true if line has code
+     */
+    bool isCodeLine() const;
+
+    bool isEmpty() const;
+    /**
+     * @brief indention returns the indentation of line
+     * @return QString containing indentation (space or \t)
+     */
+    QString indention() const;
+    //QVector<MatchingCharInfo *> matchingChars();
+    //void insert(MatchingCharInfo *info);
+    //void insert(char chr, int pos);
 
 private:
-    QVector<MatchingCharInfo *> m_matchingChrs;
+    QVector<PythonToken *> m_tokens;
+    QTextBlock m_block;
+    //QVector<MatchingCharInfo *> m_matchingChrs;
 };
+
+// -----------------------------------------------------------------------
 
 class PythonMatchingChars : public QObject
 {
@@ -153,8 +289,8 @@ private Q_SLOTS:
 
 private:
     TextEdit *m_editor;
-    int m_lastPos1;
-    int m_lastPos2;
+    //int m_lastPos1;
+    //int m_lastPos2;
 };
 
 // --------------------------------------------------------------------

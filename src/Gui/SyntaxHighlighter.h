@@ -42,19 +42,76 @@ public:
 
     enum TColor
     {
-        // ordering of these values as pythonconsole checks for last valid state
-        // as the one before Output
-        Text = 0, Comment = 1, BlockComment = 2, Number = 3, String = 4, Keyword = 5,
-        Classname = 6, Defname = 7, Operator = 8, Builtin = 9, StringSingleQoute = 10,
-        BlockCommentSingleQoute = 11, Decorator = 12,
-        // alias
-        StringDoubleQoute = String, BlockCommentDoubleQoute = BlockComment,
+        // Note!
+        // ordering of these values are important as pythonconsole checks for
+        // last valid Color before Output to know if if should copy textblock or not
+        //  meaning you should never use hardcoded values io test againt
+        //    use:
+        //      if (block().userData() >= (int)Output)
+        //   instead of:
+        //      if (block().userData() >= 19)
+        Text = 0,
+        Comment = 1,
 
-        // these blocks are not copied to mimedata in pythonconsole
-        Output = 13, Error = 14,
+        // numbers
+        Number                  = 3,
+        NumberHex               = 11,
+        NumberBinary            = 12,
+        NumberFloat             = 13,
+        NumberOctal             = 14,
+
+
+        // strings (Literals)
+        StringBlockDoubleQoute  = 2,
+        StringBlockSingleQoute  = 15,
+        StringDoubleQoute       = 4,
+        StringSingleQoute       = 16,
+
+        // keywords
+        Keyword                 = 5,
+        KeywordClass            = 6,
+        KeywordDef              = 7,
+
+        // operators
+        Operator                = 8,
+        // 9, 10 are deprecated values
+
+        // identifiers
+        IdentifierUnknown       = 17, // variable not in current context
+        IdentifierDefined       = 18, // variable is in current context
+        IdentifierModule        = 19, // its a module definition
+        IdentifierFunction      = 20, // its a function definition
+        IdentifierMethod        = 21, // its a method definition
+        IdentifierClass         = 22, // its a class definition
+        IdentifierSuperMethod   = 23, // its a method with name: __**__
+        IdentifierBuiltin       = 24, // is a built in function or property
+        IdentifierDecorator     = 25, // a @property marker
+
+        // delimiters
+        Delimiter               = 26, // like ',' '.' '{' etc
+
+        // special
+        SyntaxError             = 27,
 
         // used as a Stopindicator in loops
-        NoColorInvalid // should be initialized by compiler to value after the last
+        NoColorInvalid, // should be initialized by compiler to the value right after
+                       // after the last Valid
+
+
+
+        // python output colors
+        // these blocks are also usedto decide if not to copy from pythonconsole to clipboard
+        // meaning that Text with Values >= Output is used as a stop marker
+
+        // in-out
+        _deprecatedOutput = 9, _deprecatedError = 10,
+        PythonConsoleOutput = 1000,
+        PythonConsoleError  = 1001,
+
+
+        // alias (Support old API)
+        String = StringDoubleQoute, BlockComment = StringBlockDoubleQoute,
+        Classname = KeywordClass, Defname = KeywordDef
     };
 
     //used as return value for get/set-AllColors()
@@ -81,9 +138,9 @@ public:
     int maximumUserState() const;
 
     void setColor(const QString& type, const QColor& col);
-    QColor color(const QString& type);
+    QColor color(const QString& type) const;
 
-    QMap<QString, ColorData> allColors();
+    QMap<QString, ColorData> allColors() const;
 
     // rehighlights after operation but does not call colorchanged for each color
     void setBatchOfColors(QMap<QString, ColorData> colors);
@@ -95,7 +152,7 @@ protected:
     virtual void colorChanged(const QString& type, const QColor& col);
 
 protected:
-    QColor colorByType(TColor type);
+    QColor colorByType(TColor type) const;
 
 
 private:

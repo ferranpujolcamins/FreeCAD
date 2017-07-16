@@ -86,10 +86,8 @@ inline bool cursorBeyond( const QTextCursor &cursor, const QTextCursor &limit, i
 struct PythonConsoleP
 {
     enum Output {
-        // ratinale here is to make let the compiler figure out these states
-        // based on stop marker (End marker) for known states in SyntaxHighlighter::TColor
-        // Makes it much easier to maintain and extend States (only change in one place)
-        Error = (int)SyntaxHighlighter::NoColorInvalid + 10,
+        // ratinale here is to not interfere with colors defined in PythonSyntaxHighlighter
+        Error = 1000,
         Message // automatically Error +1
     };
     enum CopyType {Normal, History, Command};
@@ -1377,7 +1375,7 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
         {
             // Error output
             QTextCharFormat errorFormat;
-            errorFormat.setForeground(colorByType(Error));
+            errorFormat.setForeground(colorByType(SyntaxHighlighter::PythonConsoleError));
             errorFormat.setFontItalic(true);
             setFormat( 0, text.length(), errorFormat);
         }   break;
@@ -1385,7 +1383,7 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
         {
             // Normal output
             QTextCharFormat outputFormat;
-            outputFormat.setForeground(colorByType(Output));
+            outputFormat.setForeground(colorByType(SyntaxHighlighter::PythonConsoleOutput));
             setFormat( 0, text.length(), outputFormat);
         }   break;
     default:
