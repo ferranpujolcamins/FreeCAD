@@ -130,6 +130,7 @@ public:
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
         T_DelimiterMetaData     = 91,   // -> might also be ':' inside arguments
+        T_DelimiterLineContinue = 92,   // when end of line is escaped like so '\'
 
         // identifiers
         T_IdentifierUnknown       = 110, // name is not identified at this point
@@ -148,7 +149,9 @@ public:
         T_MetaData                = 140,
 
 
-        T_Invalid          = 512
+        T_Invalid          = 512,
+        T_PythonConsoleOutput = 1000,
+        T_PythonConsoleError  = 1001
     };
 
 private:
@@ -171,6 +174,9 @@ private:
     void setIdentifier(int &pos, int len, Tokens token, TColor color);
     void setUndeterminedIdentifier(int &pos, int len, Tokens token, TColor color);
 
+    void setIdentifierBold(int &pos, int len, Tokens token, TColor color);
+    void setUndeterminedIdentifierBold(int &pos, int len, Tokens token, TColor color);
+
     void setNumber(int &pos, int len, Tokens token);
 
     void setOperator(int &pos, int len, Tokens token);
@@ -181,6 +187,9 @@ private:
 
     void setLiteral(int &pos, int len, Tokens token, TColor color);
 
+    // this is special can only be one per line
+    // T_Indentation(s) token is generated related when looking at lines above as described in
+    // https://docs.python.org/3/reference/lexical_analysis.html#indentation
     void setIndentation(int &pos, int len);
 
 };
@@ -200,10 +209,14 @@ struct MatchingCharInfo
 };
 
 // ------------------------------------------------------------------------
+
+
 struct PythonToken
 {
     explicit PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos);
     ~PythonToken();
+    bool operator==(const PythonToken &other) const;
+    bool operator > (const PythonToken &other) const;
     PythonSyntaxHighlighter::Tokens token;
     int startPos;
     int endPos;
@@ -238,6 +251,16 @@ public:
      */
     const PythonToken* findToken(PythonSyntaxHighlighter::Tokens token,
                                  int searchFrom = 0) const;
+
+    /**
+     * @brief tokensBetweenOfType counts tokens ot type match between these positions
+     * @param startPos position to start at
+     * @param endPos position where it should stop looking
+     * @param match against his token
+     * @return number of times token was found
+     */
+    int tokensBetweenOfType(int startPos, int endPos, PythonSyntaxHighlighter::Tokens match) const;
+
     /**
      * @brief tokenAt returns the token defined under pos (in block)
      * @param pos from start of line
@@ -251,6 +274,26 @@ public:
      * @return token as string
      */
     QString tokenAtAsString(int pos) const;
+
+
+    /**
+     * @brief isMatchAt compares token at given pos
+     * @param pos position i document
+     * @param token match against this token
+     * @return true if token are the same
+     */
+    bool isMatchAt(int pos, PythonSyntaxHighlighter::Tokens token) const;
+
+
+    /**
+     * @brief isMatchAt compares multiple tokens at given pos
+     * @param pos position i document
+     * @param token a list of tokens to match against this token
+     * @return true if any of the token are the same
+     */
+    bool isMatchAt(int pos, const QList<PythonSyntaxHighlighter::Tokens> tokens) const;
+
+
     /**
      * @brief isCodeLine checks if line has any code
      *        lines with only indent or comments return false
@@ -264,14 +307,10 @@ public:
      * @return QString containing indentation (space or \t)
      */
     QString indention() const;
-    //QVector<MatchingCharInfo *> matchingChars();
-    //void insert(MatchingCharInfo *info);
-    //void insert(char chr, int pos);
 
 private:
     QVector<PythonToken *> m_tokens;
     QTextBlock m_block;
-    //QVector<MatchingCharInfo *> m_matchingChrs;
 };
 
 // -----------------------------------------------------------------------

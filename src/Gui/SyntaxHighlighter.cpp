@@ -39,8 +39,8 @@ public:
         colorArray[SyntaxHighlighter::Comment]                .setRgb(0, 170, 0);
 
         // strings
-        colorArray[SyntaxHighlighter::StringBlockDoubleQoute] .setRgb(146, 176, 115);
-        colorArray[SyntaxHighlighter::StringDoubleQoute]      .setRgb(78, 104, 41);
+        colorArray[SyntaxHighlighter::StringBlockDoubleQoute] .setRgb(126, 166, 105);
+        colorArray[SyntaxHighlighter::StringDoubleQoute]      .setRgb(48, 104, 41);
         colorArray[SyntaxHighlighter::StringSingleQoute]      .setRgb(98, 124, 61);
         colorArray[SyntaxHighlighter::StringBlockSingleQoute] .setRgb(166, 196, 125);
 
@@ -53,8 +53,8 @@ public:
 
         // keywords
         colorArray[SyntaxHighlighter::Keyword]                .setRgb(0, 0, 255);
-        colorArray[SyntaxHighlighter::KeywordClass]           .setRgb(255, 170, 0);
-        colorArray[SyntaxHighlighter::KeywordDef]             .setRgb(255, 150, 0);
+        colorArray[SyntaxHighlighter::KeywordClass]           .setRgb(255, 160, 0);
+        colorArray[SyntaxHighlighter::KeywordDef]             .setRgb(255, 140, 0);
 
         // operators
         colorArray[SyntaxHighlighter::Operator]               .setRgb(130, 120, 134);

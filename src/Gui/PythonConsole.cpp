@@ -85,11 +85,6 @@ inline bool cursorBeyond( const QTextCursor &cursor, const QTextCursor &limit, i
 
 struct PythonConsoleP
 {
-    enum Output {
-        // ratinale here is to not interfere with colors defined in PythonSyntaxHighlighter
-        Error = 1000,
-        Message // automatically Error +1
-    };
     enum CopyType {Normal, History, Command};
     CopyType type;
     PyObject *_stdoutPy, *_stderrPy, *_stdinPy, *_stdin;
@@ -720,13 +715,13 @@ void PythonConsole::printPrompt(PythonConsole::Prompt mode)
 {
     // write normal messages
     if (!d->output.isEmpty()) {
-        appendOutput(d->output, (int)PythonConsoleP::Message);
+        appendOutput(d->output, (int)PythonSyntaxHighlighter::T_PythonConsoleOutput);
         d->output = QString::null;
     }
 
     // write error messages
     if (!d->error.isEmpty()) {
-        appendOutput(d->error, (int)PythonConsoleP::Error);
+        appendOutput(d->error, (int)PythonSyntaxHighlighter::T_PythonConsoleError);
         d->error = QString::null;
     }
 
@@ -1363,8 +1358,8 @@ PythonConsoleHighlighter::~PythonConsoleHighlighter()
 
 void PythonConsoleHighlighter::highlightBlock(const QString& text)
 {
-    const int ErrorOutput   = (int)PythonConsoleP::Error;
-    const int MessageOutput = (int)PythonConsoleP::Message;
+    const int ErrorOutput   = (int)T_PythonConsoleError;
+    const int MessageOutput = (int)T_PythonConsoleOutput;
 
     // Get user state to re-highlight the blocks in the appropriate format
     int stateOfPara = currentBlockState();

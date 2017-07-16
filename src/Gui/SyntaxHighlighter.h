@@ -74,7 +74,15 @@ public:
 
         // operators
         Operator                = 8,
-        // 9, 10 are deprecated values
+
+        // python output colors
+        // these blocks are also usedto decide if not to copy from pythonconsole to clipboard
+        // meaning that Text with Values >= Output is used as a stop marker
+
+        // in-out
+        PythonConsoleOutput = 9,
+        PythonConsoleError  = 10,
+
 
         // identifiers
         IdentifierUnknown       = 17, // variable not in current context
@@ -98,20 +106,10 @@ public:
                        // after the last Valid
 
 
-
-        // python output colors
-        // these blocks are also usedto decide if not to copy from pythonconsole to clipboard
-        // meaning that Text with Values >= Output is used as a stop marker
-
-        // in-out
-        _deprecatedOutput = 9, _deprecatedError = 10,
-        PythonConsoleOutput = 1000,
-        PythonConsoleError  = 1001,
-
-
         // alias (Support old API)
         String = StringDoubleQoute, BlockComment = StringBlockDoubleQoute,
-        Classname = KeywordClass, Defname = KeywordDef
+        Classname = KeywordClass, Defname = KeywordDef,
+        Output = PythonConsoleOutput, Error = PythonConsoleError
     };
 
     //used as return value for get/set-AllColors()
