@@ -190,7 +190,7 @@ private:
     // this is special can only be one per line
     // T_Indentation(s) token is generated related when looking at lines above as described in
     // https://docs.python.org/3/reference/lexical_analysis.html#indentation
-    void setIndentation(int &pos, int len);
+    void setIndentation(int &pos, int len, int count);
 
 };
 
@@ -209,7 +209,6 @@ struct MatchingCharInfo
 };
 
 // ------------------------------------------------------------------------
-
 
 struct PythonToken
 {
@@ -233,16 +232,6 @@ public:
     const QTextBlock &block() const;
     const QVector<PythonToken *> &tokens() const;
     /**
-     * @brief insert should only be used by PythonSyntaxHighlighter
-     */
-    void setDeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
-    /**
-     * @brief insert should only be used by PythonSyntaxHighlighter
-     *  signifies that parse tree lookup is needed
-     */
-    void setUndeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
-
-    /**
      * @brief findToken searches for token in this block
      * @param token needle to search for
      * @param searchFrom start position in line to start the search
@@ -254,12 +243,29 @@ public:
 
     /**
      * @brief tokensBetweenOfType counts tokens ot type match between these positions
+     *         NOTE! this methos ignore T_Indent tokens
      * @param startPos position to start at
      * @param endPos position where it should stop looking
      * @param match against his token
      * @return number of times token was found
      */
     int tokensBetweenOfType(int startPos, int endPos, PythonSyntaxHighlighter::Tokens match) const;
+
+    /**
+     * @brief lastInserted gives the last inserted token
+     *         NOTE! this method ignore T_Indent tokens
+     * @param lookInPreviousRows if false limits to this textblock only
+     * @return last inserted token or nullptr if empty
+     */
+    PythonToken *lastInserted(bool lookInPreviousRows = true) const;
+
+
+    /**
+     * @brief lastInsertedIsA checks if last token matches
+     * @param match token to test against
+     * @return true if matched
+     */
+    bool lastInsertedIsA(PythonSyntaxHighlighter::Tokens match, bool lookInPreviousRows = true) const;
 
     /**
      * @brief tokenAt returns the token defined under pos (in block)
@@ -303,18 +309,52 @@ public:
 
     bool isEmpty() const;
     /**
-     * @brief indention returns the indentation of line
-     * @return QString containing indentation (space or \t)
+     * @brief indentString returns the indentation of line
+     * @return QString of the raw string in document
      */
-    QString indention() const;
+    QString indentString() const;
+
+    /**
+     * @brief indent the number of indent spaces as interpreted by a python interpreter,
+     *        a comment only line returns 0 regardless of indent
+     *
+     * @return nr of whitespace chars (tab=8) beginning of line
+     */
+    int indent() const;
+
+
+protected:
+
+    /**
+     * @brief insert should only be used by PythonSyntaxHighlighter
+     */
+    void setDeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
+    /**
+     * @brief insert should only be used by PythonSyntaxHighlighter
+     *  signifies that parse tree lookup is needed
+     */
+    void setUndeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
+
+    /**
+     * @brief setIndentCount should be considered private, is
+     * @param count
+     */
+    void setIndentCount(int count);
+
 
 private:
     QVector<PythonToken *> m_tokens;
     QTextBlock m_block;
+    int m_indentCharCount; // as spaces NOTE according  to python documentation a tab is 8 spaces
+
+    friend class PythonSyntaxHighlighter; // in order to hide some api
 };
 
 // -----------------------------------------------------------------------
 
+/**
+ * @brief The PythonMatchingChars highlights the oposite (), [] or {}
+ */
 class PythonMatchingChars : public QObject
 {
     Q_OBJECT
@@ -328,8 +368,6 @@ private Q_SLOTS:
 
 private:
     TextEdit *m_editor;
-    //int m_lastPos1;
-    //int m_lastPos2;
 };
 
 // --------------------------------------------------------------------

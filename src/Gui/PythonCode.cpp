@@ -310,6 +310,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         d->endStateOfLastPara = T_Undetermined;
 
     bool isModuleLine = false;
+    int prefixLen = 0;
 
     while ( i < text.length() )
     {
@@ -319,13 +320,14 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         {
         case T_Undetermined:
         {
-            char nextCh = 0, thirdCh =0;
+            char thisCh = ch.unicode(),
+                 nextCh = 0, thirdCh = 0;
             if (text.length() > i+1)
                 nextCh = text.at(i+1).unicode();
             if (text.length() > i+2)
                 thirdCh = text.at(i+2).unicode();
 
-            switch ( ch.unicode() )
+            switch (thisCh)
             {
             // all these chars are described at: https://docs.python.org/3/reference/lexical_analysis.html
             case '#':
@@ -336,7 +338,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             case '"': case '\'':
             {
                 // Begin either string literal or block string
-                char compare = ch.unicode();
+                char compare = thisCh;
                 QString endMarker(ch);
                 int startStrPos;
                 Tokens token = T_Undetermined;
@@ -376,12 +378,16 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                 // search for end of string including endMarker
                 int endPos = text.indexOf(endMarker, startStrPos + len);
                 if (endPos != -1) {
-                    len = endPos - i;
+                    len = (endPos - i) + prefixLen;
                     d->endStateOfLastPara = T_Undetermined;
                 }
 
-                setLiteral(i, len + endMarker.length(), token, color);
+                // a string might have string prefix, such as r"" or u''
+                // detection of that was in a previous iteration
+                i -= prefixLen;
 
+                setLiteral(i, len + endMarker.length(), token, color);
+                prefixLen = 0;
 
             } break;
 
@@ -401,7 +407,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                             break;
                         }
                     }
-                    setIndentation(i, j);
+                    setIndentation(i, j, count);
                     break;
                 }
 
@@ -435,7 +441,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
             case '>': case '<': // might be 3 chars ie >>=
             {
-                if (nextCh == ch.unicode()) {
+                if (nextCh == thisCh) {
                     // test for **= or <<=
                     if(thirdCh == '=') {
                         setDelimiter(i, 3, T_Delimiter);
@@ -526,6 +532,29 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             // text or number?
             default:
             {
+                // check for string prefixes
+                if (nextCh == '"' || nextCh == '\'') {
+                    thisCh = tolower(thisCh);
+
+                    if (thisCh == 'r' || thisCh == 'b' ||
+                        thisCh == 'f' || thisCh == 'u')
+                    {
+                        prefixLen = 1;
+                        break; // let string start code handle it
+                    }
+
+                } else if (thirdCh == '"' || thirdCh == '\'') {
+                    QString twoCh = text.mid(i, 2).toLower();
+
+                    if (twoCh == QLatin1String("fr") || twoCh == QLatin1String("rf") ||
+                        twoCh == QLatin1String("br") || twoCh == QLatin1String("rb"))
+                    {
+                        prefixLen = 2;
+                        i += 1;
+                        break; // let string start code handle it
+                    }
+                }
+
                 // Check for normal text
                 if ( ch.isLetter() || ch == QLatin1Char('_') )
                 {
@@ -565,7 +594,10 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                             setBoldWord(i, len, Tokens::T_Keyword, SyntaxHighlighter::Keyword);
                         }
 
-                    } else if(d->builtins.contains(word)) {
+                    } else if(d->builtins.contains(word) &&
+                              !d->activeBlock->lastInsertedIsA(T_DelimiterPeriod))
+                    {
+                        // avoid match against someObj.print
                         setBoldWord(i, len, Tokens::T_IdentifierBuiltin, SyntaxHighlighter::IdentifierBuiltin);
                     } else if (isModuleLine) {
                         i -= 1; // jump to module block
@@ -583,8 +615,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                 if ( len > 0) {
                     setNumber(i, len, numberType(text.mid(i, len)));
                     break;
-                } else if (ch == 0x5C // 5C = '\' how do you escape a backslash char? \\ \\\ or \\\\ doesnt work
-                           && i == text.length() - 1)
+                } else if (thisCh == '\\' && i == text.length() - 1)
                 {
                     setDelimiter(i, 1, T_DelimiterLineContinue);
                     break;
@@ -714,7 +745,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         } // end switch
 
         prev = ch;
-        assert(i >= lastI);
+        assert(i >= lastI); // else infinte loop
         lastI = i++;
 
     } // end loop
@@ -962,9 +993,10 @@ void PythonSyntaxHighlighter::setLiteral(int &pos, int len,
     pos += len -1;
 }
 
-void PythonSyntaxHighlighter::setIndentation(int &pos, int len)
+void PythonSyntaxHighlighter::setIndentation(int &pos, int len, int count)
 {
     d->activeBlock->setDeterminedToken(T_Indent, pos, len);
+    d->activeBlock->setIndentCount(count);
     pos += len -1;
 }
 
@@ -1050,7 +1082,6 @@ PythonTextBlockData::PythonTextBlockData(QTextBlock block) :
 
 PythonTextBlockData::~PythonTextBlockData()
 {
-    //qDeleteAll(m_matchingChrs);
     qDeleteAll(m_tokens);
 }
 
@@ -1076,6 +1107,11 @@ void PythonTextBlockData::setUndeterminedToken(PythonSyntaxHighlighter::Tokens t
 {
     // TODO should call parse tree here to notify that we need to determine this
     setDeterminedToken(token, startPos, len);
+}
+
+void PythonTextBlockData::setIndentCount(int count)
+{
+    m_indentCharCount = count;
 }
 
 const PythonToken *PythonTextBlockData::findToken(PythonSyntaxHighlighter::Tokens token,
@@ -1145,6 +1181,47 @@ int PythonTextBlockData::tokensBetweenOfType(int startPos, int endPos,
     return cnt;
 }
 
+bool PythonTextBlockData::lastInsertedIsA(PythonSyntaxHighlighter::Tokens match, bool lookInPreviousRows) const
+{
+    if (m_tokens.isEmpty() ||
+        m_tokens[m_tokens.size() -1]->token == PythonSyntaxHighlighter::T_Indent)
+    {
+        if (lookInPreviousRows) {
+            PythonToken *tok = lastInserted(true);
+            if (tok)
+                return tok->token == match;
+        }
+        return false;
+    }
+    //
+    PythonToken *tok = lastInserted(lookInPreviousRows);
+    if (tok)
+        return tok->token == match;
+    return false;
+}
+
+PythonToken *PythonTextBlockData::lastInserted(bool lookInPreviousRows) const
+{
+    if (m_tokens.isEmpty() ||
+        m_tokens[m_tokens.size() -1]->token == PythonSyntaxHighlighter::T_Indent)
+    {
+        if (!lookInPreviousRows)
+            return nullptr;
+
+        QTextBlock block = m_block;
+        while (block.isValid()) {
+            PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(m_block.previous().userData());
+            if (textData)
+                return textData->lastInserted(true);
+        }
+        // not found
+        return nullptr;
+    }
+
+    return m_tokens[m_tokens.size() -1];
+
+}
+
 const PythonToken *PythonTextBlockData::tokenAt(int pos) const
 {
     for (const PythonToken *tok : m_tokens) {
@@ -1198,7 +1275,12 @@ bool PythonTextBlockData::isEmpty() const
     return m_tokens.isEmpty();
 }
 
-QString PythonTextBlockData::indention() const
+int PythonTextBlockData::indent() const
+{
+    return m_indentCharCount; // note tab=8
+}
+
+QString PythonTextBlockData::indentString() const
 {
     if (m_tokens.size() > 0) {
         QTextCursor cursor(m_block);
