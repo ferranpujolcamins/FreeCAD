@@ -1337,9 +1337,27 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     // if its a word (2 wordchars or more) and popup not shown -> parse and popup
     // if its not and we are popup-ed, hide popup
     QTextCursor cursor = d->editor->textCursor();
+    int startPos = cursor.position();
+    int posInLine = startPos - cursor.block().position();
+
+    // check if this is a token we care about
+    if (!cursor.block().isValid())
+        return false;
+    PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(
+                                                    cursor.block().userData());
+    if (!textData)
+        return false;
+    const PythonToken *tok = textData->tokenAt(posInLine - 1);
+    if (!tok || tok->token == PythonSyntaxHighlighter::T_Comment ||
+         tok->token == PythonSyntaxHighlighter::T_LiteralBlockDblQuote ||
+         tok->token == PythonSyntaxHighlighter::T_LiteralBlockSglQuote ||
+         tok->token == PythonSyntaxHighlighter::T_LiteralDblQuote ||
+         tok->token == PythonSyntaxHighlighter::T_LiteralSglQuote)
+    {
+        return false;  // not a token we care about
+    }
 
     // find out how many ch it is in current word from cursor position
-    int startPos = cursor.position();
     if (!e->text().isEmpty())
         cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor); // select just typed chr
     cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
@@ -1354,31 +1372,9 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (!forcePopup)
         forcePopup = e->text() == QLatin1String(".");
 
-    // optimization, only open on the second ch
-    //static const int autoPopupCnt = 2;
 
 
     if (startChar.isLetterOrNumber() || forcePopup) {
-        /*if (forcePopup || // force by Ctrl + Space
-            (chrTyped == autoPopupCnt && startPos >= d->popupPos) ||  // initial open
-            (shown && startPos < d->popupPos)) // popup open but we have erased some of the starting chars
-        {
-            // rationale here is to parse on initial popup
-            // reparse each 4th char, as Jedi skips list if its to big
-            // if we step back we need to reparse each char to fill up the list again
-            if (d->popupPos == 0) { // initial opening
-//                parseDocument();// runs in python, potentially slow?
-                d->popupPos = startPos;
-//                d->completerModel->setCompletions(d->currentScript->completions());
-
-            } else if ((startPos > d->reparsedAt && chrTyped % 4 == 0) ||
-                       (startPos < d->reparsedAt)) {
-                // type forward backward with popup shown
-//                parseDocument(); // runs in python, potentially slow?
-                d->reparsedAt = startPos;
-//                d->completerModel->setCompletions(d->currentScript->completions());
-            }
-        }*/
 
         // set prefix
         cursor.setPosition(pos+2);
