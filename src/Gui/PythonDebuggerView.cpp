@@ -297,7 +297,9 @@ void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
     selModel->select(sel, QItemSelectionModel::Rows);
 
     QModelIndex stackIdx = current.sibling(current.row(), 0);
-    StackFramesModel *model = static_cast<StackFramesModel*>(d->m_stackView->model());
+    StackFramesModel *model = reinterpret_cast<StackFramesModel*>(d->m_stackView->model());
+    if (!model)
+        return;
     QVariant idx = model->data(stackIdx, Qt::DisplayRole);
 
     PythonDebugger::instance()->setStackLevel(idx.toInt());
@@ -1135,18 +1137,25 @@ VariableTreeModel::~VariableTreeModel()
 
 int VariableTreeModel::columnCount(const QModelIndex &parent) const
 {
-    if (parent.isValid())
-        return static_cast<VariableTreeItem*>(parent.internalPointer())->columnCount();
-    else
-        return m_rootItem->columnCount();
+    if (parent.isValid()) {
+        VariableTreeItem *item =  reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+        if (item)
+            return item->columnCount();
+
+    }
+
+    return m_rootItem->columnCount();
 }
 
 bool VariableTreeModel::removeRows(int firstRow, int lastRow, const QModelIndex &parent)
 {
-    beginRemoveRows(parent, firstRow, lastRow);
-    VariableTreeItem *parentItem = static_cast<VariableTreeItem*>(
-                                            parent.internalPointer());
+    VariableTreeItem *parentItem = reinterpret_cast<VariableTreeItem*>(
+                                                    parent.internalPointer());
 
+    if (!parentItem)
+        return false;
+
+    beginRemoveRows(parent, firstRow, lastRow);
     for (int i = firstRow; i < lastRow; ++i) {
         parentItem->removeChild(i);
     }
@@ -1165,7 +1174,10 @@ bool VariableTreeModel::hasChildren(const QModelIndex &parent) const
     if (!parent.isValid())
         parentItem = m_rootItem;
     else
-        parentItem = static_cast<VariableTreeItem*>(parent.internalPointer());
+        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+
+    if (!parentItem)
+        return 0;
 
     return parentItem->lazyLoadChildren() || parentItem->childCount() > 0;
 }
@@ -1179,7 +1191,10 @@ QVariant VariableTreeModel::data(const QModelIndex &index, int role) const
     if (role != Qt::DisplayRole && role != Qt::ToolTipRole)
         return QVariant();
 
-    VariableTreeItem *item = static_cast<VariableTreeItem*>(index.internalPointer());
+    VariableTreeItem *item = reinterpret_cast<VariableTreeItem*>(index.internalPointer());
+
+    if (!item)
+        return QVariant();
 
     return item->data(index.column());
 }
@@ -1212,7 +1227,10 @@ QModelIndex VariableTreeModel::index(int row, int column, const QModelIndex &par
     if (!parent.isValid())
         parentItem = m_rootItem;
     else
-        parentItem = static_cast<VariableTreeItem*>(parent.internalPointer());
+        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+
+    if (!parentItem)
+        return QModelIndex();
 
     VariableTreeItem *childItem = parentItem->child(row);
     if (childItem)
@@ -1226,7 +1244,10 @@ QModelIndex VariableTreeModel::parent(const QModelIndex &index) const
     if (!index.isValid())
         return QModelIndex();
 
-    VariableTreeItem *childItem = static_cast<VariableTreeItem*>(index.internalPointer());
+    VariableTreeItem *childItem = reinterpret_cast<VariableTreeItem*>(index.internalPointer());
+    if (!childItem)
+        return QModelIndex();
+
     VariableTreeItem *parentItem = childItem->parent();
 
     if (parentItem == m_rootItem || parentItem == nullptr)
@@ -1244,8 +1265,10 @@ int VariableTreeModel::rowCount(const QModelIndex &parent) const
     if (!parent.isValid())
         parentItem = m_rootItem;
     else
-        parentItem = static_cast<VariableTreeItem*>(parent.internalPointer());
+        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
 
+    if (!parentItem)
+        return 0;
     return parentItem->childCount();
 }
 
@@ -1303,10 +1326,9 @@ void VariableTreeModel::updateVariables(PyFrameObject *frame)
 
 void VariableTreeModel::lazyLoad(const QModelIndex &parent)
 {
-    VariableTreeItem *parentItem = static_cast<VariableTreeItem*>(parent.internalPointer());
-    if (parentItem->lazyLoadChildren())
+    VariableTreeItem *parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+    if (parentItem && parentItem->lazyLoadChildren())
         lazyLoad(parentItem);
-
 }
 
 void VariableTreeModel::lazyLoad(VariableTreeItem *parentItem)
