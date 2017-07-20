@@ -861,7 +861,7 @@ bool PythonEditorView::onHasMsg(const char* pMsg) const
 }
 
 /* static*/
-PythonEditorView *PythonEditorView::setAsActive()
+PythonEditorView *PythonEditorView::setAsActive(QString fileName)
 {
     PythonEditorView* editView = qobject_cast<PythonEditorView*>(
                                         getMainWindow()->activeWindow());
@@ -878,7 +878,9 @@ PythonEditorView *PythonEditorView::setAsActive()
             WindowParameter param("PythonDebuggerView");
             std::string path = param.getWindowParameter()->GetASCII("MacroPath",
                 App::Application::getUserMacroDir().c_str());
-            QString fileName = QFileDialog::getOpenFileName(getMainWindow(), tr("Open python file"),
+
+            if (fileName.isEmpty())
+                fileName = QFileDialog::getOpenFileName(getMainWindow(), tr("Open python file"),
                                                             QLatin1String(path.c_str()),
                                                             tr("Python (*.py *.FCMacro)"));
             if (!fileName.isEmpty()) {
@@ -891,6 +893,8 @@ PythonEditorView *PythonEditorView::setAsActive()
                 return nullptr;
             }
         }
+    } else if (editView->fileName() != fileName && !fileName.isEmpty()) {
+        editView->open(fileName);
     }
 
     getMainWindow()->setActiveWindow(editView);

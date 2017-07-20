@@ -169,7 +169,7 @@ public:
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
-    static PythonEditorView *setAsActive();
+    static PythonEditorView *setAsActive(QString fileName = QString());
 
 public Q_SLOTS:
     void executeScript();

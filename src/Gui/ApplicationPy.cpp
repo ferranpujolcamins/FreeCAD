@@ -380,13 +380,9 @@ PyObject* Application::sOpen(PyObject * /*self*/, PyObject *args,PyObject * /*kw
             SoInput::removeDirectory(path.constData());
         }
         else if (ext == QLatin1String("py") || ext == QLatin1String("fcmacro") ||
-                 ext == QLatin1String("fcscript")) {
-            PythonEditor* editor = new PythonEditor();
-            editor->setWindowIcon(Gui::BitmapFactory().iconFromTheme("applications-python"));
-            PythonEditorView* edit = new PythonEditorView(editor, getMainWindow());
-            edit->open(fileName);
-            edit->resize(400, 300);
-            getMainWindow()->addWindow( edit );
+                 ext == QLatin1String("fcscript"))
+        {
+            PythonEditorView::setAsActive(fileName);
         }
         else {
             Base::Console().Error("File type '%s' not supported\n", ext.toLatin1().constData());
