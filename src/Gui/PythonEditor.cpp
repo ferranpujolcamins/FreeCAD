@@ -110,22 +110,27 @@ public:
         completerModel(nullptr),
         popupPos(0),
         reparsedAt(-1),
-        callSignatureWgt(nullptr)
+        callSignatureWgt(nullptr),
+        taskAfterReparse(Nothing),
+        parseTimeoutMs(300)
     {
     }
     ~PythonEditorCodeAnalyzerP() {
         if (callSignatureWgt != nullptr)
             delete callSignatureWgt;
     }
+    enum DoAfterParse { Nothing, Completer, CallSignature, Both };
     PythonEditor *editor;
     static bool isActive;
     JediScript_ptr_t currentScript;
     PythonCompleterModel *completerModel;
     int popupPos,
         reparsedAt;
-    QTimer completerTimer;
-    QTimer callSignatureTimer;
+    QTimer parseTimer;
     PythonCallSignatureWidget *callSignatureWgt;
+    DoAfterParse taskAfterReparse;
+    std::unique_ptr<QKeyEvent> keyEvent;
+    int parseTimeoutMs;
 };
 bool PythonEditorCodeAnalyzerP::isActive = false;
 
@@ -346,18 +351,19 @@ void PythonEditor::showDebugMarker(int line)
 {
     d->debugLine = line;
     lineMarkerArea()->update();
+
     QTextCursor cursor = textCursor();
-    cursor.movePosition(QTextCursor::StartOfBlock);
-    int cur = cursor.blockNumber() + 1;
-    if (cur > line) {
-        for (int i=line; i<cur; i++)
-            cursor.movePosition(QTextCursor::Up);
-    }
-    else if (cur < line) {
-        for (int i=cur; i<line; i++)
-            cursor.movePosition(QTextCursor::Down);
-    }
+    cursor.setPosition(document()->findBlockByNumber(line - 1).position());
     setTextCursor(cursor);
+
+    ParameterGrp::handle hPrefGrp = getWindowParameter();
+    if (hPrefGrp->GetBool("EnableCenterDebugmarker", true)) {
+        // debugmarker stays centered text jumps around
+        centerCursor();
+    } else {
+        // scroll into view, line jumps around, text stays (if possible)
+        ensureCursorVisible();
+    }
 }
 
 void PythonEditor::hideDebugMarker()
@@ -629,7 +635,19 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 {
     if (textUnderPos.isEmpty()) {
         QToolTip::hideText();
-    } else {
+    } else if (d->debugger->isHalted()) {
+        QTextCursor cursor = cursorForPosition(pos);
+        PythonTextBlockData *textData = PythonTextBlockData::blockDataFromCursor(cursor);
+        if (!textData || !textData->isCodeLine())
+            return false;
+
+        QString name = textData->tokenAtAsString(cursor);
+        if (name.isEmpty())
+            return false;
+
+        // TODO figure out how to extract attribute / item chain for objects, dicts and lists
+        // using tokens from syntaxhighlighter
+
         QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
         QToolTip::showText(pos, str, this);
     }
@@ -1144,6 +1162,8 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
             d->isActive = false;
             d->editor->removeEventFilter(this);
         }
+    } else if(strcmp(rcReason, "PopupTimeoutTime") == 0) {
+        d->parseTimeoutMs = hPrefGrp->GetInt("PopupTimeoutTime", 300);
     }
 }
 
@@ -1271,6 +1291,12 @@ void PythonEditorCodeAnalyzer::parseDocument()
     int column = cursor.position() - block.position();
     d->currentScript.reset(new JediScriptObj(doc->toPlainText(), lineNr,
                                              column, d->editor->fileName()));
+    if (d->taskAfterReparse == d->Completer || d->taskAfterReparse == d->Both)
+        complete();
+    else if (d->taskAfterReparse == d->CallSignature || d->taskAfterReparse == d->Both)
+        d->callSignatureWgt->afterKeyPressed(d->keyEvent.get());
+
+    d->taskAfterReparse = d->Nothing;
 }
 
 bool PythonEditorCodeAnalyzer::eventFilter(QObject *obj, QEvent *event)
@@ -1326,10 +1352,17 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (!forcePopup && e->text().isEmpty())
         bailout = true;
 
+    // store for later use in a smartpointer
+    d->keyEvent.reset(new QKeyEvent(e->type(), e->key(), e->modifiers(),
+                                e->text(), e->isAutoRepeat(), e->count()));
+
     if (bailout) {
         // reparse for call signature
-        parseDocument();
-        return d->callSignatureWgt->keyPressed(e);
+        d->parseTimer.start();
+        d->taskAfterReparse = d->CallSignature;
+        return false;
+        //parseDocument();
+        //return d->callSignatureWgt->afterKeyPressed(e);
     }
 
 
@@ -1362,7 +1395,6 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
         cursor.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor); // select just typed chr
     cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
     QString prefix = cursor.selectedText();
-    int pos = cursor.position();
     int chrTyped = prefix.size();
     QChar startChar;
     if (chrTyped > 0)
@@ -1377,24 +1409,21 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (startChar.isLetterOrNumber() || forcePopup) {
 
         // set prefix
-        cursor.setPosition(pos+2);
-        cursor.setPosition(startPos+1, QTextCursor::KeepAnchor);
-        QString completionPrefix = cursor.selectedText() + startChar;
-        d->editor->completer()->setCompletionPrefix(completionPrefix);
+        d->editor->completer()->setCompletionPrefix(prefix);
 
-        d->completerTimer.start(50); // user wont notice 50msec delay, but makes a lot of
+        d->taskAfterReparse = d->Both;
+
+        d->parseTimer.start(d->parseTimeoutMs); // user wont notice 50msec delay, but makes a lot of
                                  // difference on machine strain
-
-        // handle callsignatures after document parse here
-        return d->callSignatureWgt->keyPressed(e);
 
     } else {
         hideCompleter();
 
         // handle callsignatures
-        parseDocument();
-        return d->callSignatureWgt->keyPressed(e);
+        d->taskAfterReparse = d->CallSignature;
+        d->parseTimer.start(d->parseTimeoutMs);
     }
+    return false;
 }
 
 void PythonEditorCodeAnalyzer::popupChoiceSelected(const QModelIndex &idx)
@@ -1495,19 +1524,18 @@ void PythonEditorCodeAnalyzer::createWidgets()
                 this, SLOT(popupChoiceSelected(const QModelIndex&)));
         connect(completer, SIGNAL(highlighted(const QModelIndex&)),
                 this, SLOT(popupChoiceHighlighted(const QModelIndex)));
-        connect(&d->completerTimer, SIGNAL(timeout()), this, SLOT(complete()));
-        d->completerTimer.setSingleShot(true);
+        connect(&d->parseTimer, SIGNAL(timeout()), this, SLOT(parseDocument()));
+        d->parseTimer.setSingleShot(true);
     }
 
     if (d->callSignatureWgt == nullptr) {
         d->callSignatureWgt = new PythonCallSignatureWidget(this);
-        d->callSignatureTimer.setSingleShot(true);
     }
 }
 
 void PythonEditorCodeAnalyzer::complete()
 {
-    parseDocument();// runs in python, potentially slow?
+    // runs in python, potentially slow?
     d->completerModel->setCompletions(d->currentScript->completions());
 
     // set location in widget
@@ -1533,7 +1561,13 @@ void PythonEditorCodeAnalyzer::hideCompleter()
         d->editor->completer()->popup()->hide();
         //qApp->removeEventFilter(this);
     }
-    d->completerTimer.stop();
+    d->parseTimer.stop();
+}
+
+void PythonEditorCodeAnalyzer::afterFileNameChanged()
+{
+    d->taskAfterReparse = d->Nothing;
+    d->parseTimer.start(d->parseTimeoutMs);
 }
 
 const QString PythonEditorCodeAnalyzer::buildToolTipText(JediBaseDefinition_ptr_t def)
@@ -1791,19 +1825,19 @@ void PythonCallSignatureWidget::showEvent(QShowEvent *event)
     QLabel::showEvent(event);
 }
 
-bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
+void PythonCallSignatureWidget::afterKeyPressed(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Escape) {
         hide();
-        return true; // as in accepted
+        return;
     }
 
     if (d->candidateIdx == -1)
-        return false; // we should be in hidden state here
+        return; // we should be in hidden state here
 
     if (event->text() == QLatin1String("(") || event->text() == QLatin1String(")")) {
         update();
-        return false; //  dont stop the event from propagating
+        return;
     }
 
     switch (event->key()) {
@@ -1814,7 +1848,7 @@ bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
         int lineNr = cursor.block().blockNumber();
         if (lineNr != d->signatures[d->candidateIdx]->line()) {
             hide();
-            return false;
+            return;
         }
 
         setParamIdx();
@@ -1823,7 +1857,7 @@ bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
             show();
         else
             hide();
-        return true;
+        break;
     }
     case Qt::Key_Up: // select next signature (up)
         if (d->signatures.size() > d->candidateIdx +1) {
@@ -1832,7 +1866,6 @@ bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
             cursor.movePosition(QTextCursor::Down); // editor have already moved up here at this point
             d->analyzer->editor()->setTextCursor(cursor);
             reEvaluate();
-            return true;
         }
         break;
     case Qt::Key_Down: // select previous signature (down)
@@ -1842,20 +1875,17 @@ bool PythonCallSignatureWidget::keyPressed(QKeyEvent *event)
             cursor.movePosition(QTextCursor::Up); // editor have already moved down here at this point
             d->analyzer->editor()->setTextCursor(cursor);
             reEvaluate();
-            return true;
         }
         break;
     case Qt::Key_Enter:     case Qt::Key_Return:  case Qt::Key_Delete:
     case Qt::Key_Backspace: case Qt::Key_Backtab: case Qt::Key_Tab:
     case Qt::Key_Insert:    case Qt:: Key_Pause:
-        return false;
+        break;
     default:
         if (!event->text().isEmpty()) {
             reEvaluate(); // may switch candidate here
         }
-        return false;
     }
-    return false;
 }
 
 bool PythonCallSignatureWidget::setParamIdx()

@@ -188,6 +188,7 @@ private Q_SLOTS:
     bool afterChoiceInserted(JediBaseDefinitionObj *obj, int recursionGuard = 0);
     void complete();
     void hideCompleter();
+    void afterFileNameChanged();
 
 private:
     void createWidgets();
@@ -245,7 +246,7 @@ protected:
 
 
 public Q_SLOTS:
-    bool keyPressed(QKeyEvent *event);
+    void afterKeyPressed(QKeyEvent *event);
 
 private:
     // if true a rebuild content is needed

@@ -155,6 +155,8 @@ void DlgSettingsEditorImp::saveSettings()
     EnableScrollToExceptionLine->onSave();
     EnableHaltDebuggerOnExceptions->onSave();
     EnableCodeAnalyzer->onSave();
+    EnableCenterDebugmarker->onSave();
+    PopupTimeoutTime->onSave();
     tabSize->onSave();
     indentSize->onSave();
     radioTabs->onSave();
@@ -180,6 +182,9 @@ void DlgSettingsEditorImp::loadSettings()
     EnableScrollToExceptionLine->onRestore();
     EnableHaltDebuggerOnExceptions->onRestore();
     EnableCodeAnalyzer->onRestore();
+    EnableCodeAnalyzer->onRestore();
+    EnableCenterDebugmarker->onRestore();
+    PopupTimeoutTime->onRestore();
     tabSize->onRestore();
     indentSize->onRestore();
     radioTabs->onRestore();
