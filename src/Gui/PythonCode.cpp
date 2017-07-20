@@ -1085,6 +1085,16 @@ PythonTextBlockData::~PythonTextBlockData()
     qDeleteAll(m_tokens);
 }
 
+PythonTextBlockData *PythonTextBlockData::blockDataFromCursor(const QTextCursor &cursor)
+{
+
+    QTextBlock block = cursor.block();
+    if (!block.isValid())
+        return nullptr;
+
+    return reinterpret_cast<PythonTextBlockData*>(block.userData());
+}
+
 const QTextBlock &PythonTextBlockData::block() const
 {
     return m_block;
@@ -1107,6 +1117,9 @@ void PythonTextBlockData::setUndeterminedToken(PythonSyntaxHighlighter::Tokens t
 {
     // TODO should call parse tree here to notify that we need to determine this
     setDeterminedToken(token, startPos, len);
+
+    // store this index so context parser can look it up at a later stage
+    m_undeterminedIndexes.append(m_tokens.size() - 1);
 }
 
 void PythonTextBlockData::setIndentCount(int count)
@@ -1232,6 +1245,16 @@ const PythonToken *PythonTextBlockData::tokenAt(int pos) const
     return nullptr;
 }
 
+// static
+const PythonToken *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
+{
+    PythonTextBlockData *textData = blockDataFromCursor(cursor);
+    if (!textData)
+        return nullptr;
+
+    return textData->tokenAt(cursor.position() - cursor.block().position());
+}
+
 QString PythonTextBlockData::tokenAtAsString(int pos) const
 {
     const PythonToken *tok = tokenAt(pos);
@@ -1242,6 +1265,16 @@ QString PythonTextBlockData::tokenAtAsString(int pos) const
     cursor.setPosition(m_block.position());
     cursor.setPosition(cursor.position() + tok->startPos, QTextCursor::KeepAnchor);
     return cursor.selectedText();
+}
+
+// static
+QString PythonTextBlockData::tokenAtAsString(QTextCursor &cursor)
+{
+    PythonTextBlockData *textData = blockDataFromCursor(cursor);
+    if (!textData)
+        return QString();
+
+    return textData->tokenAtAsString(cursor.position() - cursor.block().position());
 }
 
 bool PythonTextBlockData::isMatchAt(int pos, PythonSyntaxHighlighter::Tokens token) const
@@ -1949,6 +1982,7 @@ JediScriptObj::JediScriptObj(const QString source, int line, int column,
     if (!JediInterpreter::instance()->isValid())
         return;
 
+    //Base::PyGILStateRelease release;
     JediInterpreter::SwapIn jedi;
 
     try {

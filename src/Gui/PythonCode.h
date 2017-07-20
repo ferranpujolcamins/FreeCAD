@@ -229,6 +229,8 @@ public:
     PythonTextBlockData(QTextBlock block);
     ~PythonTextBlockData();
 
+    static PythonTextBlockData *blockDataFromCursor(const QTextCursor &cursor);
+
     const QTextBlock &block() const;
     const QVector<PythonToken *> &tokens() const;
     /**
@@ -274,12 +276,17 @@ public:
      */
     const PythonToken* tokenAt(int pos) const;
 
+    static const PythonToken* tokenAt(const QTextCursor &cursor);
+
     /**
      * @brief tokenAtAsString returns the token under pos (in block)
      * @param pos from start of line
      * @return token as string
      */
     QString tokenAtAsString(int pos) const;
+
+
+    static QString tokenAtAsString(QTextCursor &cursor);
 
 
     /**
@@ -344,6 +351,8 @@ protected:
 
 private:
     QVector<PythonToken *> m_tokens;
+    QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
+                                        //  (so context parser can detemine it later)
     QTextBlock m_block;
     int m_indentCharCount; // as spaces NOTE according  to python documentation a tab is 8 spaces
 
