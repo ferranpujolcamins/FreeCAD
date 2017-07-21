@@ -120,7 +120,7 @@ public:
         ColorData(const QString key, unsigned long rgbAsULong);
         ColorData(const ColorData & other);
         ~ColorData();
-        ColorData &operator= (ColorData &other);
+        const ColorData &operator= (const ColorData &other);
 
         QColor color() const;
         void setColor(const QColor &color);

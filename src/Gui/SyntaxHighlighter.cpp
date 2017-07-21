@@ -390,8 +390,8 @@ SyntaxHighlighter::ColorData::~ColorData()
     delete d;
 }
 
-SyntaxHighlighter::ColorData
-&SyntaxHighlighter::ColorData::operator=(SyntaxHighlighter::ColorData &other)
+const SyntaxHighlighter::ColorData
+&SyntaxHighlighter::ColorData::operator=(const SyntaxHighlighter::ColorData &other)
 {
     d->key = other.d->key;
     d->customTranslateName = other.d->customTranslateName;
