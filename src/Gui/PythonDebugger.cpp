@@ -51,6 +51,7 @@ Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
 
         // swap to and re-aquire lock for jedi thread
         PyGILState_Release(m_GILState);
+        Base::PyGILStateRelease release;
         PyThreadState_Swap(newState);
         m_GILState = PyGILState_Ensure();
     }
