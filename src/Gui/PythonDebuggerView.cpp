@@ -187,24 +187,24 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
 
 
     // restore header data such column width etc
-    const char *state = hGrp->GetASCII("BreakpointHeaderState", "").c_str();
-    d->m_breakpointView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
+    std::string state = hGrp->GetASCII("BreakpointHeaderState", "");
+    d->m_breakpointView->horizontalHeader()->restoreState(QByteArray::fromBase64(state.c_str()));
 
     // restore header data such column width etc
-    state = hGrp->GetASCII("StackHeaderState", "").c_str();
-    d->m_stackView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
+    state = hGrp->GetASCII("StackHeaderState", "");
+    d->m_stackView->horizontalHeader()->restoreState(QByteArray::fromBase64(state.c_str()));
 
     // restore header data such column width etc
-    state = hGrp->GetASCII("VarViewHeaderState", "").c_str();
-    d->m_varView->header()->restoreState(QByteArray::fromBase64(state));
+    state = hGrp->GetASCII("VarViewHeaderState", "");
+    d->m_varView->header()->restoreState(QByteArray::fromBase64(state.c_str()));
 
     // restore header data such column width etc
-    state = hGrp->GetASCII("IssuesHeaderState", "").c_str();
-    d->m_issuesView->horizontalHeader()->restoreState(QByteArray::fromBase64(state));
+    state = hGrp->GetASCII("IssuesHeaderState", "");
+    d->m_issuesView->horizontalHeader()->restoreState(QByteArray::fromBase64(state.c_str()));
 
     // splitter setting
-    state = hGrp->GetASCII("SplitterState", "").c_str();
-    d->m_splitter->restoreState(QByteArray::fromBase64(state));
+    state = hGrp->GetASCII("SplitterState", "");
+    d->m_splitter->restoreState(QByteArray::fromBase64(state.c_str()));
 }
 
 PythonDebuggerView::~PythonDebuggerView()
@@ -251,7 +251,8 @@ void PythonDebuggerView::changeEvent(QEvent *e)
 void PythonDebuggerView::startDebug()
 {
     PythonEditorView *editView = PythonEditorView::setAsActive();
-    editView->startDebug();
+    if (editView)
+        editView->startDebug();
 }
 
 void PythonDebuggerView::enableButtons()
@@ -415,35 +416,18 @@ void PythonDebuggerView::customIssuesContextMenu(const QPoint &pos)
     else
         PythonDebugger::instance()->sendClearAllExceptions();
 
-
-//    // locate editor
-//    QStringList types = { QLatin1String("py"), QLatin1String("fcmacro") };
-//    QList<const EditorViewWrapper*> editors = EditorViewSingleton::instance()->
-//                                                        openedByType(types);
-//
-//    if (res == clearCurrent || res == &clearAll) {
-//        //clear in issuesView
-//        if (res == clearCurrent)
-//            model->removeRows(currentItem.row(), 1);
-//        else
-//            model->removeRows(0, model->rowCount());
-
-//        // clear in editors
-//        for (const EditorViewWrapper *editW : editors) {
-//            if (editW->fileName() == fn) {
-//                PythonEditor *editor = qobject_cast<PythonEditor*>(editW->editor());
-//                if (editor) {
-//                    if (res == clearCurrent)
-//                        editor->clearException(line);
-//                    else
-//                        editor->clearAllExceptions();
-//                }
-//            }
-//        }
-//    }
-
     if (clearCurrent)
         delete clearCurrent;
+}
+
+void PythonDebuggerView::saveExpandedVarViewState()
+{
+
+}
+
+void PythonDebuggerView::restoreExpandedVarViewState()
+{
+
 }
 
 void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
@@ -960,17 +944,59 @@ VariableTreeItem::~VariableTreeItem()
     qDeleteAll(childItems);
 }
 
-void VariableTreeItem::appendChild(VariableTreeItem *item)
+void VariableTreeItem::addChild(VariableTreeItem *item)
 {
+    QRegExp re(QLatin1String("^__\\w[\\w\\n]*__$"));
+    bool insertedIsSuper = re.indexIn(item->name()) != -1;
+
+    // insert sorted
+    for (int i = 0; i < childItems.size(); ++i) {
+        bool itemIsSuper = re.indexIn(childItems[i]->name()) != -1;
+
+        if (insertedIsSuper && itemIsSuper &&
+            item->name() < childItems[i]->name()) {
+            // both super sort alphabetically
+            childItems.insert(i, item);
+            return;
+        } else if (!insertedIsSuper && itemIsSuper) {
+            // new item not super but this child item is
+            // insert before this one
+            childItems.insert(i, item);
+            return;
+        } else if (item->name() < childItems[i]->name()) {
+            // no super, just sort aplhabetically
+            childItems.insert(i, item);
+            return;
+        }
+    }
+
+    // if we get here are definetly last
     childItems.append(item);
 }
 
-void VariableTreeItem::removeChild(int row)
+bool VariableTreeItem::removeChild(int row)
 {
     if (row > -1 && row < childItems.size()) {
         VariableTreeItem *item = childItems.takeAt(row);
+        item->parentItem = nullptr;
+        delete item;
+        return true;
+    }
+    return false;
+}
+
+bool VariableTreeItem::removeChildren(int row, int nrRows)
+{
+    if (row < 0 || row >= childItems.size())
+        return false;
+    if (row + nrRows > childItems.size())
+        return false;
+
+    for (int i = row; i < row + nrRows; ++i) {
+        VariableTreeItem *item = childItems.takeAt(row);
         delete item;
     }
+    return true;
 }
 
 VariableTreeItem *VariableTreeItem::child(int row)
@@ -1090,7 +1116,7 @@ bool VariableTreeItem::lazyLoadChildren() const
     return lazyLoad;
 }
 
-int VariableTreeItem::row() const
+int VariableTreeItem::childNumber() const
 {
     if (parentItem)
         return parentItem->childItems.indexOf(const_cast<VariableTreeItem*>(this));
@@ -1105,19 +1131,19 @@ int VariableTreeItem::row() const
 VariableTreeModel::VariableTreeModel(QObject *parent)
     : QAbstractItemModel(parent)
 {
-    QList<QVariant> rootData, locals, globals, builtins;
+    QList<QVariant> rootData, locals, globals; //, builtins;
     rootData << tr("Name") << tr("Value") << tr("Type");
     m_rootItem = new VariableTreeItem(rootData, nullptr);
 
     locals << QLatin1String("locals") << QLatin1String("") << QLatin1String("");
     globals << QLatin1String("globals") << QLatin1String("") << QLatin1String("");
-    builtins << QLatin1String("builtins") << QLatin1String("") << QLatin1String("");
+    //builtins << QLatin1String("builtins") << QLatin1String("") << QLatin1String("");
     m_localsItem = new VariableTreeItem(locals, m_rootItem);
     m_globalsItem = new VariableTreeItem(globals, m_rootItem);
-    m_builtinsItem = new VariableTreeItem(builtins, m_rootItem);
-    m_rootItem->appendChild(m_localsItem);
-    m_rootItem->appendChild(m_globalsItem);
-    m_rootItem->appendChild(m_builtinsItem);
+    //m_builtinsItem = new VariableTreeItem(builtins, m_rootItem);
+    m_rootItem->addChild(m_localsItem);
+    m_rootItem->addChild(m_globalsItem);
+    //m_rootItem->appendChild(m_builtinsItem);
 
     PythonDebugger *debugger = PythonDebugger::instance();
 
@@ -1138,7 +1164,7 @@ VariableTreeModel::~VariableTreeModel()
 int VariableTreeModel::columnCount(const QModelIndex &parent) const
 {
     if (parent.isValid()) {
-        VariableTreeItem *item =  reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+        VariableTreeItem *item =  getItem(parent);
         if (item)
             return item->columnCount();
 
@@ -1147,20 +1173,45 @@ int VariableTreeModel::columnCount(const QModelIndex &parent) const
     return m_rootItem->columnCount();
 }
 
-bool VariableTreeModel::removeRows(int firstRow, int lastRow, const QModelIndex &parent)
+bool VariableTreeModel::addRows(QList<VariableTreeItem*> added, const QModelIndex &parent)
 {
-    VariableTreeItem *parentItem = reinterpret_cast<VariableTreeItem*>(
-                                                    parent.internalPointer());
-
+    VariableTreeItem *parentItem = getItem(parent);
     if (!parentItem)
         return false;
 
-    beginRemoveRows(parent, firstRow, lastRow);
-    for (int i = firstRow; i < lastRow; ++i) {
-        parentItem->removeChild(i);
-    }
+    int childCount =  parentItem->childCount();
 
+    beginInsertRows(parent, childCount, childCount + added.size() -1);
+    for (VariableTreeItem *item : added) {
+        parentItem->addChild(item);
+    }
+    endInsertRows();
+    Q_EMIT layoutChanged();
+
+    return true;
+}
+
+bool VariableTreeModel::removeRows(int firstRow, int nrRows, const QModelIndex &parent)
+{
+    VariableTreeItem *item = getItem(parent);
+    if (!item)
+        return false;
+
+    if (firstRow < 0 || firstRow >= item->childCount())
+        return false;
+    if (nrRows < 0 || firstRow + nrRows > item->childCount())
+        nrRows = item->childCount() - firstRow;
+
+    beginRemoveRows(parent, firstRow, firstRow + nrRows -1);
+    for (int i = firstRow; i < firstRow + nrRows; ++i) {
+        item->removeChild(firstRow);
+    }
     endRemoveRows();
+
+    // invalidate abstractmodels internal index, otherwise we crash
+    for(QModelIndex &idx : persistentIndexList()) {
+        changePersistentIndex(idx, QModelIndex());
+    }
 
     return true;
 }
@@ -1174,12 +1225,22 @@ bool VariableTreeModel::hasChildren(const QModelIndex &parent) const
     if (!parent.isValid())
         parentItem = m_rootItem;
     else
-        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+        parentItem = getItem(parent);
 
     if (!parentItem)
         return 0;
 
     return parentItem->lazyLoadChildren() || parentItem->childCount() > 0;
+}
+
+VariableTreeItem *VariableTreeModel::getItem(const QModelIndex &index) const
+{
+    if (index.isValid()) {
+        VariableTreeItem *item = static_cast<VariableTreeItem*>(index.internalPointer());
+        if (item)
+            return item;
+    }
+    return m_rootItem;
 }
 
 
@@ -1191,7 +1252,7 @@ QVariant VariableTreeModel::data(const QModelIndex &index, int role) const
     if (role != Qt::DisplayRole && role != Qt::ToolTipRole)
         return QVariant();
 
-    VariableTreeItem *item = reinterpret_cast<VariableTreeItem*>(index.internalPointer());
+    VariableTreeItem *item = getItem(index);
 
     if (!item)
         return QVariant();
@@ -1204,11 +1265,11 @@ Qt::ItemFlags VariableTreeModel::flags(const QModelIndex &index) const
     if (!index.isValid())
         return 0;
 
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    return QAbstractItemModel::flags(index); // Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 }
 
 QVariant VariableTreeModel::headerData(int section, Qt::Orientation orientation,
-                               int role) const
+                                       int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
         return m_rootItem->data(section);
@@ -1227,7 +1288,7 @@ QModelIndex VariableTreeModel::index(int row, int column, const QModelIndex &par
     if (!parent.isValid())
         parentItem = m_rootItem;
     else
-        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+        parentItem = getItem(parent);
 
     if (!parentItem)
         return QModelIndex();
@@ -1244,7 +1305,7 @@ QModelIndex VariableTreeModel::parent(const QModelIndex &index) const
     if (!index.isValid())
         return QModelIndex();
 
-    VariableTreeItem *childItem = reinterpret_cast<VariableTreeItem*>(index.internalPointer());
+    VariableTreeItem *childItem = getItem(index);
     if (!childItem)
         return QModelIndex();
 
@@ -1253,43 +1314,32 @@ QModelIndex VariableTreeModel::parent(const QModelIndex &index) const
     if (parentItem == m_rootItem || parentItem == nullptr)
         return QModelIndex();
 
-    return createIndex(parentItem->row(), 0, parentItem);
+    return createIndex(parentItem->childNumber(), 0, parentItem);
 }
 
 int VariableTreeModel::rowCount(const QModelIndex &parent) const
 {
-    VariableTreeItem *parentItem;
-    if (parent.column() > 0)
+    VariableTreeItem *item = getItem(parent);
+    if (!item)
         return 0;
-
-    if (!parent.isValid())
-        parentItem = m_rootItem;
-    else
-        parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
-
-    if (!parentItem)
-        return 0;
-    return parentItem->childCount();
+    return item->childCount();
 }
 
 
 void VariableTreeModel::clear()
 {
     // locals
-    QModelIndex localsIdx = createIndex(0, 0, m_localsItem);
-    beginRemoveRows(localsIdx, 0, m_localsItem->childCount());
-    while (m_localsItem->childCount())
-        m_localsItem->removeChild(0);
-
-    endRemoveRows();
+    if (m_localsItem->childCount() > 0) {
+        QModelIndex localsIdx = createIndex(0, 0, m_localsItem);
+        removeRows(0, m_localsItem->childCount(), localsIdx);
+    }
 
     // globals
-    QModelIndex globalsIdx = createIndex(0, 0, m_globalsItem);
-    beginRemoveRows(globalsIdx, 0, m_globalsItem->childCount());
-    while (m_globalsItem->childCount())
-        m_globalsItem->removeChild(0);
-
-    endRemoveRows();
+    if (m_globalsItem->childCount()) {
+        QModelIndex globalsIdx = createIndex(0, 0, m_globalsItem);
+        removeRows(0, m_globalsItem->childCount(), globalsIdx);
+        reset();
+    }
 }
 
 void VariableTreeModel::updateVariables(PyFrameObject *frame)
@@ -1315,18 +1365,19 @@ void VariableTreeModel::updateVariables(PyFrameObject *frame)
         scanObject(globalsDict, parentItem, 0, true);
     }
 
+    /*
     // and the builtins
     parentItem = m_builtinsItem;
     rootObject = (PyObject*)frame->f_builtins;
     if (rootObject) {
         m_builtinsItem->setMeAsRoot(Py::Object(rootObject));
         scanObject(rootObject, parentItem, 0, false);
-    }
+    }*/
 }
 
 void VariableTreeModel::lazyLoad(const QModelIndex &parent)
 {
-    VariableTreeItem *parentItem = reinterpret_cast<VariableTreeItem*>(parent.internalPointer());
+    VariableTreeItem *parentItem = getItem(parent);
     if (parentItem && parentItem->lazyLoadChildren())
         lazyLoad(parentItem);
 }
@@ -1413,7 +1464,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
 
 
     // first we traverse and compare before we do anything so
-    // view dont get updated to manys times
+    // view dont get updated to many times
 
     // traverse and compare
     for (Py::List::iterator it = keys.begin(); it != keys.end(); ++it) {
@@ -1426,6 +1477,8 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
         itm = PyDict_GetItem(object.ptr(), key.ptr());
         if (itm) {
             Py_XINCREF(itm);
+            if (PyCallable_Check(itm))
+                continue; // dont want to crowd explorer with functions
             vl = PyObject_Str(itm);
             if (vl) {
                 char *vlu = PyBytes_AS_STRING(vl);
@@ -1433,10 +1486,13 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
 
                 if (!PyBytes_Check(itm)) {
                     // extract memory adress if needed, but not on ordinary strings
-                    QRegExp re(QLatin1String("^<\\w+[\\w\\s'\"\\-]* at (?:0x)?([0-9a-fA-F]+)>$"));
+                    QRegExp re(QLatin1String("^<\\w+[\\w\\s'\"\\.\\-]* at (?:0x)?([0-9a-fA-F]+)>$"));
                     if (re.indexIn(newValue) != -1) {
                         newValue = re.cap(1);
                     }
+                } else {
+                    // it's a string, wrap in quotes ('')
+                    newValue = QString(QLatin1String("'%1'")).arg(newValue);
                 }
 
                 newType = QString::fromLatin1(Py_TYPE(itm)->tp_name);
@@ -1449,15 +1505,18 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
         VariableTreeItem *currentChild = parentItem->childByName(name);
         if (currentChild == nullptr) {
             // not found, should add to model
+            QRegExp reBuiltin(QLatin1String(".*built-*in.*"));
             if (noBuiltins) {
-                if (newType == QLatin1String("<type 'builtin_function_or_method'>"))
+                if (reBuiltin.indexIn(newType) != -1)
                     continue;
-            } else if (newType != QLatin1String("<type 'builtin_function_or_method'>"))
+            } else if (reBuiltin.indexIn(newType) == -1)
                 continue;
+
             QList<QVariant> data;
             data << name << newValue << newType;
             VariableTreeItem *createdItem = new VariableTreeItem(data, parentItem);
             added.append(createdItem);
+
             if (PyDict_Check(itm) || PyList_Check(itm) || PyTuple_Check(itm)) {
                 // check for subobject recursively
                 scanObject(itm, createdItem, depth +1, true);
@@ -1492,7 +1551,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
             deleted.append(item->name());
     }
 
-    // finished compare now do changes
+    // finished compare, now do the changes
 
 
     // handle updates
@@ -1511,29 +1570,21 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
     for (const QString &name : deleted) {
         row = parentItem->childRowByName(name);
         if (row < 0) continue;
-
-        QModelIndex idx = createIndex(row, 0, parentItem);
-        removeRows(row, row+1, idx);
+        QModelIndex parentIdx = createIndex(row, 0, parentItem);
+        removeRows(row, 1, parentIdx);
     }
 
     // handle inserts
     // these are already created during compare phase
     // we insert last so variables dont jump around in the treeview
     if (added.size()) {
-        int rowCount = parentItem->childCount();
-        QModelIndex idx = createIndex(rowCount, 0, parentItem);
-        beginInsertRows(idx, rowCount, rowCount + added.size()-1);
-        for (VariableTreeItem *item : added) {
-            //beginInsertRows(idx, rowCount, rowCount+1);
-            parentItem->appendChild(item);
-            //endInsertRows();
-        }
-        endInsertRows();
+        QModelIndex parentIdx = createIndex(row, 0, parentItem);
+        addRows(added, parentIdx);
     }
 
     // notify view that parentItem might have children now
     if (updated.size() || added.size() || deleted.size()) {
-        Q_EMIT layoutChanged();
+        //Q_EMIT layoutChanged();
     }
 }
 

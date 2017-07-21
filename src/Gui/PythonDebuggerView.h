@@ -68,6 +68,8 @@ private Q_SLOTS:
     void issuesViewCurrentChanged(const QModelIndex & current, const QModelIndex & previous);
     void customBreakpointContextMenu(const QPoint &pos);
     void customIssuesContextMenu(const QPoint &pos);
+    void saveExpandedVarViewState();
+    void restoreExpandedVarViewState();
 
 private:
     void initButtons(QVBoxLayout *vLayout);
@@ -166,8 +168,9 @@ public:
                      VariableTreeItem *parent);
     ~VariableTreeItem();
 
-    void appendChild(VariableTreeItem *child);
-    void removeChild(int row);
+    void addChild(VariableTreeItem *child);
+    bool removeChild(int row);
+    bool removeChildren(int row, int nrRows);
 
     VariableTreeItem *child(int row);
     VariableTreeItem *childByName(const QString &name);
@@ -175,7 +178,7 @@ public:
     int childCount() const;
     int columnCount() const;
     QVariant data(int column) const;
-    int row() const;
+    int childNumber() const;
     VariableTreeItem *parent();
 
     const QString name() const;
@@ -224,9 +227,15 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
 
-    bool removeRows(int firstRow, int lastRow,
+    bool addRows(QList<VariableTreeItem*> added,
+                    const QModelIndex &parent = QModelIndex());
+
+    bool removeRows(int firstRow, int nrRows,
                      const QModelIndex & parent = QModelIndex());
+
     bool hasChildren(const QModelIndex & parent = QModelIndex()) const;
+
+    VariableTreeItem *getItem(const QModelIndex &index) const;
 
 public Q_SLOTS:
     void clear();
