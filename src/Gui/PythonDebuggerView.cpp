@@ -1338,7 +1338,6 @@ void VariableTreeModel::clear()
     if (m_globalsItem->childCount()) {
         QModelIndex globalsIdx = createIndex(0, 0, m_globalsItem);
         removeRows(0, m_globalsItem->childCount(), globalsIdx);
-        reset();
     }
 }
 

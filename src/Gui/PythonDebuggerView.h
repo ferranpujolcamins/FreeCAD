@@ -252,7 +252,7 @@ private:
     VariableTreeItem *m_rootItem;
     VariableTreeItem *m_localsItem;
     VariableTreeItem *m_globalsItem;
-    VariableTreeItem *m_builtinsItem;
+    //VariableTreeItem *m_builtinsItem;
 };
 
 } // namespace DockWnd

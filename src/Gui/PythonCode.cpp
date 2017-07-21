@@ -1504,8 +1504,9 @@ setformat:
 // -------------------------------------------------------------------------
 
 namespace Gui {
-struct JediCommonP
+class JediCommonP
 {
+public:
     static void printErr();
 
     // helper functions that GIL locks and swaps interpreter
