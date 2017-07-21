@@ -1293,7 +1293,7 @@ void PythonEditorCodeAnalyzer::parseDocument()
                                              column, d->editor->fileName()));
     if (d->taskAfterReparse == d->Completer || d->taskAfterReparse == d->Both)
         complete();
-    else if (d->taskAfterReparse == d->CallSignature || d->taskAfterReparse == d->Both)
+    if (d->taskAfterReparse == d->CallSignature || d->taskAfterReparse == d->Both)
         d->callSignatureWgt->afterKeyPressed(d->keyEvent.get());
 
     d->taskAfterReparse = d->Nothing;
@@ -1341,7 +1341,6 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     int key = e->key();
     bool forcePopup = e->modifiers() & Qt::ShiftModifier && key == Qt::Key_Space;
 
-
     bool bailout = false;
 
     // do nothing if ctrl or shift on ther own
@@ -1358,8 +1357,8 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
 
     if (bailout) {
         // reparse for call signature
-        d->parseTimer.start();
         d->taskAfterReparse = d->CallSignature;
+        d->parseTimer.start(d->parseTimeoutMs);
         return false;
         //parseDocument();
         //return d->callSignatureWgt->afterKeyPressed(e);
@@ -1404,9 +1403,7 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (!forcePopup)
         forcePopup = e->text() == QLatin1String(".");
 
-
-
-    if (startChar.isLetterOrNumber() || forcePopup) {
+    if ((startChar.isLetterOrNumber() && prefix.length() > 1) || forcePopup) {
 
         // set prefix
         d->editor->completer()->setCompletionPrefix(prefix);
@@ -1497,6 +1494,7 @@ bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, i
         d->editor->setTextCursor(cursor); // must to move backward
 
         // suggestions for call signatures
+        d->taskAfterReparse = d->CallSignature;
         parseDocument();
         d->callSignatureWgt->update();
         return true;
