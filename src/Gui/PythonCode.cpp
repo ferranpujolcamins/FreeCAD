@@ -672,7 +672,11 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             }
 
             int len = lastWordCh(i, text);
-            setUndeterminedIdentifierBold(i, len, T_IdentifierDefUnknown, SyntaxHighlighter::IdentifierUnknown);
+            if (d->activeBlock->indent() == 0)
+                // no intent, it cant be a method
+                setIdentifierBold(i, len, T_IdentifierFunction, SyntaxHighlighter::IdentifierFunction);
+            else
+                setUndeterminedIdentifierBold(i, len, T_IdentifierDefUnknown, SyntaxHighlighter::IdentifierUnknown);
             d->endStateOfLastPara = T_Undetermined;
 
         } break;
@@ -1076,7 +1080,7 @@ bool PythonToken::operator >(const PythonToken &other) const
 // -------------------------------------------------------------------------------------------
 
 PythonTextBlockData::PythonTextBlockData(QTextBlock block) :
-    m_block(block)
+    m_block(block), m_indentCharCount(0)
 {
 }
 
