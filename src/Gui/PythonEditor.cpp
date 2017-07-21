@@ -1122,7 +1122,7 @@ PythonEditorCodeAnalyzer::PythonEditorCodeAnalyzer(PythonEditor *editor) :
     }
 
     if (d->isActive) {
-        connect(editor, SIGNAL(fileNameChanged(QString)), this, SLOT(parseDocument()));
+        d->parseTimer.start(d->parseTimeoutMs);
     }
 }
 
