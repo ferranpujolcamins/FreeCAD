@@ -1060,7 +1060,7 @@ void EditorViewWrapper::setFileName(const QString &fn)
     d->fileName = fn;
     // some editors need filename, for example PythonEditor
     // use Qt introspection to "textEdit->setFilename(fn)"
-    // does nothing if editor doesnt have this method
+    // does nothing if editor doesn't have this method
     QMetaObject::invokeMethod(d->textEdit, "setFileName",
                               Qt::DirectConnection, Q_ARG(QString, fn));
 }
@@ -1582,7 +1582,7 @@ void EditorSearchBar::foundCount(int foundOcurrences)
         m_searchEdit->setStyleSheet(QLatin1String(""));
 
     QString found = QString::number(foundOcurrences);
-    m_foundCountLabel->setText(tr("Found: %1 occurences").arg(found));
+    m_foundCountLabel->setText(tr("Found: %1 occurrences").arg(found));
 }
 
 void EditorSearchBar::searchChanged(const QString &str)
