@@ -402,7 +402,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                         if (text.at(j) == QLatin1Char(' ')) {
                             ++count;
                         } else if (text.at(j) == QLatin1Char('\t')) {
-                            count += 8; // acording to python lexical documentaion tab is eight spaces
+                            count += 8; // according to python lexical documentaion tab is eight spaces
                         } else {
                             break;
                         }
@@ -673,7 +673,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
             int len = lastWordCh(i, text);
             if (d->activeBlock->indent() == 0)
-                // no intent, it cant be a method
+                // no intent, it can't be a method
                 setIdentifierBold(i, len, T_IdentifierFunction, SyntaxHighlighter::IdentifierFunction);
             else
                 setUndeterminedIdentifierBold(i, len, T_IdentifierDefUnknown, SyntaxHighlighter::IdentifierUnknown);
@@ -710,7 +710,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
             int len = lastWordCh(i, text);
             if (len < 1) {
-                if (ch == QLatin1Char('*')) // globs aren't a word char so they dont get caught
+                if (ch == QLatin1Char('*')) // globs aren't a word char so they don't get caught
                     len += 1;
                 else
                     break;
@@ -749,7 +749,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         } // end switch
 
         prev = ch;
-        assert(i >= lastI); // else infinte loop
+        assert(i >= lastI); // else infinite loop
         lastI = i++;
 
     } // end loop
@@ -1805,7 +1805,7 @@ JediDefinition_list_t JediBaseDefinitionObj::goto_definitions() const
                                       <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
                                                 (m_obj, "goto_definitions", nullptr, nullptr);
 
-    // questionable workaround, this function isnt public yet according to comment in code it seems be soon
+    // questionable workaround, this function isn't public yet according to comment in code it seems be soon
     if (!res.size())
         res = JediCommonP::fetchList
             <JediDefinition_list_t, JediDefinitionObj, JediDefinition_ptr_t>
@@ -2125,7 +2125,7 @@ Py::Object JediDebugProxy::proxy(const Py::Tuple &args)
         if (argsTuple.length() >= 2) {
             std::string color = Py::String(argsTuple[0]).as_std_string();
             std::string str = Py::String(argsTuple[1]).as_std_string();
-            // need to lock here if our recievers uses anything python in recieving slots
+            // need to lock here if our receivers uses anything python in receiving slots
             Base::PyGILStateLocker lock;
             Q_EMIT JediInterpreter::instance()->onDebugInfo(QString::fromStdString(color),
                                                             QString::fromStdString(str));
@@ -2309,7 +2309,7 @@ JediDefinition_list_t JediInterpreter::names(const QString source, const QString
 }
 
 // preload means that Jedi parsers them now instead of when detected in code
-// it doesnt import them to local env. if they are not C modules
+// it doesn't import them to local env. if they are not C modules
 bool JediInterpreter::preload_module(const QStringList modules) const
 {
     if (isValid()) {
@@ -2403,10 +2403,10 @@ void JediInterpreter::destroy()
 JediInterpreter::SwapIn::SwapIn() :
     m_oldState(nullptr)
 {
-    // ensure we dont re-swap and aquire lock (leads to deadlock)
+    // ensure we don't re-swap and acquire lock (leads to deadlock)
     if (!static_GILHeld) {
         static_GILHeld = true;
-        // aquire for global thread
+        // acquire for global thread
         m_GILState = PyGILState_Ensure();
         m_oldState = PyThreadState_Get();
 

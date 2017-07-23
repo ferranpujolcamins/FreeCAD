@@ -128,7 +128,7 @@ Q_SIGNALS:
     void changeFileName(const QString &fileName);
 
     /**
-     * @brief switchedFile emitted when another file is shown in wiew
+     * @brief switchedFile emitted when another file is shown in view
      * for exapmle when we debug trace into another file
      */
     void switchedFile(const QString &fileName);

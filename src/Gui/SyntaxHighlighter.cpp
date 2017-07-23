@@ -214,7 +214,7 @@ public:
 
 
         // aliases, only show the more detailed name in editor settings
-        // keys inserted here wont show up in editor settings dialog
+        // keys inserted here won't show up in editor settings dialog
         aliased << QLatin1String("String")     << QLatin1String("BlockComment")
                 << QLatin1String("Class name") << QLatin1String("Define name");
     }
@@ -349,8 +349,8 @@ void SyntaxHighlighter::colorChanged(const QString& type, const QColor& col)
 
 int SyntaxHighlighter::maximumUserState() const
 {
-    // used in python console so we dont copy python errors and python output
-    // when issueing "Copy command"
+    // used in python console so we don't copy python errors and python output
+    // when issuing "Copy command"
     // also in PythonSyntaxHighLighter to set state on textBlock from previous block
     return static_cast<int>(PythonConsoleOutput) -1;
 }
