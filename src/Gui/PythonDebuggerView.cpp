@@ -462,7 +462,7 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
     d->m_stopDebugBtn->setToolTip(tr("Stop debugger"));
     d->m_continueBtn->setToolTip(tr("Continue running"));
     d->m_stepIntoBtn->setToolTip(tr("Next instruction, steps into functions"));
-    d->m_stepOverBtn->setToolTip(tr("Next instruction, dont step into functions"));
+    d->m_stepOverBtn->setToolTip(tr("Next instruction, don't step into functions"));
     d->m_stepOutBtn->setToolTip(tr("Continue until current function ends"));
     d->m_haltOnNextBtn->setToolTip(tr("Halt on any python code"));
     d->m_continueBtn->setAutoRepeat(true);

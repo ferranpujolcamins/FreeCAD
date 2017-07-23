@@ -244,7 +244,7 @@ public:
                                  int searchFrom = 0) const;
 
     /**
-     * @brief tokensBetweenOfType counts tokens ot type match between these positions
+     * @brief tokensBetweenOfType counts tokens to type match between these positions
      *         NOTE! this method ignores T_Indent tokens
      * @param startPos position to start at
      * @param endPos position where it should stop looking
