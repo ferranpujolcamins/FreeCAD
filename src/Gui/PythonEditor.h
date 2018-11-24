@@ -226,7 +226,7 @@ private:
 // ------------------------------------------------------------
 
 /**
- * @breif displays arguments to functions
+ * @brief displays arguments to functions
  * and other usages to this function
  */
 class PythonCallSignatureWidgetP;

@@ -42,10 +42,10 @@ using namespace Gui;
 Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
     m_oldState(nullptr)
 {
-    // ensure we dont re-swap and aquire lock (leads to deadlock)
+    // ensure we don't re-swap and acquire lock (leads to deadlock)
     if (!static_GILHeld) {
         static_GILHeld = true;
-        // aquire for global thread
+        // acquire for global thread
         m_GILState = PyGILState_Ensure();
         m_oldState = PyThreadState_Get();
 
@@ -233,7 +233,7 @@ QString Py::ExceptionInfo::message() const
         }
     }
     if (!vlu)
-        return QString(); // unkown type
+        return QString(); // unknown type
 
     const char *msg = PyBytes_AS_STRING(vlu);
     Py_XDECREF(vlu);
@@ -475,7 +475,7 @@ BreakpointLine& BreakpointLine::operator=(const BreakpointLine& other)
 {
     m_condition = other.m_condition;
     m_lineNr = other.m_lineNr;
-    m_hitCount = 0; // dont copy hit counts
+    m_hitCount = 0; // don't copy hit counts
     m_ignoreTo = other.m_ignoreTo;
     m_ignoreFrom = other.m_ignoreFrom;
     m_disabled = other.m_disabled;
@@ -1610,7 +1610,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
         if (self->runtimeException &&
             self->runtimeException->threadState() == PyThreadState_GET())
         {
-            // if arg is set, no exception occured
+            // if arg is set, no exception occurred
             if (arg) {
                 // error has been cleared
                 delete self->runtimeException;

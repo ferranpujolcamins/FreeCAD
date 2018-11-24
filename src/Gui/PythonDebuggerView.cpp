@@ -462,7 +462,7 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
     d->m_stopDebugBtn->setToolTip(tr("Stop debugger"));
     d->m_continueBtn->setToolTip(tr("Continue running"));
     d->m_stepIntoBtn->setToolTip(tr("Next instruction, steps into functions"));
-    d->m_stepOverBtn->setToolTip(tr("Next instruction, dont step into functions"));
+    d->m_stepOverBtn->setToolTip(tr("Next instruction, don't step into functions"));
     d->m_stepOutBtn->setToolTip(tr("Continue until current function ends"));
     d->m_haltOnNextBtn->setToolTip(tr("Halt on any python code"));
     d->m_continueBtn->setAutoRepeat(true);
@@ -818,7 +818,7 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
 
         QString srcText = exc->text();
         int offset = exc->offset();
-        if (offset > 0) { // syntax error and such that give a column where it occured
+        if (offset > 0) { // syntax error and such that give a column where it occurred
             if (!srcText.endsWith(QLatin1String("\n")))
                 srcText += QLatin1String("\n");
             for (int i = 0; i < offset -1; ++i) {
@@ -883,7 +883,7 @@ bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
 
 void IssuesModel::exceptionOccured(const Py::ExceptionInfo *exc)
 {
-    // on runtime, we dont want to catch rentime exceptions before they are fatal
+    // on runtime, we don't want to catch runtime exceptions before they are fatal
     // but we do want to catch warnings
     //if (exc->isWarning())
         exception(exc);
@@ -970,7 +970,7 @@ void VariableTreeItem::addChild(VariableTreeItem *item)
         }
     }
 
-    // if we get here are definetly last
+    // if we get here are definitely last
     childItems.append(item);
 }
 
@@ -1384,7 +1384,7 @@ void VariableTreeModel::lazyLoad(const QModelIndex &parent)
 void VariableTreeModel::lazyLoad(VariableTreeItem *parentItem)
 {
     Py::Dict dict;
-    // workaround to not beeing able to store pointers to variables
+    // workaround to not being able to store pointers to variables
     QString myName = parentItem->name();
     Py::Object me = parentItem->parent()->getAttr(myName);
     if (me.isNull())
@@ -1463,13 +1463,13 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
 
 
     // first we traverse and compare before we do anything so
-    // view dont get updated to many times
+    // view doesn't get updated too many times
 
     // traverse and compare
     for (Py::List::iterator it = keys.begin(); it != keys.end(); ++it) {
         Py::String key(*it);
         QString name = QString::fromStdString(key);
-        // PyCXX metods throws here on type objects from class self type?
+        // PyCXX methods throws here on type objects from class self type?
         // use Python C instead
         QString newValue, newType;
         PyObject *vl, *itm;
@@ -1477,14 +1477,14 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
         if (itm) {
             Py_XINCREF(itm);
             if (PyCallable_Check(itm))
-                continue; // dont want to crowd explorer with functions
+                continue; // don't want to crowd explorer with functions
             vl = PyObject_Str(itm);
             if (vl) {
                 char *vlu = PyBytes_AS_STRING(vl);
                 newValue = QString(QLatin1String(vlu));
 
                 if (!PyBytes_Check(itm)) {
-                    // extract memory adress if needed, but not on ordinary strings
+                    // extract memory address if needed, but not on ordinary strings
                     QRegExp re(QLatin1String("^<\\w+[\\w\\s'\"\\.\\-]* at (?:0x)?([0-9a-fA-F]+)>$"));
                     if (re.indexIn(newValue) != -1) {
                         newValue = re.cap(1);
@@ -1554,7 +1554,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
 
 
     // handle updates
-    // this tries to find out how many consecutive rows thats changed
+    // this tries to find out how many consecutive rows that've changed
     int row = 0;
     for (const QString &item : updated) {
         row = parentItem->childRowByName(item);
@@ -1575,7 +1575,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
 
     // handle inserts
     // these are already created during compare phase
-    // we insert last so variables dont jump around in the treeview
+    // we insert last so variables don't jump around in the treeview
     if (added.size()) {
         QModelIndex parentIdx = createIndex(row, 0, parentItem);
         addRows(added, parentIdx);

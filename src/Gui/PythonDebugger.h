@@ -351,7 +351,7 @@ public:
     /**
      * @brief changes currentFrame and emits signals
      * @param level 0 is to top/global
-     * @return true on sucess
+     * @return true on success
      */
     bool setStackLevel(int level);
 

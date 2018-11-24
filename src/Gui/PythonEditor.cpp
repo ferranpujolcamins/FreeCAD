@@ -492,7 +492,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             // add one because this Key adds a row
             afterLineNr += 1;
         } else if (cursor.atBlockEnd()) {
-            // dont move breakpoint if we are at line end
+            // don't move breakpoint if we are at line end
             beforeLineNr += 1;
             afterLineNr = beforeLineNr +1;
         }
@@ -1002,7 +1002,7 @@ void PythonEditor::onAutoIndent()
         QString txt = block.text();
         if (mayIndent && reNewBlock.indexIn(txt) > -1) {
             indentLevel.append(chrCount);
-            blockIndent = -1; // dont indent this row
+            blockIndent = -1; // don't indent this row
             if (mCommentChr != 0)
                 ++mCommentIndents;
         }
@@ -1147,7 +1147,7 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
             d->isActive = JediInterpreter::instance()->isValid();
             if (!d->isActive) {
                 QMessageBox::warning(d->editor, tr("Python editor"),
-                                     tr("<h1>Jedi doesnt work!</h1>Are you sure it's installed correctly?"
+                                     tr("<h1>Jedi doesn't work!</h1>Are you sure it's installed correctly?"
                                         "<br/> &nbsp;&nbsp; run:<i><b>pip install jedi</b></i> on command line"
                                         "<br/><a href='https://pypi.python.org/pypi/jedi/'>https://pypi.python.org/pypi/jedi</a>"));
 
@@ -1310,7 +1310,7 @@ bool PythonEditorCodeAnalyzer::eventFilter(QObject *obj, QEvent *event)
         return true;
 
     if  (obj == d->editor) {
-        // Ot doesnt let me snatch keypress originating from Completer
+        // Qt doesn't let me snatch keypress originating from Completer
         if (event->type() == QEvent::KeyPress) {
             QKeyEvent *e = static_cast<QKeyEvent*>(event);
             if (e->text().isEmpty() && e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))
@@ -1343,7 +1343,7 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
 
     bool bailout = false;
 
-    // do nothing if ctrl or shift on ther own
+    // do nothing if ctrl or shift on their own
     if (!forcePopup && (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier)) &&
         e->text().isEmpty())
         bailout = true;
@@ -1410,7 +1410,7 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
 
         d->taskAfterReparse = d->Both;
 
-        d->parseTimer.start(d->parseTimeoutMs); // user wont notice 50msec delay, but makes a lot of
+        d->parseTimer.start(d->parseTimeoutMs); // user won't notice 50msec delay, but makes a lot of
                                  // difference on machine strain
 
     } else {
@@ -1454,7 +1454,7 @@ void PythonEditorCodeAnalyzer::popupChoiceHighlighted(const QModelIndex &idx)
     QPoint pos = d->editor->completer()->popup()->pos();
     pos.rx() += d->editor->completer()->popup()->width();
 
-    // for debug only, popup lock out all events so we cant debug
+    // for debug only, popup lock out all events so we can't debug
     //d->editor->completer()->popup()->hide();
 
     QToolTip::showText(pos, buildToolTipText(def), d->editor->completer()->popup());
@@ -1466,9 +1466,9 @@ bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, i
         return false;
 
     QString type = obj->type();
-    bool paranthesis = false;
+    bool parenthesis = false;
     if (type == QLatin1String("function") || type == QLatin1String("class")) {
-        paranthesis = true;
+        parenthesis = true;
 
     } else if(type == QLatin1String("statement")) {
         JediDefinition_list_t lookups;
@@ -1481,13 +1481,13 @@ bool PythonEditorCodeAnalyzer::afterChoiceInserted(JediBaseDefinitionObj *obj, i
         // take last, hopefully last assignment
         for (JediBaseDefinition_ptr_t lookObj : lookups)
         {
-            if (lookObj->type() != QLatin1String("statment")) {
+            if (lookObj->type() != QLatin1String("statement")) {
                 return afterChoiceInserted(lookObj.get(), ++recursionGuard);
             }
         }
     }
 
-    if (paranthesis) {
+    if (parenthesis) {
         QTextCursor cursor(d->editor->textCursor());
         cursor.insertText(QLatin1String("()"));
         cursor.movePosition(QTextCursor::Left);
@@ -2079,7 +2079,7 @@ void PythonCallSignatureWidget::resetList()
     d->signatures = d->analyzer->currentScriptObj()->call_signatures();
 
     if (d->signatures.size()) {
-        // store these for later comparisson, so we dont open on another function call
+        // store these for later comparison, so we don't open on another function call
         d->functionName = d->signatures[0]->name();
         d->lineNr = d->analyzer->editor()->textCursor().block().blockNumber();
     }

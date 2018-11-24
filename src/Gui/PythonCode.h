@@ -244,18 +244,18 @@ public:
                                  int searchFrom = 0) const;
 
     /**
-     * @brief tokensBetweenOfType counts tokens ot type match between these positions
-     *         NOTE! this methos ignore T_Indent tokens
+     * @brief tokensBetweenOfType counts tokens to type match between these positions
+     *         NOTE! this method ignores T_Indent tokens
      * @param startPos position to start at
      * @param endPos position where it should stop looking
-     * @param match against his token
+     * @param match against this token
      * @return number of times token was found
      */
     int tokensBetweenOfType(int startPos, int endPos, PythonSyntaxHighlighter::Tokens match) const;
 
     /**
      * @brief lastInserted gives the last inserted token
-     *         NOTE! this method ignore T_Indent tokens
+     *         NOTE! this method ignores T_Indent tokens
      * @param lookInPreviousRows if false limits to this textblock only
      * @return last inserted token or nullptr if empty
      */
@@ -354,7 +354,7 @@ private:
     QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
     QTextBlock m_block;
-    int m_indentCharCount; // as spaces NOTE according  to python documentation a tab is 8 spaces
+    int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
     friend class PythonSyntaxHighlighter; // in order to hide some api
 };
@@ -362,7 +362,7 @@ private:
 // -----------------------------------------------------------------------
 
 /**
- * @brief The PythonMatchingChars highlights the oposite (), [] or {}
+ * @brief The PythonMatchingChars highlights the opposite (), [] or {}
  */
 class PythonMatchingChars : public QObject
 {

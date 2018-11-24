@@ -159,7 +159,7 @@ private:
 
 class AnnotatedScrollBarP;
 /**
- * @breif A custom scrollbar that can show markers at different lines
+ * @brief A custom scrollbar that can show markers at different lines
  *      such as markers when searching for a word
  */
 class AnnotatedScrollBar : public QScrollBar
