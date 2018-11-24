@@ -9,7 +9,7 @@ Usage:
    
 Options:
  -v, --verbose            print out all files collected
- -o  --out-file=FILENAME  use this file name for output, default resorces.qrc
+ -o  --out-file=FILENAME  use this file name for output, default resources.qrc
  -d, --directory=DIRNAME  directory to search, default PWD
  -h, --help               print this help message
  
@@ -20,7 +20,7 @@ Examples:
   
    dir2qrc  -v -o resource.qrc -d "d:/Develop/Resources"
  
-Autor:
+Author:
   (c) 2007 Juergen Riegel
   juergen.riegel@web.de
   Licence: GPL
@@ -90,7 +90,7 @@ def main():
 		if o in ("-o", "--out-file"):
 			Output = a
 		if o in ("-d", "--directory"):
-			print "Using path: " + a +"\n"
+			print("Using path: " + a +"\n")
 			Dir = a
 			
 	if Automatic:
@@ -123,7 +123,7 @@ def updateResourceFile(Dir, Output,prefix=""):
 				FilePath = FilePathOrg.replace(DirPath,'')
 				FilePath = FilePath.replace('.\\','')
 				FilePath = FilePath.replace('\\','/')
-				if Verbose: print FilePathOrg + ' -> ' + FilePath 
+				if Verbose: print(FilePathOrg + ' -> ' + FilePath)
 				filelist.append(FilePath)
 
 
@@ -139,7 +139,7 @@ def makeTargetExtraDist(Dir):
 	extensions.append(".qrc")
 	extensions.append(".bat")
 	extensions.append(".ts")
-	print ("EXTRA_DIST = \\")
+	print("EXTRA_DIST = \\")
 	DirPath = Dir + os.path.sep
 	for root, dirs, files in os.walk(Dir):
 		for name in files:
@@ -148,8 +148,8 @@ def makeTargetExtraDist(Dir):
 				FilePath = FilePathOrg.replace(DirPath,'')
 				FilePath = FilePath.replace('.\\','')
 				FilePath = FilePath.replace('\\','/')
-				print ("\t\t%s \\" % (FilePath))
-	print
+				print("\t\t%s \\" % (FilePath))
+	print()
 
 if __name__ == "__main__":
 	main()

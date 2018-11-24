@@ -32,6 +32,8 @@
 #include "Command.h"
 #include "Application.h"
 #include "Document.h"
+#include "MainWindow.h"
+#include <Base/Tools.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
 #include <App/GroupExtension.h>
@@ -43,7 +45,7 @@ using namespace Gui;
 
 EXTENSION_PROPERTY_SOURCE(Gui::ViewProviderGroupExtension, Gui::ViewProviderExtension)
 
-ViewProviderGroupExtension::ViewProviderGroupExtension()  : visible(false)
+ViewProviderGroupExtension::ViewProviderGroupExtension()  : visible(false), guard(false)
 {
     initExtensionType(ViewProviderGroupExtension::getExtensionClassTypeId());
 }
@@ -110,12 +112,16 @@ void ViewProviderGroupExtension::extensionDropObject(App::DocumentObject* obj) {
 
 std::vector< App::DocumentObject* > ViewProviderGroupExtension::extensionClaimChildren(void) const {
 
-    auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::GroupExtension>();
-    
+    auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::GroupExtension>();    
     return std::vector<App::DocumentObject*>(group->Group.getValues());
 }
 
 void ViewProviderGroupExtension::extensionShow(void) {
+
+    // avoid possible infinite recursion
+    if (guard)
+        return;
+    Base::StateLocker lock(guard);
 
     // when reading the Visibility property from file then do not hide the
     // objects of this group because they have stored their visibility status, too
@@ -137,6 +143,11 @@ void ViewProviderGroupExtension::extensionShow(void) {
 
 void ViewProviderGroupExtension::extensionHide(void) {
 
+    // avoid possible infinite recursion
+    if (guard)
+        return;
+    Base::StateLocker lock(guard);
+
     // when reading the Visibility property from file then do not hide the
     // objects of this group because they have stored their visibility status, too
     if (!getExtendedViewProvider()->isRestoring() && this->visible) {
@@ -145,10 +156,14 @@ void ViewProviderGroupExtension::extensionHide(void) {
 
         const std::vector<App::DocumentObject*> & links = group->Group.getValues();
         Gui::Document* doc = Application::Instance->getDocument(getExtendedViewProvider()->getObject()->getDocument());
-        for (std::vector<App::DocumentObject*>::const_iterator it = links.begin(); it != links.end(); ++it) {
-            ViewProvider* view = doc->getViewProvider(*it);
-            if (view) 
-                view->hide();
+        // doc pointer can be null in case the document is about to be destroyed
+        // See https://forum.freecadweb.org/viewtopic.php?f=22&t=26797&p=218804#p218521
+        if (doc) {
+            for (std::vector<App::DocumentObject*>::const_iterator it = links.begin(); it != links.end(); ++it) {
+                ViewProvider* view = doc->getViewProvider(*it);
+                if (view)
+                    view->hide();
+            }
         }
     }
 
@@ -160,17 +175,18 @@ bool ViewProviderGroupExtension::extensionOnDelete(const std::vector< std::strin
 
     auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::GroupExtension>();
     // If the group is nonempty ask the user if he wants to delete its content
-    if ( group->Group.getSize () ) {
+    if (group->Group.getSize() > 0) {
         QMessageBox::StandardButton choice = 
-            QMessageBox::question ( 0, QObject::tr ( "Delete group content?" ), 
+            QMessageBox::question(getMainWindow(), QObject::tr ( "Delete group content?" ),
                 QObject::tr ( "The %1 is not empty, delete its content as well?")
                     .arg ( QString::fromUtf8 ( getExtendedViewProvider()->getObject()->Label.getValue () ) ), 
                 QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes );
 
-        if ( choice == QMessageBox::Yes ) {
+        if (choice == QMessageBox::Yes) {
             Gui::Command::doCommand(Gui::Command::Doc,
                     "App.getDocument(\"%s\").getObject(\"%s\").removeObjectsFromDocument()"
-                    ,getExtendedViewProvider()->getObject()->getDocument()->getName(), getExtendedViewProvider()->getObject()->getNameInDocument());
+                    , getExtendedViewProvider()->getObject()->getDocument()->getName()
+                    , getExtendedViewProvider()->getObject()->getNameInDocument());
         }
     }
     return true;

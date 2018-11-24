@@ -191,6 +191,9 @@ bool ViewProviderFemConstraint::setEdit(int ModNum)
 
 void ViewProviderFemConstraint::unsetEdit(int ModNum)
 {
+    // clear the selection (convenience)
+    Gui::Selection().clearSelection();
+
     if ((wizardWidget != NULL) && (wizardSubLayout != NULL) && (constraintDialog != NULL)) {
         wizardWidget = NULL;
         wizardSubLayout = NULL;
@@ -200,6 +203,7 @@ void ViewProviderFemConstraint::unsetEdit(int ModNum)
         // Notify the Shaft Wizard that we have finished editing
         // See WizardShaft.py on why we do it this way
         Gui::Command::runCommand(Gui::Command::Doc, "Gui.runCommand('PartDesign_WizardShaftCallBack')");
+
     } else {
         if (ModNum == ViewProvider::Default) {
             // when pressing ESC make sure to close the dialog
@@ -489,4 +493,16 @@ void ViewProviderFemConstraint::checkForWizard()
         wizardWidget = static_cast<QVBoxLayout*>(wiz);
         wizardSubLayout = wiz->findChild<QVBoxLayout*>(QString::fromLatin1("ShaftWizardLayout"));
     }
+}
+
+
+// Python feature -----------------------------------------------------------------------
+
+namespace Gui {
+/// @cond DOXERR
+PROPERTY_SOURCE_TEMPLATE(FemGui::ViewProviderFemConstraintPython, FemGui::ViewProviderFemConstraint)
+/// @endcond
+
+// explicit template instantiation
+template class FemGuiExport ViewProviderPythonFeatureT<ViewProviderFemConstraint>;
 }

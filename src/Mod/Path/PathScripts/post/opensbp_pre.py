@@ -48,13 +48,14 @@ Many other OpenSBP commands not handled
 '''
 from __future__ import print_function
 import FreeCAD
+import PathScripts.PathUtil as PathUtil
 import os, Path
 
 AXIS = 'X','Y','Z','A','B'  #OpenSBP always puts multiaxis move parameters in this order
 SPEEDS = 'XY','Z','A','B'
 
 # to distinguish python built-in open function from the one declared below
-if open.__module__ == '__builtin__':
+if open.__module__ in ['__builtin__','io']:
     pythonopen = open
 
 
@@ -145,7 +146,7 @@ def parse(inputstring):
 
             last[words[0][1]] = words[1]
             output += s
-            for key, val in last.iteritems():
+            for key, val in PathUtil.keyValueIter(last):
                 if val is not None:
                     output += key + str(val) + " F" + speed + "\n"
 

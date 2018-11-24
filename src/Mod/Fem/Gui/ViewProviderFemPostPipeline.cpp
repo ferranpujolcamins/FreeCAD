@@ -35,7 +35,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostPipeline, FemGui::ViewProviderFemPost
 
 ViewProviderFemPostPipeline::ViewProviderFemPostPipeline()
 {
-    sPixmap = "fem-data";
+    sPixmap = "fem-post-data-pipline";
 }
 
 ViewProviderFemPostPipeline::~ViewProviderFemPostPipeline()
@@ -70,13 +70,13 @@ void ViewProviderFemPostPipeline::updateData(const App::Property* prop) {
 
 void ViewProviderFemPostPipeline::updateFunctionSize() {
 
-    //we need to get the bounding box and set the function  provider size
+    //we need to get the bounding box and set the function provider size
     Fem::FemPostPipeline* obj = static_cast<Fem::FemPostPipeline*>(getObject());
 
     if(!obj->Functions.getValue() || !obj->Functions.getValue()->isDerivedFrom(Fem::FemPostFunctionProvider::getClassTypeId()))
         return;
 
-    //get the functtion provider
+    //get the function provider
     FemGui::ViewProviderFemPostFunctionProvider* vp = static_cast<FemGui::ViewProviderFemPostFunctionProvider*>(
                                                     Gui::Application::Instance->getViewProvider(obj->Functions.getValue()));
 

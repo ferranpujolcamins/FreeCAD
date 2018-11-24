@@ -33,11 +33,10 @@
 #include <Gui/Selection.h>
 #include <Gui/GLPainter.h>
 #include <App/Part.h>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 #include <QCoreApplication>
 #include <Gui/Document.h>
 
-#include <boost/signals.hpp>
 
 class TopoDS_Shape;
 class TopoDS_Face;
@@ -225,18 +224,22 @@ public:
     virtual bool mouseButtonPressed(int Button, bool pressed, const SbVec2s& cursorPos, const Gui::View3DInventorViewer* viewer);
     //@}
 
+    /// updates the visibility of the virtual space
+    void updateVirtualSpace(void);
+    void setIsShownVirtualSpace(bool isshownvirtualspace);
+    bool getIsShownVirtualSpace(void) const;
     
     friend class DrawSketchHandler;
     friend struct ::EditData;
 
     /// signals if the constraints list has changed
-    boost::signal<void ()> signalConstraintsChanged;
+    boost::signals2::signal<void ()> signalConstraintsChanged;
     /// signals if the sketch has been set up
-    boost::signal<void (QString msg)> signalSetUp;
+    boost::signals2::signal<void (QString msg)> signalSetUp;
     /// signals if the sketch has been solved
-    boost::signal<void (QString msg)> signalSolved;
+    boost::signals2::signal<void (QString msg)> signalSolved;
     /// signals if the elements list has changed
-    boost::signal<void ()> signalElementsChanged;
+    boost::signals2::signal<void ()> signalElementsChanged;
         
 protected:
     virtual bool setEdit(int ModNum);
@@ -265,9 +268,12 @@ protected:
     void slotRedoDocument(const Gui::Document&);
     
 protected:
-    boost::signals::connection connectUndoDocument;
-    boost::signals::connection connectRedoDocument;
+    boost::signals2::connection connectUndoDocument;
+    boost::signals2::connection connectRedoDocument;
     
+    /// Return display string for constraint including hiding units if
+    //requested.
+    QString getPresentationString(const Sketcher::Constraint *constraint);
 
     /** @name Protected helpers for drawing constraint icons*/
     //@{
@@ -364,6 +370,7 @@ protected:
     // colors
     static SbColor VertexColor;
     static SbColor CurveColor;
+    static SbColor CreateCurveColor;
     static SbColor CurveDraftColor;
     static SbColor CurveExternalColor;
     static SbColor CrossColorV;
@@ -372,19 +379,22 @@ protected:
     static SbColor ConstrDimColor;
     static SbColor ConstrIcoColor;
     static SbColor NonDrivingConstrDimColor;
+    static SbColor ExprBasedConstrDimColor;
     static SbColor PreselectColor;
     static SbColor SelectColor;
     static SbColor PreselectSelectedColor;
     static SbColor InformationColor;
 
     static SbTime prvClickTime;
-    static SbVec3f prvClickPoint;
+    static SbVec2s prvClickPos; //used by double-click-detector
     static SbVec2s prvCursorPos;
     static SbVec2s newCursorPos;
 
     float zCross;
     //float zLines;
-    float zPoints;
+    //float zPoints;
+    float zLowPoints;
+    float zHighPoints;
     float zConstr;
     float zHighlight;
     float zText;
@@ -406,6 +416,9 @@ protected:
     // information layer variables
     bool visibleInformationChanged;
     double combrepscalehyst;
+    
+    // Virtual space variables
+    bool isShownVirtualSpace; // indicates whether the present virtual space view is the Real Space or the Virtual Space (virtual space 1 or 2)
 };
 
 } // namespace PartGui

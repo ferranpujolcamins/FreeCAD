@@ -113,7 +113,7 @@ TOOL_CHANGE = ''''''
 
 
 # to distinguish python built-in open function from the one declared below
-if open.__module__ == '__builtin__':
+if open.__module__ in ['__builtin__','io']:
     pythonopen = open
 
 def processArguments(argstring):
@@ -153,7 +153,7 @@ def export(objectslist, filename, argstring):
     global UNITS
     global UNIT_FORMAT
 
-    # ISJOB = (len(objectslist) == 1) and isinstance(objectslist[0].Proxy, PathScripts.PathJob.ObjectPathJob)
+    # ISJOB = (len(objectslist) == 1) and isinstance(objectslist[0].Proxy, PathScripts.PathJob.ObjectJob)
     # print("isjob: {} {}".format(ISJOB, len(objectslist)))
 
     # if len(objectslist) > 1:

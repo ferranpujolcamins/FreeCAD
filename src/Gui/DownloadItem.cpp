@@ -133,7 +133,7 @@ void AutoSaver::changeOccurred()
         m_firstChange.start();
 
     if (m_firstChange.elapsed() > MAXWAIT) {
-        saveIfNeccessary();
+        saveIfNecessary();
     } else {
         m_timer.start(AUTOSAVE_IN, this);
     }
@@ -142,13 +142,13 @@ void AutoSaver::changeOccurred()
 void AutoSaver::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == m_timer.timerId()) {
-        saveIfNeccessary();
+        saveIfNecessary();
     } else {
         QObject::timerEvent(event);
     }
 }
 
-void AutoSaver::saveIfNeccessary()
+void AutoSaver::saveIfNecessary()
 {
     if (!m_timer.isActive())
         return;
@@ -446,7 +446,7 @@ void DownloadItem::downloadReadyRead()
         if (!m_requestFileName)
             getFileName();
         if (!m_output.open(QIODevice::WriteOnly)) {
-            downloadInfoLabel->setText(tr("Error opening save file: %1")
+            downloadInfoLabel->setText(tr("Error opening saved file: %1")
                     .arg(m_output.errorString()));
             stopButton->click();
             /*emit*/ statusChanged();

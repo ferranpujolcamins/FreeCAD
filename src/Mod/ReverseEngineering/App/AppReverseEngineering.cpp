@@ -114,7 +114,22 @@ public:
             "filterVoxelGrid(dim)."
         );
         add_keyword_method("normalEstimation",&Module::normalEstimation,
-            "normalEstimation(Points)."
+            "normalEstimation(Points,[KSearch=0, SearchRadius=0]) -> Normals\n"
+            "KSearch is an int and used to search the k-nearest neighbours in\n"
+            "the k-d tree. Alternatively, SearchRadius (a float) can be used\n"
+            "as spatial distance to determine the neighbours of a point\n"
+            "Example:\n"
+            "\n"
+            "import ReverseEngineering as Reen\n"
+            "pts=App.ActiveDocument.ActiveObject.Points\n"
+            "nor=Reen.normalEstimation(pts,KSearch=5)\n"
+            "\n"
+            "f=App.ActiveDocument.addObject('Points::FeaturePython','Normals')\n"
+            "f.addProperty('Points::PropertyNormalList','Normal')\n"
+            "f.Points=pts\n"
+            "f.Normal=nor\n"
+            "f.ViewObject.Proxy=0\n"
+            "f.ViewObject.DisplayMode=1\n"
         );
 #endif
 #if defined(HAVE_PCL_SEGMENTATION)
@@ -235,7 +250,7 @@ private:
                 return Py::asObject(new Part::BSplineSurfacePy(new Part::GeomBSplineSurface(hSurf)));
             }
 
-            throw Py::RuntimeError("Computation of B-Spline surface failed");
+            throw Py::RuntimeError("Computation of B-spline surface failed");
         }
         catch (const Py::Exception&) {
             // re-throw
@@ -562,7 +577,7 @@ Mesh.show(m)
             return Py::asObject(new Part::BSplineSurfacePy(new Part::GeomBSplineSurface(hSurf)));
         }
 
-        throw Py::RuntimeError("Computation of B-Spline surface failed");
+        throw Py::RuntimeError("Computation of B-spline surface failed");
     }
 #endif
 #if defined(HAVE_PCL_FILTERS)

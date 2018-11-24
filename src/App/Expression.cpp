@@ -224,7 +224,7 @@ NumberExpression::NumberExpression(const DocumentObject *_owner, const Quantity 
 }
 
 /**
-  * Evalute the expression. For NumberExpressions, it is a simply copy().
+  * Evaluate the expression. For NumberExpressions, it is a simply copy().
   */
 
 Expression * NumberExpression::eval() const
@@ -334,7 +334,7 @@ static bool definitelyLessThan(double a, double b, double epsilon)
 }
 
 /**
-  * Evalutate the expression. Returns a new Expression with the result, or throws
+  * Evaluate the expression. Returns a new Expression with the result, or throws
   * an exception if something is wrong, i.e the expression cannot be evaluated.
   */
 
@@ -678,7 +678,12 @@ FunctionExpression::FunctionExpression(const DocumentObject *_owner, Function _f
     case ATAN2:
     case POW:
         if (args.size() != 2)
-            throw ExpressionError("Invalid number of arguments: eaxctly two required.");
+            throw ExpressionError("Invalid number of arguments: exactly two required.");
+        break;
+    case HYPOT:
+    case CATH:
+        if (args.size() < 2 || args.size() > 3)
+            throw ExpressionError("Invalid number of arguments: exactly two, or three required.");
         break;
     case STDDEV:
     case SUM:
@@ -892,15 +897,12 @@ Expression * FunctionExpression::evalAggregate() const
                     throw Exception("Invalid property type for aggregate");
             } while (range.next());
         }
-        else if (args[i]->isDerivedFrom(App::VariableExpression::getClassTypeId())) {
+        else {
             std::unique_ptr<Expression> e(args[i]->eval());
             NumberExpression * n(freecad_dynamic_cast<NumberExpression>(e.get()));
 
             if (n)
                 c->collect(n->getQuantity());
-        }
-        else if (args[i]->isDerivedFrom(App::NumberExpression::getClassTypeId())) {
-            c->collect(static_cast<NumberExpression*>(args[i])->getQuantity());
         }
     }
 
@@ -922,8 +924,10 @@ Expression * FunctionExpression::eval() const
 
     std::unique_ptr<Expression> e1(args[0]->eval());
     std::unique_ptr<Expression> e2(args.size() > 1 ? args[1]->eval() : 0);
+    std::unique_ptr<Expression> e3(args.size() > 2 ? args[2]->eval() : 0);
     NumberExpression * v1 = freecad_dynamic_cast<NumberExpression>(e1.get());
     NumberExpression * v2 = freecad_dynamic_cast<NumberExpression>(e2.get());
+    NumberExpression * v3 = freecad_dynamic_cast<NumberExpression>(e3.get());
     double output;
     Unit unit;
     double scaler = 1;
@@ -981,7 +985,7 @@ Expression * FunctionExpression::eval() const
               ((s.ElectricCurrent % 2) == 0) &&
               ((s.ThermodynamicTemperature % 2) == 0) &&
               ((s.AmountOfSubstance % 2) == 0) &&
-              ((s.LuminoseIntensity % 2) == 0) &&
+              ((s.LuminousIntensity % 2) == 0) &&
               ((s.Angle % 2) == 0))
             throw ExpressionError("All dimensions must be even to compute the square root.");
 
@@ -991,7 +995,7 @@ Expression * FunctionExpression::eval() const
                     s.ElectricCurrent / 2,
                     s.ThermodynamicTemperature / 2,
                     s.AmountOfSubstance / 2,
-                    s.LuminoseIntensity / 2,
+                    s.LuminousIntensity / 2,
                     s.Angle);
         break;
     }
@@ -1007,9 +1011,7 @@ Expression * FunctionExpression::eval() const
     case MOD:
         if (v2 == 0)
             throw ExpressionError("Invalid second argument.");
-        if (!v2->getUnit().isEmpty())
-            throw ExpressionError("Second argument must have empty unit.");
-        unit = v1->getUnit();
+        unit = v1->getUnit() / v2->getUnit();
         break;
     case POW: {
         if (v2 == 0)
@@ -1018,7 +1020,7 @@ Expression * FunctionExpression::eval() const
         if (!v2->getUnit().isEmpty())
             throw ExpressionError("Exponent is not allowed to have a unit.");
 
-        // Compute new unit for exponentation
+        // Compute new unit for exponentiation
         double exponent = v2->getValue();
         if (!v1->getUnit().isEmpty()) {
             if (exponent - boost::math::round(exponent) < 1e-9)
@@ -1028,6 +1030,21 @@ Expression * FunctionExpression::eval() const
         }
         break;
     }
+    case HYPOT:
+    case CATH:
+        if (v2 == 0)
+            throw ExpressionError("Invalid second argument.");
+        if (v1->getUnit() != v2->getUnit())
+            throw ExpressionError("Units must be equal");
+
+        if (args.size() > 2) {
+            if (v3 == 0)
+                throw ExpressionError("Invalid second argument.");
+            if (v2->getUnit() != v3->getUnit())
+                throw ExpressionError("Units must be equal");
+        }
+        unit = v1->getUnit();
+        break;
     default:
         assert(0);
     }
@@ -1086,6 +1103,14 @@ Expression * FunctionExpression::eval() const
     }
     case POW: {
         output = pow(value, v2->getValue());
+        break;
+    }
+    case HYPOT: {
+        output = sqrt(pow(v1->getValue(), 2) + pow(v2->getValue(), 2) + (v3 ? pow(v3->getValue(), 2) : 0));
+        break;
+    }
+    case CATH: {
+        output = sqrt(pow(v1->getValue(), 2) - pow(v2->getValue(), 2) - (v3 ? pow(v3->getValue(), 2) : 0));
         break;
     }
     case ROUND:
@@ -1192,6 +1217,10 @@ std::string FunctionExpression::toString() const
         return "atan2(" + ss.str() + ")";
     case POW:
         return "pow(" + ss.str() + ")";
+    case HYPOT:
+        return "hypot(" + ss.str() + ")";
+    case CATH:
+        return "cath(" + ss.str() + ")";
     case ROUND:
         return "round(" + ss.str() + ")";
     case TRUNC:
@@ -1242,7 +1271,7 @@ int FunctionExpression::priority() const
 }
 
 /**
-  * Compute the dependecy set of the expression. The set contains the names
+  * Compute the dependency set of the expression. The set contains the names
   * of all Property objects this expression relies on.
   */
 
@@ -1323,7 +1352,7 @@ const Property * VariableExpression::getProperty() const
 }
 
 /**
-  * Evalute the expression. For a VariableExpression, this means to return the
+  * Evaluate the expression. For a VariableExpression, this means to return the
   * value of the referenced Property. Quantities are converted to NumberExpression with unit,
   * int and floats are converted to a NumberExpression without unit. Strings properties
   * are converted to StringExpression objects.
@@ -1417,7 +1446,7 @@ int VariableExpression::priority() const
 }
 
 /**
-  * Compute the dependecy of the expression. In this case \a props
+  * Compute the dependency of the expression. In this case \a props
   * is a set of strings, i.e the names of the Property objects, and
   * the variable name this expression relies on is inserted into the set.
   * Notice that the variable may be unqualified, i.e without any reference
@@ -1468,7 +1497,7 @@ StringExpression::StringExpression(const DocumentObject *_owner, const std::stri
 }
 
 /**
-  * Evalute the string. For strings, this is a simple copy of the object.
+  * Evaluate the string. For strings, this is a simple copy of the object.
   */
 
 Expression * StringExpression::eval() const
@@ -1557,7 +1586,17 @@ Expression *ConditionalExpression::simplify() const
 
 std::string ConditionalExpression::toString() const
 {
-    return condition->toString() + " ? " + trueExpr->toString() + " : " + falseExpr->toString();
+    std::string cstr = condition->toString();
+    std::string tstr = trueExpr->toString();
+    std::string fstr = falseExpr->toString();
+
+    if (trueExpr->priority() <= priority())
+        tstr = "(" + tstr + ")";
+
+    if (falseExpr->priority() <= priority())
+        fstr = "(" + fstr + ")";
+
+    return cstr + " ? " + tstr + " : " + fstr;
 }
 
 Expression *ConditionalExpression::copy() const
@@ -1567,7 +1606,7 @@ Expression *ConditionalExpression::copy() const
 
 int ConditionalExpression::priority() const
 {
-    return 0;
+    return 2;
 }
 
 void ConditionalExpression::getDeps(std::set<ObjectIdentifier> &props) const
@@ -1700,14 +1739,14 @@ double num_change(char* yytext,char dez_delim,char grp_delim)
     char temp[40];
     int i = 0;
     for(char* c=yytext;*c!='\0';c++){
-        // skipp group delimiter
+        // skip group delimiter
         if(*c==grp_delim) continue;
-        // check for a dez delimiter othere then dot
+        // check for a dez delimiter other then dot
         if(*c==dez_delim && dez_delim !='.')
              temp[i++] = '.';
         else
             temp[i++] = *c;
-        // check buffor overflow
+        // check buffer overflow
         if (i>39) return 0.0;
     }
     temp[i] = '\0';
@@ -1727,7 +1766,7 @@ static const App::DocumentObject * DocumentObject = 0; /**< The DocumentObject t
 static bool unitExpression = false;                    /**< True if the parsed string is a unit only */
 static bool valueExpression = false;                   /**< True if the parsed string is a full expression */
 static std::stack<std::string> labels;                /**< Label string primitive */
-static std::map<std::string, FunctionExpression::Function> registered_functions;                /**< Registerd functions */
+static std::map<std::string, FunctionExpression::Function> registered_functions;                /**< Registered functions */
 static int last_column;
 static int column;
 
@@ -1794,6 +1833,8 @@ static void initParser(const App::DocumentObject *owner)
         registered_functions["trunc"] = FunctionExpression::TRUNC;
         registered_functions["ceil"] = FunctionExpression::CEIL;
         registered_functions["floor"] = FunctionExpression::FLOOR;
+        registered_functions["hypot"] = FunctionExpression::HYPOT;
+        registered_functions["cath"] = FunctionExpression::CATH;
 
         // Aggregates
         registered_functions["sum"] = FunctionExpression::SUM;
@@ -1835,7 +1876,7 @@ std::vector<boost::tuple<int, int, std::string> > tokenize(const std::string &st
   * returned expression. If the parser fails for some reason, and exception is thrown.
   *
   * @param owner  The DocumentObject that will own the expression.
-  * @param buffer The sting buffer to parse.
+  * @param buffer The string buffer to parse.
   *
   * @returns A pointer to an expression.
   *

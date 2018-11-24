@@ -43,6 +43,7 @@
 # include <BRepAlgoAPI_Common.hxx>
 #endif
 
+#include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/Placement.h>
 #include <App/Document.h>
@@ -52,7 +53,7 @@
 
 using namespace PartDesign;
 
-const char* Pocket::TypeEnums[]= {"Length","ThroughAll","UpToFirst","UpToFace",NULL};
+const char* Pocket::TypeEnums[]= {"Length","ThroughAll","UpToFirst","UpToFace","TwoLengths",NULL};
 
 PROPERTY_SOURCE(PartDesign::Pocket, PartDesign::ProfileBased)
 
@@ -63,6 +64,7 @@ Pocket::Pocket()
     ADD_PROPERTY_TYPE(Type,((long)0),"Pocket",App::Prop_None,"Pocket type");
     Type.setEnums(TypeEnums);
     ADD_PROPERTY_TYPE(Length,(100.0),"Pocket",App::Prop_None,"Pocket length");
+    ADD_PROPERTY_TYPE(Length2,(100.0),"Pocket",App::Prop_None,"P");
     ADD_PROPERTY_TYPE(UpToFace,(0),"Pocket",App::Prop_None,"Face where pocket will end");
     ADD_PROPERTY_TYPE(Offset,(0.0),"Pocket",App::Prop_None,"Offset from face in which pocket will end");
     static const App::PropertyQuantityConstraint::Constraints signedLengthConstraint = {-DBL_MAX, DBL_MAX, 1.0};
@@ -74,6 +76,7 @@ short Pocket::mustExecute() const
     if (Placement.isTouched() ||
         Type.isTouched() ||
         Length.isTouched() ||
+        Length2.isTouched() ||
         Offset.isTouched() ||
         UpToFace.isTouched())
         return 1;
@@ -92,6 +95,10 @@ App::DocumentObjectExecReturn *Pocket::execute(void)
     double L = Length.getValue();
     if ((std::string(Type.getValueAsString()) == "Length") && (L < Precision::Confusion()))
         return new App::DocumentObjectExecReturn("Pocket: Length of pocket too small");
+
+    double L2 = Length2.getValue();
+    if ((std::string(Type.getValueAsString()) == "TwoLengths") && (L < Precision::Confusion()))
+        return new App::DocumentObjectExecReturn("Pocket: Second length of pocket too small");
 
     Part::Feature* obj = 0;
     TopoDS_Shape profileshape;
@@ -175,11 +182,18 @@ App::DocumentObjectExecReturn *Pocket::execute(void)
             // FIXME: In some cases this affects the Shape property: It is set to the same shape as the SubShape!!!!
             TopoDS_Shape result = refineShapeIfActive(mkCut.Shape());
             this->AddSubShape.setValue(result);
+
+            int prismCount = countSolids(prism);
+            if (prismCount > 1) {
+                return new App::DocumentObjectExecReturn("Pocket: Result has multiple solids. This is not supported at this time.");
+            }
+
             this->Shape.setValue(getSolid(prism));
         } else {
             TopoDS_Shape prism;
-            generatePrism(prism, profileshape, method, dir, L, 0.0,
-                          Midplane.getValue(), Reversed.getValue());
+            generatePrism(prism, profileshape, method, dir, L, L2,
+                        Midplane.getValue(), Reversed.getValue());
+
             if (prism.IsNull())
                 return new App::DocumentObjectExecReturn("Pocket: Resulting shape is empty");
 
@@ -196,6 +210,12 @@ App::DocumentObjectExecReturn *Pocket::execute(void)
             TopoDS_Shape solRes = this->getSolid(result);
             if (solRes.IsNull())
                 return new App::DocumentObjectExecReturn("Pocket: Resulting shape is not a solid");
+
+            int solidCount = countSolids(result);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Pocket: Result has multiple solids. This is not supported at this time.");
+
+            }
             solRes = refineShapeIfActive(solRes);
             remapSupportShape(solRes);
             this->Shape.setValue(getSolid(solRes));
@@ -203,15 +223,15 @@ App::DocumentObjectExecReturn *Pocket::execute(void)
 
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        if (std::string(e->GetMessageString()) == "TopoDS::Face" &&
+    catch (Standard_Failure& e) {
+
+        if (std::string(e.GetMessageString()) == "TopoDS::Face" &&
             (std::string(Type.getValueAsString()) == "UpToFirst" || std::string(Type.getValueAsString()) == "UpToFace"))
             return new App::DocumentObjectExecReturn("Could not create face from sketch.\n"
                 "Intersecting sketch entities or multiple faces in a sketch are not allowed "
                 "for making a pocket up to a face.");
         else
-            return new App::DocumentObjectExecReturn(e->GetMessageString());
+            return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
     catch (Base::Exception& e) {
         return new App::DocumentObjectExecReturn(e.what());

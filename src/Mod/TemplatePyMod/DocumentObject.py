@@ -189,20 +189,11 @@ class ViewProvider(object):
         "switches this object to invisible"
         self.__vobject__.hide()
     def isVisible(self):
-        "shows wether this object is visible or invisible"
+        "shows whether this object is visible or invisible"
         return self.__vobject__.isVisible()
     def toString(self):
         "returns a string representation of the coin node of this object"
         return self.__vobject__.toString()
-    def startEditing(self,mode=0):
-        "sets this object in edit mode"
-        return self.__vobject__.startEditing(mode)
-    def finishEditing(self):
-        "leaves edit mode for this object"
-        self.__vobject__.finishEditing()
-    def isEditing(self):
-        "shows wether this object is in edit mode"
-        self.__vobject__.isEditing()
     def setTransformation(self,trsf):
         "defines a transformation for this object"
         return self.__vobject__.setTransformation(trsf)

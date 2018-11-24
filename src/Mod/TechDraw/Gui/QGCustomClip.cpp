@@ -35,7 +35,8 @@
 #include <Base/Console.h>
 #include <Base/Parameter.h>
 
-#include <qmath.h>
+#include "ZVALUE.h"
+#include "QGICMark.h"
 #include "QGCustomClip.h"
 
 using namespace TechDrawGui;
@@ -48,17 +49,13 @@ QGCustomClip::QGCustomClip()
     setFlag(QGraphicsItem::ItemIsSelectable, false);
     setFlag(QGraphicsItem::ItemIsMovable, false);
     setFlag(QGraphicsItem::ItemClipsChildrenToShape, true);
+//    setFlag(QGraphicsItem::ItemClipsChildrenToShape, false);   //good for debugging
     m_rect = QRectF(0.,0.,10.,10.);
 }
 
 void QGCustomClip::centerAt(QPointF centerPos)
 {
-    QRectF box = boundingRect();
-    double width = box.width();
-    double height = box.height();
-    double newX = centerPos.x() - width/2.;
-    double newY = centerPos.y() - height/2.;
-    setPos(newX,newY);
+    centerAt(centerPos.x(),centerPos.y());
 }
 
 void QGCustomClip::centerAt(double cX, double cY)
@@ -83,7 +80,6 @@ void QGCustomClip::setRect(double x, double y, double w, double h)
     setRect(r);
 }
 
-
 QRectF QGCustomClip::rect()
 {
     return m_rect;
@@ -93,6 +89,8 @@ void QGCustomClip::paint ( QPainter * painter, const QStyleOptionGraphicsItem * 
     QStyleOptionGraphicsItem myOption(*option);
     myOption.state &= ~QStyle::State_Selected;
 
+//    painter->drawRect(boundingRect());          //good for debugging
+
     QGraphicsItemGroup::paint (painter, &myOption, widget);
 }
 
@@ -100,4 +98,20 @@ QRectF QGCustomClip::boundingRect() const     //sb shape()?
 {
     return m_rect;
 }
+
+void QGCustomClip::makeMark(double x, double y)
+{
+    QGICMark* cmItem = new QGICMark(-1);
+    cmItem->setParentItem(this);
+    cmItem->setPos(x,y);
+    cmItem->setThick(1.0);
+    cmItem->setSize(40.0);
+    cmItem->setZValue(ZVALUE::VERTEX);
+}
+
+void QGCustomClip::makeMark(Base::Vector3d v)
+{
+    makeMark(v.x,v.y);
+}
+
 

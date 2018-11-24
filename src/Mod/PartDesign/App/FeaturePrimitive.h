@@ -55,7 +55,6 @@ public:
         return "PartDesignGui::ViewProviderPrimitive";
     }
     Type         getPrimitiveType() {return primitiveType;}
-    TopoDS_Shape refineShapeIfActive(const TopoDS_Shape& oldShape) const;    
     virtual void onChanged(const App::Property* prop);
     virtual PyObject* getPyObject();
     
@@ -64,6 +63,7 @@ public:
         return PartDesign::FeatureAddSub::execute();
     }
 protected:
+    void handleChangedPropertyName(Base::XMLReader &reader, const char* TypeName, const char* PropName);
     //make the boolean ops with the primitives provided by the derived features
     App::DocumentObjectExecReturn* execute(const TopoDS_Shape& primitiveShape);
     Type primitiveType = Box;   

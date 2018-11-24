@@ -40,6 +40,7 @@
 
 #include "ViewProviderSketch.h"
 #include "GeometryCreationMode.h"
+#include "CommandConstraints.h"
 
 using namespace std;
 using namespace SketcherGui;
@@ -112,7 +113,10 @@ void CmdSketcherToggleConstruction::activated(int iMsg)
     else // there was a selection, so operate in toggle mode.
     {
         // get the selection
-        std::vector<Gui::SelectionObject> selection = getSelection().getSelectionEx();
+        std::vector<Gui::SelectionObject> selection;
+        selection = getSelection().getSelectionEx(0, Sketcher::SketchObject::getClassTypeId());
+
+        Sketcher::SketchObject* Obj = static_cast<Sketcher::SketchObject*>(selection[0].getObject());
 
         // only one sketch with its subelements are allowed to be selected
         if (selection.size() != 1) {
@@ -143,12 +147,8 @@ void CmdSketcherToggleConstruction::activated(int iMsg)
         }
         // finish the transaction and update
         commitCommand();
-        
-        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-        bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-        if(autoRecompute) // toggling does not modify the DoF of the solver, however it may affect features depending on the sketch
-            Gui::Command::updateActive();
+
+        tryAutoRecompute(Obj);
 
         // clear the selection (convenience)
         getSelection().clearSelection();

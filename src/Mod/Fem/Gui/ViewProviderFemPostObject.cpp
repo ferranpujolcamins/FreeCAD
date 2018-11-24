@@ -64,7 +64,7 @@ ViewProviderFemPostObject::ViewProviderFemPostObject() : m_blockPropertyChanges(
      //initialize the properties
     ADD_PROPERTY_TYPE(Field,((long)0), "Coloring", App::Prop_None, "Select the field used for calculating the color");
     ADD_PROPERTY_TYPE(VectorMode,((long)0), "Coloring", App::Prop_None, "Select what to show for a vector field");
-    ADD_PROPERTY(Transperency, (0));
+    ADD_PROPERTY(Transparency, (0));
 
     sPixmap = "fem-femmesh-from-shape";
 
@@ -121,6 +121,8 @@ ViewProviderFemPostObject::ViewProviderFemPostObject() : m_blockPropertyChanges(
     m_surfaceEdges->AddInputConnection(m_wireframeSurface->GetOutputPort());
 
     m_currentAlgorithm = m_outline;
+
+    updateProperties();  // initialize the enums
 }
 
 ViewProviderFemPostObject::~ViewProviderFemPostObject()
@@ -325,7 +327,7 @@ void ViewProviderFemPostObject::update3D() {
     WritePointData(points, normals, tcoords);
     bool ResetColorBarRange = true;
     WriteColorData(ResetColorBarRange);
-    WriteTransperency();
+    WriteTransparency();
 
     // write out polys if any
     if (pd->GetNumberOfPolys() > 0) {
@@ -491,9 +493,9 @@ void ViewProviderFemPostObject::WriteColorData(bool ResetColorBarRange) {
     m_materialBinding->touch();
 }
 
-void ViewProviderFemPostObject::WriteTransperency() {
+void ViewProviderFemPostObject::WriteTransparency() {
 
-    float trans = float(Transperency.getValue()) / 100.;
+    float trans = float(Transparency.getValue()) / 100.;
     m_material->transparency.setValue(trans);
 }
 
@@ -532,20 +534,27 @@ void ViewProviderFemPostObject::onChanged(const App::Property* prop) {
     if(prop == &Field && setupPipeline()) {
         updateProperties();
         WriteColorData(ResetColorBarRange);
-        WriteTransperency();
+        WriteTransparency();
     }
     else if(prop == &VectorMode && setupPipeline()) {
         WriteColorData(ResetColorBarRange);
-        WriteTransperency();
+        WriteTransparency();
     }
-    else if(prop == &Transperency) {
-        WriteTransperency();
+    else if(prop == &Transparency) {
+        WriteTransparency();
     }
 
     ViewProviderDocumentObject::onChanged(prop);
 }
 
 bool ViewProviderFemPostObject::doubleClicked(void) {
+    // work around for a problem in VTK implementation: https://forum.freecadweb.org/viewtopic.php?t=10587&start=130#p125688
+    // check if backlight is enabled
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    bool isBackLightEnabled = hGrp->GetBool("EnableBacklight", false);
+    if (isBackLightEnabled == false)
+        Base::Console().Error("Backlight is not enabled. Due to a VTK implementation problem you really should consider to enable backlight in FreeCAD display preferences if you work with VTK post processing.\n");
+    // set edit
     Gui::Application::Instance->activeDocument()->setEdit(this, (int)ViewProvider::Default);
     return true;
 }

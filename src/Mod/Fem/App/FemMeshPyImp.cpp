@@ -22,6 +22,7 @@
 
 
 #include "PreCompiled.h"
+#include <algorithm>
 #include <stdexcept>
 
 #include <Base/VectorPy.h>
@@ -36,6 +37,7 @@
 #include <SMDSAbs_ElementType.hxx>
 #include <SMDS_MeshElement.hxx>
 #include <SMDS_VolumeTool.hxx>
+#include <SMESHDS_Mesh.hxx>
 
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Face.hxx>
@@ -639,13 +641,16 @@ PyObject* FemMeshPy::write(PyObject *args)
 PyObject* FemMeshPy::writeABAQUS(PyObject *args)
 {
     char* Name;
-    if (!PyArg_ParseTuple(args, "et","utf-8",&Name))
+    int elemParam;
+    PyObject* groupParam;
+    if (!PyArg_ParseTuple(args, "etiO!","utf-8",&Name,&elemParam,&PyBool_Type,&groupParam))
         return 0;
     std::string EncodedName = std::string(Name);
     PyMem_Free(Name);
+    bool grpParam = PyObject_IsTrue(groupParam) ? true : false;
 
     try {
-        getFemMeshPtr()->writeABAQUS(EncodedName.c_str());
+        getFemMeshPtr()->writeABAQUS(EncodedName.c_str(), elemParam, grpParam);
     }
     catch (const std::exception& e) {
         PyErr_SetString(Base::BaseExceptionFreeCADError, e.what());
@@ -700,9 +705,42 @@ PyObject* FemMeshPy::getFacesByFace(PyObject *args)
 
         return Py::new_reference_to(ret);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
+        return 0;
+    }
+}
+
+
+PyObject* FemMeshPy::getEdgesByEdge(PyObject *args)
+{
+    PyObject *pW;
+    if (!PyArg_ParseTuple(args, "O!", &(Part::TopoShapeEdgePy::Type), &pW))
+         return 0;
+
+    try {
+        const TopoDS_Shape& sh = static_cast<Part::TopoShapeEdgePy*>(pW)->getTopoShapePtr()->getShape();
+        if (sh.IsNull()) {
+            PyErr_SetString(Base::BaseExceptionFreeCADError, "Edge is empty");
+            return 0;
+        }
+
+        const TopoDS_Edge& fc = TopoDS::Edge(sh);
+
+        Py::List ret;
+        std::list<int> resultSet = getFemMeshPtr()->getEdgesByEdge(fc);
+        for (std::list<int>::const_iterator it = resultSet.begin();it!=resultSet.end();++it) {
+#if PY_MAJOR_VERSION >= 3
+            ret.append(Py::Long(*it));
+#else
+            ret.append(Py::Int(*it));
+#endif
+        }
+
+        return Py::new_reference_to(ret);
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -733,9 +771,8 @@ PyObject* FemMeshPy::getVolumesByFace(PyObject *args)
 
         return Py::new_reference_to(ret);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -766,9 +803,8 @@ PyObject* FemMeshPy::getccxVolumesByFace(PyObject *args)
 
         return Py::new_reference_to(ret);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -813,9 +849,8 @@ PyObject* FemMeshPy::getNodesBySolid(PyObject *args)
         return Py::new_reference_to(ret);
 
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -841,9 +876,8 @@ PyObject* FemMeshPy::getNodesByFace(PyObject *args)
         return Py::new_reference_to(ret);
 
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -869,9 +903,8 @@ PyObject* FemMeshPy::getNodesByEdge(PyObject *args)
         return Py::new_reference_to(ret);
 
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -897,9 +930,8 @@ PyObject* FemMeshPy::getNodesByVertex(PyObject *args)
         return Py::new_reference_to(ret);
 
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -919,9 +951,8 @@ PyObject* FemMeshPy::getElementNodes(PyObject *args)
 
         return Py::new_reference_to(ret);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(Base::BaseExceptionFreeCADError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(Base::BaseExceptionFreeCADError, e.GetMessageString());
         return 0;
     }
 }
@@ -932,7 +963,7 @@ PyObject* FemMeshPy::getGroupName(PyObject *args)
     if (!PyArg_ParseTuple(args, "i", &id))
          return 0;
 #if PY_MAJOR_VERSION >= 3
-    return PyBytes_FromString(getFemMeshPtr()->getSMesh()->GetGroup(id)->GetName());
+    return PyUnicode_FromString(getFemMeshPtr()->getSMesh()->GetGroup(id)->GetName());
 #else
     return PyString_FromString(getFemMeshPtr()->getSMesh()->GetGroup(id)->GetName());
 #endif
@@ -957,7 +988,7 @@ PyObject* FemMeshPy::getGroupElementType(PyObject *args)
         default                     : typeString = "Unknown"; break;
     }
 #if PY_MAJOR_VERSION >= 3
-    return PyBytes_FromString(typeString);
+    return PyUnicode_FromString(typeString);
 #else
     return PyString_FromString(typeString);
 #endif
@@ -997,7 +1028,7 @@ Py::Dict FemMeshPy::getNodes(void) const
     //Py::Tuple tup(count);
     Py::Dict dict;
 
-    // get the actuall transform of the FemMesh
+    // get the actual transform of the FemMesh
     Base::Matrix4D Mtrx = getFemMeshPtr()->getTransform();
 
     SMDS_NodeIteratorPtr aNodeIter = getFemMeshPtr()->getSMesh()->GetMeshDS()->nodesIterator();
@@ -1037,6 +1068,18 @@ Py::Tuple FemMeshPy::getEdges(void) const
     return tuple;
 }
 
+Py::Tuple FemMeshPy::getEdgesOnly(void) const
+{
+    std::set<int> resultSet = getFemMeshPtr()->getEdgesOnly();
+    Py::Tuple tuple(resultSet.size());
+    int index = 0;
+    for (std::set<int>::iterator it = resultSet.begin(); it != resultSet.end(); ++it) {
+        tuple.setItem(index++, Py::Long(*it));
+    }
+
+    return tuple;
+}
+
 Py::Long FemMeshPy::getEdgeCount(void) const
 {
     return Py::Long(getFemMeshPtr()->getSMesh()->NbEdges());
@@ -1054,6 +1097,18 @@ Py::Tuple FemMeshPy::getFaces(void) const
     Py::Tuple tuple(ids.size());
     int index = 0;
     for (std::set<int>::iterator it = ids.begin(); it != ids.end(); ++it) {
+        tuple.setItem(index++, Py::Long(*it));
+    }
+
+    return tuple;
+}
+
+Py::Tuple FemMeshPy::getFacesOnly(void) const
+{
+    std::set<int> resultSet = getFemMeshPtr()->getFacesOnly();
+    Py::Tuple tuple(resultSet.size());
+    int index = 0;
+    for (std::set<int>::iterator it = resultSet.begin(); it != resultSet.end(); ++it) {
         tuple.setItem(index++, Py::Long(*it));
     }
 

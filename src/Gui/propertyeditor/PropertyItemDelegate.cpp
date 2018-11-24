@@ -38,6 +38,8 @@ using namespace Gui::PropertyEditor;
 PropertyItemDelegate::PropertyItemDelegate(QObject* parent)
     : QItemDelegate(parent), pressed(false)
 {
+    connect(this, SIGNAL(closeEditor(QWidget*,QAbstractItemDelegate::EndEditHint)), 
+            this, SLOT(editorClosed(QWidget*)));
 }
 
 PropertyItemDelegate::~PropertyItemDelegate()
@@ -112,6 +114,11 @@ bool PropertyItemDelegate::editorEvent (QEvent * event, QAbstractItemModel* mode
     return QItemDelegate::editorEvent(event, model, option, index);
 }
 
+void PropertyItemDelegate::editorClosed(QWidget *editor)
+{
+    editor->close();
+}
+
 QWidget * PropertyItemDelegate::createEditor (QWidget * parent, const QStyleOptionViewItem & /*option*/, 
                                               const QModelIndex & index ) const
 {
@@ -122,10 +129,17 @@ QWidget * PropertyItemDelegate::createEditor (QWidget * parent, const QStyleOpti
     if (!childItem)
         return 0;
     QWidget* editor = childItem->createEditor(parent, this, SLOT(valueChanged()));
+    if (editor) // Make sure the editor background is painted so the cell content doesn't show through
+        editor->setAutoFillBackground(true);
     if (editor && childItem->isReadOnly())
         editor->setDisabled(true);
-    else if (editor && this->pressed)
+    else if (editor /*&& this->pressed*/) {
+        // We changed the way editor is activated in PropertyEditor (in response
+        // of signal activated and clicked), so now we should grab focus
+        // regardless of "pressed" or not (e.g. when activated by keyboard
+        // enter)
         editor->setFocus();
+    }
     this->pressed = false;
     return editor;
 }

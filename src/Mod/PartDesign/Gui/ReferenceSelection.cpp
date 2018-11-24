@@ -105,7 +105,7 @@ bool ReferenceSelection::allow(App::Document* pDoc, App::DocumentObject* pObj, c
                         return true;
                     }
                 }
-            } catch (const Base::Exception)
+            } catch (const Base::Exception&)
             { }
         }
         return false; // The Plane/Axis doesn't fits our needs
@@ -196,6 +196,9 @@ namespace PartDesignGui
 void getReferencedSelection(const App::DocumentObject* thisObj, const Gui::SelectionChanges& msg,
                             App::DocumentObject*& selObj, std::vector<std::string>& selSub)
 {
+    if (!thisObj)
+        return;
+
     if (strcmp(thisObj->getDocument()->getName(), msg.pDocName) != 0)
         return;
     

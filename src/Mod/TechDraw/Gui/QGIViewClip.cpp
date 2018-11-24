@@ -23,22 +23,9 @@
 
 #include "PreCompiled.h"
 #ifndef _PreComp_
-#include <cmath>
-#include <QGraphicsScene>
-#include <QMouseEvent>
-#include <QGraphicsSceneHoverEvent>
-#include <QGraphicsItem>
-#include <QStyleOptionGraphicsItem>
-#include <QGraphicsTextItem>
-#include <QPainterPathStroker>
-#include <QPainter>
-#include <QString>
-#include <QTextOption>
-#include <sstream>
 #include <algorithm>    // std::find
+#include <QGraphicsScene>
 #endif
-
-#include <qmath.h>
 
 #include <App/Application.h>
 #include <App/Material.h>
@@ -50,6 +37,7 @@
 #include "Rez.h"
 #include "QGCustomRect.h"
 #include "QGCustomClip.h"
+#include "DrawGuiUtil.h"
 #include "QGIViewClip.h"
 
 using namespace TechDrawGui;
@@ -90,7 +78,8 @@ void QGIViewClip::updateView(bool update)
         viewClip->isTouched() ||
         viewClip->Height.isTouched() ||
         viewClip->Width.isTouched() ||
-        viewClip->ShowFrame.isTouched()) {
+        viewClip->ShowFrame.isTouched() ||
+        viewClip->Views.isTouched() ) {
 
         draw();
     }
@@ -121,8 +110,8 @@ void QGIViewClip::drawClip()
     prepareGeometryChange();
     double h = viewClip->Height.getValue();
     double w = viewClip->Width.getValue();
-    QRectF r = QRectF(0,0,Rez::guiX(w),Rez::guiX(h));
-    m_frame->setRect(r);
+    QRectF r = QRectF(-Rez::guiX(w)/2.0,-Rez::guiX(h)/2.0,Rez::guiX(w),Rez::guiX(h));
+    m_frame->setRect(r);                    // (-50,-50) -> (50,50)
     m_frame->setPos(0.,0.);
     if (viewClip->ShowFrame.getValue()) {
         m_frame->show();
@@ -130,8 +119,13 @@ void QGIViewClip::drawClip()
         m_frame->hide();
     }
 
-    m_cliparea->setRect(r.adjusted(-1,-1,1,1));                        //TODO: clip just outside frame or just inside??
+    //probably a slicker way to do this?
+    QPointF midFrame   = m_frame->boundingRect().center();
+    QPointF midMapped  = mapFromItem(m_frame,midFrame);
+    QPointF clipOrigin = mapToItem(m_cliparea,midMapped);
 
+    m_cliparea->setRect(r.adjusted(-1,-1,1,1));
+    
     std::vector<std::string> childNames = viewClip->getChildViewNames();
     //for all child Views in Clip, add the graphics representation of the View to the Clip group
     for(std::vector<std::string>::iterator it = childNames.begin(); it != childNames.end(); it++) {
@@ -143,9 +137,9 @@ void QGIViewClip::drawClip()
                 scene()->removeItem(qgiv);
                 m_cliparea->addToGroup(qgiv);
                 qgiv->isInnerView(true);
-                double x = qgiv->getViewObject()->X.getValue();
-                double y = qgiv->getViewObject()->Y.getValue();
-                qgiv->setPosition(Rez::guiX(x),Rez::guiX(y));
+                double x = Rez::guiX(qgiv->getViewObject()->X.getValue());
+                double y = Rez::guiX(qgiv->getViewObject()->Y.getValue());
+                qgiv->setPosition(clipOrigin.x() + x, clipOrigin.y() + y);
                 if (viewClip->ShowLabels.getValue()) {
                     qgiv->toggleBorder(true);
                 } else {

@@ -33,7 +33,7 @@
 #include <CXX/Objects.hxx>
 
 #include <bitset>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 
 namespace App
 {
@@ -48,8 +48,10 @@ enum ObjectStatus {
     New = 2,
     Recompute = 3,
     Restore = 4,
-    Delete = 5,
+    Remove = 5,
     PythonCall = 6,
+    Destroy = 7,
+    Enforce = 8,
     Expand = 16
 };
 
@@ -104,13 +106,18 @@ public:
     /** Set the property touched -> changed, cause recomputation in Update()
      */
     //@{
-    /// set this feature touched (cause recomputation on depndend features)
+    /// set this document object touched (cause recomputation on dependent features)
     void touch(void);
-    /// test if this feature is touched
+    /// test if this document object is touched
     bool isTouched(void) const;
-    /// reset this feature touched
+    /// Enforce this document object to be recomputed
+    void enforceRecompute();
+    /// Test if this document object must be recomputed
+    bool mustRecompute(void) const;
+    /// reset this document object touched
     void purgeTouched(void) {
         StatusBits.reset(ObjectStatus::Touch);
+        StatusBits.reset(ObjectStatus::Enforce);
         setPropertyStatus(0,false);
     }
     /// set this feature to error
@@ -122,8 +129,8 @@ public:
     bool isRecomputing() const {return StatusBits.test(ObjectStatus::Recompute);}
     /// returns true if this objects is currently restoring from file
     bool isRestoring() const {return StatusBits.test(ObjectStatus::Restore);}
-    /// returns true if this objects is currently restoring from file
-    bool isDeleting() const {return StatusBits.test(ObjectStatus::Delete);}
+    /// returns true if this objects is currently removed from the document
+    bool isRemoving() const {return StatusBits.test(ObjectStatus::Remove);}
     /// return the status bits
     unsigned long getStatus() const {return StatusBits.to_ulong();}
     bool testStatus(ObjectStatus pos) const {return StatusBits.test((size_t)pos);}
@@ -132,16 +139,20 @@ public:
 
     /** DAG handling
         This part of the interface deals with viewing the document as
-        an DAG (directed acyclic graph). 
+        a DAG (directed acyclic graph).
     */
     //@{
     /// returns a list of objects this object is pointing to by Links
     std::vector<App::DocumentObject*> getOutList(void) const;
-    /// returns a list of objects this object is pointing to by Links and all further descended 
+    /// returns a list of objects linked by the property
+    std::vector<App::DocumentObject*> getOutListOfProperty(App::Property*) const;
+    /// returns a list of objects this object is pointing to by Links and all further descended
     std::vector<App::DocumentObject*> getOutListRecursive(void) const;
+    /// get all possible paths from this to another object following the OutList
+    std::vector<std::list<App::DocumentObject*> > getPathsByOutList(App::DocumentObject* to) const;
     /// get all objects link to this object
     std::vector<App::DocumentObject*> getInList(void) const;
-    /// get all objects link directly or indirectly to this object 
+    /// get all objects link directly or indirectly to this object
     std::vector<App::DocumentObject*> getInListRecursive(void) const;
     /// get group if object is part of a group, otherwise 0 is returned
     DocumentObjectGroup* getGroup() const;
@@ -154,9 +165,9 @@ public:
     bool isInOutListRecursive(DocumentObject* objToTest) const;
     /// test if this object is directly (non recursive) in the OutList
     bool isInOutList(DocumentObject* objToTest) const;
-    /// internal, used by ProperyLink to maintain DAG back links
+    /// internal, used by PropertyLink to maintain DAG back links
     void _removeBackLink(DocumentObject*);
-    /// internal, used by ProperyLink to maintain DAG back links
+    /// internal, used by PropertyLink to maintain DAG back links
     void _addBackLink(DocumentObject*);
     //@}
 
@@ -180,9 +191,12 @@ public:
      *  We call this method to check if the object was modified to
      *  be invoked. If the object label or an argument is modified.
      *  If we must recompute the object - to call the method execute().
-     *  0: no recompution is needed
-     *  1: recompution needed
-     * -1: the document examine all links of this object and if one is touched -> recompute
+     *  0: no recomputation is needed
+     *  1: recomputation needed
+     *
+     * @remark If an object is marked as 'touched' then this does not
+     * necessarily mean that it will be recomputed. It only means that all
+     * objects that link it (i.e. its InList) will be recomputed.
      */
     virtual short mustExecute(void) const;
 
@@ -195,7 +209,7 @@ public:
     /** Called in case of losing a link
      * Get called by the document when a object got deleted a link property of this
      * object ist pointing to. The standard behaviour of the DocumentObject implementation
-     * is to reset the links to nothing. You may overide this method to implement
+     * is to reset the links to nothing. You may override this method to implement
      * additional or different behavior.
      */
     virtual void onLostLinkToObject(DocumentObject*);
@@ -229,7 +243,7 @@ protected:
     /** get called by the document to recompute this feature
       * Normally this method get called in the processing of
       * Document::recompute().
-      * In execute() the outpupt properties get recomputed
+      * In execute() the output properties get recomputed
       * with the data from linked objects and objects own
       * properties.
       */
@@ -237,7 +251,7 @@ protected:
 
     /** Status bits of the document object
      * The first 8 bits are used for the base system the rest can be used in
-     * descendent classes to to mark special stati on the objects.
+     * descendent classes to mark special statuses on the objects.
      * The bits and their meaning are listed below:
      *  0 - object is marked as 'touched'
      *  1 - object is marked as 'erroneous'
@@ -255,12 +269,14 @@ protected:
     void resetError(void){StatusBits.reset(ObjectStatus::Error);}
     void setDocument(App::Document* doc);
 
+    /// \internal get called when removing a property of name \a prop
+    void onAboutToRemoveProperty(const char* prop);
     /// get called before the value is changed
     virtual void onBeforeChange(const Property* prop);
     /// get called by the container when a property was changed
     virtual void onChanged(const Property* prop);
     /// get called after a document has been fully restored
-    virtual void onDocumentRestored() {}
+    virtual void onDocumentRestored();
     /// get called after setting the document
     virtual void onSettingDocument();
     /// get called after a brand new object was created
@@ -268,43 +284,27 @@ protected:
     /// get called when object is going to be removed from the document
     virtual void unsetupObject();
 
-     /// python object of this class and all descendend
+     /// python object of this class and all descendent
 protected: // attributes
     Py::Object PythonObject;
     /// pointer to the document this object belongs to
     App::Document* _pDoc;
 
     // Connections to track relabeling of document and document objects
-    boost::BOOST_SIGNALS_NAMESPACE::scoped_connection onRelabledDocumentConnection;
-    boost::BOOST_SIGNALS_NAMESPACE::scoped_connection onRelabledObjectConnection;
-    boost::BOOST_SIGNALS_NAMESPACE::scoped_connection onDeletedObjectConnection;
+    boost::signals2::scoped_connection onRelabledDocumentConnection;
+    boost::signals2::scoped_connection onRelabledObjectConnection;
+    boost::signals2::scoped_connection onDeletedObjectConnection;
 
     /// Old label; used for renaming expressions
     std::string oldLabel;
 
     // pointer to the document name string (for performance)
     const std::string *pcNameInDocument;
-    
+
 private:
     // Back pointer to all the fathers in a DAG of the document
     // this is used by the document (via friend) to have a effective DAG handling
     std::vector<App::DocumentObject*> _inList;
-    // helper for isInInListRecursive()
-    bool _isInInListRecursive(const DocumentObject *act, const DocumentObject* test, const DocumentObject* checkObj, int depth) const;
-    // helper for isInOutListRecursive()
-    bool _isInOutListRecursive(const DocumentObject *act, const DocumentObject* test, const DocumentObject* checkObj, int depth) const;
-};
-
-class AppExport ObjectStatusLocker
-{
-public:
-    ObjectStatusLocker(ObjectStatus s, DocumentObject* o) : status(s), obj(o)
-    { obj->setStatus(status, true); }
-    ~ObjectStatusLocker()
-    { obj->setStatus(status, false); }
-private:
-    ObjectStatus status;
-    DocumentObject* obj;
 };
 
 } //namespace App

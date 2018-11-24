@@ -26,7 +26,6 @@
 #include <QObject>
 #include <QPainter>
 
-#include <Base/Parameter.h>
 #include <Mod/TechDraw/App/Geometry.h>
 #include "QGIView.h"
 
@@ -60,6 +59,7 @@ public:
     virtual void updateView(bool update = false) override;
     void tidy();
     virtual QRectF boundingRect() const override;
+    virtual void drawAllSectionLines(void);
     virtual void drawSectionLine(TechDraw::DrawViewSection* s, bool b);
     virtual void drawCenterLines(bool b);
     virtual void drawHighlight(TechDraw::DrawViewDetail* viewDetail, bool b);
@@ -67,6 +67,8 @@ public:
     bool showSection;
 
     virtual void draw() override;
+    virtual void rotateView(void) override;
+
 
     static QPainterPath geomToPainterPath(TechDrawGeometry::BaseGeom *baseGeom, double rotation = 0.0);
     /// Helper for pathArc()

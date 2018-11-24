@@ -49,7 +49,7 @@ class Snapper:
     3 functions are useful for the scriptwriter: snap(), constrain()
     or getPoint() which is an all-in-one combo.
 
-    The indivudual snapToXXX() functions return a snap definition in
+    The individual snapToXXX() functions return a snap definition in
     the form [real_point,marker_type,visual_point], and are not
     meant to be used directly, they are all called when necessary by
     the general snap() function.
@@ -94,6 +94,9 @@ class Snapper:
         self.selectMode = False
         self.holdTracker = None
         self.holdPoints = []
+        self.running = False
+        self.callbackClick = None
+        self.callbackMove = None
         
         # the snapmarker has "dot","circle" and "square" available styles
         if self.snapStyle:
@@ -145,6 +148,12 @@ class Snapper:
         Screenpos can be a list, a tuple or a coin.SbVec2s object. If noTracker is True,
         the tracking line is not displayed."""
 
+        if self.running:
+            # do not allow concurrent runs
+            return None
+            
+        self.running = True
+
         global Part, DraftGeomUtils
         import Part, DraftGeomUtils
         self.spoint = None
@@ -180,6 +189,7 @@ class Snapper:
             screenpos = tuple(screenpos.getValue())
         elif  not isinstance(screenpos,tuple):
             print("snap needs valid screen position (list, tuple or sbvec2s)")
+            self.running = False
             return None
 
         # setup trackers if needed
@@ -202,7 +212,7 @@ class Snapper:
         self.setCursor('passive')
         if self.tracker:
             self.tracker.off()
-        if self.extLine:
+        if self.extLine2:
             self.extLine2.off()
         if self.extLine:
             self.extLine.off()
@@ -229,7 +239,7 @@ class Snapper:
             point,eline = self.snapToPolar(point,lastpoint)
             point,eline = self.snapToExtensions(point,lastpoint,constrain,eline)
             
-        if not self.snapInfo:
+        if not self.snapInfo or "Component" not in self.snapInfo:
             # nothing has been snapped
             
             # check for grid snap and ext crossings
@@ -247,6 +257,7 @@ class Snapper:
             if self.lastArchPoint:
                 self.setArchDims(self.lastArchPoint,fp)
             self.spoint = fp
+            self.running = False
             return fp
 
         else:
@@ -256,6 +267,7 @@ class Snapper:
             obj = FreeCAD.ActiveDocument.getObject(self.snapInfo['Object'])
             if not obj:
                 self.spoint = cstr(point)
+                self.running = False
                 return self.spoint
 
             self.lastSnappedObject = obj
@@ -263,6 +275,7 @@ class Snapper:
             if hasattr(obj.ViewObject,"Selectable"):
                 if not obj.ViewObject.Selectable:
                     self.spoint = cstr(point)
+                    self.running = False
                     return self.spoint
                 
             if not active:
@@ -283,18 +296,25 @@ class Snapper:
 
                 if obj.isDerivedFrom("Part::Feature"):
                     
+                    # applying global placements
+                    shape = obj.Shape.copy()
+                    shape.Placement = obj.getGlobalPlacement()
+                    
                     snaps.extend(self.snapToSpecials(obj,lastpoint,eline))
                     
                     if Draft.getType(obj) == "Polygon":
                         # special snapping for polygons: add the center
                         snaps.extend(self.snapToPolygon(obj))
-                        
-                    if (not self.maxEdges) or (len(obj.Edges) <= self.maxEdges):
+                    elif Draft.getType(obj) == "BuildingPart":
+                        # special snapping for Arch building parts: add the location
+                        snaps.append([obj.Placement.Base,'endpoint',self.toWP(obj.Pacement.Base)])
+
+                    if (not self.maxEdges) or (len(shape.Edges) <= self.maxEdges):
                         if "Edge" in comp:
                             # we are snapping to an edge
                             en = int(comp[4:])-1
-                            if len(obj.Shape.Edges) > en:
-                                edge = obj.Shape.Edges[en]
+                            if len(shape.Edges) > en:
+                                edge = shape.Edges[en]
                                 snaps.extend(self.snapToEndpoints(edge))
                                 snaps.extend(self.snapToMidpoint(edge))
                                 snaps.extend(self.snapToPerpendicular(edge,lastpoint))
@@ -311,8 +331,8 @@ class Snapper:
                                     snaps.extend(self.snapToCenter(edge))
                         elif "Face" in comp:
                             en = int(comp[4:])-1
-                            if len(obj.Shape.Faces) > en:
-                                face = obj.Shape.Faces[en]
+                            if len(shape.Faces) > en:
+                                face = shape.Faces[en]
                                 snaps.extend(self.snapToFace(face))
                         elif "Vertex" in comp:
                             # directly snapped to a vertex
@@ -326,12 +346,7 @@ class Snapper:
                             
                 elif Draft.getType(obj) == "Dimension":
                     # for dimensions we snap to their 2 points:
-                    if obj.ViewObject:
-                        if hasattr(obj.ViewObject.Proxy,"p2") and hasattr(obj.ViewObject.Proxy,"p3"):
-                            snaps.append([obj.ViewObject.Proxy.p2,'endpoint',self.toWP(obj.ViewObject.Proxy.p2)])
-                            snaps.append([obj.ViewObject.Proxy.p3,'endpoint',self.toWP(obj.ViewObject.Proxy.p3)])
-                    #for pt in [obj.Start,obj.End,obj.Dimline]:
-                    #    snaps.append([pt,'endpoint',self.toWP(pt)])
+                    snaps.extend(self.snapToDim(obj))
 
                 elif Draft.getType(obj) == "Axis":
                     for edge in obj.Shape.Edges:
@@ -346,6 +361,10 @@ class Snapper:
                     # for points we only snap to points
                     snaps.extend(self.snapToEndpoints(obj.Points))
 
+                elif Draft.getType(obj) == "WorkingPlaneProxy":
+                    # snap to the center of WPProxies
+                    snaps.append([obj.Placement.Base,'endpoint',self.toWP(obj.Placement.Base)])
+
             # updating last objects list
             if not self.lastObj[1]:
                 self.lastObj[1] = obj.Name
@@ -355,6 +374,7 @@ class Snapper:
 
             if not snaps:
                 self.spoint = cstr(point)
+                self.running = False
                 return self.spoint
 
             # calculating the nearest snap point
@@ -403,6 +423,7 @@ class Snapper:
                 
             # return the final point
             self.spoint = fp
+            self.running = False
             return self.spoint
 
     def toWP(self,point):
@@ -426,7 +447,15 @@ class Snapper:
                     dv = view.getViewDirection()
                 return FreeCAD.DraftWorkingPlane.projectPoint(pt,dv)
         return pt
-        
+
+    def snapToDim(self,obj):
+        snaps = []
+        if obj.ViewObject:
+            if hasattr(obj.ViewObject.Proxy,"p2") and hasattr(obj.ViewObject.Proxy,"p3"):
+                snaps.append([obj.ViewObject.Proxy.p2,'endpoint',self.toWP(obj.ViewObject.Proxy.p2)])
+                snaps.append([obj.ViewObject.Proxy.p3,'endpoint',self.toWP(obj.ViewObject.Proxy.p3)])
+        return snaps
+
     def snapToExtensions(self,point,last,constrain,eline):
         "returns a point snapped to extension or parallel line to last object, if any"
 
@@ -470,7 +499,7 @@ class Snapper:
                         return tsnap[2],eline
                 
         for o in [self.lastObj[1],self.lastObj[0]]:
-            if o:
+            if o and (self.isEnabled('extension') or self.isEnabled('parallel')):
                 ob = FreeCAD.ActiveDocument.getObject(o)
                 if ob:
                     if ob.isDerivedFrom("Part::Feature"):
@@ -914,7 +943,7 @@ class Snapper:
             if not self.dim1:
                 self.dim1 = DraftTrackers.archDimTracker(mode=2)
             if not self.dim2:
-                self.dim1 = DraftTrackers.archDimTracker(mode=3)
+                self.dim2 = DraftTrackers.archDimTracker(mode=3)
             self.dim1.p1(p1)
             self.dim2.p1(p1)
             self.dim1.p2(p2)
@@ -961,7 +990,7 @@ class Snapper:
         if self.grid:
             self.grid.lowerTracker()
 
-    def off(self):
+    def off(self, hideSnapBar=False):
         "finishes snapping"
         if self.tracker:
             self.tracker.off()
@@ -986,11 +1015,13 @@ class Snapper:
         self.unconstrain()
         self.radius = 0
         self.setCursor()
-        if Draft.getParam("hideSnapBar",False):
-            self.toolbar.hide()
+        if hideSnapBar or Draft.getParam("hideSnapBar",False):
+            if hasattr(self,"toolbar") and self.toolbar:
+                self.toolbar.hide()
         self.mask = None
         self.lastArchPoint = None
         self.selectMode = False
+        self.running = False
         
     def setSelectMode(self,mode):
         "sets the snapper into select mode (hides snapping temporarily)"
@@ -1110,8 +1141,10 @@ class Snapper:
         FreeCADGui.Snapper.getPoint(callback=cb)
 
         If the callback function accepts more than one argument, it will also receive
-        the last snapped object. Finally, a pyqt dialog can be passed as extra taskbox.
-
+        the last snapped object. Finally, a qt widget can be passed as an extra taskbox.
+        
+        If getPoint() is invoked without any argument, nothing is done but the callbacks
+        are removed, so it can be used as a cancel function.
         """
 
         import inspect
@@ -1120,6 +1153,14 @@ class Snapper:
         self.lastSnappedObject = None
         self.ui = FreeCADGui.draftToolBar
         self.view = Draft.get3DView()
+
+        # remove any previous leftover callbacks
+        if self.callbackClick:
+            self.view.removeEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),self.callbackClick)
+        if self.callbackMove:
+            self.view.removeEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),self.callbackMove)
+        self.callbackClick = None
+        self.callbackMove = None
 
         def move(event_cb):
             event = event_cb.getEvent()
@@ -1146,8 +1187,12 @@ class Snapper:
                     accept()
 
         def accept():
-            self.view.removeEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),self.callbackClick)
-            self.view.removeEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),self.callbackMove)
+            if self.callbackClick:
+                self.view.removeEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),self.callbackClick)
+            if self.callbackMove:
+                self.view.removeEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),self.callbackMove)
+            self.callbackClick = None
+            self.callbackMove = None
             obj = FreeCADGui.Snapper.lastSnappedObject
             FreeCADGui.Snapper.off()
             self.ui.offUi()
@@ -1159,8 +1204,12 @@ class Snapper:
             self.pt = None
 
         def cancel():
-            self.view.removeEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),self.callbackClick)
-            self.view.removeEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),self.callbackMove)
+            if self.callbackClick:
+                self.view.removeEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),self.callbackClick)
+            if self.callbackMove:
+                self.view.removeEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),self.callbackMove)
+            self.callbackClick = None
+            self.callbackMove = None
             FreeCADGui.Snapper.off()
             self.ui.offUi()
             if callback:
@@ -1168,39 +1217,44 @@ class Snapper:
                     callback(None,None)
                 else:
                     callback(None)
-            
+
         # adding callback functions
-        self.ui.pointUi(cancel=cancel,getcoords=getcoords,extra=extradlg,rel=bool(last))
-        self.callbackClick = self.view.addEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),click)
-        self.callbackMove = self.view.addEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),move)
+        if callback:
+            self.ui.pointUi(cancel=cancel,getcoords=getcoords,extra=extradlg,rel=bool(last))
+            self.callbackClick = self.view.addEventCallbackPivy(coin.SoMouseButtonEvent.getClassTypeId(),click)
+            self.callbackMove = self.view.addEventCallbackPivy(coin.SoLocation2Event.getClassTypeId(),move)
 
     def makeSnapToolBar(self):
         "builds the Snap toolbar"
-        self.toolbar = QtGui.QToolBar(None)
+        mw = FreeCADGui.getMainWindow()
+        self.toolbar = QtGui.QToolBar(mw)
+        mw.addToolBar(QtCore.Qt.TopToolBarArea, self.toolbar)
         self.toolbar.setObjectName("Draft Snap")
         self.toolbar.setWindowTitle(QtCore.QCoreApplication.translate("Workbench", "Draft Snap"))
         self.toolbarButtons = []
         # grid button
-        self.gridbutton = QtGui.QAction(None)
+        self.gridbutton = QtGui.QAction(mw)
         self.gridbutton.setIcon(QtGui.QIcon(":/icons/Draft_Grid.svg"))
         self.gridbutton.setText(QtCore.QCoreApplication.translate("Draft_ToggleGrid","Grid"))
-        self.gridbutton.setToolTip(QtCore.QCoreApplication.translate("Draft_ToggleGrid","Toggles the Draft grid on/off"))
+        self.gridbutton.setToolTip(QtCore.QCoreApplication.translate("Draft_ToggleGrid","Toggles the Draft grid On/Off"))
         self.gridbutton.setObjectName("GridButton")
+        self.gridbutton.setWhatsThis("Draft_ToggleGrid")
         QtCore.QObject.connect(self.gridbutton,QtCore.SIGNAL("triggered()"),self.toggleGrid)
         self.toolbar.addAction(self.gridbutton)
         # master button
-        self.masterbutton = QtGui.QAction(None)
+        self.masterbutton = QtGui.QAction(mw)
         self.masterbutton.setIcon(QtGui.QIcon(":/icons/Snap_Lock.svg"))
         self.masterbutton.setText(QtCore.QCoreApplication.translate("Draft_Snap_Lock","Lock"))
         self.masterbutton.setToolTip(QtCore.QCoreApplication.translate("Draft_Snap_Lock","Toggle On/Off"))
         self.masterbutton.setObjectName("SnapButtonMain")
+        self.masterbutton.setWhatsThis("Draft_ToggleSnap")
         self.masterbutton.setCheckable(True)
         self.masterbutton.setChecked(True)
         QtCore.QObject.connect(self.masterbutton,QtCore.SIGNAL("toggled(bool)"),self.toggle)
         self.toolbar.addAction(self.masterbutton)
         for c,i in self.cursors.items():
             if i:
-                b = QtGui.QAction(None)
+                b = QtGui.QAction(mw)
                 b.setIcon(QtGui.QIcon(i))
                 if c == "passive":
                     b.setText(QtCore.QCoreApplication.translate("Draft_Snap_Near","Nearest"))
@@ -1209,6 +1263,7 @@ class Snapper:
                     b.setText(QtCore.QCoreApplication.translate("Draft_Snap_"+c.capitalize(),c.capitalize()))
                     b.setToolTip(QtCore.QCoreApplication.translate("Draft_Snap_"+c.capitalize(),c.capitalize()))
                 b.setObjectName("SnapButton"+c)
+                b.setWhatsThis("Draft_"+c.capitalize())
                 b.setCheckable(True)
                 b.setChecked(True)
                 self.toolbar.addAction(b)
@@ -1216,17 +1271,22 @@ class Snapper:
                 QtCore.QObject.connect(b,QtCore.SIGNAL("toggled(bool)"),self.saveSnapModes)
         # adding non-snap button
         for n in ["Dimensions","WorkingPlane"]:
-            b = QtGui.QAction(None)
+            b = QtGui.QAction(mw)
             b.setIcon(QtGui.QIcon(":/icons/Snap_"+n+".svg"))
             b.setText(QtCore.QCoreApplication.translate("Draft_Snap_"+n,n))
             b.setToolTip(QtCore.QCoreApplication.translate("Draft_Snap_"+n,n))
             b.setObjectName("SnapButton"+n)
+            b.setWhatsThis("Draft_"+n)
             b.setCheckable(True)
             b.setChecked(True)
             self.toolbar.addAction(b)
             QtCore.QObject.connect(b,QtCore.SIGNAL("toggled(bool)"),self.saveSnapModes)
             self.toolbarButtons.append(b)
-        # restoring states 
+        # set status tip where needed
+        for b in self.toolbar.actions():
+            if len(b.statusTip()) == 0:
+                b.setStatusTip(b.toolTip())
+        # restoring states
         t = Draft.getParam("snapModes","111111111101111")
         if t:
             c = 0

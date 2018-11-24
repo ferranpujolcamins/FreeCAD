@@ -60,11 +60,10 @@ typedef std::set<int> TSetOfInt;
 class SMESH_EXPORT  SMESH_Gen
 {
 public:
- 
-  static SMESH_Gen* get();
+  SMESH_Gen();
+  ~SMESH_Gen();
 
-  SMESH_Mesh* CreateMesh(int theStudyId, bool theIsEmbeddedMode)
-    throw(SALOME_Exception);
+  SMESH_Mesh* CreateMesh(int theStudyId, bool theIsEmbeddedMode);
 
   /*!
    * \brief Computes aMesh on aShape 
@@ -159,12 +158,6 @@ public:
   // std::map < int, SMESH_2D_Algo * >_map2D_Algo;
   // std::map < int, SMESH_3D_Algo * >_map3D_Algo;
 
-protected:
-  //Generator is designed to be a singleton, hence constructor and destructor are not allowed to be used
-  SMESH_Gen();
-  ~SMESH_Gen();
-  static SMESH_Gen* generator;
-  
 private:
 
   int _localId;                         // unique Id of created objects, within SMESH_Gen entity

@@ -54,11 +54,13 @@
 # include <GProp_PGProps.hxx>
 # include <GProp_PrincipalProps.hxx>
 # include <BRepGProp.hxx>
+# include <GeomLib_IsPlanarSurface.hxx>
 #endif
 #include <BRepLProp_SLProps.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 
 #include "Attacher.h"
+#include "AttachExtension.h"
 #include <Base/Console.h>
 #include <App/OriginFeature.h>
 #include <App/Application.h>
@@ -120,6 +122,15 @@ const char* AttachEngine::eMapModeStrings[]= {
 
     "InertialCS",
 
+    "FaceNormal",
+
+    "OZX",
+    "OZY",
+    "OXY",
+    "OXZ",
+    "OYZ",
+    "OYX",
+
     NULL};
 
 //this list must be in sync with eRefType enum.
@@ -155,7 +166,7 @@ const char* AttachEngine::eRefTypeStrings[]= {
 
 
 
-TYPESYSTEM_SOURCE_ABSTRACT(Attacher::AttachEngine, Base::BaseClass);
+TYPESYSTEM_SOURCE_ABSTRACT(Attacher::AttachEngine, Base::BaseClass)
 
 AttachEngine::AttachEngine()
  : mapMode(mmDeactivated), mapReverse(false), attachParameter(0.0),
@@ -167,7 +178,7 @@ void AttachEngine::setUp(const App::PropertyLinkSubList &references,
                          eMapMode mapMode, bool mapReverse,
                          double attachParameter,
                          double surfU, double surfV,
-                         const Base::Placement &superPlacement)
+                         const Base::Placement &attachmentOffset)
 {
     this->references.Paste(references);
     this->mapMode = mapMode;
@@ -175,7 +186,7 @@ void AttachEngine::setUp(const App::PropertyLinkSubList &references,
     this->attachParameter = attachParameter;
     this->surfU = surfU;
     this->surfV = surfV;
-    this->superPlacement = superPlacement;
+    this->attachmentOffset = attachmentOffset;
 }
 
 void AttachEngine::setUp(const AttachEngine &another)
@@ -186,7 +197,7 @@ void AttachEngine::setUp(const AttachEngine &another)
           another.attachParameter,
           another.surfU,
           another.surfV,
-          another.superPlacement);
+          another.attachmentOffset);
 }
 
 Base::Placement AttachEngine::placementFactory(const gp_Dir &ZAxis,
@@ -237,7 +248,7 @@ Base::Placement AttachEngine::placementFactory(const gp_Dir &ZAxis,
         //find out, to which axis of support Normal is closest to.
         //The result will be written into pos variable (0..2 = X..Z)
         if (!placeOfRef)
-            throw Base::Exception("AttachEngine::placementFactory: for Legacy mode, placement of the reference must be supplied. Got null instead!");
+            throw AttachEngineException("AttachEngine::placementFactory: for Legacy mode, placement of the reference must be supplied. Got null instead!");
         Base::Placement &Place = *placeOfRef;
         Base::Vector3d dX,dY,dZ;//internal axes of support object, as they are in global space
         Place.getRotation().multVec(Base::Vector3d(1,0,0),dX);
@@ -319,7 +330,7 @@ void AttachEngine::suggestMapModes(SuggestResult &result) const
     } catch (Base::Exception &err) {
         result.references_Types = typeStr;
         result.message = SuggestResult::srLinkBroken;
-        result.error = err;
+        result.error.Exception::operator = (err);
         return;
     }
 
@@ -492,7 +503,7 @@ eRefType AttachEngine::getShapeType(const TopoDS_Shape& sh)
     case TopAbs_VERTEX:
         return rtVertex;
     default:
-        throw Base::Exception("AttachEngine::getShapeType: unexpected TopoDS_Shape::ShapeType");
+        throw AttachEngineException("AttachEngine::getShapeType: unexpected TopoDS_Shape::ShapeType");
     }//switch shapetype
     return rtAnything;//shouldn't happen, it's here to shut up compiler warning
 }
@@ -550,7 +561,7 @@ eRefType AttachEngine::downgradeType(eRefType type)
     case rtPart:
         return rtAnything;
     default:
-        throw Base::Exception("AttachEngine::downgradeType: unknown type");
+        throw AttachEngineException("AttachEngine::downgradeType: unknown type");
     }
 }
 
@@ -611,7 +622,7 @@ int AttachEngine::isShapeOfType(eRefType shapeType, eRefType requirement)
 std::string AttachEngine::getModeName(eMapMode mmode)
 {
     if(mmode < 0 || mmode >= mmDummy_NumberOfModes)
-        throw Base::Exception("AttachEngine::getModeName: Attachment Mode index is out of range");
+        throw AttachEngineException("AttachEngine::getModeName: Attachment Mode index is out of range");
     return std::string(AttachEngine::eMapModeStrings[mmode]);
 }
 
@@ -624,14 +635,14 @@ eMapMode AttachEngine::getModeByName(const std::string &modeName)
     }
     std::stringstream errMsg;
     errMsg << "AttachEngine::getModeByName: mode with this name doesn't exist: " << modeName;
-    throw Base::Exception(errMsg.str());
+    throw AttachEngineException(errMsg.str());
 }
 
 std::string AttachEngine::getRefTypeName(eRefType shapeType)
 {
     eRefType flagless = eRefType(shapeType & 0xFF);
     if(flagless < 0 || flagless >= rtDummy_numberOfShapeTypes)
-        throw Base::Exception("eRefType value is out of range");
+        throw AttachEngineException("eRefType value is out of range");
     std::string result = std::string(eRefTypeStrings[flagless]);
     if (shapeType & rtFlagHasPlacement){
         result.append("|Placement");
@@ -657,13 +668,13 @@ eRefType AttachEngine::getRefTypeByName(const std::string& typeName)
             } else {
                 std::stringstream errmsg;
                 errmsg << "RefType flag not recognized: " << flags;
-                throw Base::Exception(errmsg.str());
+                throw AttachEngineException(errmsg.str());
             }
         }
     }
     std::stringstream errmsg;
     errmsg << "RefType not recognized: " << typeName;
-    throw Base::Exception(errmsg.str());
+    throw AttachEngineException(errmsg.str());
 }
 
 GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoDS_Shape*> &shapes)
@@ -675,7 +686,7 @@ GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoD
         totalSeq.Append( xp.SeqFromCompound(*pSh, /*recursive=*/true));
     }
     if (totalSeq.Length() == 0)
-        throw Base::Exception("AttachEngine::getInertialPropsOfShape: no geometry provided");
+        throw AttachEngineException("AttachEngine::getInertialPropsOfShape: no geometry provided");
     const TopoDS_Shape &sh0 = totalSeq.Value(1);
     switch (sh0.ShapeType()){
     case TopAbs_VERTEX:{
@@ -683,7 +694,7 @@ GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoD
         for (int i = 0   ;   i < totalSeq.Length()   ;   i++){
             const TopoDS_Shape &sh = totalSeq.Value(i+1);
             if (sh.ShapeType() != TopAbs_VERTEX)
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only vertices)");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only vertices)");
             gpr.AddPoint(BRep_Tool::Pnt(TopoDS::Vertex(sh)));
         }
         return gpr;
@@ -695,9 +706,9 @@ GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoD
         for (int i = 0   ;   i < totalSeq.Length()   ;   i++){
             const TopoDS_Shape &sh = totalSeq.Value(i+1);
             if (sh.ShapeType() != TopAbs_EDGE && sh.ShapeType() != TopAbs_WIRE)
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only edges/wires)");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only edges/wires)");
             if (sh.Infinite())
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: infinite shape provided");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: infinite shape provided");
             BRepGProp::LinearProperties(sh,gpr);
             gpr_acc.Add(gpr);
         }
@@ -710,9 +721,9 @@ GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoD
         for (int i = 0   ;   i < totalSeq.Length()   ;   i++){
             const TopoDS_Shape &sh = totalSeq.Value(i+1);
             if (sh.ShapeType() != TopAbs_FACE && sh.ShapeType() != TopAbs_SHELL)
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only faces/shells)");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only faces/shells)");
             if (sh.Infinite())
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: infinite shape provided");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: infinite shape provided");
             BRepGProp::SurfaceProperties(sh,gpr);
             gpr_acc.Add(gpr);
         }
@@ -725,16 +736,16 @@ GProp_GProps AttachEngine::getInertialPropsOfShape(const std::vector<const TopoD
         for (int i = 0   ;   i < totalSeq.Length()   ;   i++){
             const TopoDS_Shape &sh = totalSeq.Value(i+1);
             if (sh.ShapeType() != TopAbs_SOLID && sh.ShapeType() != TopAbs_COMPSOLID)
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only solids/compsolids)");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: provided shapes are incompatible (not only solids/compsolids)");
             if (sh.Infinite())
-                throw Base::Exception("AttachEngine::getInertialPropsOfShape: infinite shape provided");
+                throw AttachEngineException("AttachEngine::getInertialPropsOfShape: infinite shape provided");
             BRepGProp::VolumeProperties(sh,gpr);
             gpr_acc.Add(gpr);
         }
         return gpr_acc;
     } break;
     default:
-        throw Base::Exception("AttachEngine::getInertialPropsOfShape: unexpected shape type");
+        throw AttachEngineException("AttachEngine::getInertialPropsOfShape: unexpected shape type");
     }
 }
 
@@ -760,7 +771,7 @@ void AttachEngine::readLinks(const App::PropertyLinkSubList &references,
     types.resize(objs.size());
     for (std::size_t i = 0; i < objs.size(); i++) {
         if (!objs[i]->getTypeId().isDerivedFrom(App::GeoFeature::getClassTypeId())) {
-            throw Base::Exception("AttachEngine3D: link points to something that is not App::GeoFeature");
+            throw AttachEngineException("AttachEngine3D: link points to something that is not App::GeoFeature");
         }
         App::GeoFeature* geof = static_cast<App::GeoFeature*>(objs[i]);
         geofs[i] = geof;
@@ -768,16 +779,16 @@ void AttachEngine::readLinks(const App::PropertyLinkSubList &references,
         if (geof->isDerivedFrom(Part::Feature::getClassTypeId())){
             shape = &(static_cast<Part::Feature*>(geof)->Shape.getShape());
             if (shape->isNull()){
-                throw Base::Exception("AttachEngine3D: Part has null shape");
+                throw AttachEngineException("AttachEngine3D: Part has null shape");
             }
             if (sub[i].length()>0){
                 try{
                     storage.push_back(shape->getSubShape(sub[i].c_str()));
-                } catch (Standard_Failure){
-                    throw Base::Exception("AttachEngine3D: subshape not found");
+                } catch (Standard_Failure&){
+                    throw AttachEngineException("AttachEngine3D: subshape not found");
                 }
                 if(storage[storage.size()-1].IsNull())
-                    throw Base::Exception("AttachEngine3D: null subshape");
+                    throw AttachEngineException("AttachEngine3D: null subshape");
                 shapes[i] = &(storage[storage.size()-1]);
             } else {
                 shapes[i] = &(shape->getShape());
@@ -790,8 +801,9 @@ void AttachEngine::readLinks(const App::PropertyLinkSubList &references,
             geof->Placement.getValue().multVec(Base::Vector3d(),org);
             //make shape - an local-XY plane infinite face
             gp_Pln pl = gp_Pln(gp_Pnt(org.x, org.y, org.z), gp_Dir(norm.x, norm.y, norm.z));
-            BRepBuilderAPI_MakeFace builder(pl);
-            storage.push_back( builder.Shape() );
+            TopoDS_Shape myShape = BRepBuilderAPI_MakeFace(pl).Shape();
+            myShape.Infinite(true);
+            storage.push_back(myShape);
             shapes[i] = &(storage[storage.size()-1]);
         } else if (  geof->isDerivedFrom(App::Line::getClassTypeId())  ){
             //obtain X axis and origin of placement
@@ -802,8 +814,9 @@ void AttachEngine::readLinks(const App::PropertyLinkSubList &references,
             geof->Placement.getValue().multVec(Base::Vector3d(),org);
             //make shape - an infinite line along local X axis
             gp_Lin l = gp_Lin(gp_Pnt(org.x, org.y, org.z), gp_Dir(dir.x, dir.y, dir.z));
-            BRepBuilderAPI_MakeEdge builder(l);
-            storage.push_back( builder.Shape() );
+            TopoDS_Shape myShape = BRepBuilderAPI_MakeEdge(l).Shape();
+            myShape.Infinite(true);
+            storage.push_back(myShape);
             shapes[i] = &(storage[storage.size()-1]);
         } else {
             Base::Console().Warning("Attacher: linked object %s is unexpected, assuming it has no shape.\n",geof->getNameInDocument());
@@ -845,7 +858,7 @@ void AttachEngine::verifyReferencesAreSafe(const App::PropertyLinkSubList &refer
             }
         }
         if (!found){
-            throw Base::Exception("AttachEngine: verifyReferencesAreSafe: references point to deleted object.");
+            throw AttachEngineException("AttachEngine: verifyReferencesAreSafe: references point to deleted object.");
         }
     }
 }
@@ -853,7 +866,7 @@ void AttachEngine::verifyReferencesAreSafe(const App::PropertyLinkSubList &refer
 
 //=================================================================================
 
-TYPESYSTEM_SOURCE(Attacher::AttachEngine3D, Attacher::AttachEngine);
+TYPESYSTEM_SOURCE(Attacher::AttachEngine3D, Attacher::AttachEngine)
 
 AttachEngine3D::AttachEngine3D()
 {
@@ -941,6 +954,17 @@ AttachEngine3D::AttachEngine3D()
     modeRefTypes[mmThreePointsPlane].push_back(s);
     modeRefTypes[mmThreePointsNormal].push_back(s);
 
+    //------------origin-axis-axis modes
+    for (int mmode = mmOZX; mmode <= mmOYX; ++mmode){
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtVertex, rtVertex));
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtVertex, rtLine));
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtLine, rtVertex));
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtLine, rtLine));
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtVertex));
+        modeRefTypes[mmode].push_back(cat(rtVertex, rtLine));
+    }
+
+
     modeRefTypes[mmFolding].push_back(cat(rtLine, rtLine, rtLine, rtLine));
 
     this->EnableAllSupportedModes();
@@ -996,7 +1020,7 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
         gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(sh));
         Base::Placement plm = Base::Placement();
         plm.setPosition(Base::Vector3d(p.X(), p.Y(), p.Z()));
-        plm.setPosition(plm.getPosition() + this->superPlacement.getPosition());
+        plm.setPosition(plm.getPosition() + this->attachmentOffset.getPosition());
         plm.setRotation(origPlacement.getRotation());
         return plm;
     } break;
@@ -1099,15 +1123,25 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
         if (face.IsNull())
             throw Base::ValueError("Null face in AttachEngine3D::calculateAttachedPlacement()!");
 
+        gp_Pln plane;
         BRepAdaptor_Surface adapt(face);
-        if (adapt.GetType() != GeomAbs_Plane)
-            throw Base::ValueError("No planar face in AttachEngine3D::calculateAttachedPlacement()!");
+        if (adapt.GetType() == GeomAbs_Plane) {
+            plane = adapt.Plane();
+        }
+        else {
+            TopLoc_Location loc;
+            Handle(Geom_Surface) surf = BRep_Tool::Surface(face, loc);
+            GeomLib_IsPlanarSurface check(surf);
+            if (check.IsPlanar())
+                plane = check.Plan();
+            else
+                throw Base::ValueError("No planar face in AttachEngine3D::calculateAttachedPlacement()!");
+        }
 
         bool Reverse = false;
         if (face.Orientation() == TopAbs_REVERSED)
             Reverse = true;
 
-        gp_Pln plane = adapt.Plane();
         Standard_Boolean ok = plane.Direct();
         if (!ok) {
             // toggle if plane has a left-handed coordinate system
@@ -1174,7 +1208,7 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
     case mmFrenetTN:
     case mmFrenetTB:
     case mmRevolutionSection:
-    case mmConcentric: {//all alignments to poing on curve
+    case mmConcentric: {//all alignments to point on curve
         if (shapes.size() < 1)
             throw Base::ValueError("AttachEngine3D::calculateAttachedPlacement: no subshapes specified (need one edge, and an optional vertex).");
 
@@ -1221,6 +1255,13 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
         if (d.Magnitude()<Precision::Confusion())
             throw Base::ValueError("AttachEngine3D::calculateAttachedPlacement: path curve derivative is below 1e-7, too low, can't align");
 
+        //Set origin. Note that it will be overridden later for mmConcentric and mmRevolutionSection
+        if (bThruVertex) {
+            SketchBasePoint = p_in;
+        } else {
+            SketchBasePoint = p;
+        }
+
         if (mmode == mmRevolutionSection
                 || mmode == mmConcentric
                 || mmode == mmFrenetNB
@@ -1247,12 +1288,6 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
                 B = gp_Vec(0.,0.,0.);//redundant, just for consistency
             }
 
-            //Set origin. Note that it will be overridden later for mmConcentric and mmRevolutionSection
-            if (bThruVertex) {
-                SketchBasePoint = p_in;
-            } else {
-                SketchBasePoint = p;
-            }
 
             switch (mmode){
             case mmFrenetNB:
@@ -1270,7 +1305,7 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
             case mmFrenetTB:
                 if (N.Magnitude() == 0.0)
                     throw Base::ValueError("AttachEngine3D::calculateAttachedPlacement: Frenet-Serret normal is undefined. Can't align to TB plane.");
-                SketchNormal = N.Reversed();//it is more convenient to sketch on something looking it it so it is convex.
+                SketchNormal = N.Reversed();//it is more convenient to sketch on something looking at it so it is convex.
                 SketchXAxis = T;
                 break;
             default:
@@ -1289,7 +1324,6 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
         } else if (mmode == mmNormalToPath){//mmNormalToPath
             //align sketch origin to the origin of support
             SketchNormal = gp_Dir(d.Reversed());//sketch normal looks at user. It is natural to have the curve directed away from user, so reversed.
-            SketchBasePoint = p;
         }
 
     } break;
@@ -1370,7 +1404,7 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
             throw Base::ValueError("AttachEngine3D::calculateAttachedPlacement: not enough shapes (need 4 lines: edgeA, axisA, axisB, edgeB).");
 
         //extract the four lines
-        const TopoDS_Edge* (edges[4]);
+        const TopoDS_Edge* edges[4];
         BRepAdaptor_Curve adapts[4];
         gp_Lin lines[4];
         for(int i=0  ;  i<4  ;  i++){
@@ -1446,6 +1480,84 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
         SketchBasePoint = p;
 
     } break;
+    case mmOZX:
+    case mmOZY:
+    case mmOXY:
+    case mmOXZ:
+    case mmOYZ:
+    case mmOYX: {
+        const char orderStrings[6][4] = {
+            "ZXY",
+            "ZYX",
+            "XYZ",
+            "XZY",
+            "YZX",
+            "YXZ",
+        };
+        const char* orderString = orderStrings[mmode - mmOZX];
+
+        enum dirIndex {
+            X,
+            Y,
+            Z
+        };
+        int order[3];
+        for(int i = 0; i < 3; ++i){
+            order[i] = orderString[i] - 'X';
+        }
+
+        if (shapes.size() < 2)
+            THROWM(Base::ValueError, "AttachEngine3D::calculateAttachedPlacement: not enough shapes linked (at least two are required).");
+
+        gp_Vec dirs[3];
+
+        //read out origin
+        if (shapes[0]->IsNull())
+            THROWM(Base::TypeError, "AttachEngine3D::calculateAttachedPlacement: null shape!")
+        if (shapes[0]->ShapeType() != TopAbs_VERTEX)
+            THROWM(Base::TypeError, "AttachEngine3D::calculateAttachedPlacement: first reference must be a vertex, it's not")
+        SketchBasePoint = BRep_Tool::Pnt(TopoDS::Vertex(*(shapes[0])));
+
+        //read out axes directions
+        for(size_t i = 1; i < 3 && i < shapes.size(); ++i){
+            if (shapes[i]->IsNull())
+                THROWM(Base::TypeError, "AttachEngine3D::calculateAttachedPlacement: null shape!")
+            if (shapes[i]->ShapeType() == TopAbs_VERTEX){
+                gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(*(shapes[i])));
+                dirs[order[i-1]] = gp_Vec(SketchBasePoint, p);
+            } else if (shapes[i]->ShapeType() == TopAbs_EDGE){
+                const TopoDS_Edge &e = TopoDS::Edge(*(shapes[i]));
+                BRepAdaptor_Curve crv(e);
+                double u1 = crv.FirstParameter();
+                double u2 = crv.LastParameter();
+                if ( Precision::IsInfinite(u1)
+                     || Precision::IsInfinite(u2) ){
+                    u1 = 0.0;
+                    u2 = 1.0;
+                }
+                gp_Pnt p1 = crv.Value(u1);
+                gp_Pnt p2 = crv.Value(u2);
+                dirs[order[i-1]] = gp_Vec(p1,p2);
+            }
+        }
+
+        //make the placement
+        Base::Rotation rot =
+                Base::Rotation::makeRotationByAxes(
+                    Base::Vector3d(dirs[0].X(), dirs[0].Y(), dirs[0].Z()),
+                    Base::Vector3d(dirs[1].X(), dirs[1].Y(), dirs[1].Z()),
+                    Base::Vector3d(dirs[2].X(), dirs[2].Y(), dirs[2].Z()),
+                    orderString
+                );
+        if(this->mapReverse){
+            rot = rot * Base::Rotation(Base::Vector3d(0,1,0),D_PI);
+        }
+
+        Base::Placement plm =
+                Base::Placement(Base::Vector3d(SketchBasePoint.X(), SketchBasePoint.Y(), SketchBasePoint.Z()), rot);
+        plm *= this->attachmentOffset;
+        return plm;
+    } break;
     default:
         throwWrongMode(mmode);
     }//switch (MapMode)
@@ -1459,7 +1571,7 @@ Base::Placement AttachEngine3D::calculateAttachedPlacement(Base::Placement origP
                                    /*makeYVertical = */ false,
                                    /*makeLegacyFlatFaceOrientation = */ mmode == mmFlatFace,
                                    &Place);
-    plm *= this->superPlacement;
+    plm *= this->attachmentOffset;
     return plm;
 }
 
@@ -1475,12 +1587,12 @@ double AttachEngine3D::calculateFoldAngle(gp_Vec axA, gp_Vec axB, gp_Vec edA, gp
     edB.Normalize();
     gp_Vec norm = axA.Crossed(axB);
     if (norm.Magnitude() < Precision::Confusion())
-        throw Base::Exception("calculateFoldAngle: Folding axes are parallel, folding angle cannot be computed.");
+        throw AttachEngineException("calculateFoldAngle: Folding axes are parallel, folding angle cannot be computed.");
     norm.Normalize();
     double a = edA.Dot(axA);
     double ra = edA.Crossed(axA).Magnitude();
     if (fabs(ra) < Precision::Confusion())
-        throw Base::Exception("calculateFoldAngle: axisA and edgeA are parallel, folding can't be computed.");
+        throw AttachEngineException("calculateFoldAngle: axisA and edgeA are parallel, folding can't be computed.");
     double b = edB.Dot(axB);
     double costheta = axB.Dot(axA);
     double sintheta = axA.Crossed(axB).Dot(norm);
@@ -1491,7 +1603,7 @@ double AttachEngine3D::calculateFoldAngle(gp_Vec axA, gp_Vec axB, gp_Vec edA, gp
     double xa = k + l*singama/cosgama;
     double cos_unfold = -xa/ra;
     if (fabs(cos_unfold)>0.999)
-        throw Base::Exception("calculateFoldAngle: cosine of folding angle is too close to or above 1.");
+        throw AttachEngineException("calculateFoldAngle: cosine of folding angle is too close to or above 1.");
     return acos(cos_unfold);
 }
 
@@ -1565,6 +1677,8 @@ AttachEngineLine::AttachEngineLine()
     modeRefTypes[mm1AxisInertia2] = modeRefTypes[mm1AxisInertia1];
     modeRefTypes[mm1AxisInertia3] = modeRefTypes[mm1AxisInertia1];
 
+    modeRefTypes[mm1FaceNormal] = attacher3D.modeRefTypes[mmTangentPlane];
+
 
 
     this->EnableAllSupportedModes();
@@ -1612,6 +1726,9 @@ Base::Placement AttachEngineLine::calculateAttachedPlacement(Base::Placement ori
         break;
     case mm1Tangent:
         mmode = mmNormalToPath;
+        break;
+    case mm1FaceNormal:
+        mmode = mmTangentPlane;
         break;
     default:
         bReUsed = false;
@@ -1791,11 +1908,11 @@ Base::Placement AttachEngineLine::calculateAttachedPlacement(Base::Placement ori
         AttachEngine3D attacher3D;
         attacher3D.setUp(*this);
         attacher3D.mapMode = mmode;
-        attacher3D.superPlacement = Base::Placement(); //superplacement is applied separately here, afterwards. So we are resetting it in sub-attacher to avoid applying it twice!
+        attacher3D.attachmentOffset = Base::Placement(); //AttachmentOffset is applied separately here, afterwards. So we are resetting it in sub-attacher to avoid applying it twice!
         plm = attacher3D.calculateAttachedPlacement(origPlacement);
         plm *= presuperPlacement;
     }
-    plm *= this->superPlacement;
+    plm *= this->attachmentOffset;
     return plm;
 }
 
@@ -1897,7 +2014,10 @@ Base::Placement AttachEnginePoint::calculateAttachedPlacement(Base::Placement or
             } else if (sh.ShapeType() == TopAbs_EDGE) {
                 const TopoDS_Edge &e = TopoDS::Edge(sh);
                 BRepAdaptor_Curve crv(e);
-                BasePoint = crv.Value(crv.FirstParameter());
+                double u = crv.FirstParameter();
+                if(Precision::IsInfinite(u))
+                    throw Base::ValueError("Edge is infinite");
+                BasePoint = crv.Value(u);
             }
 
         }break;
@@ -1966,10 +2086,10 @@ Base::Placement AttachEnginePoint::calculateAttachedPlacement(Base::Placement or
         AttachEngine3D attacher3D;
         attacher3D.setUp(*this);
         attacher3D.mapMode = mmode;
-        attacher3D.superPlacement = Base::Placement(); //superplacement is applied separately here, afterwards. So we are resetting it in sub-attacher to avoid applying it twice!
+        attacher3D.attachmentOffset = Base::Placement(); //AttachmentOffset is applied separately here, afterwards. So we are resetting it in sub-attacher to avoid applying it twice!
         plm = attacher3D.calculateAttachedPlacement(origPlacement);
     }
-    plm *= this->superPlacement;
+    plm *= this->attachmentOffset;
     return plm;
 }
 

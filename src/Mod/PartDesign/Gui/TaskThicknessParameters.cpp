@@ -24,6 +24,7 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+# include <QAction>
 #endif
 
 #include "ui_TaskThicknessParameters.h"
@@ -65,6 +66,9 @@ TaskThicknessParameters::TaskThicknessParameters(ViewProviderDressUp *DressUpVie
     ui->Value->setValue(a);
     ui->Value->selectAll();
     QMetaObject::invokeMethod(ui->Value, "setFocus", Qt::QueuedConnection);
+
+    // Bind input fields to properties
+    ui->Value->bind(pcThickness->Value);
 
     bool r = pcThickness->Reversed.getValue();
     ui->checkReverse->setChecked(r);

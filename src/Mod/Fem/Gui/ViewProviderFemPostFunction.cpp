@@ -157,7 +157,7 @@ ViewProviderFemPostFunction::~ViewProviderFemPostFunction()
     m_geometrySeperator->unref();
     m_manip->unref();
     m_scale->unref();
-    //transfom us unrefed when it is replaced by the dragger
+    //transform is unref'd when it is replaced by the dragger
 }
 
 void ViewProviderFemPostFunction::attach(App::DocumentObject *pcObj)
@@ -322,7 +322,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostPlaneFunction, FemGui::ViewProviderFe
 
 ViewProviderFemPostPlaneFunction::ViewProviderFemPostPlaneFunction() {
 
-    sPixmap = "fem-plane";
+    sPixmap = "fem-post-geo-plane";
 
     setAutoScale(true);
 
@@ -461,7 +461,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostSphereFunction, FemGui::ViewProviderF
 
 ViewProviderFemPostSphereFunction::ViewProviderFemPostSphereFunction() {
 
-    sPixmap = "fem-sphere";
+    sPixmap = "fem-post-geo-sphere";
 
     setAutoScale(false);
 

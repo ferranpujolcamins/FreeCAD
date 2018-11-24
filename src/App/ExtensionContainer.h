@@ -40,7 +40,7 @@ namespace App {
  * In FreeCAD normally inheritance is a chain, it is not possible to use multiple inheritance. 
  * The reason for this is that all objects need to be exposed to python, and it is basically 
  * impossible to handle multiple inheritance in the C-API for python extensions. Also using multiple
- * parent classes in python is currently not possible with the default object aproach.
+ * parent classes in python is currently not possible with the default object approach.
  * 
  * The concept of extensions allow to circumvent those problems. Extensions are FreeCAD objects 
  * which work like normal objects in the sense that they use properties and class methods to define 
@@ -48,7 +48,7 @@ namespace App {
  * extend other objects. A extended object gets all the properties and methods of the extension. 
  * Therefore it is like c++ multiple inheritance, which is indeed used to achieve this on c++ side, 
  * but provides a few important additional functionalities:
- * - Property persistance is handled, save and restore work out of the box
+ * - Property persistence is handled, save and restore work out of the box
  * - The objects python API gets extended too with the extension python API
  * - Extensions can be added from c++ and python, even from both together
  *
@@ -59,7 +59,7 @@ namespace App {
  * multiple inheritance. If added from python it is a runtime extension and not visible from type. 
  * Hence querying existing extensions of an object and accessing its methods works not by type 
  * casting but by the interface provided in ExtensionContainer. The default workflow is to query if 
- * an extension exists and then get the extension obejct. No matter if added from python or c++ this 
+ * an extension exists and then get the extension object. No matter if added from python or c++ this 
  * interface works always the same. 
  * @code
  * if (object->hasExtension(GroupExtension::getClassTypeId())) {
@@ -92,7 +92,7 @@ namespace App {
  * @endcode
  * 
  * From python adding an extension is easier, it must be simply registered to a document object 
- * at object initialisation like done with proeprties. Note that the special python extension objects
+ * at object initialisation like done with properties. Note that the special python extension objects
  * need to be added, not the c++ objects. Normally the only difference in name is the additional 
  * "Python" at the end of the extension name.
  * @code{.py}
@@ -182,7 +182,7 @@ public:
     virtual void Save(Base::Writer& writer) const override;
     virtual void Restore(Base::XMLReader& reader) override;
     
-    //those methods save/restore the dynamic extenions without handling properties, which is something
+    //those methods save/restore the dynamic extensions without handling properties, which is something
     //done by the default Save/Restore methods.
     void saveExtensions(Base::Writer& writer) const;
     void restoreExtensions(Base::XMLReader& reader);

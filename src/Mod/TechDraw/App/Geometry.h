@@ -181,7 +181,20 @@ class TechDrawExport BSpline: public BaseGeom
         ~BSpline() = default;
 
     public:
+        Base::Vector2d startPnt;
+        Base::Vector2d endPnt;
+        Base::Vector2d midPnt;
+        double startAngle;
+        double endAngle;
+        /// Arc is drawn clockwise from startAngle to endAngle if true, counterclockwise if false
+        bool cw;
+        bool isArc;
+
         bool isLine(void);
+        bool isCircle(void);
+        TopoDS_Edge isCircle2(bool& isArc);
+        void getCircleParms(bool& isCircle, double& radius, Base::Vector3d& center, bool& isArc);
+        bool intersectsArc(Base::Vector3d p1,Base::Vector3d p2);
         std::vector<BezierSegment> segments;
 };
 
@@ -192,7 +205,10 @@ class TechDrawExport Generic: public BaseGeom
         Generic();
         ~Generic() = default;
 
-       std::vector<Base::Vector2d> points;
+        Base::Vector2d asVector(void);
+        double slope(void);
+        Base::Vector2d apparentInter(Generic* g);
+        std::vector<Base::Vector2d> points;
 };
 
 

@@ -207,9 +207,8 @@ void PlanePy::setPosition(Py::Object arg)
             (this->getGeomPlanePtr()->handle());
         this_surf->SetLocation(loc);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::Exception(e->GetMessageString());
+    catch (Standard_Failure& e) {
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -251,8 +250,8 @@ void PlanePy::setAxis(Py::Object arg)
         axis.SetDirection(gp_Dir(dir_x, dir_y, dir_z));
         this_surf->SetAxis(axis);
     }
-    catch (Standard_Failure) {
-        throw Py::Exception("cannot set axis");
+    catch (Standard_Failure&) {
+        throw Py::RuntimeError("cannot set axis");
     }
 }
 
@@ -272,9 +271,8 @@ PyObject* PlanePy::uIso(PyObject * args)
         this_curv->SetLin(c->Lin());
         return new LinePy(line);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -295,9 +293,8 @@ PyObject* PlanePy::vIso(PyObject * args)
         this_curv->SetLin(c->Lin());
         return new LinePy(line);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }

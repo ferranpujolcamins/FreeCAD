@@ -46,6 +46,8 @@ class QGCustomBorder;
 class QGCustomLabel;
 class QGCustomText;
 class QGICaption;
+class MDIViewPage;
+class QGIViewClip;
 
 class TechDrawGuiExport  QGIView : public QGraphicsItemGroup
 {
@@ -61,7 +63,8 @@ public:
                         const QStyleOptionGraphicsItem *option,
                         QWidget *widget = nullptr ) override;
 
-    const char * getViewName() const;
+    const char *      getViewName() const;
+    const std::string getViewNameAsString() const;
     void setViewFeature(TechDraw::DrawView *obj);
     TechDraw::DrawView * getViewObject() const;
 
@@ -73,6 +76,10 @@ public:
     virtual bool isVisible(void) {return m_visibility;};
     virtual void draw(void);
     virtual void drawCaption(void);
+    virtual void rotateView(void);
+    void makeMark(double x, double y);
+    void makeMark(Base::Vector3d v);
+
 
     /** Methods to ensure that Y-Coordinates are orientated correctly.
      * @{ */
@@ -82,6 +89,8 @@ public:
     void isInnerView(bool state) { m_innerView = state; }
     double getYInClip(double y);
     /** @} */
+    QGIViewClip* getClipGroup(void);
+
 
     void alignTo(QGraphicsItem*, const QString &alignment);
     void setLocked(bool /*state*/ = true) { locked = true; }
@@ -91,6 +100,7 @@ public:
     virtual QColor getSelectColor(void);
     
     static Gui::ViewProvider* getViewProvider(App::DocumentObject* obj);
+    MDIViewPage* getMDIViewPage(void) const;
 
 protected:
     QGIView* getQGIVByName(std::string name);
@@ -102,7 +112,7 @@ protected:
     // Preselection events:
     virtual void hoverEnterEvent(QGraphicsSceneHoverEvent *event) override;
     virtual void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
-    virtual QRectF customChildrenBoundingRect(void);
+    virtual QRectF customChildrenBoundingRect(void) const;
     void dumpRect(char* text, QRectF r);
 
     QString getPrefFont(void);

@@ -78,7 +78,6 @@ class CommandPathCopy:
     def GetResources(self):
         return {'Pixmap': 'Path-Copy',
                 'MenuText': QtCore.QT_TRANSLATE_NOOP("Path_Copy", "Copy"),
-                'Accel': "P, Y",
                 'ToolTip': QtCore.QT_TRANSLATE_NOOP("Path_Copy", "Creates a linked copy of another path")}
 
     def IsActive(self):
@@ -104,11 +103,11 @@ selection = FreeCADGui.Selection.getSelection()
 proj = selection[0].InList[0] #get the group that the selectied object is inside
 
 if len(selection) != 1:
-    FreeCAD.Console.PrintError(translate("Path_Copy", "Please select one path object\\n"))
+    FreeCAD.Console.PrintError(translate("Path_Copy", "Please select one path object")+"\n")
     selGood = False
 
 if not selection[0].isDerivedFrom("Path::Feature"):
-    FreeCAD.Console.PrintError(translate("Path_Copy", "The selected object is not a path\\n"))
+    FreeCAD.Console.PrintError(translate("Path_Copy", "The selected object is not a path")+"\n")
     selGood = False
 
 if selGood:

@@ -27,6 +27,9 @@
 # include <QApplication>
 #endif
 
+# include <QMessageBox>
+
+#include <stdlib.h>
 #include <qdebug.h>
 #include <QString>
 #include <GC_MakeEllipse.hxx>
@@ -52,6 +55,7 @@
 
 #include "ViewProviderSketch.h"
 #include "DrawSketchHandler.h"
+#include "CommandConstraints.h"
 
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
@@ -60,6 +64,8 @@
 #include <Gui/ToolBarManager.h>
 
 #include "GeometryCreationMode.h"
+
+#include "SketcherRegularPolygonDialog.h"
 
 using namespace std;
 using namespace SketcherGui;
@@ -225,10 +231,24 @@ void removeRedundantHorizontalVertical(Sketcher::SketchObject* psketch,
 
 /* Sketch commands =======================================================*/
 
+static const char cursor_crosshair_color_fmt[] = "+ c #%06lX";
+static char cursor_crosshair_color[12];
+
+void DrawSketchHandler::setCrosshairColor()
+{
+    unsigned long color = 0xFFFFFFFF; // white
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath
+        ("User parameter:BaseApp/Preferences/View");
+    color = hGrp->GetUnsigned("CursorCrosshairColor", color);
+    // from rgba to rgb
+    color = (color >> 8) & 0xFFFFFF;
+    sprintf(cursor_crosshair_color, cursor_crosshair_color_fmt, color);
+}
+
 /* XPM */
 static const char *cursor_createline[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -278,6 +298,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createline),7,7);
     }
 
@@ -360,19 +381,12 @@ public:
                 sugConstr2.clear();
             }
 
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
             EditCurve.clear();
             sketchgui->drawEdit(EditCurve);
 
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -442,7 +456,7 @@ bool CmdSketcherCreateLine::isActive(void)
 /* XPM */
 static const char *cursor_createbox[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -492,6 +506,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createbox),7,7);
     }
 
@@ -602,18 +617,11 @@ public:
                 createAutoConstraints(sugConstr2, getHighestCurveIndex() - 2, Sketcher::end);
                 sugConstr2.clear();
             }
-            
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-            
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
 
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
+            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
             // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -687,7 +695,7 @@ bool CmdSketcherCreateRectangle::isActive(void)
 /* XPM */
 static const char *cursor_createlineset[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -729,6 +737,7 @@ public:
     DrawSketchHandlerLineSet()
       : Mode(STATUS_SEEK_First), SegmentMode(SEGMENT_MODE_Line)
       , TransitionMode(TRANSITION_MODE_Free)
+      , SnapMode(SNAP_MODE_Free)
       , suppressTransition(false)
       , EditCurve(2)
       , firstCurve(-1)
@@ -763,6 +772,12 @@ public:
         TRANSITION_MODE_Perpendicular_L,
         TRANSITION_MODE_Perpendicular_R
     };
+    
+    enum SNAP_MODE
+    {
+        SNAP_MODE_Free,
+        SNAP_MODE_45Degree
+    };
 
     virtual void registerPressedKey(bool pressed, int key)
     {
@@ -778,6 +793,8 @@ public:
             // SEGMENT_MODE_Arc, TRANSITION_MODE_Perpendicular_L
             // SEGMENT_MODE_Arc, TRANSITION_MODE_Perpendicular_R
 
+            SnapMode = SNAP_MODE_Free;
+            
             Base::Vector2d onSketchPos;
             if (SegmentMode == SEGMENT_MODE_Line)
                 onSketchPos = EditCurve[EditCurve.size()-1];
@@ -843,6 +860,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createlineset),7,7);
     }
 
@@ -893,6 +911,12 @@ public:
                 }
             }
             else if (SegmentMode == SEGMENT_MODE_Arc) {
+                
+                if(QApplication::keyboardModifiers() == Qt::ControlModifier)
+                    SnapMode = SNAP_MODE_45Degree;
+                else
+                    SnapMode = SNAP_MODE_Free;
+                
                 Base::Vector2d Tangent;
                 if  (TransitionMode == TRANSITION_MODE_Tangent)
                     Tangent = Base::Vector2d(dirVec.x,dirVec.y);
@@ -902,7 +926,9 @@ public:
                     Tangent = Base::Vector2d(dirVec.y,-dirVec.x);
 
                 double theta = Tangent.GetAngle(onSketchPos - EditCurve[0]);
+
                 arcRadius = (onSketchPos - EditCurve[0]).Length()/(2.0*sin(theta));
+
                 // At this point we need a unit normal vector pointing torwards
                 // the center of the arc we are drawing. Derivation of the formula
                 // used here can be found at http://people.richland.edu/james/lecture/m116/matrices/area.html
@@ -933,6 +959,10 @@ public:
                     arcAngle -=  2*M_PI;
                 if (arcRadius < 0 && arcAngle < 0)
                     arcAngle +=  2*M_PI;
+                
+                if (SnapMode == SNAP_MODE_45Degree)
+                    arcAngle = round(arcAngle / (M_PI/4)) * M_PI/4;
+
                 endAngle = startAngle + arcAngle;
 
                 for (int i=1; i <= 29; i++) {
@@ -981,8 +1011,10 @@ public:
                         previousCurve = sugConstr1[i].GeoId;
                         previousPosId = sugConstr1[i].PosId;
                         updateTransitionData(previousCurve,previousPosId); // -> dirVec, EditCurve[0]
-                        if (geom->getTypeId() == Part::GeomArcOfCircle::getClassTypeId())
+                        if (geom->getTypeId() == Part::GeomArcOfCircle::getClassTypeId()) {
                             TransitionMode = TRANSITION_MODE_Tangent;
+                            SnapMode = SNAP_MODE_Free;
+                        }
                         sugConstr1.erase(sugConstr1.begin()+i); // actually we should clear the vector completely
                         break;
                     }
@@ -1014,6 +1046,7 @@ public:
                     Mode=STATUS_SEEK_First;
                     SegmentMode=SEGMENT_MODE_Line;
                     TransitionMode=TRANSITION_MODE_Free;
+                    SnapMode = SNAP_MODE_Free;
                     suppressTransition=false;
                     firstCurve=-1;
                     previousCurve=-1;
@@ -1120,6 +1153,15 @@ public:
                     "App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('%s',%i,%i,%i,%i)) ",
                     sketchgui->getObject()->getNameInDocument(), constrType.c_str(),
                     previousCurve, previousPosId, lastCurve, lastStartPosId);
+
+                if(SnapMode == SNAP_MODE_45Degree && Mode != STATUS_Close) {
+                    // -360, -315, -270, -225, -180, -135, -90, -45,  0, 45,  90, 135, 180, 225, 270, 315, 360
+                    //  N/A,    a, perp,    a,  par,    a,perp,   a,N/A,  a,perp,   a, par,   a,perp,   a, N/A
+                    Gui::Command::doCommand(Gui::Command::Doc,
+                                            "App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Angle',%i,%f)) ",
+                                            sketchgui->getObject()->getNameInDocument(),
+                                            lastCurve, abs(endAngle-startAngle));
+                }
                 if (Mode == STATUS_Close) {
                     // close the loop by constrain to the first curve point
                     Gui::Command::doCommand(Gui::Command::Doc,
@@ -1128,14 +1170,8 @@ public:
                         lastCurve,lastEndPosId,firstCurve,firstPosId);
                 }
                 Gui::Command::commitCommand();
-                
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-            
-                if(autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();                
+
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
             
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
@@ -1162,6 +1198,8 @@ public:
                     createAutoConstraints(sugConstr, getHighestCurveIndex(), Sketcher::end);
                     sugConstr2.clear();
                 }
+                
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 unsetCursor();
 
@@ -1177,6 +1215,7 @@ public:
                     Mode=STATUS_SEEK_First;
                     SegmentMode=SEGMENT_MODE_Line;
                     TransitionMode=TRANSITION_MODE_Free;
+                    SnapMode = SNAP_MODE_Free;
                     suppressTransition=false;
                     firstCurve=-1;
                     previousCurve=-1;
@@ -1217,17 +1256,13 @@ public:
                 virtualsugConstr1 = sugConstr2; // these are the initial constraints for the next iteration.
 
                 if (sugConstr2.size() > 0) {
-                    createAutoConstraints(sugConstr2, getHighestCurveIndex(), Sketcher::end);
+                    createAutoConstraints(sugConstr2, getHighestCurveIndex(), 
+                                          (SegmentMode == SEGMENT_MODE_Arc && startAngle > endAngle) ?
+                                            Sketcher::start : Sketcher::end);
                     sugConstr2.clear();
                 }
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-                if(autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();                
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 // remember the vertex for the next rounds constraint..
                 previousCurve = getHighestCurveIndex();
@@ -1250,6 +1285,7 @@ public:
                     EditCurve.resize(2);
                 }
                 SegmentMode = SEGMENT_MODE_Line;
+                SnapMode = SNAP_MODE_Free;
                 EditCurve[1] = EditCurve[0];
                 mouseMove(onSketchPos); // trigger an update of EditCurve
             }
@@ -1279,6 +1315,7 @@ public:
                 Mode=STATUS_SEEK_First;
                 SegmentMode=SEGMENT_MODE_Line;
                 TransitionMode=TRANSITION_MODE_Free;
+                SnapMode = SNAP_MODE_Free;
                 suppressTransition=false;
                 firstCurve=-1;
                 previousCurve=-1;
@@ -1297,6 +1334,7 @@ protected:
     SELECT_MODE Mode;
     SEGMENT_MODE SegmentMode;
     TRANSITION_MODE TransitionMode;
+    SNAP_MODE SnapMode;
     bool suppressTransition;
 
     std::vector<Base::Vector2d> EditCurve;
@@ -1390,7 +1428,7 @@ bool CmdSketcherCreatePolyline::isActive(void)
 /* XPM */
 static const char *cursor_createarc[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+...........###...........",
@@ -1449,6 +1487,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createarc),7,7);
     }
 
@@ -1598,17 +1637,11 @@ public:
                 sugConstr3.clear();
             }
 
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
 
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
+            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -1667,7 +1700,7 @@ bool CmdSketcherCreateArc::isActive(void)
 /* XPM */
 static const char *cursor_create3pointarc[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+...........###...........",
@@ -1725,6 +1758,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_create3pointarc),7,7);
     }
 
@@ -1914,18 +1948,11 @@ public:
                 createAutoConstraints(sugConstr3, getHighestCurveIndex(), Sketcher::none);
                 sugConstr3.clear();
             }
-            
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
 
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
+            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -2085,7 +2112,7 @@ bool CmdSketcherCompCreateArc::isActive(void)
 /* XPM */
 static const char *cursor_createcircle[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -2135,6 +2162,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createcircle),7,7);
     }
 
@@ -2225,18 +2253,11 @@ public:
                 createAutoConstraints(sugConstr2, getHighestCurveIndex(), Sketcher::none);
                 sugConstr2.clear();
             }
-            
+
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
-
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -2294,7 +2315,7 @@ bool CmdSketcherCreateCircle::isActive(void)
  */
 static const char *cursor_createellipse[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -2402,6 +2423,7 @@ public:
      */
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createellipse),7,7);
         if (constrMethod == 0) {
             method = CENTER_PERIAPSIS_B;
@@ -3027,14 +3049,8 @@ private:
             Base::Console().Error("%s\n", e.what());
             Gui::Command::abortCommand();
 
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-            
-            if(autoRecompute) 
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
-            
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             return;
         }
         
@@ -3070,14 +3086,8 @@ private:
                 sugConstr3.clear();
             }
         }
-        
-        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-        bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-    
-        if(autoRecompute)
-            Gui::Command::updateActive();
-        else
-            static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();        
+
+        tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
         // This code enables the continuous creation mode.
         if (constrMethod == 0) {
@@ -3090,7 +3100,7 @@ private:
         editCurve.clear();
         sketchgui->drawEdit(editCurve);
         
-        //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
+        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
         bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
 
         
@@ -3123,7 +3133,7 @@ CmdSketcherCreateEllipseByCenter::CmdSketcherCreateEllipseByCenter()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create ellipse by center");
     sToolTipText    = QT_TR_NOOP("Create an ellipse by center in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateEllipseByCenter";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Conics_Ellipse_Center";
     eType           = ForEdit;
@@ -3153,7 +3163,7 @@ CmdSketcherCreateEllipseBy3Points::CmdSketcherCreateEllipseBy3Points()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create ellipse by 3 points");
     sToolTipText    = QT_TR_NOOP("Create an ellipse by 3 points in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateEllipseBy3Points";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_CreateEllipse_3points";
     eType           = ForEdit;
@@ -3173,7 +3183,7 @@ bool CmdSketcherCreateEllipseBy3Points::isActive(void)
 /* XPM */
 static const char *cursor_createarcofellipse[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -3223,13 +3233,14 @@ public:
     enum SelectMode {
         STATUS_SEEK_First,      /**< enum value ----. */
         STATUS_SEEK_Second,     /**< enum value ----. */
-        STATUS_SEEK_Third,     /**< enum value ----. */      
+        STATUS_SEEK_Third,      /**< enum value ----. */
         STATUS_SEEK_Fourth,     /**< enum value ----. */
         STATUS_Close
     };
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createarcofellipse),7,7);
     }
 
@@ -3455,13 +3466,7 @@ public:
                 Base::Console().Error("%s\n", e.what());
                 Gui::Command::abortCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-                
-                if(autoRecompute) 
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();                
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 return false;
             }
@@ -3492,17 +3497,10 @@ public:
                 sugConstr4.clear();
             }
 
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
-
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -3538,7 +3536,7 @@ CmdSketcherCreateArcOfEllipse::CmdSketcherCreateArcOfEllipse()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of ellipse");
     sToolTipText    = QT_TR_NOOP("Create an arc of ellipse in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfEllipse";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Elliptical_Arc";
     eType           = ForEdit;
@@ -3558,7 +3556,7 @@ bool CmdSketcherCreateArcOfEllipse::isActive(void)
 /* XPM */
 static const char *cursor_createarcofhyperbola[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -3616,6 +3614,7 @@ public:
 
     virtual void activated(ViewProviderSketch * /*sketchgui*/)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createarcofhyperbola),7,7);
     }
 
@@ -3849,13 +3848,7 @@ public:
                 Base::Console().Error("%s\n", e.what());
                 Gui::Command::abortCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-                if(autoRecompute) 
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 return false;
             }
@@ -3886,15 +3879,9 @@ public:
                 sugConstr4.clear();
             }
 
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();        
-
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
 
             if(continuousMode){
@@ -3933,7 +3920,7 @@ CmdSketcherCreateArcOfHyperbola::CmdSketcherCreateArcOfHyperbola()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of hyperbola");
     sToolTipText    = QT_TR_NOOP("Create an arc of hyperbola in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfHyperbola";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Hyperbolic_Arc";
     eType           = ForEdit;
@@ -3952,7 +3939,7 @@ bool CmdSketcherCreateArcOfHyperbola::isActive(void)
 /* XPM */
 static const char *cursor_createarcofparabola[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -4012,6 +3999,7 @@ public:
 
     virtual void activated(ViewProviderSketch * /*sketchgui*/)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createarcofparabola),7,7);
     }
 
@@ -4206,13 +4194,7 @@ public:
                 Base::Console().Error("%s\n", e.what());
                 Gui::Command::abortCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-                if (autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 return false;
             }
@@ -4243,16 +4225,10 @@ public:
                 sugConstr4.clear();
             }
 
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();        
-
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-
             if (continuousMode) {
                 // This code enables the continuous creation mode.
                 Mode = STATUS_SEEK_First;
@@ -4289,7 +4265,7 @@ CmdSketcherCreateArcOfParabola::CmdSketcherCreateArcOfParabola()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create an arc of parabola");
     sToolTipText    = QT_TR_NOOP("Create an arc of parabola in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreateArcOfParabola";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Parabolic_Arc";
     eType           = ForEdit;
@@ -4321,7 +4297,7 @@ CmdSketcherCompCreateConic::CmdSketcherCompCreateConic()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create a conic");
     sToolTipText    = QT_TR_NOOP("Create a conic in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CompCreateConic";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
 }
@@ -4456,7 +4432,7 @@ bool CmdSketcherCompCreateConic::isActive(void)
 /* XPM */
 static const char *cursor_createbspline[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -4517,6 +4493,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createbspline),7,7);
     }
 
@@ -4627,13 +4604,34 @@ public:
                 //Gui::Command::openCommand("Add Pole circle");
                 
                 //Add pole
+                double guess = (EditCurve[1]-EditCurve[0]).Length()/6;
+
+                auto normalize = [](double guess) {
+                    double units=1.0;
+
+                    while (guess >= 10.0) {
+                        guess /= 10.0;
+                        units*=10.0;
+                    }
+
+                    while (guess < 1.0) {
+                        guess *= 10.0;
+                        units/=10.0;
+                    }
+
+                    return round(guess)*units;
+
+                };
+
+                guess = normalize(guess);
+
                 Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addGeometry(Part.Circle(App.Vector(%f,%f,0),App.Vector(0,0,1),10),True)",
                                         sketchgui->getObject()->getNameInDocument(),
                                         EditCurve[EditCurve.size()-1].x,EditCurve[EditCurve.size()-1].y);
                 
                 if(EditCurve.size() == 2) {
                     Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Radius',%d,%f)) ",
-                                            sketchgui->getObject()->getNameInDocument(), FirstPoleGeoId, round( (EditCurve[1]-EditCurve[0]).Length()/6 ));                        
+                                            sketchgui->getObject()->getNameInDocument(), FirstPoleGeoId, guess );
                 }
 
                 Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.addConstraint(Sketcher.Constraint('Equal',%d,%d)) ",
@@ -4718,10 +4716,27 @@ public:
                                         ConstrMethod == 0 ?"False":"True",
                                         geometryCreationMode==Construction?"True":"False");
 
-                
-                
-                
+
                 currentgeoid++;
+
+                // autoconstraints were added to the circles of the poles, which is ok because they must go to the
+                // right position, or the user will freak-out if they appear out of the autoconstrained position.
+                // However, autoconstrains on the first and last pole, in normal non-periodic b-splines (with appropriate endpoint knot multiplicity)
+                // as the ones created by this tool are intended for the b-spline endpoints, and not for the poles,
+                // so here we retrieve any autoconstraint on those poles' center and mangle it to the endpoint.
+                if (ConstrMethod == 0) {
+                    
+                    for(auto & constr : static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->Constraints.getValues()) {
+                        if(constr->First == FirstPoleGeoId && constr->FirstPos == Sketcher::mid) {
+                            constr->First = currentgeoid;
+                            constr->FirstPos = Sketcher::start;
+                        }
+                        else if(constr->First == (FirstPoleGeoId + CurrentConstraint - 1) && constr->FirstPos == Sketcher::mid) {
+                            constr->First = currentgeoid;
+                            constr->FirstPos = Sketcher::end;
+                        }
+                    }
+                }
 
                 // Constraint pole circles to B-spline.
                 std::stringstream cstream;
@@ -4748,27 +4763,16 @@ public:
                 Base::Console().Error("%s\n", e.what());
                 Gui::Command::abortCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-                if(autoRecompute) 
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
 
                 return false;
             }
 
             Gui::Command::commitCommand();
 
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
-
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
 
             if(continuousMode){
@@ -4818,15 +4822,9 @@ public:
             //sketchgui->getDocument()->undo(1);
             
             Gui::Command::abortCommand();
-            
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-            
-            if(autoRecompute) 
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
-            
+
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             if(!continuousMode){
                 DrawSketchHandler::quit();
             }
@@ -4918,7 +4916,7 @@ CmdSketcherCreatePeriodicBSpline::CmdSketcherCreatePeriodicBSpline()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create periodic B-spline");
     sToolTipText    = QT_TR_NOOP("Create a periodic B-spline via control point in the sketch.");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CreatePeriodicBSpline";
     sStatusTip      = sToolTipText;
     sPixmap         = "Sketcher_Create_Periodic_BSpline";
     eType           = ForEdit;
@@ -4927,7 +4925,7 @@ CmdSketcherCreatePeriodicBSpline::CmdSketcherCreatePeriodicBSpline()
 void CmdSketcherCreatePeriodicBSpline::activated(int iMsg)
 {
     Q_UNUSED(iMsg);
-    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerEllipse(1) );
+    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerBSpline(1) );
 }
 
 bool CmdSketcherCreatePeriodicBSpline::isActive(void)
@@ -4949,7 +4947,7 @@ CmdSketcherCompCreateBSpline::CmdSketcherCompCreateBSpline()
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create a B-spline");
     sToolTipText    = QT_TR_NOOP("Create a B-spline in the sketch");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Sketcher_CompCreateBSpline";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
 }
@@ -5032,13 +5030,13 @@ void CmdSketcherCompCreateBSpline::languageChange()
     QList<QAction*> a = pcAction->actions();
     
     QAction* bspline = a[0];
-    bspline->setText(QApplication::translate("Sketcher_CreateBSpline","B-spline by control points or poles"));
-    bspline->setToolTip(QApplication::translate("Sketcher_CreateBSpline","Create a B-spline by control points or poles"));
-    bspline->setStatusTip(QApplication::translate("Sketcher_CreateBSpline","Create a B-spline by control points or poles"));
+    bspline->setText(QApplication::translate("Sketcher_CreateBSpline","B-spline by control points"));
+    bspline->setToolTip(QApplication::translate("Sketcher_CreateBSpline","Create a B-spline by control points"));
+    bspline->setStatusTip(QApplication::translate("Sketcher_CreateBSpline","Create a B-spline by control points"));
     QAction* periodicbspline = a[1];
-    periodicbspline->setText(QApplication::translate("Sketcher_Create_Periodic_BSpline","Periodic B-spline by control points or poles"));
-    periodicbspline->setToolTip(QApplication::translate("Sketcher_Create_Periodic_BSpline","Create a periodic B-spline by control points or poles"));
-    periodicbspline->setStatusTip(QApplication::translate("Sketcher_Create_Periodic_BSpline","Create a periodic B-spline by control points or poles"));
+    periodicbspline->setText(QApplication::translate("Sketcher_Create_Periodic_BSpline","Periodic B-spline by control points"));
+    periodicbspline->setToolTip(QApplication::translate("Sketcher_Create_Periodic_BSpline","Create a periodic B-spline by control points"));
+    periodicbspline->setStatusTip(QApplication::translate("Sketcher_Create_Periodic_BSpline","Create a periodic B-spline by control points"));
 }
 
 bool CmdSketcherCompCreateBSpline::isActive(void)
@@ -5052,7 +5050,7 @@ bool CmdSketcherCompCreateBSpline::isActive(void)
 /* XPM */
 static const char *cursor_create3pointcircle[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -5104,6 +5102,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_create3pointcircle),7,7);
     }
 
@@ -5241,18 +5240,11 @@ public:
                 createAutoConstraints(sugConstr3, getHighestCurveIndex(), Sketcher::none);
                 sugConstr3.clear();
             }
-            
+
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
-            
-            //ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 Mode=STATUS_SEEK_First;
@@ -5411,7 +5403,7 @@ bool CmdSketcherCompCreateCircle::isActive(void)
 /* XPM */
 static const char *cursor_createpoint[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -5455,6 +5447,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createpoint),7,7);
     }
 
@@ -5500,17 +5493,11 @@ public:
                 createAutoConstraints(sugConstr, getHighestCurveIndex(), Sketcher::start);
                 sugConstr.clear();
             }
-            
-            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-            bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-            if(autoRecompute)
-                Gui::Command::updateActive();
-            else
-                static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();            
 
+            tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
+
+            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
-            
             if(continuousMode){
                 // This code enables the continuous creation mode.
                 applyCursor();
@@ -5637,7 +5624,7 @@ namespace SketcherGui {
                 int GeoId = std::atoi(element.substr(4,4000).c_str()) - 1;
                 Sketcher::SketchObject *Sketch = static_cast<Sketcher::SketchObject*>(object);
                 const Part::Geometry *geom = Sketch->getGeometry(GeoId);
-                if (geom->getTypeId() == Part::GeomLineSegment::getClassTypeId())
+                if (geom->getTypeId().isDerivedFrom(Part::GeomBoundedCurve::getClassTypeId()))
                     return true;
             }
             if (element.substr(0,6) == "Vertex") {
@@ -5663,7 +5650,7 @@ namespace SketcherGui {
 /* XPM */
 static const char *cursor_createfillet[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "* c red",
 ". c None",
 "......+.........................",
@@ -5716,6 +5703,7 @@ public:
     {
         Gui::Selection().rmvSelectionGate();
         Gui::Selection().addSelectionGate(new FilletSelection(sketchgui->getObject()));
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createfillet),7,7);
     }
 
@@ -5792,13 +5780,7 @@ public:
                     Gui::Command::abortCommand();
                 }
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-            
-                if(autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();                
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
             return true;
         }
@@ -5806,7 +5788,7 @@ public:
         int GeoId = sketchgui->getPreselectCurve();
         if (GeoId > -1) {
             const Part::Geometry *geom = sketchgui->getSketchObject()->getGeometry(GeoId);
-            if (geom->getTypeId() == Part::GeomLineSegment::getClassTypeId()) {
+            if (geom->getTypeId().isDerivedFrom(Part::GeomBoundedCurve::getClassTypeId())) {
                 if (Mode==STATUS_SEEK_First) {
                     firstCurve = GeoId;
                     firstPos = onSketchPos;
@@ -5824,19 +5806,38 @@ public:
                 else if (Mode==STATUS_SEEK_Second) {
                     int secondCurve = GeoId;
                     Base::Vector2d secondPos = onSketchPos;
-
-                    // guess fillet radius
-                    const Part::GeomLineSegment *lineSeg1 = static_cast<const Part::GeomLineSegment *>
-                                                            (sketchgui->getSketchObject()->getGeometry(firstCurve));
-                    const Part::GeomLineSegment *lineSeg2 = static_cast<const Part::GeomLineSegment *>
-                                                            (sketchgui->getSketchObject()->getGeometry(secondCurve));
+                    
                     Base::Vector3d refPnt1(firstPos.x, firstPos.y, 0.f);
                     Base::Vector3d refPnt2(secondPos.x, secondPos.y, 0.f);
-                    double radius = Part::suggestFilletRadius(lineSeg1, lineSeg2, refPnt1, refPnt2);
-                    if (radius < 0)
-                        return false;
                     
-                    construction=lineSeg1->Construction && lineSeg2->Construction;
+                    const Part::Geometry *geom1 = sketchgui->getSketchObject()->getGeometry(firstCurve);
+
+                    double radius = 0;
+                    
+                    if( geom->getTypeId() == Part::GeomLineSegment::getClassTypeId() &&
+                        geom1->getTypeId() == Part::GeomLineSegment::getClassTypeId()) {
+                        // guess fillet radius
+                        const Part::GeomLineSegment *lineSeg1 = static_cast<const Part::GeomLineSegment *>
+                                                                (sketchgui->getSketchObject()->getGeometry(firstCurve));
+                        const Part::GeomLineSegment *lineSeg2 = static_cast<const Part::GeomLineSegment *>
+                                                                (sketchgui->getSketchObject()->getGeometry(secondCurve));
+
+                        radius = Part::suggestFilletRadius(lineSeg1, lineSeg2, refPnt1, refPnt2);
+                        if (radius < 0)
+                            return false;
+                        
+                        construction=lineSeg1->Construction && lineSeg2->Construction;
+                    }
+                    else { // other supported curves
+                        const Part::Geometry *geo1 = static_cast<const Part::Geometry *>
+                                                                (sketchgui->getSketchObject()->getGeometry(firstCurve));
+                        const Part::Geometry *geo2 = static_cast<const Part::Geometry *>
+                                                                (sketchgui->getSketchObject()->getGeometry(secondCurve));
+                        
+                        construction=geo1->Construction && geo2->Construction;                       
+                    }
+                    
+                    
                     int currentgeoid= getHighestCurveIndex();
 
                     // create fillet between lines
@@ -5849,16 +5850,24 @@ public:
                                   secondPos.x, secondPos.y, radius);
                         Gui::Command::commitCommand();
                     }
-                    catch (const Base::Exception& e) {
-                        Base::Console().Error("Failed to create fillet: %s\n", e.what());
+                    catch (const Base::CADKernelError& e) {
+                        e.ReportException();
+                        if(e.getTranslatable()) {
+                            QMessageBox::warning(Gui::getMainWindow(), QObject::tr("CAD Kernel Error"),
+                                                QObject::tr(e.getMessage().c_str()));
+                        }
+                        Gui::Selection().clearSelection();
                         Gui::Command::abortCommand();
+                        Mode = STATUS_SEEK_First;
+                    }
+                    catch (const Base::ValueError& e) {
+                        e.ReportException();
+                        Gui::Selection().clearSelection();
+                        Gui::Command::abortCommand();
+                        Mode = STATUS_SEEK_First;
                     }
 
-                    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-                
-                    if(autoRecompute)
-                        Gui::Command::updateActive();
+                    tryAutoRecompute(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
                     
                     if(construction) {
                         Gui::Command::doCommand(Gui::Command::Doc,
@@ -5953,7 +5962,7 @@ namespace SketcherGui {
 /* XPM */
 static const char *cursor_trimming[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "* c red",
 ". c None",
 "......+.........................",
@@ -6003,6 +6012,7 @@ public:
         Gui::Selection().clearSelection();
         Gui::Selection().rmvSelectionGate();
         Gui::Selection().addSelectionGate(new TrimmingSelection(sketchgui->getObject()));
+        setCrosshairColor();
         setCursor(QPixmap(cursor_trimming),7,7);
     }
 
@@ -6033,12 +6043,7 @@ public:
                               sketchgui->getObject()->getNameInDocument(),
                               GeoId, onSketchPos.x, onSketchPos.y);
                     Gui::Command::commitCommand();
-                    
-                    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-                    if(autoRecompute)
-                        Gui::Command::updateActive();
+                    tryAutoRecompute(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
                 }
                 catch (const Base::Exception& e) {
                     Base::Console().Error("Failed to trim edge: %s\n", e.what());
@@ -6125,7 +6130,7 @@ namespace SketcherGui {
 /* XPM */
 static const char *cursor_extension[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "* c red",
 ". c None",
 "......+.........................",
@@ -6169,6 +6174,8 @@ public:
         , EditCurve(2)
         , BaseGeoId(-1)
         , ExtendFromStart(false)
+        , SavedExtendFromStart(false)
+        , Increment(0)
     {
     }
     virtual ~DrawSketchHandlerExtend()
@@ -6187,6 +6194,7 @@ public:
         Gui::Selection().rmvSelectionGate();
         filterGate = new ExtendSelection(sketchgui->getObject());
         Gui::Selection().addSelectionGate(filterGate);
+        setCrosshairColor();
         setCursor(QPixmap(cursor_extension),7,7);
     }
 
@@ -6446,7 +6454,6 @@ namespace SketcherGui {
         bool allow(App::Document *pDoc, App::DocumentObject *pObj, const char *sSubName)
         {
             Sketcher::SketchObject *sketch = static_cast<Sketcher::SketchObject*>(object);
-            sketch->allowOtherBody = (QApplication::keyboardModifiers() == Qt::ControlModifier);
 
             this->notAllowedReason = "";
             Sketcher::SketchObject::eReasonList msg;
@@ -6459,7 +6466,7 @@ namespace SketcherGui {
                     this->notAllowedReason = QT_TR_NOOP("This object is in another document.");
                     break;
                 case Sketcher::SketchObject::rlOtherBody:
-                    this->notAllowedReason = QT_TR_NOOP("This object belongs to another body, can't link. Hold Ctrl to allow cross-references.");
+                    this->notAllowedReason = QT_TR_NOOP("This object belongs to another body, can't link.");
                     break;
                 case Sketcher::SketchObject::rlOtherPart:
                     this->notAllowedReason = QT_TR_NOOP("This object belongs to another part, can't link.");
@@ -6499,7 +6506,7 @@ namespace SketcherGui {
 /* XPM */
 static const char *cursor_external[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "* c red",
 ". c None",
 "......+.........................",
@@ -6557,6 +6564,7 @@ public:
         Gui::Selection().clearSelection();
         Gui::Selection().rmvSelectionGate();
         Gui::Selection().addSelectionGate(new ExternalSelection(sketchgui->getObject()));
+        setCrosshairColor();
         setCursor(QPixmap(cursor_external),7,7);
     }
 
@@ -6593,7 +6601,7 @@ public:
         if (msg.Type == Gui::SelectionChanges::AddSelection) {
             App::DocumentObject* obj = sketchgui->getObject()->getDocument()->getObject(msg.pObjectName);
             if (obj == NULL)
-                throw Base::Exception("Sketcher: External geometry: Invalid object in selection");
+                throw Base::ValueError("Sketcher: External geometry: Invalid object in selection");
             std::string subName(msg.pSubName);
             if (obj->getTypeId().isDerivedFrom(App::Plane::getClassTypeId()) ||
                 obj->getTypeId().isDerivedFrom(Part::Datum::getClassTypeId()) ||
@@ -6607,19 +6615,12 @@ public:
                               msg.pObjectName, msg.pSubName);
                     Gui::Command::commitCommand();
                     
-                    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-                
-                    if(autoRecompute)
-                        Gui::Command::updateActive();
-                    else {
-                        // adding external geometry does not require a solve() per se (the DoF is the same), 
-                        // however a solve is required to update the amount of solver geometry, because we only
-                        // redraw a changed Sketch if the solver geometry amount is the same as the SkethObject
-                        // geometry amount (as this avoids other issues).
-                        // This solver is a very low cost one anyway (there is actually nothing to solve).
-                        static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
-                    }
+                    // adding external geometry does not require a solve() per se (the DoF is the same),
+                    // however a solve is required to update the amount of solver geometry, because we only
+                    // redraw a changed Sketch if the solver geometry amount is the same as the SkethObject
+                    // geometry amount (as this avoids other issues).
+                    // This solver is a very low cost one anyway (there is actually nothing to solve).
+                    tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
                     
                     Gui::Selection().clearSelection();
                 /* this is ok not to call to purgeHandler
@@ -6629,6 +6630,7 @@ public:
                 }
                 catch (const Base::Exception& e) {
                     Base::Console().Error("Failed to add external geometry: %s\n", e.what());
+                    Gui::Selection().clearSelection();
                     Gui::Command::abortCommand();
                 }
                 return true;
@@ -6681,9 +6683,9 @@ namespace SketcherGui {
             Q_UNUSED(sSubName);
             
             Sketcher::SketchObject *sketch = static_cast<Sketcher::SketchObject*>(object);
-            sketch->allowOtherBody = (QApplication::keyboardModifiers() == Qt::ControlModifier || QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::AltModifier));
-            sketch->allowUnaligned = QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::AltModifier);
-            
+            sketch->setAllowOtherBody(QApplication::keyboardModifiers() == Qt::ControlModifier || QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::AltModifier));
+            sketch->setAllowUnaligned(QApplication::keyboardModifiers() == (Qt::ControlModifier | Qt::AltModifier));
+
             this->notAllowedReason = "";
             Sketcher::SketchObject::eReasonList msg;
             // Reusing code: All good reasons not to allow a carbon copy
@@ -6698,6 +6700,9 @@ namespace SketcherGui {
                         break;
                     case Sketcher::SketchObject::rlOtherBody:
                         this->notAllowedReason = QT_TR_NOOP("This object belongs to another body. Hold Ctrl to allow crossreferences.");
+                        break;
+                    case Sketcher::SketchObject::rlOtherBodyWithLinks:
+                        this->notAllowedReason = QT_TR_NOOP("This object belongs to another body and it contains external geometry. Crossreference not allowed.");
                         break;
                     case Sketcher::SketchObject::rlOtherPart:
                         this->notAllowedReason = QT_TR_NOOP("This object belongs to another part.");
@@ -6726,7 +6731,7 @@ namespace SketcherGui {
 /* XPM */
 static const char *cursor_carboncopy[]={
     "32 32 3 1",
-    "+ c white",
+    cursor_crosshair_color,
     "* c red",
     ". c None",
     "......+.........................",
@@ -6784,6 +6789,7 @@ static const char *cursor_carboncopy[]={
             Gui::Selection().clearSelection();
             Gui::Selection().rmvSelectionGate();
             Gui::Selection().addSelectionGate(new CarbonCopySelection(sketchgui->getObject()));
+            setCrosshairColor();
             setCursor(QPixmap(cursor_carboncopy),7,7);
         }
         
@@ -6820,7 +6826,7 @@ static const char *cursor_carboncopy[]={
             if (msg.Type == Gui::SelectionChanges::AddSelection) {
                 App::DocumentObject* obj = sketchgui->getObject()->getDocument()->getObject(msg.pObjectName);
                 if (obj == NULL)
-                    throw Base::Exception("Sketcher: Carbon Copy: Invalid object in selection");
+                    throw Base::ValueError("Sketcher: Carbon Copy: Invalid object in selection");
                 
                 if (obj->getTypeId() == Sketcher::SketchObject::getClassTypeId()) {
 
@@ -6832,14 +6838,7 @@ static const char *cursor_carboncopy[]={
                         
                         Gui::Command::commitCommand();
                         
-                        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                        bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-                        
-                        if(autoRecompute)
-                            Gui::Command::updateActive();
-                        else {
-                            static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
-                        }
+                        tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
                         
                         Gui::Selection().clearSelection();
                         /* this is ok not to call to purgeHandler
@@ -6905,7 +6904,7 @@ static const char *cursor_carboncopy[]={
 /* XPM */
 static const char *cursor_creatslot[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -6960,6 +6959,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_creatslot),7,7);
     }
 
@@ -7068,24 +7068,24 @@ public:
                     "conList.append(Sketcher.Constraint('%s',%i))\n"
                     "conList.append(Sketcher.Constraint('Equal',%i,%i))\n"
                     "App.ActiveDocument.%s.addConstraint(conList)\n",
-                    StartPos.x,StartPos.y,  // center of the  arc1
+                    StartPos.x,StartPos.y,  // center of the arc1
                     fabs(r),                  // radius arc1
                     start,end,                 // start and end angle of arc1
-                    StartPos.x+lx,StartPos.y+ly,    // center of the  arc2
+                    StartPos.x+lx,StartPos.y+ly,    // center of the arc2
                     fabs(r),                          // radius arc2
                     end,start,                         // start and end angle of arc2
                     EditCurve[16].x,EditCurve[16].y,EditCurve[17].x,EditCurve[17].y, // line1
                     EditCurve[0].x,EditCurve[0].y,EditCurve[34].x,EditCurve[34].y, // line2
                     sketchgui->getObject()->getNameInDocument(), // the sketch
-                    geometryCreationMode==Construction?"True":"False", // geometry as construction or not                                        
+                    geometryCreationMode==Construction?"True":"False", // geometry as construction or not
                     firstCurve,firstCurve+3, // tangent1
                     firstCurve,firstCurve+2, // tangent2
                     firstCurve+2,firstCurve+1, // tangent3
                     firstCurve+3,firstCurve+1, // tangent4
                     (fabs(lx)>fabs(ly))?"Horizontal":"Vertical", firstCurve+2, // vertical or horizontal constraint
                     firstCurve,firstCurve+1, // equal constraint
-                    sketchgui->getObject()->getNameInDocument()); // the sketch                
-                
+                    sketchgui->getObject()->getNameInDocument()); // the sketch
+
                 Gui::Command::commitCommand();
 
                 // add auto constraints at the start of the first side
@@ -7100,22 +7100,13 @@ public:
                     sugConstr2.clear();
                 }
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-                if(autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
             catch (const Base::Exception& e) {
                 Base::Console().Error("Failed to add slot: %s\n", e.what());
                 Gui::Command::abortCommand();
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-                
-                if(autoRecompute)
-                    Gui::Command::updateActive();                
+
+                tryAutoRecompute(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
             bool continuousMode = hGrp->GetBool("ContinuousCreationMode",true);
@@ -7193,7 +7184,7 @@ bool CmdSketcherCreateSlot::isActive(void)
 /* XPM */
 static const char *cursor_createregularpolygon[]={
 "32 32 3 1",
-"+ c white",
+cursor_crosshair_color,
 "# c red",
 ". c None",
 "......+.........................",
@@ -7251,6 +7242,7 @@ public:
 
     virtual void activated(ViewProviderSketch *)
     {
+        setCrosshairColor();
         setCursor(QPixmap(cursor_createregularpolygon),7,7);
     }
 
@@ -7287,7 +7279,7 @@ public:
             setPositionText(onSketchPos, text);
 
             sketchgui->drawEdit(EditCurve);
-            if (seekAutoConstraint(sugConstr2, onSketchPos, dV)) {
+            if (seekAutoConstraint(sugConstr2, onSketchPos, Base::Vector2d(0.f,0.f))) {
                 renderSuggestConstraintsCursor(sugConstr2);
                 return;
             }
@@ -7326,9 +7318,6 @@ public:
                 
                 Gui::Command::commitCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
                 // add auto constraints at the center of the polygon
                 if (sugConstr1.size() > 0) {
                     createAutoConstraints(sugConstr1, getHighestCurveIndex(), Sketcher::mid);
@@ -7341,20 +7330,13 @@ public:
                     sugConstr2.clear();
                 }
 
-                if(autoRecompute)
-                    Gui::Command::updateActive();
-                else
-                    static_cast<Sketcher::SketchObject *>(sketchgui->getObject())->solve();                
+                tryAutoRecomputeIfNotSolve(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
             catch (const Base::Exception& e) {
                 Base::Console().Error("Failed to add hexagon: %s\n", e.what());
                 Gui::Command::abortCommand();
 
-                ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-                bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-                if(autoRecompute) // toggling does not modify the DoF of the solver, however it may affect features depending on the sketch
-                    Gui::Command::updateActive();
+                tryAutoRecompute(static_cast<Sketcher::SketchObject *>(sketchgui->getObject()));
             }
 
             ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
@@ -7546,6 +7528,31 @@ bool CmdSketcherCreateOctagon::isActive(void)
     return isCreateGeoActive(getActiveGuiDocument());
 }
 
+DEF_STD_CMD_A(CmdSketcherCreateRegularPolygon);
+CmdSketcherCreateRegularPolygon::CmdSketcherCreateRegularPolygon()
+: Command("Sketcher_CreateRegularPolygon")
+{
+    sAppModule      = "Sketcher";
+    sGroup          = QT_TR_NOOP("Sketcher");
+    sMenuText       = QT_TR_NOOP("Create regular polygon");
+    sToolTipText    = QT_TR_NOOP("Create a regular polygon in the sketch");
+    sWhatsThis      = "Sketcher_CreateRegularPolygon";
+    sStatusTip      = sToolTipText;
+    sPixmap         = "CreateRegularPolygon";
+    sAccel          = "";
+    eType           = ForEdit;
+}
+
+void CmdSketcherCreateRegularPolygon::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(8) );
+}
+
+bool CmdSketcherCreateRegularPolygon::isActive(void)
+{
+    return isCreateGeoActive(getActiveGuiDocument());
+}
 
 DEF_STD_CMD_ACLU(CmdSketcherCompCreateRegularPolygon);
 
@@ -7555,7 +7562,7 @@ CmdSketcherCompCreateRegularPolygon::CmdSketcherCompCreateRegularPolygon()
     sAppModule      = "Sketcher";
     sGroup          = QT_TR_NOOP("Sketcher");
     sMenuText       = QT_TR_NOOP("Create regular polygon");
-    sToolTipText    = QT_TR_NOOP("Create an regular polygon in the sketcher");
+    sToolTipText    = QT_TR_NOOP("Create a regular polygon in the sketcher");
     sWhatsThis      = "Sketcher_CompCreateRegularPolygon";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
@@ -7576,6 +7583,17 @@ void CmdSketcherCompCreateRegularPolygon::activated(int iMsg)
         ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(7)); break;
     case 5:
         ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(8)); break;
+    case 6:
+    {
+        // Pop-up asking for values
+        SketcherRegularPolygonDialog * srpd = new SketcherRegularPolygonDialog();
+
+        if (srpd->exec() == QDialog::Accepted)
+            ActivateHandler(getActiveGuiDocument(),new DrawSketchHandlerRegularPolygon(srpd->sides));
+
+        delete srpd;
+    }
+    break;
     default:
         return;
     }
@@ -7607,6 +7625,8 @@ Gui::Action * CmdSketcherCompCreateRegularPolygon::createAction(void)
     heptagon->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon"));
     QAction* octagon = pcAction->addAction(QString());
     octagon->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon"));
+    QAction* regular = pcAction->addAction(QString());
+    regular->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon"));
 
     _pcAction = pcAction;
     languageChange();
@@ -7634,6 +7654,7 @@ void CmdSketcherCompCreateRegularPolygon::updateAction(int mode)
         a[3]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHexagon"));
         a[4]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon"));
         a[5]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon"));
+        a[6]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon"));
         getAction()->setIcon(a[index]->icon());
         break;
     case Construction:
@@ -7643,6 +7664,7 @@ void CmdSketcherCompCreateRegularPolygon::updateAction(int mode)
         a[3]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHexagon_Constr"));
         a[4]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateHeptagon_Constr"));
         a[5]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateOctagon_Constr"));
+        a[6]->setIcon(Gui::BitmapFactory().pixmap("Sketcher_CreateRegularPolygon_Constr"));
         getAction()->setIcon(a[index]->icon());
         break;
     }
@@ -7681,6 +7703,10 @@ void CmdSketcherCompCreateRegularPolygon::languageChange()
     octagon->setText(QApplication::translate("CmdSketcherCompCreateRegularPolygon","Octagon"));
     octagon->setToolTip(QApplication::translate("Sketcher_CreateOctagon","Create an octagon by its center and by one corner"));
     octagon->setStatusTip(QApplication::translate("Sketcher_CreateOctagon","Create an octagon by its center and by one corner"));
+    QAction* regular = a[6];
+    regular->setText(QApplication::translate("CmdSketcherCompCreateRegularPolygon","Regular Polygon"));
+    regular->setToolTip(QApplication::translate("Sketcher_CreateOctagon","Create a regular polygon by its center and by one corner"));
+    regular->setStatusTip(QApplication::translate("Sketcher_CreateOctagon","Create a regular polygon by its center and by one corner"));
 }
 
 bool CmdSketcherCompCreateRegularPolygon::isActive(void)

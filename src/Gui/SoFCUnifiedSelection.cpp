@@ -119,6 +119,7 @@ SoFCUnifiedSelection::SoFCUnifiedSelection() : pcDocument(0)
     SO_NODE_SET_SF_ENUM_TYPE (highlightMode, HighlightModes);
 
     highlighted = false;
+    setPreSelection = false;
     preSelection = -1;
 }
 
@@ -196,6 +197,101 @@ void SoFCUnifiedSelection::write(SoWriteAction * action)
     }
 }
 
+int SoFCUnifiedSelection::getNumSelected(void) const
+{
+    return this->selectionList.getLength();
+}
+
+const SoPathList* SoFCUnifiedSelection::getList(void) const
+{
+    return &this->selectionList;
+}
+
+void SoFCUnifiedSelection::addPath(SoPath * path)
+{
+    this->selectionList.append(path);
+}
+
+void SoFCUnifiedSelection::removePath(const int which)
+{
+    SoPath * path = this->selectionList[which];
+    path->ref();
+    this->selectionList.remove(which);
+    path->unref();
+}
+
+SoPath * SoFCUnifiedSelection::copyFromThis(const SoPath * path) const
+{
+    SoPath * newpath = NULL;
+    path->ref();
+    int i = path->findNode(this);
+    if (i >= 0) {
+        newpath = path->copy(i);
+    }
+    path->unrefNoDelete();
+    return newpath;
+}
+
+int SoFCUnifiedSelection::findPath(const SoPath * path) const
+{
+    int idx = -1;
+
+    // make copy only if necessary
+    if (path->getHead() != this) {
+        SoPath * newpath = this->copyFromThis(path);
+        if (newpath) {
+            newpath->ref();
+            idx = this->selectionList.findPath(*newpath);
+            newpath->unref();
+        }
+        else {
+            idx = -1;
+        }
+    }
+    else {
+        idx = this->selectionList.findPath(*path);
+    }
+    return idx;
+}
+
+SoPath * SoFCUnifiedSelection::searchNode(SoNode * node) const
+{
+    SoSearchAction sa;
+    sa.setNode(node);
+    sa.apply(const_cast<SoFCUnifiedSelection*>(this));
+    SoPath * path = sa.getPath();
+    if (path)
+        path->ref();
+    return path;
+}
+
+void SoFCUnifiedSelection::select(SoNode * node)
+{
+    SoPath * path = this->searchNode(node);
+    if (path) {
+        // don't ref() the path. searchNode() will ref it before returning
+        if (this->findPath(path) < 0)
+            this->addPath(path);
+        path->unref();
+    }
+}
+
+void SoFCUnifiedSelection::deselect(const SoPath * path)
+{
+    int idx = this->findPath(path);
+    if (idx >= 0) this->removePath(idx);
+}
+
+void SoFCUnifiedSelection::deselect(SoNode * node)
+{
+    SoPath * path = this->searchNode(node);
+    if (path) {
+        // don't ref() the path. searchNode() will ref it before returning
+        this->deselect(path);
+        path->unref();
+    }
+}
+
 int SoFCUnifiedSelection::getPriority(const SoPickedPoint* p)
 {
     const SoDetail* detail = p->getDetail();
@@ -268,6 +364,19 @@ void SoFCUnifiedSelection::doAction(SoAction *action)
         this->colorHighlight = colaction->highlightColor;
     }
 
+    if (highlightMode.getValue() != OFF && action->getTypeId() == SoFCHighlightAction::getClassTypeId()) {
+        SoFCHighlightAction *hilaction = static_cast<SoFCHighlightAction*>(action);
+        // Do not clear currently highlighted object when setting new pre-selection
+        if (!setPreSelection && hilaction->SelChange.Type == SelectionChanges::RmvPreselect) {
+            if (currenthighlight) {
+                SoHighlightElementAction action;
+                action.apply(currenthighlight);
+                currenthighlight->unref();
+                currenthighlight = 0;
+            }
+        }
+    }
+
     if (selectionMode.getValue() == ON && action->getTypeId() == SoFCSelectionAction::getClassTypeId()) {
         SoFCSelectionAction *selaction = static_cast<SoFCSelectionAction*>(action);
         if (selaction->SelChange.Type == SelectionChanges::AddSelection || 
@@ -292,7 +401,7 @@ void SoFCUnifiedSelection::doAction(SoAction *action)
                         type = SoSelectionElementAction::None;
                 }
 
-                if(checkSelectionStyle(type,vp)) {
+                if (checkSelectionStyle(type,vp)) {
                     SoSelectionElementAction action(type);
                     action.setColor(this->colorSelection.getValue());
                     action.setElement(detail);
@@ -314,7 +423,7 @@ void SoFCUnifiedSelection::doAction(SoAction *action)
                         type = SoSelectionElementAction::All;
                     else
                         type = SoSelectionElementAction::None;
-                    if(checkSelectionStyle(type,vpd)) {
+                    if (checkSelectionStyle(type, vpd)) {
                         SoSelectionElementAction action(type);
                         action.setColor(this->colorSelection.getValue());
                         action.apply(vpd->getRoot());
@@ -374,20 +483,24 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
             highlighted = false;
             if (vpd && vpd->useNewSelectionModel() && vpd->isSelectable()) {
                 std::string documentName = vpd->getObject()->getDocument()->getName();
+                std::string objectLabel = vpd->getObject()->Label.getStrValue();
                 std::string objectName = vpd->getObject()->getNameInDocument();
                 std::string subElementName = vpd->getElement(pp ? pp->getDetail() : 0);
 
                 this->preSelection = 1;
                 static char buf[513];
-                snprintf(buf,512,"Preselected: %s.%s.%s (%g, %g, %g)",documentName.c_str()
+                snprintf(buf,512,"Preselected: %s - %s.%s.%s (%g, %g, %g)"
+                                           ,objectLabel.c_str()
+                                           ,documentName.c_str()
                                            ,objectName.c_str()
                                            ,subElementName.c_str()
                                            ,pp->getPoint()[0]
                                            ,pp->getPoint()[1]
                                            ,pp->getPoint()[2]);
 
-                getMainWindow()->showMessage(QString::fromLatin1(buf));
+                getMainWindow()->showMessage(QString::fromUtf8(buf));
 
+                setPreSelection = true;
                 if (Gui::Selection().setPreselect(documentName.c_str()
                                        ,objectName.c_str()
                                        ,subElementName.c_str()
@@ -418,6 +531,8 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
                         currenthighlight->ref();
                     }
                 }
+
+                setPreSelection = false;
             }
             // nothing picked
             else if (!pp) {
@@ -481,7 +596,8 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
                         if (ok)
                             type = SoSelectionElementAction::Append;
                         if (mymode == OFF) {
-                            snprintf(buf,512,"Selected: %s.%s.%s (%g, %g, %g)",documentName.c_str()
+                            snprintf(buf,512,"Selected: %s.%s.%s (%g, %g, %g)"
+                                                       ,documentName.c_str()
                                                        ,objectName.c_str()
                                                        ,subElementName.c_str()
                                                        ,pp->getPoint()[0]
@@ -519,7 +635,8 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
                     }
 
                     if (mymode == OFF) {
-                        snprintf(buf,512,"Selected: %s.%s.%s (%g, %g, %g)",documentName.c_str()
+                        snprintf(buf,512,"Selected: %s.%s.%s (%g, %g, %g)"
+                                                   ,documentName.c_str()
                                                    ,objectName.c_str()
                                                    ,subElementName.c_str()
                                                    ,pp->getPoint()[0]
@@ -531,7 +648,7 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
                 }
 
                 action->setHandled(); 
-                if (currenthighlight && checkSelectionStyle(type,vpd)) {
+                if (currenthighlight && checkSelectionStyle(type, vpd)) {
                     SoSelectionElementAction action(type);
                     action.setColor(this->colorSelection.getValue());
                     action.setElement(pp ? pp->getDetail() : 0);
@@ -539,21 +656,42 @@ SoFCUnifiedSelection::handleEvent(SoHandleEventAction * action)
                     this->touch();
                 }
             } // picked point
+            else if (!pp) {
+                // user clicked onto empty space but in case Ctrl key was pressed
+                // then mark the action as handled to avoid that the navigation style
+                // processes the action and clears the selection
+                if (event->wasCtrlDown()) {
+                    action->setHandled();
+                }
+
+            }
         } // mouse release
     }
 
     inherited::handleEvent(action);
 }
 
-bool SoFCUnifiedSelection::checkSelectionStyle(int type, ViewProvider *vp) {
-    if((type == SoSelectionElementAction::All ||
-        type == SoSelectionElementAction::None) &&
+bool SoFCUnifiedSelection::checkSelectionStyle(int type, ViewProvider *vp)
+{
+    if ((type == SoSelectionElementAction::All || type == SoSelectionElementAction::None) &&
         vp->isDerivedFrom(ViewProviderGeometryObject::getClassTypeId()) &&
-        static_cast<ViewProviderGeometryObject*>(vp)->SelectionStyle.getValue()==1)
+        static_cast<ViewProviderGeometryObject*>(vp)->SelectionStyle.getValue() == 1)
     {
-        bool selected = type==SoSelectionElementAction::All;
-        static_cast<ViewProviderGeometryObject*>(vp)->showBoundingBox(selected);
-        if(selected) return false;
+        bool selected = (type == SoSelectionElementAction::All);
+        int numSelected = getNumSelected();
+        if (selected) {
+            select(vp->getRoot());
+        }
+        else {
+            deselect(vp->getRoot());
+        }
+
+        if (numSelected != getNumSelected())
+            this->touch();
+
+        if (selected) {
+            return false;
+        }
     }
     return true;
 }

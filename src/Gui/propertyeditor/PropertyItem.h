@@ -135,7 +135,9 @@ public:
     void setParent(PropertyItem* parent);
     PropertyItem *parent() const;
     void appendChild(PropertyItem *child);
+    void insertChild(int, PropertyItem *child);
     void removeChildren(int from, int to);
+    PropertyItem *takeChild(int);
 
     void setReadOnly(bool);
     bool isReadOnly() const;
@@ -185,6 +187,7 @@ private:
  */
 class GuiExport PropertyStringItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -205,6 +208,7 @@ protected:
  */
 class GuiExport PropertyFontItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -225,6 +229,7 @@ protected:
  */
 class GuiExport PropertySeparatorItem : public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     bool isSeparator() const { return true; }
@@ -237,6 +242,7 @@ class GuiExport PropertySeparatorItem : public PropertyItem
  */
 class GuiExport PropertyIntegerItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -258,6 +264,7 @@ protected:
  */
 class GuiExport PropertyIntegerConstraintItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -279,6 +286,7 @@ protected:
  */
 class GuiExport PropertyFloatItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -300,6 +308,7 @@ protected:
  */
 class GuiExport PropertyUnitItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -320,6 +329,7 @@ protected:
  */
 class GuiExport PropertyUnitConstraintItem: public PropertyUnitItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual void setEditorData(QWidget *editor, const QVariant& data) const;
@@ -334,6 +344,7 @@ protected:
  */
 class GuiExport PropertyFloatConstraintItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -354,6 +365,7 @@ protected:
  */
 class GuiExport PropertyPrecisionItem: public PropertyFloatConstraintItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 protected:
     PropertyPrecisionItem();
@@ -365,6 +377,7 @@ protected:
  */
 class GuiExport PropertyAngleItem : public PropertyFloatItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
 protected:
@@ -381,6 +394,7 @@ protected:
  */
 class GuiExport PropertyBoolItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -471,6 +485,19 @@ private:
     PropertyUnitItem* m_x;
     PropertyUnitItem* m_y;
     PropertyUnitItem* m_z;
+};
+
+class GuiExport PropertyPositionItem: public PropertyVectorDistanceItem
+{
+    Q_OBJECT
+    PROPERTYITEM_HEADER
+
+};
+
+class GuiExport PropertyDirectionItem: public PropertyVectorDistanceItem
+{
+    Q_OBJECT
+    PROPERTYITEM_HEADER
 };
 
 class GuiExport PropertyMatrixItem: public PropertyItem
@@ -629,6 +656,7 @@ private:
  */
 class GuiExport PropertyEnumItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -649,6 +677,7 @@ protected:
  */
 class GuiExport PropertyStringListItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -670,6 +699,7 @@ protected:
  */
 class GuiExport PropertyFloatListItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -691,6 +721,7 @@ protected:
  */
 class GuiExport PropertyIntegerListItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -712,6 +743,7 @@ protected:
  */
 class GuiExport PropertyColorItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -836,6 +868,7 @@ private:
  */
 class GuiExport PropertyFileItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -857,6 +890,7 @@ protected:
  */
 class GuiExport PropertyPathItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -878,6 +912,7 @@ protected:
  */
 class GuiExport PropertyTransientFileItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -940,6 +975,7 @@ private:
  */
 class GuiExport PropertyLinkItem: public PropertyItem
 {
+    Q_OBJECT
     PROPERTYITEM_HEADER
 
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
@@ -953,6 +989,53 @@ protected:
 
 protected:
     PropertyLinkItem();
+};
+
+class LinkListLabel : public QWidget
+{
+    Q_OBJECT
+
+public:
+    LinkListLabel (QWidget * parent = 0);
+    virtual ~LinkListLabel();
+    void setPropertyLinkList(const QVariantList& o);
+    QVariantList propertyLinkList() const;
+
+protected:
+    void resizeEvent(QResizeEvent*);
+
+protected Q_SLOTS:
+    void onEditClicked();
+
+Q_SIGNALS:
+    void linkChanged(const QVariantList&);
+
+private:
+    QLabel* label;
+    QPushButton* editButton;
+    QVariantList links;
+};
+
+/**
+ * Edit properties of link list type.
+ * \author Werner Mayer
+ */
+class GuiExport PropertyLinkListItem: public PropertyItem
+{
+    Q_OBJECT
+    PROPERTYITEM_HEADER
+
+    virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
+    virtual void setEditorData(QWidget *editor, const QVariant& data) const;
+    virtual QVariant editorData(QWidget *editor) const;
+
+protected:
+    virtual QVariant toString(const QVariant&) const;
+    virtual QVariant value(const App::Property*) const;
+    virtual void setValue(const QVariant&);
+
+protected:
+    PropertyLinkListItem();
 };
 
 class PropertyItemEditorFactory : public QItemEditorFactory

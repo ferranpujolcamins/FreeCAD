@@ -371,7 +371,7 @@ void Cell::setDisplayUnit(const std::string &unit)
         boost::shared_ptr<App::UnitExpression> e(ExpressionParser::parseUnit(owner->sheet(), unit.c_str()));
 
         if (!e)
-            throw Base::Exception("Invalid unit");
+            throw Base::UnitsMismatchError("Invalid unit");
         newDisplayUnit = DisplayUnit(unit, e->getUnit(), e->getScaler());
     }
 
@@ -461,8 +461,8 @@ void Cell::setSpans(int rows, int columns)
     if (rows != rowSpan || columns != colSpan) {
         PropertySheet::AtomicPropertyChange signaller(*owner);
 
-        rowSpan = rows;
-        colSpan = columns;
+        rowSpan = (rows == -1 ? 1 : rows);
+        colSpan = (columns == -1 ? 1 : columns);
         setUsed(SPANS_SET, (rowSpan != 1 || colSpan != 1) );
         setUsed(SPANS_UPDATED);
     }
@@ -685,7 +685,7 @@ void Cell::visit(App::ExpressionVisitor &v)
 }
 
 /**
-  * Decode aligment into its internal value.
+  * Decode alignment into its internal value.
   *
   * @param itemStr   Alignment as a string
   * @param alignment Current alignment. This is or'ed with the one in \a itemStr.
@@ -713,7 +713,7 @@ int Cell::decodeAlignment(const std::string & itemStr, int alignment)
     else if (itemStr == "bottom")
         alignment = (alignment & ~Cell::ALIGNMENT_VERTICAL) | Cell::ALIGNMENT_BOTTOM;
     else
-        throw Base::Exception("Invalid alignment.");
+        throw Base::ValueError("Invalid alignment.");
 
     return alignment;
 }

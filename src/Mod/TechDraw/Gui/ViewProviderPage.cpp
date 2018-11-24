@@ -28,14 +28,17 @@
 # include <QAction>
 # include <QMenu>
 # include <QTimer>
+#include <QList>
 #include <QPointer>
+#include <boost/signals2.hpp>
+#include <boost/signals2/connection.hpp>
+#include <boost/bind.hpp>
+
 #endif
 
 /// Here the FreeCAD includes sorted by Base,App,Gui......
 #include <Base/Console.h>
 #include <Base/Parameter.h>
-#include <Base/Exception.h>
-#include <Base/Sequencer.h>
 
 #include <App/Application.h>
 #include <App/Document.h>
@@ -43,15 +46,9 @@
 
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
-#include <Gui/Command.h>
-#include <Gui/Control.h>
 #include <Gui/Document.h>
 #include <Gui/MainWindow.h>
-#include <Gui/Selection.h>
-#include <Gui/ViewProvider.h>
 #include <Gui/ViewProviderDocumentObject.h>
-#include <Gui/ViewProviderDocumentObjectGroup.h>
-
 
 #include "MDIViewPage.h"
 #include "ViewProviderPage.h"
@@ -64,6 +61,9 @@
 
 using namespace TechDrawGui;
 
+#define _SHOWDRAWING 10
+#define _TOGGLEUPDATE 11
+
 PROPERTY_SOURCE(TechDrawGui::ViewProviderPage, Gui::ViewProviderDocumentObject)
 
 
@@ -72,28 +72,33 @@ PROPERTY_SOURCE(TechDrawGui::ViewProviderPage, Gui::ViewProviderDocumentObject)
 
 ViewProviderPage::ViewProviderPage()
   : m_mdiView(0),
-    m_docReady(true)
+    m_docReady(true),
+    m_pageName("")
 {
     sPixmap = "TechDraw_Tree_Page";
 
-//    ADD_PROPERTY(HintScale,(10.0));
-//    ADD_PROPERTY(HintOffsetX,(10.0));
-//    ADD_PROPERTY(HintOffsetY,(10.0));
-
-    // do not show this in the property editor
-    //Visibility.StatusBits.set(3, true);
-    //DisplayMode.StatusBits.set(3, true);
     Visibility.setStatus(App::Property::Hidden,true);
     DisplayMode.setStatus(App::Property::Hidden,true);
 }
 
 ViewProviderPage::~ViewProviderPage()
 {
+    removeMDIView();                    //if the MDIViewPage is still in MainWindow, remove it.
 }
 
 void ViewProviderPage::attach(App::DocumentObject *pcFeat)
 {
     ViewProviderDocumentObject::attach(pcFeat);
+
+    auto bnd = boost::bind(&ViewProviderPage::onGuiRepaint, this, _1);
+    auto feature = getDrawPage();
+    if (feature != nullptr) {
+        connectGuiRepaint = feature->signalGuiPaint.connect(bnd);
+        m_pageName = feature->getNameInDocument();
+    } else {
+        Base::Console().Log("VPP::attach has no Feature!\n");
+    }
+
 }
 
 void ViewProviderPage::setDisplayMode(const char* ModeName)
@@ -111,67 +116,92 @@ std::vector<std::string> ViewProviderPage::getDisplayModes(void) const
 
 void ViewProviderPage::show(void)
 {
+    Visibility.setValue(true);
     showMDIViewPage();
 }
 
 void ViewProviderPage::hide(void)
 {
-    if (!m_mdiView.isNull()) {                                //m_mdiView is a QPointer
-        Gui::getMainWindow()->activatePreviousWindow();
-        Gui::getMainWindow()->removeWindow(m_mdiView);
-    }
+    Visibility.setValue(false);
+    removeMDIView();
     ViewProviderDocumentObject::hide();
+}
+
+void ViewProviderPage::removeMDIView(void)
+{
+    if (!m_mdiView.isNull()) {                                //m_mdiView is a QPointer
+        // https://forum.freecadweb.org/viewtopic.php?f=3&t=22797&p=182614#p182614
+        //Gui::getMainWindow()->activatePreviousWindow();
+        QList<QWidget*> wList= Gui::getMainWindow()->windows();
+        bool found = wList.contains(m_mdiView);
+        if (found) {
+            Gui::getMainWindow()->removeWindow(m_mdiView);
+            Gui::MDIView* aw = Gui::getMainWindow()->activeWindow();  //WF: this bit should be in the remove window logic, not here.
+            if (aw != nullptr) {
+                aw->showMaximized();
+            }
+        }
+    }
 }
 
 void ViewProviderPage::updateData(const App::Property* prop)
 {
-    if (prop == &(getDrawPage()->Views)) {
-        if(!m_mdiView.isNull() &&
-           !getDrawPage()->isDeleting()) {
-            m_mdiView->updateDrawing();
-        }
+    if (prop == &(getDrawPage()->KeepUpdated)) {
+       if (getDrawPage()->KeepUpdated.getValue()) {
+           sPixmap = "TechDraw_Tree_Page";
+       } else {
+           sPixmap = "TechDraw_Tree_Page_Unsync";
+       }
+    //if the template is changed, rebuild the visual
     } else if (prop == &(getDrawPage()->Template)) {
        if(m_mdiView && 
-          !getDrawPage()->isDeleting()) {
+          !getDrawPage()->isUnsetting()) {
+            m_mdiView->matchSceneRectToTemplate();
             m_mdiView->updateTemplate();
         }
+    } else if (prop == &(getDrawPage()->Label)) {
+       if(m_mdiView && 
+          !getDrawPage()->isUnsetting()) {
+           m_mdiView->setTabText(getDrawPage()->Label.getValue());
+       }
     }
-
     Gui::ViewProviderDocumentObject::updateData(prop);
 }
 
 bool ViewProviderPage::onDelete(const std::vector<std::string> &items)
 {
-    if (!m_mdiView.isNull()) {
-        Gui::getMainWindow()->removeWindow(m_mdiView);
-        Gui::getMainWindow()->activatePreviousWindow();
-        m_mdiView->deleteLater(); // Delete the drawing m_mdiView;
-    } else {
-        // MDIViewPage is not displayed yet so don't try to delete it!
-        Base::Console().Log("INFO - ViewProviderPage::onDelete - Page object deleted when viewer not displayed\n");
-    }
-    Gui::Selection().clearSelection();
-    return ViewProviderDocumentObject::onDelete(items);
+    bool rc = ViewProviderDocumentObject::onDelete(items);
+    removeMDIView();
+    return rc;
 }
 
 void ViewProviderPage::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
 {
     Gui::ViewProviderDocumentObject::setupContextMenu(menu, receiver, member);
     QAction* act = menu->addAction(QObject::tr("Show drawing"), receiver, member);
-//    act->setData(QVariant(1));  // Removed to resolve compile after cb16fec6bb67cec15be3fc2aeb251ab524134073   //this is edit ModNum
-    act->setData(QVariant((int) ViewProvider::Default));
+    act->setData(QVariant((int) _SHOWDRAWING));
+    QAction* act2 = menu->addAction(QObject::tr("Toggle KeepUpdated"), receiver, member);
+    act2->setData(QVariant((int) _TOGGLEUPDATE));
 }
 
 bool ViewProviderPage::setEdit(int ModNum)
 {
-    if (ModNum == ViewProvider::Default) {
+    bool rc = true;
+    if (ModNum == _SHOWDRAWING) {
+        Visibility.setValue(true);
         showMDIViewPage();   // show the drawing
-        Gui::getMainWindow()->setActiveWindow(m_mdiView);
-        return false;
+        rc = false;  //finished editing
+    } else if (ModNum == _TOGGLEUPDATE) {
+         auto page = getDrawPage();
+         if (page != nullptr) {
+             page->KeepUpdated.setValue(!page->KeepUpdated.getValue());
+             page->recomputeFeature();
+         }
+         rc = false;
     } else {
-        Gui::ViewProviderDocumentObject::setEdit(ModNum);
+        rc = Gui::ViewProviderDocumentObject::setEdit(ModNum);
     }
-    return true;
+    return rc;
 }
 
 bool ViewProviderPage::doubleClicked(void)
@@ -183,22 +213,32 @@ bool ViewProviderPage::doubleClicked(void)
 
 bool ViewProviderPage::showMDIViewPage()
 {
-    if (isRestoring()) {
-        return true;
-    }
+   if (isRestoring()) {
+       return true;
+   }
+   if (!Visibility.getValue())   {
+       return true;
+   }
 
     if (m_mdiView.isNull()){
         Gui::Document* doc = Gui::Application::Instance->getDocument
             (pcObject->getDocument());
         m_mdiView = new MDIViewPage(this, doc, Gui::getMainWindow());
-        m_mdiView->setWindowTitle(QObject::tr("Drawing viewer") + QString::fromLatin1("[*]"));
+//        QString tabTitle = QString::fromUtf8(getDrawPage()->getNameInDocument());
+        QString tabTitle = QString::fromUtf8(getDrawPage()->Label.getValue());
+
+        m_mdiView->setDocumentObject(getDrawPage()->getNameInDocument());
+        m_mdiView->setDocumentName(pcObject->getDocument()->getName());
+
+        m_mdiView->setWindowTitle(tabTitle + QString::fromLatin1("[*]"));
         m_mdiView->setWindowIcon(Gui::BitmapFactory().pixmap("TechDraw_Tree_Page"));
-        m_mdiView->updateDrawing(true);
-     //   m_mdiView->updateTemplate(true);   //TODO: I don't think this is necessary?  Ends up triggering a reload of SVG template, but the MDIViewPage constructor does too.
+        m_mdiView->updateDrawing();
         Gui::getMainWindow()->addWindow(m_mdiView);
-        m_mdiView->viewAll();
+        m_mdiView->viewAll();  //this is empty function
+        m_mdiView->showMaximized();
     } else {
-        m_mdiView->updateDrawing(true);
+        m_mdiView->updateDrawing();
+        m_mdiView->redrawAllViews();
         m_mdiView->updateTemplate(true);
     }
     return true;
@@ -208,7 +248,6 @@ std::vector<App::DocumentObject*> ViewProviderPage::claimChildren(void) const
 {
     std::vector<App::DocumentObject*> temp;
 
-    // Attach the template if it exists
     App::DocumentObject *templateFeat = 0;
     templateFeat = getDrawPage()->Template.getValue();
 
@@ -262,62 +301,14 @@ MDIViewPage* ViewProviderPage::getMDIViewPage()
     }
 }
 
-void ViewProviderPage::onSelectionChanged(const Gui::SelectionChanges& msg)
-{
-    if(!m_mdiView.isNull()) {
-        if(msg.Type == Gui::SelectionChanges::SetSelection) {
-            m_mdiView->clearSelection();
-            std::vector<Gui::SelectionSingleton::SelObj> objs = Gui::Selection().getSelection(msg.pDocName);
-
-            for (std::vector<Gui::SelectionSingleton::SelObj>::iterator it = objs.begin(); it != objs.end(); ++it) {
-                Gui::SelectionSingleton::SelObj selObj = *it;
-                if(selObj.pObject == getDrawPage())
-                    continue;
-
-                std::string str = msg.pSubName;
-                // If it's a subfeature, don't select feature
-                if (!str.empty()) {
-                    if (TechDraw::DrawUtil::getGeomTypeFromName(str) == "Face" ||
-                        TechDraw::DrawUtil::getGeomTypeFromName(str) == "Edge" ||
-                        TechDraw::DrawUtil::getGeomTypeFromName(str) == "Vertex") {
-                        // TODO implement me   wf: don't think this is ever executed
-                    }
-                } else {
-                        m_mdiView->selectFeature(selObj.pObject, true);
-                }
-            }
-        } else {
-            bool selectState = (msg.Type == Gui::SelectionChanges::AddSelection) ? true : false;
-            Gui::Document* doc = Gui::Application::Instance->getDocument(pcObject->getDocument());
-            App::DocumentObject *obj = doc->getDocument()->getObject(msg.pObjectName);
-            if(obj) {
-                std::string str = msg.pSubName;
-                // If it's a subfeature, don't select feature
-                if (!str.empty()) {
-                    if (TechDraw::DrawUtil::getGeomTypeFromName(str) == "Face" ||
-                        TechDraw::DrawUtil::getGeomTypeFromName(str) == "Edge" ||
-                        TechDraw::DrawUtil::getGeomTypeFromName(str) == "Vertex") {
-                        // TODO implement me
-                    } else {
-                        m_mdiView->selectFeature(obj, selectState);
-                    }
-                }
-            }
-        }  //else (Gui::SelectionChanges::SetPreselect)
-    }
-}
 
 void ViewProviderPage::onChanged(const App::Property *prop)
 {
-    if (prop == &(getDrawPage()->Views)) {
-        if(m_mdiView) {
-            m_mdiView->updateDrawing();
-        }
-    } else if (prop == &(getDrawPage()->Template)) {
-       if(m_mdiView) {
-            m_mdiView->updateTemplate();
-        }
-    }
+//    if (prop == &(getDrawPage()->Template)) {
+//       if(m_mdiView) {
+//            m_mdiView->updateTemplate();
+//        }
+//    }
 
     Gui::ViewProviderDocumentObject::onChanged(prop);
 }
@@ -331,10 +322,32 @@ void ViewProviderPage::startRestoring()
 void ViewProviderPage::finishRestoring()
 {
     m_docReady = true;
-    static_cast<void>(showMDIViewPage());
+    //control drawing opening on restore based on Preference
+    //mantis #2967 ph2 - don't even show blank page
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
+    bool autoUpdate = hGrp->GetBool("KeepPagesUpToDate", 1l);
+    if (autoUpdate) {
+        static_cast<void>(showMDIViewPage());
+    }
     Gui::ViewProviderDocumentObject::finishRestoring();
 }
 
+bool ViewProviderPage::isShow(void) const
+{
+    return Visibility.getValue();
+}
+
+//! Redo the whole visual page
+void ViewProviderPage::onGuiRepaint(const TechDraw::DrawPage* dp) 
+{
+    if (dp == getDrawPage()) {
+        if(!m_mdiView.isNull() &&
+           !getDrawPage()->isUnsetting()) {
+            m_mdiView->updateDrawing();
+        }
+    }
+}
 
 TechDraw::DrawPage* ViewProviderPage::getDrawPage() const
 {

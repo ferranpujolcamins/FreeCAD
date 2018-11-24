@@ -39,6 +39,7 @@
 #include "Helpers.h"
 #include "Grid.h"
 #include "TopoAlgorithm.h"
+#include "Functional.h"
 #include <Base/Matrix.h>
 
 #include <Base/Sequencer.h>
@@ -233,7 +234,7 @@ std::vector<unsigned long> MeshEvalOrientation::GetIndices() const
             ulStartFacet = ULONG_MAX;
     }
 
-    // in some very rare cases where we have some strange artefacts in the mesh structure
+    // in some very rare cases where we have some strange artifacts in the mesh structure
     // we get false-positives. If we find some we check all 'invalid' faces again
     cAlg.ResetFacetFlag(MeshFacet::TMP0);
     cAlg.SetFacetsFlag(uIndices, MeshFacet::TMP0);
@@ -966,7 +967,9 @@ void MeshKernel::RebuildNeighbours (unsigned long index)
     }
 
     // sort the edges
-    std::sort(edges.begin(), edges.end(), Edge_Less());
+    //std::sort(edges.begin(), edges.end(), Edge_Less());
+    int threads = std::max(1, QThread::idealThreadCount());
+    MeshCore::parallel_sort(edges.begin(), edges.end(), Edge_Less(), threads);
 
     unsigned long p0 = ULONG_MAX, p1 = ULONG_MAX;
     unsigned long f0 = ULONG_MAX, f1 = ULONG_MAX;

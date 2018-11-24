@@ -29,6 +29,7 @@
 #include <Inventor/SbColor.h>
 #include <Inventor/SbVec2f.h>
 #include <Inventor/SbViewVolume.h>
+#include <Inventor/SbMatrix.h>
 
 class SbViewVolume;
 class QAbstractItemView;
@@ -96,17 +97,22 @@ class GuiExport ViewVolumeProjection : public Base::ViewProjMethod
 {
 public:
     ViewVolumeProjection (const SbViewVolume &vv);
-    virtual ~ViewVolumeProjection(){};
+    virtual ~ViewVolumeProjection(){}
 
     Base::Vector3f operator()(const Base::Vector3f &rclPt) const;
     Base::Vector3d operator()(const Base::Vector3d &rclPt) const;
     Base::Vector3f inverse (const Base::Vector3f &rclPt) const;
     Base::Vector3d inverse (const Base::Vector3d &rclPt) const;
 
+    void setTransform(const Base::Matrix4D&);
     Base::Matrix4D getProjectionMatrix () const;
 
 protected:
     SbViewVolume viewVolume;
+    SbMatrix matrix;
+    SbMatrix invert;
+    bool hasTransform;
+    Base::Matrix4D transform;
 };
 
 class GuiExport Tessellator

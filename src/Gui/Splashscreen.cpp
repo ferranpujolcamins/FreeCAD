@@ -23,11 +23,15 @@
 
 #include "PreCompiled.h"
 #ifndef _PreComp_
+# include <cstdlib>
 # include <QApplication>
 # include <QClipboard>
+# include <QDesktopServices>
 # include <QDialogButtonBox>
+# include <QLocale>
 # include <QMutex>
-# include <QProcess> 
+# include <QTextBrowser>
+# include <QProcess>
 # include <QSysInfo>
 # include <QTextStream>
 # include <QWaitCondition>
@@ -39,6 +43,8 @@
 #endif
 
 #include <LibraryVersions.h>
+#include <zlib.h>
+#include <boost/version.hpp>
 
 #include "Splashscreen.h"
 #include "ui_AboutApplication.h"
@@ -181,8 +187,8 @@ SplashScreen::~SplashScreen()
     delete messages;
 }
 
-/** 
- * Draws the contents of the splash screen using painter \a painter. The default 
+/**
+ * Draws the contents of the splash screen using painter \a painter. The default
  * implementation draws the message passed by message().
  */
 void SplashScreen::drawContents ( QPainter * painter )
@@ -243,7 +249,7 @@ AboutDialog::AboutDialog(bool showLic, QWidget* parent)
 //    if (showLic) { // currently disabled. Additional license blocks are always shown.
         QString info(QLatin1String("SUCH DAMAGES.<hr/>"));
         // any additional piece of text to be added after the main license text goes below.
-        // Please set title in <h2> tags, license text in <p> tags 
+        // Please set title in <h2> tags, license text in <p> tags
         // and add an <hr/> tag at the end to nicely separate license blocks
 #ifdef _USE_3DCONNEXION_SDK
         info += QString::fromLatin1(
@@ -259,6 +265,7 @@ AboutDialog::AboutDialog(bool showLic, QWidget* parent)
 //    }
     ui->tabWidget->setCurrentIndex(0); // always start on the About tab
     setupLabels();
+    showLicenseInformation();
 }
 
 /**
@@ -274,6 +281,10 @@ class SystemInfo {
 public:
 static QString getOperatingSystem()
 {
+#if QT_VERSION >= 0x050400
+    return QSysInfo::prettyProductName();
+#endif
+
 #if defined (Q_OS_WIN32)
     switch(QSysInfo::windowsVersion())
     {
@@ -442,7 +453,7 @@ void AboutDialog::setupLabels()
     if (qApp->styleSheet().isEmpty()) {
         setStyleSheet(QString::fromLatin1("Gui--Dialog--AboutDialog QLabel {font-size: %1pt;}").arg(fontSize));
     }
-    
+
     QString exeName = qApp->applicationName();
     std::map<std::string, std::string>& config = App::Application::Config();
     std::map<std::string,std::string>::iterator it;
@@ -453,6 +464,9 @@ void AboutDialog::setupLabels()
     QString build  = QString::fromLatin1(config["BuildRevision"].c_str());
     QString disda  = QString::fromLatin1(config["BuildRevisionDate"].c_str());
     QString mturl  = QString::fromLatin1(config["MaintainerUrl"].c_str());
+
+    // we use replace() to keep label formatting, so a label with text "<b>Unknown</b>"
+    // gets replaced to "<b>FreeCAD</b>", for example
 
     QString author = ui->labelAuthor->text();
     author.replace(QString::fromLatin1("Unknown Application"), exeName);
@@ -480,7 +494,7 @@ void AboutDialog::setupLabels()
     platform.replace(QString::fromLatin1("Unknown"),
         QString::fromLatin1("%1-bit").arg(QSysInfo::WordSize));
     ui->labelBuildPlatform->setText(platform);
-    
+
     // branch name
     it = config.find("BuildRevisionBranch");
     if (it != config.end()) {
@@ -506,6 +520,199 @@ void AboutDialog::setupLabels()
     }
 }
 
+class AboutDialog::LibraryInfo {
+public:
+    QString name;
+    QString version;
+    QString href;
+    QString url;
+};
+
+void AboutDialog::showLicenseInformation()
+{
+    QWidget *tab_license = new QWidget();
+    tab_license->setObjectName(QString::fromLatin1("tab_license"));
+    ui->tabWidget->addTab(tab_license, tr("Libraries"));
+    QVBoxLayout* hlayout = new QVBoxLayout(tab_license);
+    QTextBrowser* textField = new QTextBrowser(tab_license);
+    textField->setOpenExternalLinks(false);
+    textField->setOpenLinks(false);
+    hlayout->addWidget(textField);
+
+    QList<LibraryInfo> libInfo;
+    LibraryInfo li;
+    QString baseurl = QString::fromLatin1("file:///%1/ThirdPartyLibraries.html")
+            .arg(QString::fromUtf8(App::Application::getHelpDir().c_str()));
+
+    //FIXME: Put all needed information into LibraryVersions.h
+    //
+
+    // Boost
+    li.name = QLatin1String("Boost");
+    li.href = baseurl + QLatin1String("#_TocBoost");
+    li.url = QLatin1String("http://www.boost.org");
+    li.version = QLatin1String(BOOST_LIB_VERSION);
+    libInfo << li;
+
+    // Coin3D
+    li.name = QLatin1String("Coin3D");
+    li.href = baseurl + QLatin1String("#_TocCoin3D");
+    li.url = QLatin1String("https://bitbucket.org/Coin3D/coin/");
+    li.version = QLatin1String(COIN_VERSION);
+    libInfo << li;
+
+    // Eigen3
+    li.name = QLatin1String("Eigen3");
+    li.href = baseurl + QLatin1String("#_TocEigen3");
+    li.url = QLatin1String("http://eigen.tuxfamily.org/");
+    li.version.clear();
+    libInfo << li;
+
+    // FreeType
+    li.name = QLatin1String("FreeType");
+    li.href = baseurl + QLatin1String("#_TocFreeType");
+    li.url = QLatin1String("http://freetype.org");
+    li.version.clear();
+    libInfo << li;
+
+    // KDL
+    li.name = QLatin1String("KDL");
+    li.href = baseurl + QLatin1String("#_TocKDL");
+    li.url = QLatin1String("http://www.orocos.org/kdl");
+    li.version.clear();
+    libInfo << li;
+
+    // libarea
+    li.name = QLatin1String("libarea");
+    li.href = baseurl + QLatin1String("#_TocLibArea");
+    li.url = QLatin1String("https://github.com/danielfalck/libarea");
+    li.version.clear();
+    libInfo << li;
+
+    // OCCT
+#if defined(HAVE_OCC_VERSION)
+    li.name = QLatin1String("Open CASCADE Technology");
+    li.href = baseurl + QLatin1String("#_TocOCCT");
+    li.url = QLatin1String("http://www.opencascade.com");
+    li.version = QLatin1String(OCC_VERSION_STRING_EXT);
+    libInfo << li;
+#endif
+
+    // pcl
+    li.name = QLatin1String("Point Cloud Library");
+    li.href = baseurl + QLatin1String("#_TocPcl");
+    li.url = QLatin1String("http://www.pointclouds.org");
+    li.version.clear();
+    libInfo << li;
+
+    // PyCXX
+    li.name = QLatin1String("PyCXX");
+    li.href = baseurl + QLatin1String("#_TocPyCXX");
+    li.url = QLatin1String("http://cxx.sourceforge.net");
+    li.version.clear();
+    libInfo << li;
+
+    // Python
+    li.name = QLatin1String("Python");
+    li.href = baseurl + QLatin1String("#_TocPython");
+    li.url = QLatin1String("http://www.python.org");
+    li.version = QLatin1String(PY_VERSION);
+    libInfo << li;
+
+    // PySide
+    li.name = QLatin1String("PySide");
+    li.href = baseurl + QLatin1String("#_TocPySide");
+    li.url = QLatin1String("http://www.pyside.org");
+    li.version.clear();
+    libInfo << li;
+
+    // Qt
+    li.name = QLatin1String("Qt");
+    li.href = baseurl + QLatin1String("#_TocQt");
+    li.url = QLatin1String("http://www.qt.io");
+    li.version = QLatin1String(QT_VERSION_STR);
+    libInfo << li;
+
+    // Salome SMESH
+    li.name = QLatin1String("Salome SMESH");
+    li.href = baseurl + QLatin1String("#_TocSalomeSMESH");
+    li.url = QLatin1String("http://salome-platform.org");
+    li.version.clear();
+    libInfo << li;
+
+    // Shiboken
+    li.name = QLatin1String("Shiboken");
+    li.href = baseurl + QLatin1String("#_TocPySide");
+    li.url = QLatin1String("http://www.pyside.org");
+    li.version.clear();
+    libInfo << li;
+
+    // vtk
+    li.name = QLatin1String("vtk");
+    li.href = baseurl + QLatin1String("#_TocVtk");
+    li.url = QLatin1String("https://www.vtk.org");
+    li.version.clear();
+    libInfo << li;
+
+    // Xerces-C
+    li.name = QLatin1String("Xerces-C");
+    li.href = baseurl + QLatin1String("#_TocXercesC");
+    li.url = QLatin1String("https://xerces.apache.org/xerces-c");
+    li.version.clear();
+    libInfo << li;
+
+    // Zipios++
+    li.name = QLatin1String("Zipios++");
+    li.href = baseurl + QLatin1String("#_TocZipios");
+    li.url = QLatin1String("http://zipios.sourceforge.net");
+    li.version.clear();
+    libInfo << li;
+
+    // zlib
+    li.name = QLatin1String("zlib");
+    li.href = baseurl + QLatin1String("#_TocZlib");
+    li.url = QLatin1String("http://zlib.net");
+    li.version = QLatin1String(ZLIB_VERSION);
+    libInfo << li;
+
+
+    QString msg = tr("This software uses open source components whose copyright and other "
+                     "proprietary rights belong to their respective owners:");
+    QString html;
+    QTextStream out(&html);
+    out << "<html><head/><body style=\" font-family:'MS Shell Dlg 2'; font-size:8.25pt; font-weight:400; font-style:normal;\">"
+        << "<p>" << msg << "<br/></p>\n<ul>\n";
+    for (QList<LibraryInfo>::iterator it = libInfo.begin(); it != libInfo.end(); ++it) {
+        out << "<li><p>" << it->name << " " << it->version << "</p>"
+               "<p><a href=\"" << it->href << "\">" << it->url
+            << "</a><br/></p></li>\n";
+    }
+    out << "</ul>\n</body>\n</html>";
+    textField->setHtml(html);
+
+    connect(textField, SIGNAL(anchorClicked(QUrl)), this, SLOT(linkActivated(QUrl)));
+}
+
+void AboutDialog::linkActivated(const QUrl& link)
+{
+//#if defined(Q_OS_WIN) && QT_VERSION < 0x050602
+    LicenseView* licenseView = new LicenseView();
+    licenseView->setAttribute(Qt::WA_DeleteOnClose);
+    licenseView->show();
+    QString title = tr("License");
+    QString fragment = link.fragment();
+    if (fragment.startsWith(QLatin1String("_Toc"))) {
+        QString prefix = fragment.mid(4);
+        title = QString::fromLatin1("%1 %2").arg(prefix).arg(title);
+    }
+    licenseView->setWindowTitle(title);
+    getMainWindow()->addWindow(licenseView);
+    licenseView->setSource(link);
+//#else
+//    QDesktopServices::openUrl(link);
+//#endif
+}
+
 void AboutDialog::on_copyButton_clicked()
 {
     QString data;
@@ -523,7 +730,12 @@ void AboutDialog::on_copyButton_clicked()
         str << "Word size of OS: " << wordSize << "-bit" << endl;
     }
     str << "Word size of " << exe << ": " << QSysInfo::WordSize << "-bit" << endl;
-    str << "Version: " << major << "." << minor << "." << build << endl;
+    str << "Version: " << major << "." << minor << "." << build;
+    char *appimage = getenv("APPIMAGE");
+    if (appimage)
+        str << " AppImage";
+    str << endl;
+
 #if defined(_DEBUG) || defined(DEBUG)
     str << "Build type: Debug" << endl;
 #elif defined(NDEBUG)
@@ -553,9 +765,35 @@ void AboutDialog::on_copyButton_clicked()
 #endif
         << endl;
 #endif
+    QLocale loc;
+    str << "Locale: " << loc.languageToString(loc.language()) << "/"
+        << loc.countryToString(loc.country())
+        << " (" << loc.name() << ")" << endl;
 
     QClipboard* cb = QApplication::clipboard();
     cb->setText(data);
+}
+
+// ----------------------------------------------------------------------------
+
+/* TRANSLATOR Gui::LicenseView */
+
+LicenseView::LicenseView(QWidget* parent)
+    : MDIView(0,parent,0)
+{
+    browser = new QTextBrowser(this);
+    browser->setOpenExternalLinks(true);
+    browser->setOpenLinks(true);
+    setCentralWidget(browser);
+}
+
+LicenseView::~LicenseView()
+{
+}
+
+void LicenseView::setSource(const QUrl& url)
+{
+    browser->setSource(url);
 }
 
 #include "moc_Splashscreen.cpp"

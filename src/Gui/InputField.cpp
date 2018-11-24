@@ -164,7 +164,8 @@ void InputField::updateText(const Base::Quantity& quant)
     }
 
     double dFactor;
-    QString txt = quant.getUserString(dFactor,actUnitStr);
+    QString unitStr;
+    QString txt = quant.getUserString(dFactor, unitStr);
     actUnitValue = quant.getValue()/dFactor;
     setText(txt);
 }
@@ -253,11 +254,10 @@ void InputField::newInput(const QString & text)
             res = Quantity::parse(input);
     }
     catch(Base::Exception &e){
-        ErrorText = e.what();
-        this->setToolTip(QString::fromLatin1(ErrorText.c_str()));
+        QString errorText = QString::fromLatin1(e.what());
         QPixmap pixmap = getValidationIcon(":/icons/button_invalid.svg", QSize(sizeHint().height(),sizeHint().height()));
         iconLabel->setPixmap(pixmap);
-        parseError(QString::fromLatin1(ErrorText.c_str()));
+        parseError(errorText);
         validInput = false;
         return;
     }
@@ -267,7 +267,6 @@ void InputField::newInput(const QString & text)
 
     // check if unit fits!
     if(!actUnit.isEmpty() && !res.getUnit().isEmpty() && actUnit != res.getUnit()){
-        this->setToolTip(QString::fromLatin1("Wrong unit"));
         QPixmap pixmap = getValidationIcon(":/icons/button_invalid.svg", QSize(sizeHint().height(),sizeHint().height()));
         iconLabel->setPixmap(pixmap);
         parseError(QString::fromLatin1("Wrong unit"));
@@ -278,23 +277,21 @@ void InputField::newInput(const QString & text)
 
     QPixmap pixmap = getValidationIcon(":/icons/button_valid.svg", QSize(sizeHint().height(),sizeHint().height()));
     iconLabel->setPixmap(pixmap);
-    ErrorText = "";
     validInput = true;
 
     if (res.getValue() > Maximum){
         res.setValue(Maximum);
-        ErrorText = "Maximum reached";
     }
     if (res.getValue() < Minimum){
         res.setValue(Minimum);
-        ErrorText = "Minimum reached";
     }
 
-    this->setToolTip(QString::fromLatin1(ErrorText.c_str()));
-
     double dFactor;
-    res.getUserString(dFactor,actUnitStr);
+    QString unitStr;
+    res.getUserString(dFactor, unitStr);
     actUnitValue = res.getValue()/dFactor;
+    // Preserve previous format
+    res.setFormat(this->actQuantity.getFormat());
     actQuantity = res;
 
     // signaling
@@ -446,6 +443,20 @@ const Base::Unit& InputField::getUnit() const
     return actUnit;
 }
 
+/// get stored, valid quantity as a string
+QString InputField::getQuantityString(void) const
+{
+    return actQuantity.getUserString();
+}
+
+/// set, validate and display quantity from a string. Must match existing units.
+void InputField::setQuantityString(const QString& text)
+{
+    // Input and then format the quantity
+    newInput(text);
+    updateText(actQuantity);
+}
+
 /// get the value of the singleStep property
 double InputField::singleStep(void)const
 {
@@ -503,7 +514,39 @@ void InputField::setUnitText(const QString& str)
 
 QString InputField::getUnitText(void)
 {
-    return actUnitStr;
+    double dFactor;
+    QString unitStr;
+    actQuantity.getUserString(dFactor, unitStr);
+    return unitStr;
+}
+
+int InputField::getPrecision() const
+{
+    return this->actQuantity.getFormat().precision;
+}
+
+void InputField::setPrecision(const int precision)
+{
+    Base::QuantityFormat format = actQuantity.getFormat();
+    format.precision = precision;
+    actQuantity.setFormat(format);
+    updateText(actQuantity);
+}
+
+QString InputField::getFormat() const
+{
+    return QString(QChar::fromLatin1(actQuantity.getFormat().toFormat()));
+}
+
+void InputField::setFormat(const QString& format)
+{
+    if (format.isEmpty())
+        return;
+    QChar c = format[0];
+    Base::QuantityFormat f = this->actQuantity.getFormat();
+    f.format = Base::QuantityFormat::toFormat(c.toLatin1());
+    actQuantity.setFormat(f);
+    updateText(actQuantity);
 }
 
 // get the value of the minimum property
@@ -529,6 +572,7 @@ void InputField::selectNumber(void)
     QChar d = locale().decimalPoint();
     QChar g = locale().groupSeparator();
     QChar n = locale().negativeSign();
+    QChar e = locale().exponential();
 
     for (QString::iterator it = str.begin(); it != str.end(); ++it) {
         if (it->isDigit())
@@ -538,6 +582,8 @@ void InputField::selectNumber(void)
         else if (*it == g)
             i++;
         else if (*it == n)
+            i++;
+        else if (*it == e && actQuantity.getFormat().format != Base::QuantityFormat::Fixed)
             i++;
         else // any non-number character
             break;
@@ -556,7 +602,7 @@ void InputField::showEvent(QShowEvent * event)
         selectNumber();
 }
 
-void InputField::focusInEvent(QFocusEvent * event)
+void InputField::focusInEvent(QFocusEvent *event)
 {
     if (event->reason() == Qt::TabFocusReason ||
         event->reason() == Qt::BacktabFocusReason  ||
@@ -566,6 +612,12 @@ void InputField::focusInEvent(QFocusEvent * event)
     }
 
     QLineEdit::focusInEvent(event);
+}
+
+void InputField::focusOutEvent(QFocusEvent *event)
+{
+    this->setText(actQuantity.getUserString());
+    QLineEdit::focusOutEvent(event);
 }
 
 void InputField::keyPressEvent(QKeyEvent *event)
@@ -579,14 +631,18 @@ void InputField::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Up:
         {
             double val = actUnitValue + StepSize;
-            this->setText( QString::fromUtf8("%L1 %2").arg(val).arg(actUnitStr));
+            Base::Quantity quant = actQuantity;
+            quant.setValue(val);
+            this->setText(quant.getUserString());
             event->accept();
         }
         break;
     case Qt::Key_Down:
         {
             double val = actUnitValue - StepSize;
-            this->setText( QString::fromUtf8("%L1 %2").arg(val).arg(actUnitStr));
+            Base::Quantity quant = actQuantity;
+            quant.setValue(val);
+            this->setText(quant.getUserString());
             event->accept();
         }
         break;
@@ -610,7 +666,9 @@ void InputField::wheelEvent (QWheelEvent * event)
     else if (val < Minimum)
         val = Minimum;
 
-    this->setText(QString::fromUtf8("%L1 %2").arg(val).arg(actUnitStr));
+    Base::Quantity quant = actQuantity;
+    quant.setValue(val);
+    this->setText(quant.getUserString());
     selectNumber();
     event->accept();
 }

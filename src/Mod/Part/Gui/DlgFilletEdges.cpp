@@ -43,8 +43,8 @@
 # include <QItemSelection>
 # include <QItemSelectionModel>
 # include <QTimer>
-# include <boost/signal.hpp>
 # include <boost/bind.hpp>
+# include <Python.h>
 # include <Inventor/actions/SoSearchAction.h>
 # include <Inventor/details/SoLineDetail.h>
 #endif
@@ -206,7 +206,7 @@ namespace PartGui {
         std::vector<int> edge_ids;
         TopTools_IndexedMapOfShape all_edges;
         TopTools_IndexedMapOfShape all_faces;
-        typedef boost::signals::connection Connection;
+        typedef boost::signals2::connection Connection;
         Connection connectApplicationDeletedObject;
         Connection connectApplicationDeletedDocument;
 
@@ -452,7 +452,7 @@ void DlgFilletEdges::onSelectEdgesOfFace(const QString& subelement, int type)
                 }
             }
         }
-        catch (Standard_Failure) {
+        catch (Standard_Failure&) {
         }
     }
 }
@@ -793,10 +793,12 @@ void DlgFilletEdges::on_selectAllButton_clicked()
     model->blockSignals(block);
     model->updateCheckStates();
 
-    App::Document* doc = d->object->getDocument();
-    Gui::Selection().addSelection(doc->getName(),
-        d->object->getNameInDocument(),
-        subElements);
+    if (d->object) {
+        App::Document* doc = d->object->getDocument();
+        Gui::Selection().addSelection(doc->getName(),
+            d->object->getNameInDocument(),
+            subElements);
+    }
 }
 
 void DlgFilletEdges::on_selectNoneButton_clicked()
@@ -811,8 +813,10 @@ void DlgFilletEdges::on_selectNoneButton_clicked()
     model->blockSignals(block);
     model->updateCheckStates();
 
-    App::Document* doc = d->object->getDocument();
-    Gui::Selection().clearSelection(doc->getName());
+    if (d->object) {
+        App::Document* doc = d->object->getDocument();
+        Gui::Selection().clearSelection(doc->getName());
+    }
 }
 
 void DlgFilletEdges::on_filletType_activated(int index)

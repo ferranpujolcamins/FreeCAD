@@ -360,7 +360,8 @@ void CmdSketcherConvertToNURB::activated(int iMsg)
     Q_UNUSED(iMsg);
 
     // get the selection
-    std::vector<Gui::SelectionObject> selection = getSelection().getSelectionEx();
+    std::vector<Gui::SelectionObject> selection;
+    selection = getSelection().getSelectionEx(0, Sketcher::SketchObject::getClassTypeId());
 
     // only one sketch with its subelements are allowed to be selected
     if (selection.size() != 1) {
@@ -410,14 +411,7 @@ void CmdSketcherConvertToNURB::activated(int iMsg)
         commitCommand();
     }
 
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-
-    if (autoRecompute)
-        Gui::Command::updateActive();
-    else
-        Obj->solve();
-
+    tryAutoRecomputeIfNotSolve(Obj);
 }
 
 bool CmdSketcherConvertToNURB::isActive(void)
@@ -447,7 +441,8 @@ void CmdSketcherIncreaseDegree::activated(int iMsg)
     Q_UNUSED(iMsg);
 
     // get the selection
-    std::vector<Gui::SelectionObject> selection = getSelection().getSelectionEx();
+    std::vector<Gui::SelectionObject> selection;
+    selection = getSelection().getSelectionEx(0, Sketcher::SketchObject::getClassTypeId());
 
     // only one sketch with its subelements are allowed to be selected
     if (selection.size() != 1) {
@@ -459,6 +454,8 @@ void CmdSketcherIncreaseDegree::activated(int iMsg)
     Sketcher::SketchObject* Obj = static_cast<Sketcher::SketchObject*>(selection[0].getObject());
 
     openCommand("Increase degree");
+    
+    bool ignored=false;
 
     for (unsigned int i=0; i<SubNames.size(); i++ ) {
         // only handle edges
@@ -466,30 +463,36 @@ void CmdSketcherIncreaseDegree::activated(int iMsg)
 
             int GeoId = std::atoi(SubNames[i].substr(4,4000).c_str()) - 1;
 
-            Gui::Command::doCommand(
-                Doc,"App.ActiveDocument.%s.increaseBSplineDegree(%d) ",
-                                    selection[0].getFeatName(),GeoId);
-            
-            // add new control points
-            Gui::Command::doCommand(Gui::Command::Doc,
-                                    "App.ActiveDocument.%s.exposeInternalGeometry(%d)",
-                                    selection[0].getFeatName(),
-                                    GeoId);
+            const Part::Geometry * geo = Obj->getGeometry(GeoId);
+
+            if (geo->getTypeId() == Part::GeomBSplineCurve::getClassTypeId()) {
+
+                Gui::Command::doCommand(
+                    Doc,"App.ActiveDocument.%s.increaseBSplineDegree(%d) ",
+                                        selection[0].getFeatName(),GeoId);
+
+                // add new control points
+                Gui::Command::doCommand(Gui::Command::Doc,
+                                        "App.ActiveDocument.%s.exposeInternalGeometry(%d)",
+                                        selection[0].getFeatName(),
+                                        GeoId);
+            }
+            else {
+                ignored=true;
+            }
         }
+    }
+
+    if(ignored) {
+        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
+                             QObject::tr("At least one of the selected objects was not a B-Spline and was ignored."));
     }
 
     commitCommand();
 
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
+    tryAutoRecomputeIfNotSolve(Obj);
 
-    if (autoRecompute)
-        Gui::Command::updateActive();
-    else
-        Obj->solve();
-    
     getSelection().clearSelection();
-
 }
 
 bool CmdSketcherIncreaseDegree::isActive(void)
@@ -504,7 +507,7 @@ CmdSketcherIncreaseKnotMultiplicity::CmdSketcherIncreaseKnotMultiplicity()
 {
     sAppModule      = "Sketcher";
     sGroup          = QT_TR_NOOP("Sketcher");
-    sMenuText       = QT_TR_NOOP("Increase degree");
+    sMenuText       = QT_TR_NOOP("Increase knot multiplicity");
     sToolTipText    = QT_TR_NOOP("Increases the multiplicity of the selected knot of a B-spline");
     sWhatsThis      = "Sketcher_BSplineIncreaseKnotMultiplicity";
     sStatusTip      = sToolTipText;
@@ -524,8 +527,9 @@ void CmdSketcherIncreaseKnotMultiplicity::activated(int iMsg)
     #endif
     
     // get the selection
-    std::vector<Gui::SelectionObject> selection = getSelection().getSelectionEx();
-    
+    std::vector<Gui::SelectionObject> selection;
+    selection = getSelection().getSelectionEx(0, Sketcher::SketchObject::getClassTypeId());
+
     // only one sketch with its subelements are allowed to be selected
     if (selection.size() != 1) {
         return;
@@ -577,13 +581,20 @@ void CmdSketcherIncreaseKnotMultiplicity::activated(int iMsg)
 
                 }
                 catch (const Base::CADKernelError& e) {
-                    QMessageBox::warning(Gui::getMainWindow(), QObject::tr("CAD Kernel Error"),
-                                         QObject::tr(e.getMessage().c_str()));
+                    e.ReportException();
+                    if(e.getTranslatable()) {
+                        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("CAD Kernel Error"),
+                                            QObject::tr(e.getMessage().c_str()));
+                    }
                     getSelection().clearSelection();
                 }
                 catch (const Base::Exception& e) {
-                    QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Input Error"),
-                                         QObject::tr(e.getMessage().c_str()));
+                    e.ReportException();
+                    if(e.getTranslatable()) {
+                        QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Input Error"),
+                                            QObject::tr(e.getMessage().c_str()));
+                    }
+
                     getSelection().clearSelection();
                 }
 
@@ -638,15 +649,9 @@ void CmdSketcherIncreaseKnotMultiplicity::activated(int iMsg)
     else {
         commitCommand();
     }
-    
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-    
-    if (autoRecompute)
-        Gui::Command::updateActive();
-    else
-        Obj->solve();
-    
+
+    tryAutoRecomputeIfNotSolve(Obj);
+
     getSelection().clearSelection();
     
 }
@@ -683,8 +688,9 @@ void CmdSketcherDecreaseKnotMultiplicity::activated(int iMsg)
     #endif
     
     // get the selection
-    std::vector<Gui::SelectionObject> selection = getSelection().getSelectionEx();
-    
+    std::vector<Gui::SelectionObject> selection;
+    selection = getSelection().getSelectionEx(0, Sketcher::SketchObject::getClassTypeId());
+
     // only one sketch with its subelements are allowed to be selected
     if (selection.size() != 1) {
         return;
@@ -791,17 +797,10 @@ void CmdSketcherDecreaseKnotMultiplicity::activated(int iMsg)
     else {
         commitCommand();
     }
-    
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-    bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-    
-    if (autoRecompute)
-        Gui::Command::updateActive();
-    else
-        Obj->solve();
-    
+
+    tryAutoRecomputeIfNotSolve(Obj);
+
     getSelection().clearSelection();
-    
 }
 
 bool CmdSketcherDecreaseKnotMultiplicity::isActive(void)

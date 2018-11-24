@@ -29,7 +29,7 @@
 #include <string>
 #include <bitset>
 #include <QIcon>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 
 #include <App/TransactionalObject.h>
 #include <Base/Vector3D.h>
@@ -72,7 +72,8 @@ class ObjectItem;
 enum ViewStatus {
     UpdateData = 0,
     Detach = 1,
-    isRestoring = 2
+    isRestoring = 2,
+    UpdatingView = 3,
 };
 
 
@@ -128,7 +129,7 @@ public:
     virtual std::string getElement(const SoDetail *) const { return std::string(); }
     virtual SoDetail* getDetail(const char*) const { return 0; }
     virtual std::vector<Base::Vector3d> getModelPoints(const SoPickedPoint *) const;
-    /// return the higlight lines for a given element or the whole shape
+    /// return the highlight lines for a given element or the whole shape
     virtual std::vector<Base::Vector3d> getSelectionShape(const char* Element) const {
         (void)Element;
         return std::vector<Base::Vector3d>();
@@ -137,9 +138,16 @@ public:
      * Get called if the object is about to get deleted.
      * Here you can delete other objects, switch their visibility or prevent the deletion of the object.
      * @param subNames  list of selected subelements
-     * @return          true if the deletion is approoved by the view provider.
+     * @return          true if the deletion is approved by the view provider.
      */
     virtual bool onDelete(const std::vector<std::string> &subNames);
+    /**
+     * @brief Asks the view provider if the given object that is part of its
+     * outlist can be removed from there without breaking it.
+     * @param obj is part of the outlist of the object associated to the view provider
+     * @return true if the removal is approved by the view provider.
+     */
+    virtual bool canDelete(App::DocumentObject* obj) const;
     //@}
 
 
@@ -174,7 +182,7 @@ public:
     virtual bool canDragObjects() const;
     /** Check whether the object can be removed from the view provider by drag and drop */
     virtual bool canDragObject(App::DocumentObject*) const;
-    /** Tell the tree view if this object should apear there */
+    /** Tell the tree view if this object should appear there */
     virtual bool showInTree() const
     {
       return true;
@@ -192,11 +200,11 @@ public:
     /** @name Signals of the view provider */
     //@{
     /// signal on icon change
-    boost::signal<void ()> signalChangeIcon;
+    boost::signals2::signal<void ()> signalChangeIcon;
     /// signal on tooltip change
-    boost::signal<void (const QString&)> signalChangeToolTip;
+    boost::signals2::signal<void (const QString&)> signalChangeToolTip;
     /// signal on status tip change
-    boost::signal<void (const QString&)> signalChangeStatusTip;
+    boost::signals2::signal<void (const QString&)> signalChangeStatusTip;
     //@}
 
     /** update the content of the ViewProvider

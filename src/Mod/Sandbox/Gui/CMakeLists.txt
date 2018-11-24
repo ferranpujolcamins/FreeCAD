@@ -1,7 +1,7 @@
 if(MSVC)
-    add_definitions(-DHAVE_ACOSH -DHAVE_ATANH -DHAVE_ASINH)
+    add_definitions(-DHAVE_PART -DHAVE_ACOSH -DHAVE_ATANH -DHAVE_ASINH)
 else(MSVC)
-    add_definitions(-DHAVE_LIMITS_H -DHAVE_CONFIG_H)
+    add_definitions(-DHAVE_PART -DHAVE_LIMITS_H -DHAVE_CONFIG_H)
 endif(MSVC)
 
 include_directories(
@@ -12,9 +12,18 @@ include_directories(
     ${OCC_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIR}
-    ${QT_INCLUDE_DIR}
     ${XercesC_INCLUDE_DIRS}
 )
+
+if(BUILD_QT5)
+    include_directories(
+        ${Qt5Core_INCLUDE_DIRS}
+    )
+else()
+    include_directories(
+        ${QT_INCLUDE_DIR}
+    )
+endif()
 
 link_directories(${OCC_LIBRARY_DIR})
 
@@ -32,9 +41,9 @@ fc_wrap_cpp(SandboxGui_MOC_SRCS ${SandboxGui_MOC_HDRS})
 SOURCE_GROUP("Moc" FILES ${SandboxGui_MOC_SRCS})
 
 if(BUILD_QT5)
-qt5_add_resources(Resource_SRCS Resources/Sandbox.qrc)
+    qt5_add_resources(Resource_SRCS Resources/Sandbox.qrc)
 else()
-qt4_add_resources(Resource_SRCS Resources/Sandbox.qrc)
+    qt4_add_resources(Resource_SRCS Resources/Sandbox.qrc)
 endif()
 SET(Resource_SRCS
     ${Resource_SRCS}
@@ -57,14 +66,18 @@ SET(SandboxGui_SRCS
     Workbench.h
 )
 
-add_library(SandboxGui SHARED ${SandboxGui_SRCS})
+set (SandboxGui_Scripts
+    ../InitGui.py
+)
+
+add_library(SandboxGui SHARED ${SandboxGui_SRCS} ${SandboxGui_Scripts})
 target_link_libraries(SandboxGui ${SandboxGui_LIBS})
 
 
-fc_target_copy_resource(SandboxGui 
-    ${CMAKE_SOURCE_DIR}/src/Mod/Sandbox
+fc_target_copy_resource_flat(SandboxGui
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/Mod/Sandbox
-    InitGui.py)
+    ${SandboxGui_Scripts})
 
 SET_BIN_DIR(SandboxGui SandboxGui /Mod/Sandbox)
 SET_PYTHON_PREFIX_SUFFIX(SandboxGui)

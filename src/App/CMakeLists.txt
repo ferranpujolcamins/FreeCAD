@@ -3,6 +3,10 @@ if(WIN32)
     add_definitions(-DBOOST_DYN_LINK)
 endif(WIN32)
 
+if(FREECAD_RELEASE_SEH)
+    add_definitions(-DHAVE_SEH)
+endif(FREECAD_RELEASE_SEH)
+
 # This causes some problems with the resource files to be found, especially with the StartPage
 IF(RESOURCEDIR)
     add_definitions(-DRESOURCEDIR="${RESOURCEDIR}")
@@ -15,7 +19,9 @@ ENDIF(DOCDIR)
 add_definitions(-DBOOST_${Boost_VERSION})
 
 #if you want to use the old DAG structure uncomment this line
-add_definitions(-DUSE_OLD_DAG)
+#add_definitions(-DUSE_OLD_DAG)
+
+# -----------------------------------------------------------------------------
 
 #write relevant cmake variables to a file for later access with python. Exportet are all variables 
 #starting with BUILD. As the variable only exists if the user set it to ON a dict is useless, we 
@@ -34,7 +40,14 @@ foreach (_variableName ${_variableNames})
     endif ()
 endforeach()
 set(_vars "${_vars}]\\n\" \n;")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/CMakeScript.h "${_vars}" )
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/CMakeScript.hh "${_vars}" )
+
+fc_copy_file_if_different(
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeScript.hh"
+    "${CMAKE_CURRENT_BINARY_DIR}/CMakeScript.h"
+)
+
+# -----------------------------------------------------------------------------
 
 include_directories(
     ${CMAKE_BINARY_DIR}/src
@@ -49,12 +62,11 @@ include_directories(
 set(FreeCADApp_LIBS
     FreeCADBase
     ${Boost_LIBRARIES}
-    ${QT_QTCORE_LIBRARY}
-    ${QT_QTXML_LIBRARY}
 )
 
 if (BUILD_QT5)
     include_directories(
+        ${Qt5Core_INCLUDE_DIRS}
         ${Qt5Xml_INCLUDE_DIRS}
     )
     list(APPEND FreeCADApp_LIBS
@@ -64,9 +76,11 @@ if (BUILD_QT5)
 else()
     include_directories(
         ${QT_QTCORE_INCLUDE_DIR}
+        ${QT_QTXML_INCLUDE_DIR}
     )
     list(APPEND FreeCADApp_LIBS
-         ${QT_QTCORE_LIBRARY}
+        ${QT_QTCORE_LIBRARY}
+        ${QT_QTXML_LIBRARY}
     )
 endif()
 
@@ -265,10 +279,10 @@ SET(FreeCADApp_SRCS
     PreCompiled.h
 )
 
-if(MSVC)
+if(BUILD_USE_PCH)
     add_definitions(-D_PreComp_)
     ADD_MSVC_PRECOMPILED_HEADER(FreeCADApp PreCompiled.h PreCompiled.cpp FreeCADApp_CPP_SRCS)
-endif(MSVC)
+endif(BUILD_USE_PCH)
 
 add_library(FreeCADApp SHARED ${FreeCADApp_SRCS})
 

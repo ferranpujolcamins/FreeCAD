@@ -25,11 +25,17 @@
 #ifndef DRAWINGGUI_VIEWPROVIDERVIEW_H
 #define DRAWINGGUI_VIEWPROVIDERVIEW_H
 
+#include <boost/signals2.hpp> 
+
 #include <Gui/ViewProviderFeature.h>
 #include <Gui/ViewProviderDocumentObjectGroup.h>
 
 #include <Mod/TechDraw/App/DrawView.h>
 #include "QGIView.h"
+
+namespace TechDraw {
+class DrawView;
+}
 
 namespace TechDrawGui {
 class QGIView;
@@ -45,6 +51,7 @@ public:
     /// destructor
     virtual ~ViewProviderDrawingView();
 
+    App::PropertyBool  KeepLabel;
 
     virtual void attach(App::DocumentObject *);
     virtual void setDisplayMode(const char* ModeName);
@@ -71,6 +78,11 @@ public:
     //@}
 
     virtual TechDraw::DrawView* getViewObject() const;
+    
+    void onGuiRepaint(const TechDraw::DrawView* dv); 
+    typedef boost::signals2::scoped_connection Connection;
+    Connection connectGuiRepaint;
+    
 
 private:
     bool m_docReady;                                                   //sb MDI + QGraphicsScene ready

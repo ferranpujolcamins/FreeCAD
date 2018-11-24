@@ -28,7 +28,7 @@ __url__ = ["http://www.freecadweb.org"]
 ## \defgroup DRAFTGEOMUTILS DraftGeomUtils
 #  \ingroup DRAFT
 #  \brief Shape manipulation utilities for the Draft workbench
-# 
+#
 # Shapes manipulation utilities
 
 ## \addtogroup DRAFTGEOMUTILS
@@ -47,7 +47,7 @@ params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Draft")
 
 def precision():
     "precision(): returns the Draft precision setting"
-    return params.GetInt("precision")
+    return params.GetInt("precision",6)
 
 def vec(edge):
     "vec(edge) or vec(line): returns a vector from an edge or a Part.LineSegment"
@@ -415,7 +415,7 @@ def findIntersection(edge1,edge2,infinite1=False,infinite2=False,ex1=False,ex2=F
         rad1 , rad2  = edge1.Curve.Radius, edge2.Curve.Radius
         axis1, axis2 = edge1.Curve.Axis  , edge2.Curve.Axis
         c2c          = cent2.sub(cent1)
-        
+
         if cent1.sub(cent2).Length == 0:
             # circles are concentric
             return []
@@ -563,12 +563,17 @@ def orientEdge(edge, normal=None, make_arc=False):
     else:
         axis = edge.Placement.Rotation.Axis
         angle = -1*edge.Placement.Rotation.Angle*FreeCAD.Units.Radian
+    if axis == Vector (0.0, 0.0, 0.0):
+        axis = Vector (0.0, 0.0, 1.0)
     if angle:
         edge.rotate(base, axis, angle)
     if isinstance(edge.Curve,Part.Line):
         return Part.LineSegment(edge.Curve,edge.FirstParameter,edge.LastParameter)
     elif make_arc and isinstance(edge.Curve,Part.Circle) and not edge.Closed:
         return Part.ArcOfCircle(edge.Curve, edge.FirstParameter,
+                                    edge.LastParameter,edge.Curve.Axis.z>0)
+    elif make_arc and isinstance(edge.Curve,Part.Ellipse) and not edge.Closed:
+        return Part.ArcOfEllipse(edge.Curve, edge.FirstParameter,
                                     edge.LastParameter,edge.Curve.Axis.z>0)
     return edge.Curve
 
@@ -635,8 +640,10 @@ def findClosest(basepoint,pointslist):
     in a list of 3d points, finds the closest point to the base point.
     an index from the list is returned.
     '''
-    if not pointslist: return None
-    smallest = 100000
+    npoint = None
+    if not pointslist:
+        return None
+    smallest = 1000000
     for n in range(len(pointslist)):
         new = basepoint.sub(pointslist[n]).Length
         if new < smallest:
@@ -885,13 +892,14 @@ def flattenWire(wire):
     verts = [o]
     for v in wire.Vertexes[1:]:
         verts.append(plane.projectPoint(v.Point))
-    verts.append(o)
+    if wire.isClosed():
+        verts.append(o)
     w = Part.makePolygon(verts)
     return w
 
 def findWires(edgeslist):
     return [ Part.Wire(e) for e in Part.sortEdges(edgeslist)]
-    
+
 def findWiresOld2(edgeslist):
     '''finds connected wires in the given list of edges'''
 
@@ -1106,11 +1114,11 @@ def getNormal(shape):
         if (shape.ShapeType == "Face") and hasattr(shape,"normalAt"):
                 n = shape.copy().normalAt(0.5,0.5)
         elif shape.ShapeType == "Edge":
-                if geomType(shape.Edges[0]) == "Circle":
+                if geomType(shape.Edges[0]) in ["Circle","Ellipse"]:
                         n = shape.Edges[0].Curve.Axis
         else:
                 for e in shape.Edges:
-                        if geomType(e) == "Circle":
+                        if geomType(e) in ["Circle","Ellipse"]:
                                 n = e.Curve.Axis
                                 break
                         e1 = vec(shape.Edges[0])
@@ -2041,7 +2049,7 @@ def curvetowire(obj,steps):
 def cleanProjection(shape,tessellate=True,seglength=.05):
     "returns a valid compound of edges, by recreating them"
     # this is because the projection algorithm somehow creates wrong shapes.
-    # they dispay fine, but on loading the file the shape is invalid
+    # they display fine, but on loading the file the shape is invalid
     # Now with tanderson's fix to ProjectionAlgos, that isn't the case, but this
     # can be used for tessellating ellipses and splines for DXF output-DF
     oldedges = shape.Edges
@@ -2127,6 +2135,29 @@ def rebaseWire(wire,vidx):
         return wire
     #This can be done in one step
     return Part.Wire(wire.Edges[vidx-1:] + wire.Edges[:vidx-1])
+
+
+def removeSplitter(shape):
+    """an alternative, shared edge-based version of Part.removeSplitter. Returns a
+    face or None if the operation failed"""
+    lut = {}
+    for f in shape.Faces:
+        for e in f.Edges:
+            h = e.hashCode()
+            if h in lut:
+                lut[h].append(e)
+            else:
+                lut[h] = [e]
+    edges = [e[0] for e in lut.values() if len(e) == 1]
+    try:
+        face = Part.Face(Part.Wire(edges))
+    except:
+        # operation failed
+        return None
+    else:
+        if face.isValid():
+            return face
+    return None
 
 
 # circle functions *********************************************************
@@ -2407,6 +2438,27 @@ def circleFrom2PointsRadius(p1, p2, radius):
     else: return None
 
 
+def arcFrom2Pts(firstPt,lastPt,center,axis=None):
+
+    '''Builds an arc with center and 2 points, can be oriented with axis'''
+
+    radius1  = firstPt.sub(center).Length
+    radius2  = lastPt.sub(center).Length
+    if round(radius1-radius2,4) != 0 : # (PREC = 4 = same as Part Module),  Is it possible ?
+        return None
+
+    thirdPt = Vector(firstPt.sub(center).add(lastPt).sub(center))
+    thirdPt.normalize()
+    thirdPt.scale(radius1,radius1,radius1)
+    thirdPt = thirdPt.add(center)
+    newArc = Part.Edge(Part.Arc(firstPt,thirdPt,lastPt))
+    if not axis is None and newArc.Curve.Axis.dot(axis) < 0 :
+        thirdPt = thirdPt.sub(center)
+        thirdPt.scale(-1,-1,-1)
+        thirdPt = thirdPt.add(center)
+        newArc = Part.Edge(Part.Arc(firstPt,thirdPt,lastPt))
+    return newArc
+
 
 #############################33 to include
 
@@ -2451,7 +2503,7 @@ def outerSoddyCircle(circle1, circle2, circle3):
 
         z = q4 / (k4 + 0j)
 
-        # If the formula is not solveable, we return no circle.
+        # If the formula is not solvable, we return no circle.
         if (not z or not (1 / k4)):
             return None
 
@@ -2503,7 +2555,7 @@ def innerSoddyCircle(circle1, circle2, circle3):
 
         z = q4 / (k4 + 0j)
 
-        # If the formula is not solveable, we return no circle.
+        # If the formula is not solvable, we return no circle.
         if (not z or not (1 / k4)):
             return None
 

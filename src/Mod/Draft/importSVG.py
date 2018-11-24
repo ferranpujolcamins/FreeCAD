@@ -49,9 +49,16 @@ currently unsupported: use, image
 import xml.sax, string, FreeCAD, os, math, re, Draft, DraftVecUtils
 from FreeCAD import Vector
 
+if FreeCAD.GuiUp:
+    from DraftTools import translate
+else:
+    def translate(ctxt,txt):
+        return txt
+
 try: import FreeCADGui
 except ImportError: gui = False
 else: gui = True
+
 try: draftui = FreeCADGui.draftToolBar
 except AttributeError: draftui = None
 
@@ -421,7 +428,7 @@ class svgHandler(xml.sax.ContentHandler):
 
         def format(self,obj):
                 "applies styles to passed object"
-                if self.style and gui:
+                if gui:
                         v = obj.ViewObject
                         if self.color: v.LineColor = self.color
                         if self.width: v.LineWidth = self.width
@@ -449,7 +456,7 @@ class svgHandler(xml.sax.ContentHandler):
                         if not data['style']:
                                 pass#empty style attribute stops inhertig from parent
                         else:
-                                content = data['style'][0].replace(' ','')
+                                content = data['style'].replace(' ','')
                                 content = content.split(';')
                                 for i in content:
                                         pair = i.split(':')
@@ -468,12 +475,12 @@ class svgHandler(xml.sax.ContentHandler):
                                         data[k]=data[k][0]
 
                 # extracting style info
-                        
+
                 self.fill = None
                 self.color = None
                 self.width = None
                 self.text = None
-                
+
                 if name == 'svg':
                         m=FreeCAD.Matrix()
                         if not self.disableUnitScaling:
@@ -624,10 +631,11 @@ class svgHandler(xml.sax.ContentHandler):
                                                         currentvec = lastvec.add(Vector(0,-y,0))
                                                 else:
                                                         currentvec = Vector(lastvec.x,-y,0)
-                                                seg = Part.LineSegment(lastvec,currentvec).toShape()
-                                                lastvec = currentvec
-                                                lastpole = None
-                                                path.append(seg)
+                                                if lastvec!=currentvec:
+                                                    seg = Part.LineSegment(lastvec,currentvec).toShape()
+                                                    lastvec = currentvec
+                                                    lastpole = None
+                                                    path.append(seg)
                                 elif (d == "A" or d == "a"):
                                         for rx,ry,xrotation, largeflag, sweepflag,x,y in \
                                                 zip(pointlist[0::7],pointlist[1::7],pointlist[2::7],pointlist[3::7],pointlist[4::7],pointlist[5::7],pointlist[6::7]):
@@ -834,7 +842,6 @@ class svgHandler(xml.sax.ContentHandler):
                                 edges.append(Part.LineSegment(p3,p4).toShape())
                                 edges.append(Part.LineSegment(p4,p1).toShape())
                         else: #rounded edges
-                                #ToTo: check for ry>rx !!!!
                                 rx = data.get('rx')
                                 ry = data.get('ry') or rx
                                 rx = rx or ry 
@@ -842,41 +849,32 @@ class svgHandler(xml.sax.ContentHandler):
                                         rx = data['width'] / 2.0
                                 if ry > 2 * data['height']:
                                        ry = data['height'] / 2.0
-                                if rx > ry:
-                                    mj = rx
-                                    mi = ry
-                                else:
-                                    mj = ry
-                                    mi = rx
+
                                 p1=Vector(data['x']+rx,-data['y']-data['height']+ry,0)
-                                e1=Part.Ellipse(p1,mj,mi)
                                 p2=Vector(data['x']+data['width']-rx,-data['y']-data['height']+ry,0)
-                                e2=Part.Ellipse(p2,mj,mi)
                                 p3=Vector(data['x']+data['width']-rx,-data['y']-ry,0)
-                                e3=Part.Ellipse(p3,mj,mi)
                                 p4=Vector(data['x']+rx,-data['y']-ry,0)
-                                e4=Part.Ellipse(p4,mj,mi)
-                                if rx > ry:
-                                        e1a=Part.Arc(e1,math.radians(180),math.radians(270))
-                                        e2a=Part.Arc(e2,math.radians(270),math.radians(360))
-                                        e3a=Part.Arc(e3,math.radians(0),math.radians(90))
-                                        e4a=Part.Arc(e4,math.radians(90),math.radians(180))
-                                        esh=[e1a.toShape(),e2a.toShape(),e3a.toShape(),e4a.toShape()]
+
+                                if rx >= ry:
+                                        e=Part.Ellipse(Vector(),rx,ry)
+                                        e1a=Part.Arc(e,math.radians(180),math.radians(270))
+                                        e2a=Part.Arc(e,math.radians(270),math.radians(360))
+                                        e3a=Part.Arc(e,math.radians(0),math.radians(90))
+                                        e4a=Part.Arc(e,math.radians(90),math.radians(180))
+                                        m=FreeCAD.Matrix()
                                 else:
-                                        e1a=Part.Arc(e1,math.radians(90),math.radians(180))
-                                        e2a=Part.Arc(e2,math.radians(180),math.radians(270))
-                                        e3a=Part.Arc(e3,math.radians(270),math.radians(360))
-                                        e4a=Part.Arc(e4,math.radians(0),math.radians(90))
-                                        rot90=FreeCAD.Matrix(0,-1,0,0,1,0)
-                                        esh=[]
-                                        for arc,point in ((e1a,p1),(e2a,p2),(e3a,p3),(e4a,p4)):
-                                                m1=FreeCAD.Matrix()
-                                                m1.move(point.multiply(1))
-                                                m1=m1.multiply(rot90)
-                                                m1.move(point.multiply(-1))
-                                                #m1.move(point)
-                                                arc.transform(m1)
-                                                esh.append(arc.toShape())
+                                        e=Part.Ellipse(Vector(),ry,rx)
+                                        e1a=Part.Arc(e,math.radians(90),math.radians(180))
+                                        e2a=Part.Arc(e,math.radians(180),math.radians(270))
+                                        e3a=Part.Arc(e,math.radians(270),math.radians(360))
+                                        e4a=Part.Arc(e,math.radians(0),math.radians(90))
+                                        m=FreeCAD.Matrix(0,-1,0,0,1,0) # rotate +90 degree
+                                esh=[]
+                                for arc,point in ((e1a,p1),(e2a,p2),(e3a,p3),(e4a,p4)):
+                                        m1=FreeCAD.Matrix(m)
+                                        m1.move(point)
+                                        arc.transform(m1)
+                                        esh.append(arc.toShape())
                                 for esh1,esh2 in zip(esh[-1:]+esh[:-1],esh):
                                         p1,p2 = esh1.Vertexes[-1].Point,esh2.Vertexes[0].Point
                                         if not DraftVecUtils.equals(p1,p2):
@@ -1120,12 +1118,14 @@ class svgHandler(xml.sax.ContentHandler):
                                 sy = argsplit[1] if len(argsplit) > 1 else sx
                                 m.scale(Vector(sx,sy,1))
                         elif transformation == 'rotate':
+                                cx = 0
+                                cy = 0
                                 angle = argsplit[0]
                                 if len(argsplit) >= 3:
                                         cx = argsplit[1]
                                         cy = argsplit[2]
                                         m.move(Vector(cx,-cy,0))
-                                m.rotateZ(math.radians(-angle)) #mirroring one axis equals changing the direction of rotaion
+                                m.rotateZ(math.radians(-angle)) #mirroring one axis equals changing the direction of rotation
                                 if len(argsplit) >= 3:
                                         m.move(Vector(-cx,cy,0))
                         elif transformation == 'skewX':
@@ -1213,7 +1213,7 @@ def export(exportList,filename):
 
         svg_export_style = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Draft").GetInt("svg_export_style")
         if svg_export_style != 0 and svg_export_style != 1:
-            FreeCAD.Console.PrintMessage("unknown svg export style, switching to Translated\n")
+            FreeCAD.Console.PrintMessage(translate("Unknown SVG export style, switching to Translated")+"\n")
             svg_export_style = 0
 
         # finding sheet size
@@ -1287,3 +1287,6 @@ def export(exportList,filename):
         # closing
         svg.write('</svg>')
         svg.close()
+
+
+

@@ -2,29 +2,32 @@ if(WIN32)
     add_definitions(-DFCAppPoints)
 endif(WIN32)
 
-if(PCL_IO_FOUND)
-    add_definitions(-DHAVE_PCL_IO)
-elseif(PCL_FOUND)
-    message(WARNING "pcl installed but io component not found")
-endif(PCL_IO_FOUND)
-
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
-    ${PCL_INCLUDE_DIRS}
     ${PYTHON_INCLUDE_DIRS}
-    ${QT_QTCORE_INCLUDE_DIR}
     ${XercesC_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIR}
 )
 
 set(Points_LIBS
     FreeCADApp
-    ${PCL_COMMON_LIBRARIES}
-    ${PCL_IO_LIBRARIES}
 )
+
+if (BUILD_QT5)
+    include_directories(
+        ${Qt5Concurrent_INCLUDE_DIRS}
+    )
+    list(APPEND Points_LIBS
+        ${Qt5Concurrent_LIBRARIES}
+    )
+else()
+    include_directories(
+        ${QT_QTCORE_INCLUDE_DIR}
+    )
+endif()
 
 generate_from_xml(PointsPy)
 
@@ -51,15 +54,19 @@ SET(Points_SRCS
     Structured.h
 )
 
-add_library(Points SHARED ${Points_SRCS})
+set(Points_Scripts
+    ../Init.py
+)
+
+add_library(Points SHARED ${Points_SRCS} ${Points_Scripts})
 
 target_link_libraries(Points ${Points_LIBS})
 
 
-fc_target_copy_resource(Points 
-    ${CMAKE_SOURCE_DIR}/src/Mod/Points
+fc_target_copy_resource_flat(Points
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/Mod/Points
-    Init.py)
+    ${Points_Scripts})
 
 SET_BIN_DIR(Points Points /Mod/Points)
 SET_PYTHON_PREFIX_SUFFIX(Points)

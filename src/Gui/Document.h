@@ -92,34 +92,36 @@ public:
     /** @name Signals of the document */
     //@{
     /// signal on new Object
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalNewObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalNewObject;
     /// signal on deleted Object
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalDeletedObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalDeletedObject;
     /** signal on changed Object, the 2nd argument is the changed property
         of the referenced document object, not of the view provider */
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&,
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&,
                                 const App::Property&)>                   signalChangedObject;
     /// signal on renamed Object
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalRelabelObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalRelabelObject;
     /// signal on activated Object
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalActivatedObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalActivatedObject;
     /// signal on entering in edit mode
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalInEdit;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalInEdit;
     /// signal on leaving edit mode
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&)> signalResetEdit;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalResetEdit;
     /// signal on changed Object, the 2nd argument is the highlite mode to use
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&,
-                                const Gui::HighlightMode&,
-                                bool)>                                   signalHighlightObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&,
+                                          const Gui::HighlightMode&,
+                                          bool)>                                   signalHighlightObject;
     /// signal on changed Object, the 2nd argument is the highlite mode to use
-    mutable boost::signal<void (const Gui::ViewProviderDocumentObject&,
-                                const Gui::TreeItemMode&)>               signalExpandObject;
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&,
+                                          const Gui::TreeItemMode&)>               signalExpandObject;
+    /// signal on scrolling to an object
+    mutable boost::signals2::signal<void (const Gui::ViewProviderDocumentObject&)> signalScrollToObject;
     /// signal on undo Document
-    mutable boost::signal<void (const Gui::Document& doc)> signalUndoDocument;
+    mutable boost::signals2::signal<void (const Gui::Document& doc)> signalUndoDocument;
     /// signal on redo Document
-    mutable boost::signal<void (const Gui::Document& doc)> signalRedoDocument;
+    mutable boost::signals2::signal<void (const Gui::Document& doc)> signalRedoDocument;
     /// signal on deleting Document
-    mutable boost::signal<void (const Gui::Document& doc)> signalDeleteDocument;
+    mutable boost::signals2::signal<void (const Gui::Document& doc)> signalDeleteDocument;
     //@}
 
     /** @name I/O of the document */
@@ -157,6 +159,7 @@ public:
     //@{
     /// Getter for the active view
     Gui::MDIView* getActiveView(void) const;
+    void setActiveWindow(Gui::MDIView* view);
     Gui::MDIView* getEditingViewOfViewProvider(Gui::ViewProvider*) const;
     Gui::MDIView* getViewOfViewProvider(Gui::ViewProvider*) const;
     Gui::MDIView* getViewOfNode(SoNode*) const;
@@ -165,8 +168,8 @@ public:
     /// Create a clone of the given view
     Gui::MDIView* cloneView(Gui::MDIView*);
     /** send messages to the active view
-     * Send a specific massage to the active view and is able to recive a
-     * return massage
+     * Send a specific massage to the active view and is able to receive a
+     * return message
      */
     /// send Messages to all views
     bool sendMsgToViews(const char* pMsg);
@@ -179,7 +182,7 @@ public:
     /// Attach a view (get called by the MDIView constructor)
     void attachView(Gui::BaseView* pcView, bool bPassiv=false);
     /// Detach a view (get called by the MDIView destructor)
-    void detachView(Gui::BaseView* pcView, bool bPassiv=false); 
+    void detachView(Gui::BaseView* pcView, bool bPassiv=false);
     /// helper for selection
     ViewProvider* getViewProviderByPathFromTail(SoPath * path) const;
     /// call update on all attached views
@@ -234,13 +237,13 @@ public:
     std::vector<std::string> getUndoVector(void) const;
     /// Get an Redo string vector with the Redo names
     std::vector<std::string> getRedoVector(void) const;
-    /// Will UNDO  one or more steps
+    /// Will UNDO one or more steps
     void undo(int iSteps);
-    /// Will REDO  one or more steps
+    /// Will REDO one or more steps
     void redo(int iSteps) ;
     //@}
 
-    /// handels the application close event
+    /// handles the application close event
     bool canClose();
     bool isLastView(void);
 
@@ -253,6 +256,7 @@ protected:
 private:
     //handles the scene graph nodes to correctly group child and parents
     void handleChildren3D(ViewProvider* viewProvider);
+    void rebuildRootNodes();
 
     struct DocumentP* d;
     static int _iDocCount;

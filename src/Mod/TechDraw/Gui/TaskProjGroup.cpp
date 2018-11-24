@@ -36,6 +36,7 @@
 #include <Gui/Document.h>
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
+#include <Gui/WaitCursor.h>
 
 #include <Inventor/SbVec3f.h>
 
@@ -59,14 +60,6 @@ using namespace Gui;
 using namespace TechDraw;
 using namespace TechDrawGui;
 
-//TODO: Look into this, seems we might be able to delete it now?  IR
-#if 0 // needed for Qt's lupdate utility
-    qApp->translate("QObject", "Make axonometric...");
-    qApp->translate("QObject", "Edit axonometric settings...");
-    qApp->translate("QObject", "Make orthographic");
-#endif
-
-
 TaskProjGroup::TaskProjGroup(TechDraw::DrawProjGroup* featView, bool mode) :
     ui(new Ui_TaskProjGroup),
     multiView(featView),
@@ -78,8 +71,18 @@ TaskProjGroup::TaskProjGroup(TechDraw::DrawProjGroup* featView, bool mode) :
 
     ui->projection->setCurrentIndex(multiView->ProjectionType.getValue());
 
-    setFractionalScale(multiView->Scale.getValue());
+    setFractionalScale(multiView->getScale());
     ui->cmbScaleType->setCurrentIndex(multiView->ScaleType.getValue());
+    
+    //Allow or prevent scale changing initially 
+    if (multiView->ScaleType.isValue("Custom"))	{
+        ui->sbScaleNum->setEnabled(true);
+        ui->sbScaleDen->setEnabled(true);
+    }
+    else {
+        ui->sbScaleNum->setEnabled(false);
+        ui->sbScaleDen->setEnabled(false);
+    }
 
     // Initially toggle view checkboxes if needed
     setupViewCheckboxes(true);
@@ -95,10 +98,8 @@ TaskProjGroup::TaskProjGroup(TechDraw::DrawProjGroup* featView, bool mode) :
     connect(ui->butLeftRotate,  SIGNAL(clicked()), this, SLOT(rotateButtonClicked(void)));
     connect(ui->butCCWRotate,   SIGNAL(clicked()), this, SLOT(rotateButtonClicked(void)));
 
-    //3D button
-    connect(ui->but3D,   SIGNAL(clicked()), this, SLOT(on3DClicked(void)));
-    //Reset button
-    connect(ui->butReset,   SIGNAL(clicked()), this, SLOT(onResetClicked(void)));
+//    //Reset button
+//    connect(ui->butReset,   SIGNAL(clicked()), this, SLOT(onResetClicked(void)));
 
     // Slot for Scale Type
     connect(ui->cmbScaleType, SIGNAL(currentIndexChanged(int)), this, SLOT(scaleTypeChanged(int)));
@@ -124,30 +125,29 @@ TaskProjGroup::~TaskProjGroup()
 
 void TaskProjGroup::viewToggled(bool toggle)
 {
+    Gui::WaitCursor wc;
     bool changed = false;
     // Obtain name of checkbox
     QString viewName = sender()->objectName();
     int index = viewName.mid(7).toInt();
     const char *viewNameCStr = viewChkIndexToCStr(index);
-    App::DocumentObject* newObj;
-    TechDraw::DrawView* newView;
     if ( toggle && !multiView->hasProjection( viewNameCStr ) ) {
-        newObj = multiView->addProjection( viewNameCStr );
-        newView = static_cast<TechDraw::DrawView*>(newObj);
-        m_mdi->redraw1View(newView);
+        (void) multiView->addProjection( viewNameCStr );            //maybe this should be send a message instead of blocking?
+//        Gui::Command::doCommand(Gui::Command::Doc,                // Gui response is no faster with this. :(
+//                                "App.activeDocument().%s.addProjection('%s')",
+//                                multiView->getNameInDocument(), viewNameCStr);
         changed = true;
     } else if ( !toggle && multiView->hasProjection( viewNameCStr ) ) {
         multiView->removeProjection( viewNameCStr );
         changed = true;
     }
     if (changed) {
-        multiView->recomputeFeature();
         if (multiView->ScaleType.isValue("Automatic")) {
-            double scale = multiView->Scale.getValue();
+            double scale = multiView->getScale();
             setFractionalScale(scale);
         }
     }
-
+    wc.restoreCursor();
 }
 
 void TaskProjGroup::rotateButtonClicked(void)
@@ -174,37 +174,14 @@ void TaskProjGroup::rotateButtonClicked(void)
     }
 }
 
-void TaskProjGroup::on3DClicked(void)
-{
-    Base::Console().Warning("TaskProjGroup - this function is temporarily unavailable\n");
-//TODO: how to set the DPG.Cube (or a brand new replacement Cube) to a specific orientation 
-//      {10x(viewDirection + RotationVector)}  given only the 
-//      viewDirection + upDirection(!= RotationVector) of the front view?
-//      need to find the sequence of rotations Left/Right, Up/Down, CW/CCW
-//      from current orientation to desired orientation. 
-    
-//    std::pair<Base::Vector3d,Base::Vector3d> dir3D = get3DViewDir();
-//    Base::Vector3d dir = dir3D.first;
-//    dir = DrawUtil::closestBasis(dir);
-//    Base::Vector3d up = dir3D.second;
-//    up = DrawUtil::closestBasis(up);
+//void TaskProjGroup::onResetClicked(void)
+//{
 //    TechDraw::DrawProjGroupItem* front = multiView->getProjItem("Front");
-//    if (front) {                              //why "if front"???
-//        multiView->setTable(dir,up);
+//    if (front) {
 //        setUiPrimary();
 //        Gui::Command::updateActive();
 //    }
-}
-
-void TaskProjGroup::onResetClicked(void)
-{
-    TechDraw::DrawProjGroupItem* front = multiView->getProjItem("Front");
-    if (front) {
-        multiView->resetCube();
-        setUiPrimary();
-        Gui::Command::updateActive();
-    }
-}
+//}
 
 void TaskProjGroup::projectionTypeChanged(int index)
 {
@@ -242,23 +219,38 @@ void TaskProjGroup::scaleTypeChanged(int index)
     if(blockUpdate)
         return;
 
+    //defaults to prevent scale changing 
+    ui->sbScaleNum->setEnabled(false);
+    ui->sbScaleDen->setEnabled(false);
+
     if(index == 0) {
         // Document Scale Type
         Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.ScaleType = '%s'", multiView->getNameInDocument()
                                                                                              , "Page");
     } else if(index == 1) {
         // Automatic Scale Type
-        Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.ScaleType = '%s'", multiView->getNameInDocument()
-                                                                                             , "Automatic");
+//        Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.ScaleType = '%s'", multiView->getNameInDocument()
+//                                                                                             , "Automatic");
+        //block recompute
+        multiView->ScaleType.setValue("Automatic");
+        double autoScale = multiView->calculateAutomaticScale();
+        multiView->Scale.setValue(autoScale);
+        //unblock recompute
+
     } else if(index == 2) {
         // Custom Scale Type
+        //block recompute
         Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.ScaleType = '%s'", multiView->getNameInDocument()
                                                                                              , "Custom");
+        ui->sbScaleNum->setEnabled(true);
+        ui->sbScaleDen->setEnabled(true);
+
         int a = ui->sbScaleNum->value();
         int b = ui->sbScaleDen->value();
         double scale = (double) a / (double) b;
         Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.Scale = %f", multiView->getNameInDocument()
                                                                                      , scale);
+        //unblock recompute
     } else {
         Base::Console().Log("Error - TaskProjGroup::scaleTypeChanged - unknown scale type: %d\n",index);
         return;
@@ -268,35 +260,79 @@ void TaskProjGroup::scaleTypeChanged(int index)
     Gui::Command::updateActive();
 }
 
-// ** David Eppstein / UC Irvine / 8 Aug 1993
-// Reworked 2015 IR to add the power of logarithms!
-void TaskProjGroup::nearestFraction(double val, int &n, int &d) const
+std::pair<int, int> TaskProjGroup::nearestFraction(const double val, const long int maxDenom) const
 {
-    int exponent = std::floor(std::log10(val));
-    if (exponent > 1 || exponent < -1) {
-        val *= std::pow(10, -exponent);
+/*
+** find rational approximation to given real number
+** David Eppstein / UC Irvine / 8 Aug 1993
+**
+** With corrections from Arno Formella, May 2008
+** and additional fiddles by WF 2017
+** usage: a.out r d
+**   r is real number to approx
+**   d is the maximum denominator allowed
+**
+** based on the theory of continued fractions
+** if x = a1 + 1/(a2 + 1/(a3 + 1/(a4 + ...)))
+** then best approximation is found by truncating this series
+** (with some adjustments in the last term).
+**
+** Note the fraction can be recovered as the first column of the matrix
+**  ( a1 1 ) ( a2 1 ) ( a3 1 ) ...
+**  ( 1  0 ) ( 1  0 ) ( 1  0 )
+** Instead of keeping the sequence of continued fraction terms,
+** we just keep the last partial product of these matrices.
+*/
+    std::pair<int, int> result;
+    long m[2][2];
+    long maxden = maxDenom;
+    long ai;
+    double x = val;
+    double startx = x;
+
+    /* initialize matrix */
+    m[0][0] = m[1][1] = 1;
+    m[0][1] = m[1][0] = 0;
+
+    /* loop finding terms until denom gets too big */
+    while (m[1][0] *  ( ai = (long)x ) + m[1][1] <= maxden) {
+        long t;
+        t = m[0][0] * ai + m[0][1];
+        m[0][1] = m[0][0];
+        m[0][0] = t;
+        t = m[1][0] * ai + m[1][1];
+        m[1][1] = m[1][0];
+        m[1][0] = t;
+        if(x == (double) ai)
+            break;     // AF: division by zero
+        x = 1/(x - (double) ai);
+        if(x > (double) std::numeric_limits<int>::max())
+            break;     // AF: representation failure
     }
 
-    n = 1;  // numerator
-    d = 1;  // denominator
-    double fraction = n / d;
-    //double m = fabs(fraction - val);
+    /* now remaining x is between 0 and 1/ai */
+    /* approx as either 0 or 1/m where m is max that will fit in maxden */
+    /* first try zero */
+    double error1 = startx - ((double) m[0][0] / (double) m[1][0]);
+    int n1 = m[0][0];
+    int d1 = m[1][0];
 
-    while (fabs(fraction - val) > 0.001) {
-        if (fraction < val) {
-            ++n;
-        } else {
-            ++d;
-            n = (int) round(val * d);
-        }
-        fraction = n / (double) d;
-    }
+    /* now try other possibility */
+    ai = (maxden - m[1][1]) / m[1][0];
+    m[0][0] = m[0][0] * ai + m[0][1];
+    m[1][0] = m[1][0] * ai + m[1][1];
+    double error2 = startx - ((double) m[0][0] / (double) m[1][0]);
+    int n2 = m[0][0];
+    int d2 = m[1][0];
 
-    if (exponent > 1) {
-            n *= std::pow(10, exponent);
-    } else if (exponent < -1) {
-            d *= std::pow(10, -exponent);
+    if (std::fabs(error1) <= std::fabs(error2)) {
+        result.first  = n1;
+        result.second = d1;
+    } else {
+        result.first  = n2;
+        result.second = d2;
     }
+    return result;
 }
 
 void TaskProjGroup::updateTask()
@@ -306,7 +342,7 @@ void TaskProjGroup::updateTask()
     ui->cmbScaleType->setCurrentIndex(multiView->ScaleType.getValue());
 
     // Update the scale value
-    setFractionalScale(multiView->Scale.getValue());
+    setFractionalScale(multiView->getScale());
 
     blockUpdate = false;
 }
@@ -315,12 +351,11 @@ void TaskProjGroup::updateTask()
 void TaskProjGroup::setFractionalScale(double newScale)
 {
     blockUpdate = true;
-    int num, den;
 
-    nearestFraction(newScale, num, den);
+    std::pair<int, int> fraction = nearestFraction(newScale);
 
-    ui->sbScaleNum->setValue(num);
-    ui->sbScaleDen->setValue(den);
+    ui->sbScaleNum->setValue(fraction.first);
+    ui->sbScaleDen->setValue(fraction.second);
     blockUpdate = false;
 }
 
@@ -339,7 +374,7 @@ void TaskProjGroup::scaleManuallyChanged(int i)
     double scale = (double) a / (double) b;
     Gui::Command::doCommand(Gui::Command::Doc, "App.activeDocument().%s.Scale = %f", multiView->getNameInDocument()
                                                                                      , scale);
-    multiView->recomputeFeature();
+    multiView->recomputeFeature();  //just a repaint.  multiView is already marked for recompute by changed to Scale
     Gui::Command::updateActive();
 }
 
@@ -416,41 +451,6 @@ void TaskProjGroup::setUiPrimary()
     ui->lePrimary->setText(formatVector(frontDir));
 }
 
-
-//should return a configuration?  frontdir,upDir mapped in DPG
-std::pair<Base::Vector3d,Base::Vector3d> TaskProjGroup::get3DViewDir()
-{
-    std::pair<Base::Vector3d,Base::Vector3d> result;
-    Base::Vector3d viewDir(0.0,-1.0,0.0);                                       //default to front
-    Base::Vector3d viewUp(0.0,0.0,1.0);                                         //default to top
-    std::list<MDIView*> mdis = Gui::Application::Instance->activeDocument()->getMDIViews();
-    Gui::View3DInventor *view;
-    Gui::View3DInventorViewer *viewer = nullptr;
-    for (auto& m: mdis) {                                                       //find the 3D viewer
-        view = dynamic_cast<Gui::View3DInventor*>(m);
-        if (view) {
-            viewer = view->getViewer();
-            break;
-        }
-    }
-    if (!viewer) {
-        Base::Console().Log("LOG - TaskProjGroup could not find a 3D viewer\n");
-        return std::make_pair( viewDir, viewUp);
-    }
-
-    SbVec3f dvec  = viewer->getViewDirection();
-    SbVec3f upvec = viewer->getUpDirection();
-
-    viewDir = Base::Vector3d(dvec[0], dvec[1], dvec[2]);
-    viewUp  = Base::Vector3d(upvec[0],upvec[1],upvec[2]);
-    viewDir *= -1.0;              //Inventor dir is opposite TD dir, Inventor up is same as TD up
-    viewDir = DrawUtil::closestBasis(viewDir);
-    viewUp  = DrawUtil::closestBasis(viewUp);
-    result = std::make_pair(viewDir,viewUp);
-    return result;
-}
-
-
 QString TaskProjGroup::formatVector(Base::Vector3d v)
 {
     QString data = QString::fromLatin1("[%1 %2 %3]")
@@ -465,8 +465,10 @@ bool TaskProjGroup::accept()
     Gui::Document* doc = Gui::Application::Instance->getDocument(multiView->getDocument());
     if (!doc) return false;
 
-    Gui::Command::commitCommand();
-    Gui::Command::updateActive();
+    if (!getCreateMode())  {    //this is an edit session, end the transaction
+        Gui::Command::commitCommand();
+    }
+    //Gui::Command::updateActive();     //no chain of updates here
     Gui::Command::doCommand(Gui::Command::Gui,"Gui.ActiveDocument.resetEdit()");
 
     return true;

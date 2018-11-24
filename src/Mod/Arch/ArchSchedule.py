@@ -22,6 +22,7 @@
 #*                                                                         *
 #***************************************************************************
 
+import sys
 import FreeCAD, time
 if FreeCAD.GuiUp:
     import FreeCADGui, Arch_rc, os
@@ -97,7 +98,7 @@ class _ArchSchedule:
             # silently fail on old schedule objects
             return
         if not obj.Result:
-            FreeCAD.Console.PrintError(translate("Arch","No spreadsheet attached to this schedule\n"))
+            FreeCAD.Console.PrintError(translate("Arch","No spreadsheet attached to this schedule")+"\n")
             return
         obj.Result.clearAll()
         obj.Result.set("A1","Description")
@@ -109,7 +110,11 @@ class _ArchSchedule:
                 # blank line
                 continue
             # write description
-            obj.Result.set("A"+str(i+2),obj.Description[i].encode("utf8"))
+            if sys.version_info.major >= 3:
+                # use unicode for python3
+                obj.Result.set("A"+str(i+2), obj.Description[i])
+            else:
+                obj.Result.set("A"+str(i+2), obj.Description[i].encode("utf8"))
             if verbose:
                 l= "OPERATION: "+obj.Description[i]
                 print (l)
@@ -122,6 +127,7 @@ class _ArchSchedule:
                 if objs:
                     objs = objs.split(";")
                     objs = [FreeCAD.ActiveDocument.getObject(o) for o in objs]
+                    objs = [obj for obj in objs if obj != None]
                 else:
                     objs = FreeCAD.ActiveDocument.Objects
                 if len(objs) == 1:
@@ -156,13 +162,19 @@ class _ArchSchedule:
                                 if Draft.getType(o).upper() == args[1].upper():
                                     ok = False
                             elif args[0].upper() == "ROLE":
-                                if hasattr(o,"Role"):
+                                if hasattr(o,"IfcRole"):
+                                    if o.IfcRole.upper() != args[1].upper():
+                                        ok = False
+                                elif hasattr(o,"Role"):
                                     if o.Role.upper() != args[1].upper():
                                         ok = False
                                 else:
                                     ok = False
                             elif args[0].upper() == "!ROLE":
                                 if hasattr(o,"Role"):
+                                    if o.IfcRole.upper() == args[1].upper():
+                                        ok = False
+                                elif hasattr(o,"Role"):
                                     if o.Role.upper() == args[1].upper():
                                         ok = False
                         if ok:
@@ -199,7 +211,9 @@ class _ArchSchedule:
                     val = sumval
                     # get unit
                     if obj.Unit[i]:
-                        ustr = obj.Unit[i].encode("utf8")
+                        ustr = obj.Unit[i]
+                        if sys.version_info.major < 3:
+                            ustr = ustr.encode("utf8")
                         unit = ustr.replace("²","^2")
                         unit = unit.replace("³","^3")
                         if "2" in unit:
@@ -314,7 +328,7 @@ class _ArchScheduleTaskPanel:
         self.form.list.setRowCount(0)
 
     def importCSV(self):
-        filename = QtGui.QFileDialog.getOpenFileName(QtGui.qApp.activeWindow(), translate("Arch","Import CSV File"), None, "CSV file (*.csv)");
+        filename = QtGui.QFileDialog.getOpenFileName(QtGui.QApplication.activeWindow(), translate("Arch","Import CSV File"), None, "CSV file (*.csv)");
         if filename:
             self.form.list.clearContents()
             import csv
@@ -333,7 +347,7 @@ class _ArchScheduleTaskPanel:
     def exportCSV(self):
         if self.obj:
             if self.obj.Result:
-                filename = QtGui.QFileDialog.getSaveFileName(QtGui.qApp.activeWindow(), translate("Arch","Export CSV File"), None, "CSV file (*.csv)");
+                filename = QtGui.QFileDialog.getSaveFileName(QtGui.QApplication.activeWindow(), translate("Arch","Export CSV File"), None, "CSV file (*.csv)");
                 if filename:
                     # the following line crashes, couldn't fnid out why
                     # self.obj.Result.exportFile(str(filename[0].encode("utf8")))

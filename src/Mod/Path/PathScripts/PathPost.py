@@ -27,15 +27,15 @@ from __future__ import print_function
 
 import FreeCAD
 import FreeCADGui
+import PathScripts.PathJob as PathJob
 import PathScripts.PathLog as PathLog
+import PathScripts.PathPreferences as PathPreferences
+import PathScripts.PathToolController as PathToolController
 import PathScripts.PathUtil as PathUtil
+import PathScripts.PathUtils as PathUtils
 import os
 
-from PathScripts import PathJob
-from PathScripts import PathToolController
-from PathScripts import PathUtils
 from PathScripts.PathPostProcessor import PostProcessor
-from PathScripts.PathPreferences import PathPreferences
 from PySide import QtCore, QtGui
 
 
@@ -137,7 +137,7 @@ class CommandPathPost:
                 filename = "%s%03d%s" % (fn, n, ext)
 
         if openDialog:
-            foo = QtGui.QFileDialog.getSaveFileName(QtGui.qApp.activeWindow(), "Output File", filename)
+            foo = QtGui.QFileDialog.getSaveFileName(QtGui.QApplication.activeWindow(), "Output File", filename)
             if foo:
                 filename = foo[0]
             else:
@@ -225,7 +225,7 @@ class CommandPathPost:
             targetlist = []
             for o in FreeCAD.ActiveDocument.Objects:
                 if hasattr(o, "Proxy"):
-                    if isinstance(o.Proxy, PathJob.ObjectPathJob):
+                    if isinstance(o.Proxy, PathJob.ObjectJob):
                         targetlist.append(o.Label)
             PathLog.debug("Possible post objects: {}".format(targetlist))
             if len(targetlist) > 1:
@@ -246,14 +246,14 @@ class CommandPathPost:
         # Then post-the ordered list
         postlist = []
         currTool = None
-        for obj in job.Group:
+        for obj in job.Operations.Group:
             PathLog.debug("obj: {}".format(obj.Name))
-            if not isinstance(obj.Proxy, PathToolController.ToolController):
-                tc = PathUtil.toolControllerForOp(obj)
-                if tc is not None:
-                    if tc.ToolNumber != currTool:
-                        postlist.append(tc)
-                postlist.append(obj)
+            tc = PathUtil.toolControllerForOp(obj)
+            if tc is not None:
+                if tc.ToolNumber != currTool:
+                    postlist.append(tc)
+                    currTool = tc.ToolNumber
+            postlist.append(obj)
 
         fail = True
         rc = ''

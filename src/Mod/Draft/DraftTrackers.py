@@ -83,7 +83,8 @@ class Tracker:
         '''remove self.switch from the scene graph.  As with _insertSwitch,
         must not be called during scene graph traversal).'''
         sg=Draft.get3DView().getSceneGraph()
-        sg.removeChild(switch)
+        if sg.findChild(switch) >= 0:
+            sg.removeChild(switch)
 
     def on(self):
         self.switch.whichChild = 0
@@ -115,7 +116,7 @@ class snapTracker(Tracker):
         color = coin.SoBaseColor()
         color.rgb = FreeCADGui.draftToolBar.getDefaultColor("snap")
         self.marker = coin.SoMarkerSet() # this is the marker symbol
-        self.marker.markerIndex = coin.SoMarkerSet.CIRCLE_FILLED_9_9
+        self.marker.markerIndex = FreeCADGui.getMarkerIndex("", 9)
         self.coords = coin.SoCoordinate3() # this is the coordinate
         self.coords.point.setValue((0,0,0))
         node = coin.SoAnnotation()
@@ -125,18 +126,7 @@ class snapTracker(Tracker):
         Tracker.__init__(self,children=[node],name="snapTracker")
 
     def setMarker(self,style):
-        if (style == "square"):
-            self.marker.markerIndex = coin.SoMarkerSet.DIAMOND_FILLED_9_9
-        elif (style == "circle"):
-            self.marker.markerIndex = coin.SoMarkerSet.CIRCLE_LINE_9_9
-        elif (style == "quad"):
-            self.marker.markerIndex = coin.SoMarkerSet.SQUARE_FILLED_9_9
-        elif (style == "empty"):
-            self.marker.markerIndex = coin.SoMarkerSet.SQUARE_LINE_9_9
-        elif (style == "cross"):
-            self.marker.markerIndex = coin.SoMarkerSet.CROSS_9_9
-        else:
-            self.marker.markerIndex = coin.SoMarkerSet.CIRCLE_FILLED_9_9
+        self.marker.markerIndex = FreeCADGui.getMarkerIndex(style, 9)
 
     def setCoords(self,point):
         self.coords.point.setValue((point.x,point.y,point.z))
@@ -162,14 +152,16 @@ class lineTracker(Tracker):
     def p1(self,point=None):
         "sets or gets the first point of the line"
         if point:
-            self.coords.point.set1Value(0,point.x,point.y,point.z)
+            if self.coords.point.getValues()[0].getValue() != tuple(point):
+                self.coords.point.set1Value(0,point.x,point.y,point.z)
         else:
             return Vector(self.coords.point.getValues()[0].getValue())
 
     def p2(self,point=None):
         "sets or gets the second point of the line"
         if point:
-            self.coords.point.set1Value(1,point.x,point.y,point.z)
+            if self.coords.point.getValues()[-1].getValue() != tuple(point):
+                self.coords.point.set1Value(1,point.x,point.y,point.z)
         else:
             return Vector(self.coords.point.getValues()[-1].getValue())
                         
@@ -568,7 +560,7 @@ class arcTracker(Tracker):
 class ghostTracker(Tracker):
     '''A Ghost tracker, that allows to copy whole object representations.
     You can pass it an object or a list of objects, or a shape.'''
-    def __init__(self,sel):
+    def __init__(self,sel,dotted=False,scolor=None,swidth=None):
         self.trans = coin.SoTransform()
         self.trans.translation.setValue([0,0,0])
         self.children = [self.trans]
@@ -578,7 +570,7 @@ class ghostTracker(Tracker):
         for obj in sel:
             rootsep.addChild(self.getNode(obj))
         self.children.append(rootsep)        
-        Tracker.__init__(self,children=self.children,name="ghostTracker")
+        Tracker.__init__(self,dotted,scolor,swidth,children=self.children,name="ghostTracker")
 
     def update(self,obj):
         "recreates the ghost from a new object"
@@ -614,18 +606,18 @@ class ghostTracker(Tracker):
         else:
             return self.getNodeFull(obj)
 
-    def getNode(self,obj):
+    def getNodeFull(self,obj):
         "gets a coin node which is a full copy of the current representation"
         sep = coin.SoSeparator()
         try:
             sep.addChild(obj.ViewObject.RootNode.copy())
         except:
-            pass
+            print("ghostTracker: Error retrieving coin node (full)")
         return sep
 
     def getNodeLight(self,shape):
         "extract a lighter version directly from a shape"
-        # very error-prone, will be obsoleted ASAP
+        # error-prone
         sep = coin.SoSeparator()
         try:
             inputstr = coin.SoInput()
@@ -635,7 +627,7 @@ class ghostTracker(Tracker):
             sep.addChild(coinobj.getChildren()[1])
             # sep.addChild(coinobj)
         except:
-            print("Error retrieving coin node")
+            print("ghostTracker: Error retrieving coin node (light)")
         return sep
         
     def getMatrix(self):
@@ -662,7 +654,7 @@ class ghostTracker(Tracker):
 class editTracker(Tracker):
     "A node edit tracker"
     def __init__(self,pos=Vector(0,0,0),name="None",idx=0,objcol=None,\
-            marker=coin.SoMarkerSet.SQUARE_FILLED_9_9,inactive=False):
+            marker=FreeCADGui.getMarkerIndex("quad", 9),inactive=False):
         color = coin.SoBaseColor()
         if objcol:
             color.rgb = objcol[:3]
@@ -796,6 +788,7 @@ class gridTracker(Tracker):
         mat3.diffuseColor.setValue(col)
         self.coords3 = coin.SoCoordinate3()
         self.lines3 = coin.SoLineSet()
+        self.pts = []
         s = coin.SoSeparator()
         s.addChild(pick)
         s.addChild(self.trans)
@@ -822,7 +815,7 @@ class gridTracker(Tracker):
         for i in range(numlines+1):
             curr = -bound + i*self.space
             z = 0
-            if i/float(self.mainlines) == i/self.mainlines:
+            if i/float(self.mainlines) == i//self.mainlines:
                 if round(curr,4) == 0:
                     apts.extend([[-bound,curr,z],[bound,curr,z]])
                     apts.extend([[curr,-bound,z],[curr,bound,z]])
@@ -832,24 +825,26 @@ class gridTracker(Tracker):
             else:
                 pts.extend([[-bound,curr,z],[bound,curr,z]])
                 pts.extend([[curr,-bound,z],[curr,bound,z]])
-        idx = []
-        midx = []
-        aidx = []
-        for p in range(0,len(pts),2):
-            idx.append(2)
-        for mp in range(0,len(mpts),2):
-            midx.append(2)
-        for ap in range(0,len(apts),2):
-            aidx.append(2)
-        self.lines1.numVertices.deleteValues(0)
-        self.lines2.numVertices.deleteValues(0)
-        self.lines3.numVertices.deleteValues(0)
-        self.coords1.point.setValues(pts)
-        self.lines1.numVertices.setValues(idx)
-        self.coords2.point.setValues(mpts)
-        self.lines2.numVertices.setValues(midx)
-        self.coords3.point.setValues(apts)
-        self.lines3.numVertices.setValues(aidx)
+        if pts != self.pts:
+            idx = []
+            midx = []
+            aidx = []
+            for p in range(0,len(pts),2):
+                idx.append(2)
+            for mp in range(0,len(mpts),2):
+                midx.append(2)
+            for ap in range(0,len(apts),2):
+                aidx.append(2)
+            self.lines1.numVertices.deleteValues(0)
+            self.lines2.numVertices.deleteValues(0)
+            self.lines3.numVertices.deleteValues(0)
+            self.coords1.point.setValues(pts)
+            self.lines1.numVertices.setValues(idx)
+            self.coords2.point.setValues(mpts)
+            self.lines2.numVertices.setValues(midx)
+            self.coords3.point.setValues(apts)
+            self.lines3.numVertices.setValues(aidx)
+            self.pts = pts
         
     def setSize(self,size):
         self.numlines = size
@@ -891,11 +886,13 @@ class gridTracker(Tracker):
     
 class boxTracker(Tracker):                
     "A box tracker, can be based on a line object"
-    def __init__(self,line=None,width=0.1,height=1):
+    def __init__(self,line=None,width=0.1,height=1,shaded=False):
         self.trans = coin.SoTransform()
         m = coin.SoMaterial()
         m.transparency.setValue(0.8)
         m.diffuseColor.setValue([0.4,0.4,0.6])
+        w = coin.SoDrawStyle()
+        w.style = coin.SoDrawStyle.LINES
         self.cube = coin.SoCube()
         self.cube.height.setValue(width)
         self.cube.depth.setValue(height)
@@ -903,7 +900,10 @@ class boxTracker(Tracker):
         if line:
             self.baseline = line
             self.update()
-        Tracker.__init__(self,children=[self.trans,m,self.cube],name="boxTracker")
+        if shaded:
+            Tracker.__init__(self,children=[self.trans,m,self.cube],name="boxTracker")
+        else:
+            Tracker.__init__(self,children=[self.trans,w,self.cube],name="boxTracker")
 
     def update(self,line=None,normal=None):
         import WorkingPlane, DraftGeomUtils

@@ -40,7 +40,7 @@ set(PartDesignGui_MOC_HDRS
     TaskDraftParameters.h
     TaskThicknessParameters.h
     TaskDressUpParameters.h
-    #TaskHoleParameters.h
+    TaskHoleParameters.h
     TaskRevolutionParameters.h
     TaskTransformedMessages.h
     TaskTransformedParameters.h
@@ -74,7 +74,7 @@ set(PartDesignGui_UIC_SRCS
     TaskDraftParameters.ui
     TaskThicknessParameters.ui
     TaskBooleanParameters.ui
-    #TaskHoleParameters.ui
+    TaskHoleParameters.ui
     TaskRevolutionParameters.ui
     TaskTransformedMessages.ui
     TaskMirroredParameters.ui
@@ -106,8 +106,8 @@ SET(PartDesignGuiViewProvider_SRCS
     ViewProviderSketchBased.h
     ViewProviderPad.cpp
     ViewProviderPad.h
-    #ViewProviderHole.cpp
-    #ViewProviderHole.h
+    ViewProviderHole.cpp
+    ViewProviderHole.h
     ViewProviderPocket.cpp
     ViewProviderPocket.h
     ViewProviderChamfer.cpp
@@ -158,6 +158,8 @@ SET(PartDesignGuiViewProvider_SRCS
     ViewProviderPipe.cpp
     ViewProviderLoft.h
     ViewProviderLoft.cpp
+    ViewProviderBase.h 
+    ViewProviderBase.cpp
 )
 SOURCE_GROUP("ViewProvider" FILES ${PartDesignGuiViewProvider_SRCS})
 
@@ -214,9 +216,9 @@ SET(PartDesignGuiTaskDlgs_SRCS
     TaskMultiTransformParameters.ui
     TaskMultiTransformParameters.cpp
     TaskMultiTransformParameters.h
-    #TaskHoleParameters.ui
-    #TaskHoleParameters.cpp
-    #TaskHoleParameters.h
+    TaskHoleParameters.ui
+    TaskHoleParameters.cpp
+    TaskHoleParameters.h
     TaskDatumParameters.cpp
     TaskDatumParameters.h
     TaskShapeBinder.ui
@@ -263,38 +265,26 @@ SET(Python_SRCS
 SOURCE_GROUP("Python" FILES ${Python_SRCS})
 
 
-SET(PartDesignGui_Scripts
-    InitGui.py
-    TestPartDesignGui.py
-)
-
 SET(PartDesignGui_SRCS
     ${PartDesignGui_SRCS}
     ${PartDesignGui_UIC_HDRS}
     ${PartDesignGuiModule_SRCS}
     ${PartDesignGuiTaskDlgs_SRCS}
     ${PartDesignGuiViewProvider_SRCS}
-	${Python_SRCS}
+    ${Python_SRCS}
 )
-
-add_library(PartDesignGui SHARED ${PartDesignGui_SRCS})
-target_link_libraries(PartDesignGui ${PartDesignGui_LIBS})
-
-
-fc_target_copy_resource(PartDesignGui 
-    ${CMAKE_SOURCE_DIR}/src/Mod/PartDesign
-    ${CMAKE_BINARY_DIR}/Mod/PartDesign
-    ${PartDesignGui_Scripts})
-
-SET_BIN_DIR(PartDesignGui PartDesignGui /Mod/PartDesign)
-SET_PYTHON_PREFIX_SUFFIX(PartDesignGui)
-
-INSTALL(TARGETS PartDesignGui DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 SET(PartDesignGuiIcon_SVG
     Resources/icons/PartDesignWorkbench.svg
 )
 
+add_library(PartDesignGui SHARED ${PartDesignGui_SRCS} ${PartDesignGuiIcon_SVG})
+target_link_libraries(PartDesignGui ${PartDesignGui_LIBS})
+
+SET_BIN_DIR(PartDesignGui PartDesignGui /Mod/PartDesign)
+SET_PYTHON_PREFIX_SUFFIX(PartDesignGui)
+
 fc_copy_sources(PartDesignGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/PartDesign" ${PartDesignGuiIcon_SVG})
 
+INSTALL(TARGETS PartDesignGui DESTINATION ${CMAKE_INSTALL_LIBDIR})
 INSTALL(FILES ${PartDesignGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/PartDesign/Resources/icons")

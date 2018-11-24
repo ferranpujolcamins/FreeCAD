@@ -31,9 +31,11 @@
 # include <QMetaType>
 #endif
 
-// Uncomment this block to remove PySide support and switch back to PyQt
-// #undef HAVE_SHIBOKEN
-// #undef HAVE_PYSIDE
+// Uncomment this block to remove PySide C++ support and switch to its Python interface
+//#undef HAVE_SHIBOKEN
+//#undef HAVE_PYSIDE
+//#undef HAVE_SHIBOKEN2
+//#undef HAVE_PYSIDE2
 
 #ifdef FC_OS_WIN32
 #undef max
@@ -58,7 +60,7 @@
 # undef _POSIX_C_SOURCE
 # undef _XOPEN_SOURCE
 # include <basewrapper.h>
-# include <conversions.h>
+# include <sbkconverter.h>
 # include <sbkmodule.h>
 # include <typeresolver.h>
 # include <shiboken.h>
@@ -75,9 +77,8 @@ PyTypeObject** SbkPySide_QtGuiTypes=NULL;
 # undef _POSIX_C_SOURCE
 # undef _XOPEN_SOURCE
 # include <basewrapper.h>
-# include <conversions.h>
+# include <sbkconverter.h>
 # include <sbkmodule.h>
-# include <typeresolver.h>
 # include <shiboken.h>
 # ifdef HAVE_PYSIDE2
 # define HAVE_PYSIDE
@@ -114,40 +115,34 @@ PyTypeObject** SbkPySide2_QtWidgetsTypes=NULL;
 using namespace Gui;
 
 #if defined (HAVE_SHIBOKEN)
-namespace Shiboken {
-template<> struct Converter<Base::Quantity>
-{
-    static inline bool checkType(PyObject* pyObj) {
-        return PyObject_TypeCheck(pyObj, &(Base::QuantityPy::Type));
-    }
-    static inline bool isConvertible(PyObject* pyObj) {
-        return PyObject_TypeCheck(pyObj, &(Base::QuantityPy::Type));
-    }
-    static inline PyObject* toPython(void* cppobj) {
-        return toPython(*reinterpret_cast<Base::Quantity*>(cppobj));
-    }
-    static inline PyObject* toPython(Base::Quantity cpx) {
-        return new Base::QuantityPy(new Base::Quantity(cpx));
-    }
-    static inline Base::Quantity toCpp(PyObject* pyobj) {
-        Base::Quantity q = *static_cast<Base::QuantityPy*>(pyobj)->getQuantityPtr();
-        return q;
-    }
-};
+
+/**
+  Example:
+  \code
+    ui = FreeCADGui.UiLoader()
+    w = ui.createWidget("Gui::InputField")
+    w.show()
+    w.property("quantity")
+  \endcode
+  */
+
+PyObject* toPythonFuncQuantityTyped(Base::Quantity cpx) {
+    return new Base::QuantityPy(new Base::Quantity(cpx));
 }
 
 PyObject* toPythonFuncQuantity(const void* cpp)
 {
-    return Shiboken::Converter<Base::Quantity>::toPython(const_cast<void*>(cpp));
+    return toPythonFuncQuantityTyped(*reinterpret_cast<const Base::Quantity*>(cpp));
 }
 
-void toCppPointerConvFuncQuantity(PyObject*,void*)
+void toCppPointerConvFuncQuantity(PyObject* pyobj,void* cpp)
 {
+   *((Base::Quantity*)cpp) = *static_cast<Base::QuantityPy*>(pyobj)->getQuantityPtr();
 }
 
 PythonToCppFunc toCppPointerCheckFuncQuantity(PyObject* obj)
 {
-    if (Shiboken::Converter<Base::Quantity>::isConvertible(obj))
+    if (PyObject_TypeCheck(obj, &(Base::QuantityPy::Type)))
         return toCppPointerConvFuncQuantity;
     else
         return 0;
@@ -166,7 +161,7 @@ PythonToCppFunc isBaseQuantity_PythonToCpp_QVariantConvertible(PyObject* obj)
     return 0;
 }
 
-#if QT_VERSION >= 0x050200
+#if defined (HAVE_PYSIDE) && QT_VERSION >= 0x050200
 Base::Quantity convertWrapperToQuantity(const PySide::PyObjectWrapper &w)
 {
     PyObject* pyIn = static_cast<PyObject*>(w);
@@ -196,11 +191,68 @@ void registerTypes()
                                                              isBaseQuantity_PythonToCpp_QVariantConvertible);
     }
 
-#if QT_VERSION >= 0x050200
+#if defined (HAVE_PYSIDE) && QT_VERSION >= 0x050200
     QMetaType::registerConverter<PySide::PyObjectWrapper, Base::Quantity>(&convertWrapperToQuantity);
 #endif
 }
 #endif
+
+// --------------------------------------------------------
+
+namespace Gui {
+template<typename qttype>
+Py::Object qt_wrapInstance(qttype object, const char* className,
+                           const char* shiboken, const char* pyside,
+                           const char* wrap)
+{
+    PyObject* module = PyImport_ImportModule(shiboken);
+    if (!module) {
+        std::string error = "Cannot load ";
+        error += shiboken;
+        error += " module";
+        throw Py::Exception(PyExc_ImportError, error);
+    }
+
+    Py::Module mainmod(module, true);
+    Py::Callable func = mainmod.getDict().getItem(wrap);
+
+    Py::Tuple arguments(2);
+    arguments[0] = Py::asObject(PyLong_FromVoidPtr((void*)object));
+
+    module = PyImport_ImportModule(pyside);
+    if (!module) {
+        std::string error = "Cannot load ";
+        error += pyside;
+        error += " module";
+        throw Py::Exception(PyExc_ImportError, error);
+    }
+
+    Py::Module qtmod(module);
+    arguments[1] = qtmod.getDict().getItem(className);
+    return func.apply(arguments);
+}
+
+void* qt_getCppPointer(const Py::Object& pyobject, const char* shiboken, const char* unwrap)
+{
+    // https://github.com/PySide/Shiboken/blob/master/shibokenmodule/typesystem_shiboken.xml
+    PyObject* module = PyImport_ImportModule(shiboken);
+    if (!module) {
+        std::string error = "Cannot load ";
+        error += shiboken;
+        error += " module";
+        throw Py::Exception(PyExc_ImportError, error);
+    }
+
+    Py::Module mainmod(module, true);
+    Py::Callable func = mainmod.getDict().getItem(unwrap);
+
+    Py::Tuple arguments(1);
+    arguments[0] = pyobject; //PySide pointer
+    Py::Tuple result(func.apply(arguments));
+    void* ptr = PyLong_AsVoidPtr(result[0].ptr());
+    return ptr;
+}
+}
 
 // --------------------------------------------------------
 
@@ -252,7 +304,6 @@ QObject* PythonWrapper::toQObject(const Py::Object& pyobject)
 {
     // http://pastebin.com/JByDAF5Z
 #if defined (HAVE_SHIBOKEN) && defined(HAVE_PYSIDE)
-#if 1
     PyTypeObject * type = Shiboken::SbkType<QObject>();
     if (type) {
         if (Shiboken::Object::checkType(pyobject.ptr())) {
@@ -261,33 +312,20 @@ QObject* PythonWrapper::toQObject(const Py::Object& pyobject)
             return reinterpret_cast<QObject*>(cppobject);
         }
     }
-#else // does the same using shiboken's Python interface
-    // https://github.com/PySide/Shiboken/blob/master/shibokenmodule/typesystem_shiboken.xml
-    PyObject* module = PyImport_ImportModule((char*)"shiboken");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load shiboken module");
-
-    Py::Module mainmod(module, true);
-    Py::Callable func = mainmod.getDict().getItem("getCppPointer");
-
-    Py::Tuple arguments(1);
-    arguments[0] = pyobject; //PySide pointer
-    Py::Tuple result(func.apply(arguments));
-    void* ptr = PyLong_AsVoidPtr(result[0].ptr());
+#elif QT_VERSION >= 0x050000
+    // Access shiboken2/PySide2 via Python
+    //
+    void* ptr = qt_getCppPointer(pyobject, "shiboken2", "getCppPointer");
+    return reinterpret_cast<QObject*>(ptr);
+#else
+    // Access shiboken/PySide via Python
+    //
+    void* ptr = qt_getCppPointer(pyobject, "shiboken", "getCppPointer");
     return reinterpret_cast<QObject*>(ptr);
 #endif
-#else
-    PyObject* module = PyImport_ImportModule((char*)"sip");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load sip module");
 
-    Py::Module mainmod(module, true);
-    Py::Callable func = mainmod.getDict().getItem("unwrapinstance");
-
-    Py::Tuple arguments(1);
-    arguments[0] = pyobject; //PyQt pointer
-    Py::Object result = func.apply(arguments);
-    void* ptr = PyLong_AsVoidPtr(result.ptr());
+#if 0 // Unwrapping using sip/PyQt
+    void* ptr = qt_getCppPointer(pyobject, "sip", "unwrapinstance");
     return reinterpret_cast<QObject*>(ptr);
 #endif
 
@@ -297,11 +335,19 @@ QObject* PythonWrapper::toQObject(const Py::Object& pyobject)
 Py::Object PythonWrapper::fromQIcon(const QIcon* icon)
 {
 #if defined (HAVE_SHIBOKEN) && defined(HAVE_PYSIDE)
-    PyObject* pyobj = Shiboken::createWrapper<QIcon>(icon, true);
+    const char* typeName = typeid(*const_cast<QIcon*>(icon)).name();
+    PyObject* pyobj = Shiboken::Object::newObject(reinterpret_cast<SbkObjectType*>(Shiboken::SbkType<QIcon>()),
+                              const_cast<QIcon*>(icon), true, false, typeName);
     if (pyobj)
         return Py::asObject(pyobj);
+#elif QT_VERSION >= 0x050000
+    // Access shiboken2/PySide2 via Python
+    //
+    return qt_wrapInstance<const QIcon*>(icon, "QIcon", "shiboken2", "PySide2.QtGui", "wrapInstance");
 #else
-    Q_UNUSED(icon);
+    // Access shiboken/PySide via Python
+    //
+    return qt_wrapInstance<const QIcon*>(icon, "QIcon", "shiboken", "PySide.QtGui", "wrapInstance");
 #endif
     throw Py::RuntimeError("Failed to wrap icon");
 }
@@ -309,7 +355,8 @@ Py::Object PythonWrapper::fromQIcon(const QIcon* icon)
 Py::Object PythonWrapper::fromQWidget(QWidget* widget, const char* className)
 {
 #if defined (HAVE_SHIBOKEN) && defined(HAVE_PYSIDE)
-#if 1
+    // Access shiboken/PySide via C++
+    //
     PyTypeObject * type = Shiboken::SbkType<QWidget>();
     if (type) {
         SbkObjectType* sbk_type = reinterpret_cast<SbkObjectType*>(type);
@@ -322,50 +369,24 @@ Py::Object PythonWrapper::fromQWidget(QWidget* widget, const char* className)
         return Py::asObject(pyobj);
     }
     throw Py::RuntimeError("Failed to wrap widget");
-#else // does the same using shiboken's Python interface
-    PyObject* module = PyImport_ImportModule((char*)"shiboken");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load shiboken module");
 
-    Py::Module mainmod(module, true);
-    Py::Callable func = mainmod.getDict().getItem("wrapInstance");
-
-    Py::Tuple arguments(2);
-    arguments[0] = Py::asObject(PyLong_FromVoidPtr(widget));
-
-    module = PyImport_ImportModule((char*)"PySide.QtGui");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load PySide.QtGui module");
-
-    Py::Module qtmod(module);
-    arguments[1] = qtmod.getDict().getItem(className);
-    return func.apply(arguments);
-#endif
+#elif QT_VERSION >= 0x050000
+    // Access shiboken2/PySide2 via Python
+    //
+    return qt_wrapInstance<QWidget*>(widget, className, "shiboken2", "PySide2.QtWidgets", "wrapInstance");
 #else
+    // Access shiboken/PySide via Python
+    //
+    return qt_wrapInstance<QWidget*>(widget, className, "shiboken", "PySide.QtGui", "wrapInstance");
+#endif
+
+#if 0 // Unwrapping using sip/PyQt
     Q_UNUSED(className);
-    PyObject* module = PyImport_ImportModule((char*)"sip");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load sip module");
-
-    Py::Module sipmod(module, true);
-    Py::Callable func = sipmod.getDict().getItem("wrapinstance");
-
-    Py::Tuple arguments(2);
-    arguments[0] = Py::asObject(PyLong_FromVoidPtr(widget));
-
 #if QT_VERSION >= 0x050000
-    module = PyImport_ImportModule((char*)"PyQt5.QtWidgets");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load PyQt5.QtWidgets module");
+    return qt_wrapInstance<QWidget*>(widget, "QWidget", "sip", "PyQt5.QtWidgets", "wrapinstance");
 #else
-    module = PyImport_ImportModule((char*)"PyQt4.Qt");
-    if (!module)
-        throw Py::Exception(PyExc_ImportError, "Cannot load PyQt4.Qt module");
+    return qt_wrapInstance<QWidget*>(widget, "QWidget", "sip", "PyQt4.Qt", "wrapinstance");
 #endif
-
-    Py::Module qtmod(module);
-    arguments[1] = qtmod.getDict().getItem("QWidget");
-    return func.apply(arguments);
 #endif
 }
 
@@ -381,10 +402,17 @@ const char* PythonWrapper::getWrapperName(QObject* obj) const
         meta = meta->superClass();
     }
 #else
-    Q_UNUSED(obj);
+    QUiLoader ui;
+    QStringList names = ui.availableWidgets();
+    const QMetaObject* meta = obj->metaObject();
+    while (meta) {
+        const char* typeName = meta->className();
+        if (names.indexOf(QLatin1String(typeName)) >= 0)
+            return typeName;
+        meta = meta->superClass();
+    }
 #endif
-
-    return nullptr;
+    return "QObject";
 }
 
 bool PythonWrapper::loadCoreModule()
@@ -885,7 +913,7 @@ Py::Object UiLoaderPy::load(const Py::Tuple& args)
             }
         }
         else {
-            throw Py::Exception("string or QIODevice expected");
+            throw Py::TypeError("string or QIODevice expected");
         }
     }
     return Py::None();
@@ -1175,7 +1203,7 @@ PyResource::PyResource() : myDlg(0)
 PyResource::~PyResource()
 {
     delete myDlg;
-    for (std::vector<SignalConnect*>::iterator it = mySingals.begin(); it != mySingals.end(); ++it) {
+    for (std::vector<SignalConnect*>::iterator it = mySignals.begin(); it != mySignals.end(); ++it) {
         SignalConnect* sc = *it;
         delete sc;
     }
@@ -1254,8 +1282,8 @@ void PyResource::load(const char* name)
 /**
  * Makes a connection between the sender widget \a sender and its signal \a signal
  * of the created resource and Python callback function \a cb.
- * If the sender widget does not exist or no resource has been loaded this method returns FALSE, 
- * otherwise it returns TRUE.
+ * If the sender widget does not exist or no resource has been loaded this method returns false, 
+ * otherwise it returns true.
  */
 bool PyResource::connect(const char* sender, const char* signal, PyObject* cb)
 {
@@ -1279,7 +1307,7 @@ bool PyResource::connect(const char* sender, const char* signal, PyObject* cb)
 
     if (objS) {
         SignalConnect* sc = new SignalConnect(this, cb);
-        mySingals.push_back(sc);
+        mySignals.push_back(sc);
         return QObject::connect(objS, sigStr.toLatin1(), sc, SLOT ( onExecute() )  );
     }
     else
@@ -1419,7 +1447,7 @@ Py::Object PyResource::setValue(const Py::Tuple& args)
 #endif
                 continue;
 #if PY_MAJOR_VERSION >= 3
-            char* pItem = PyUnicode_AsUTF8(item);
+            const char* pItem = PyUnicode_AsUTF8(item);
 #else
             char* pItem = PyString_AsString(item);
 #endif
@@ -1456,7 +1484,7 @@ Py::Object PyResource::setValue(const Py::Tuple& args)
 }
 
 /**
- * If any resouce has been loaded this methods shows it as a modal dialog.
+ * If any resource has been loaded this methods shows it as a modal dialog.
  */
 Py::Object PyResource::show(const Py::Tuple&)
 {

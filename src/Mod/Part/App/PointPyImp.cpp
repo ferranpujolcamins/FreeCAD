@@ -118,9 +118,9 @@ PyObject* PointPy::toShape(PyObject *args)
             return new TopoShapeVertexPy(new TopoShape(sh));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -143,9 +143,8 @@ void PointPy::setX(Py::Float X)
     try {
         this_point->SetX(double(X));
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::Exception(e->GetMessageString());
+    catch (Standard_Failure& e) {
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -164,9 +163,8 @@ void PointPy::setY(Py::Float Y)
     try {
         this_point->SetY(double(Y));
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::Exception(e->GetMessageString());
+    catch (Standard_Failure& e) {
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -185,9 +183,8 @@ void PointPy::setZ(Py::Float Z)
     try {
         this_point->SetZ(double(Z));
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::Exception(e->GetMessageString());
+    catch (Standard_Failure& e) {
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 

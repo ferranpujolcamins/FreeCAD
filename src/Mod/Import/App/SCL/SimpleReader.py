@@ -31,9 +31,9 @@
 
 """Simple Part21 STEP reader
 
-Reads a given STEP file. Maps the enteties and instaciate the
-corosbonding classes.
-In addition it writes out a graphwiz file with the entity graph.
+Reads a given STEP file. Maps the entities and instantiate the
+corresponding classes.
+In addition it writes out a graphviz file with the entity graph.
 """
 
 import Part21,sys
@@ -51,7 +51,7 @@ class SimpleParser:
 
     Part21.Part21Parser Loads all instances definition of a Part21 file into memory.
     Two dicts are created:
-    Part21.Part21Parser._instance_definition : stores attibutes, key is the instance integer id
+    Part21.Part21Parser._instance_definition : stores attributes, key is the instance integer id
     Part21.Part21Parser._number_of_ancestors : stores the number of ancestors of entity id. This enables
     to define the order of instances creation.
     """
@@ -73,26 +73,26 @@ class SimpleParser:
             elif  isinstance(i,str):
                 if not i == '' and i[0] == '#':
                     key = int(i[1:])
-                    file.write('  '+`num`+' -> '+`key`+'\n')
+                    file.write('  '+repr(num)+' -> '+repr(key)+'\n')
 
 
     def writeGraphViz(self,fileName):
-        print "Writing GraphViz file %s..."%fileName,
+        print("Writing GraphViz file %s..."%fileName)
         gvFile = open(fileName,'w')
 
         gvFile.write('digraph G {\n  node [fontname=Verdana,fontsize=12]\n  node [style=filled]\n  node [fillcolor="#EEEEEE"]\n  node [color="#EEEEEE"]\n  edge [color="#31CEF0"]\n')
-        for i in self._p21loader._instances_definition.keys():
-            entityStr = '#'+`i`
+        for i in list(self._p21loader._instances_definition.keys()):
+            entityStr = '#'+repr(i)
             nameStr   = self._p21loader._instances_definition[i][0].lower()
-            sttrStr   = `self._p21loader._instances_definition[i][1]`.replace('"','').replace("'",'').replace(" ",'')
+            sttrStr   = repr(self._p21loader._instances_definition[i][1]).replace('"','').replace("'",'').replace(" ",'')
             if len (sttrStr) > 40:
                 sttrStr = sttrStr[:39]+'....'
-            gvFile.write('  '+`i`+' [label="'+entityStr+'\n'+nameStr+'\n'+sttrStr+'"]\n')
+            gvFile.write('  '+repr(i)+' [label="'+entityStr+'\n'+nameStr+'\n'+sttrStr+'"]\n')
             self._writeGraphVizEdge( i,self._p21loader._instances_definition[i][1],gvFile)
         gvFile.write('}\n')
 
-    def instaciate(self):
-        """Instaciate the python classe from the enteties"""
+    def instantiate(self):
+        """Instantiate the python class from the entities"""
         import inspect
         # load the needed schema module
         if self._p21loader.get_schema_name() == 'config_control_design':
@@ -105,7 +105,7 @@ class SimpleParser:
         if self.schemaModule:
             self.schemaClasses = dict(inspect.getmembers(self.schemaModule))
 
-        for i in self._p21loader._instances_definition.keys():
+        for i in list(self._p21loader._instances_definition.keys()):
             #print i
             if i not in self.instanceMape:
                 self._create_entity_instance(i)
@@ -124,11 +124,11 @@ class SimpleParser:
                 #print object_.__doc__
             instance_attributes = instance_definition[1]
             self._transformAttributes(instance_attributes)
-            print 'Attribute list after transform: ',instance_attributes
+            print('Attribute list after transform: ',instance_attributes)
 
             self.instanceMape[instance_id] = str('dummy#:'+str(instance_id)) # dummy instance to test
         else:
-            print '############################# lost entity: ',instance_id
+            print('############################# lost entity: ',instance_id)
             self.instanceMape[instance_id] = int(41) # dummy
         #print "instance_attributes:",instance_attributes
         #a = object_(*instance_attributes)
@@ -140,7 +140,7 @@ class SimpleParser:
                 self._transformAttributes(i)
             elif  isinstance(i,str):
                 if i == '':
-                    print 'empty string'
+                    print('empty string')
                 elif i[0] == '#':
                     key = int(i[1:])
                     #print 'Item: ',int(i[1:])
@@ -149,16 +149,16 @@ class SimpleParser:
                     else:
                         self._create_entity_instance(key)
                         if key not in self.instanceMape:
-                            raise NameError("Needed instance not instanciated: ",key)
+                            raise NameError("Needed instance not instantiated: ",key)
                         else:
                             attrList[n] =  self.instanceMape[key]
                 elif i[0] == '$':
                     #print 'Dollar'
                     pass
                 elif i[0] == "'":
-                    print 'Dopelstring: ',i[1:-1]
+                    print('Dopelstring: ',i[1:-1])
                 else:
-                    print 'String: ',i
+                    print('String: ',i)
             else:
                 raise NameError("Unknown attribute type")
             n = n+1
@@ -166,6 +166,6 @@ class SimpleParser:
 if __name__ == "__main__":
     sys.path.append('..') # path where config_control_design.py is found
     parser = SimpleReader("Aufspannung.stp") # simple test file
-    #parser.instaciate()
+    #parser.instantiate()
     parser.writeGraphViz('TestGrap.gv')
     #dot.exe -Tsvg -o Test.svg e:\fem-dev\src\Mod\Import\App\SCL\TestGrap-geo.gv

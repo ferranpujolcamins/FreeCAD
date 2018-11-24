@@ -61,7 +61,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserv
         // This name is preliminary, we pass it to Application::init() in initFreeCAD()
         // which does the rest.
         char  szFileName [MAX_PATH];
-        GetModuleFileName((HMODULE)hModule, szFileName, MAX_PATH-1);
+        GetModuleFileNameA((HMODULE)hModule, szFileName, MAX_PATH-1);
         App::Application::Config()["AppHomePath"] = szFileName;
     }
     break;
@@ -98,7 +98,7 @@ PyMOD_INIT_FUNC(FreeCAD)
 #elif defined(FC_OS_CYGWIN)
     HMODULE hModule = GetModuleHandle("FreeCAD.dll");
     char szFileName [MAX_PATH];
-    GetModuleFileName(hModule, szFileName, MAX_PATH-1);
+    GetModuleFileNameA(hModule, szFileName, MAX_PATH-1);
     argv[0] = (char*)malloc(MAX_PATH);
     strncpy(argv[0],szFileName,MAX_PATH);
     argv[0][MAX_PATH-1] = '\0'; // ensure null termination
@@ -215,7 +215,7 @@ PyMOD_INIT_FUNC(FreeCAD)
     catch (const Base::Exception& e) {
         std::string appName = App::Application::Config()["ExeName"];
         std::stringstream msg;
-        msg << "While initializing " << appName << " the  following exception occurred: '"
+        msg << "While initializing " << appName << " the following exception occurred: '"
             << e.what() << "'\n\n";
         msg << "\nPlease contact the application's support team for more information.\n\n";
         printf("Initialization of %s failed:\n%s", appName.c_str(), msg.str().c_str());
@@ -225,7 +225,9 @@ PyMOD_INIT_FUNC(FreeCAD)
     free(argv);
 
 #if PY_MAJOR_VERSION >= 3
-    PyObject* module = _PyImport_FindBuiltin("FreeCAD");
+    //PyObject* module = _PyImport_FindBuiltin("FreeCAD");
+    PyObject* modules = PyImport_GetModuleDict();
+    PyObject* module = PyDict_GetItemString(modules, "FreeCAD");
     if (!module) {
         PyErr_SetString(PyExc_ImportError, "Failed to load FreeCAD module!");
     }

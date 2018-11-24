@@ -62,10 +62,13 @@ public:
     /// This method is used to restore properties from an XML document.
     virtual void Restore(Base::XMLReader &reader);
 
+    /// Returns true if the transaction list is empty; otherwise returns false.
+    bool isEmpty() const;
     /// get the position in the transaction history
     int getPos(void) const;
     /// check if this object is used in a transaction
     bool hasObject(const TransactionalObject *Obj) const;
+    void removeProperty(TransactionalObject *Obj, const Property* pcProp);
 
     void addObjectNew(TransactionalObject *Obj);
     void addObjectDel(const TransactionalObject *Obj);
@@ -94,6 +97,7 @@ public:
     virtual void applyChn(Document &Doc, TransactionalObject *pcObj, bool Forward);
 
     void setProperty(const Property* pcProp);
+    void removeProperty(const Property* pcProp);
 
     virtual unsigned int getMemSize (void) const;
     virtual void Save (Base::Writer &writer) const;

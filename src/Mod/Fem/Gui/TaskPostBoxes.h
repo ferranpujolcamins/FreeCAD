@@ -30,12 +30,12 @@
 #include <Base/Parameter.h>
 #include <App/PropertyLinks.h>
 #include "ViewProviderFemPostFunction.h"
-#include <boost/signals.hpp>
 
 class QComboBox;
 class Ui_TaskPostDisplay;
 class Ui_TaskPostClip;
 class Ui_TaskPostDataAlongLine;
+class Ui_TaskPostDataAtPoint;
 class Ui_TaskPostScalarClip;
 class Ui_TaskPostWarpVector;
 class Ui_TaskPostCut;
@@ -90,6 +90,45 @@ protected:
     friend class PointMarker;
 };
 
+class ViewProviderDataMarker;
+class DataMarker : public QObject
+{
+    Q_OBJECT
+
+public:
+    DataMarker(Gui::View3DInventorViewer* view, std::string ObjName);
+    ~DataMarker();
+
+    void addPoint(const SbVec3f&);
+    int countPoints() const;
+
+Q_SIGNALS:
+    void PointsChanged(double x, double y, double z);
+
+protected:
+    void customEvent(QEvent* e);
+
+private:
+    Gui::View3DInventorViewer *view;
+    ViewProviderDataMarker *vp;
+    std::string m_name;
+    std::string ObjectInvisible();
+};
+
+class FemGuiExport ViewProviderDataMarker : public Gui::ViewProviderDocumentObject
+{
+    PROPERTY_HEADER(FemGui::ViewProviderDataMarker);
+
+public:
+    ViewProviderDataMarker();
+    virtual ~ViewProviderDataMarker();
+
+protected:
+    SoCoordinate3    * pCoords;
+    SoMarkerSet      * pMarker;
+    friend class DataMarker;
+};
+
 class TaskPostBox : public Gui::TaskView::TaskBox {
 
     Q_OBJECT
@@ -99,15 +138,15 @@ public:
     ~TaskPostBox();
 
     virtual void applyPythonCode() = 0;
-    virtual bool isGuiTaskOnly() {return false;}; //return true if only gui properties are manipulated
+    virtual bool isGuiTaskOnly() {return false;} //return true if only gui properties are manipulated
 
 protected:
-    App::DocumentObject*                getObject() {return m_object;};
+    App::DocumentObject*                getObject() {return m_object;}
     template<typename T>
-    T* getTypedObject() {return static_cast<T*>(m_object);};
-    Gui::ViewProviderDocumentObject*    getView() {return m_view;};
+    T* getTypedObject() {return static_cast<T*>(m_object);}
+    Gui::ViewProviderDocumentObject*    getView() {return m_view;}
     template<typename T>
-    T* getTypedView() {return static_cast<T*>(m_view);};
+    T* getTypedView() {return static_cast<T*>(m_view);}
 
     bool autoApply();
     void recompute();
@@ -163,7 +202,7 @@ public:
     ~TaskPostDisplay();
 
     virtual void applyPythonCode();
-    virtual bool isGuiTaskOnly() {return true;};
+    virtual bool isGuiTaskOnly() {return true;}
 
 private Q_SLOTS:
     void on_Representation_activated(int i);
@@ -240,6 +279,30 @@ private:
     std::string ObjectVisible();
     QWidget* proxy;
     Ui_TaskPostDataAlongLine* ui;
+};
+
+class TaskPostDataAtPoint: public TaskPostBox {
+
+    Q_OBJECT
+
+public:
+    TaskPostDataAtPoint(Gui::ViewProviderDocumentObject* view, QWidget* parent = 0);
+    virtual ~TaskPostDataAtPoint();
+
+    virtual void applyPythonCode();
+    static void pointCallback(void * ud, SoEventCallback * n);
+
+private Q_SLOTS:
+    void on_SelectPoint_clicked();
+    void on_Field_activated(int i);
+    void centerChanged(double);
+    void onChange(double x, double y, double z);
+
+
+private:
+    std::string ObjectVisible();
+    QWidget* proxy;
+    Ui_TaskPostDataAtPoint* ui;
 };
 
 class TaskPostScalarClip : public TaskPostBox {

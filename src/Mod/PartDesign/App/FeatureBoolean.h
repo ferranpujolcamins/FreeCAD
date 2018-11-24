@@ -25,6 +25,7 @@
 #define PARTDESIGN_FeatureBoolean_H
 
 #include <App/PropertyStandard.h>
+#include <App/GeoFeatureGroupExtension.h>
 #include "Feature.h"
 
 
@@ -35,17 +36,17 @@ namespace PartDesign
  * Abstract superclass of all features that are created by transformation of another feature
  * Transformations are translation, rotation and mirroring
  */
-class PartDesignExport Boolean : public PartDesign::Feature
+class PartDesignExport Boolean : public PartDesign::Feature, public App::GeoFeatureGroupExtension
 {
-    PROPERTY_HEADER(PartDesign::Boolean);
+    PROPERTY_HEADER_WITH_EXTENSIONS(PartDesign::Boolean);
 
 public:
     Boolean();
 
     /// The type of the boolean operation
     App::PropertyEnumeration    Type;
-    /// The bodies for the operation
-    App::PropertyLinkList Bodies;
+
+    App::PropertyBool Refine;
 
    /** @name methods override feature */
     //@{
@@ -56,7 +57,13 @@ public:
     const char* getViewProviderName(void) const {
         return "PartDesignGui::ViewProviderBoolean";
     }
+    virtual void onChanged(const App::Property* prop);
     //@}
+
+protected:
+    void handleChangedPropertyName(Base::XMLReader &reader, const char * TypeName, const char *PropName);
+    TopoDS_Shape refineShapeIfActive(const TopoDS_Shape&) const;
+
 
 private:
     static const char* TypeEnums[];

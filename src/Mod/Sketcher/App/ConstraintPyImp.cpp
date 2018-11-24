@@ -72,6 +72,11 @@ int ConstraintPy::PyInit(PyObject* args, PyObject* /*kwd*/)
             this->getConstraintPtr()->First = FirstIndex;
             return 0;
         }
+        else if (strcmp("Block",ConstraintType) == 0) {
+            this->getConstraintPtr()->Type = Block;
+            this->getConstraintPtr()->First = FirstIndex;
+            return 0;
+        }
     }
     PyErr_Clear();
 
@@ -148,6 +153,13 @@ int ConstraintPy::PyInit(PyObject* args, PyObject* /*kwd*/)
             }
             else if (strcmp("Radius",ConstraintType) == 0) {
                 this->getConstraintPtr()->Type = Radius;
+                // set a value that is out of range of result of atan2
+                // this value is handled in ViewProviderSketch
+                this->getConstraintPtr()->LabelPosition = 10;
+                valid = true;
+            }
+            else if (strcmp("Diameter",ConstraintType) == 0) {
+                this->getConstraintPtr()->Type = Diameter;
                 // set a value that is out of range of result of atan2
                 // this value is handled in ViewProviderSketch
                 this->getConstraintPtr()->LabelPosition = 10;
@@ -484,7 +496,9 @@ std::string ConstraintPy::representation(void) const
         case Coincident         : result << "'Coincident'>";break;
         case Horizontal         : result << "'Horizontal' (" << getConstraintPtr()->First << ")>";break;
         case Vertical           : result << "'Vertical' (" << getConstraintPtr()->First << ")>";break;
+        case Block            	: result << "'Block' (" << getConstraintPtr()->First << ")>";break;
         case Radius             : result << "'Radius'>";break;
+        case Diameter           : result << "'Diameter'>";break;
         case Parallel           : result << "'Parallel'>";break;
         case Tangent            :
             if (this->getConstraintPtr()->Third == Constraint::GeoUndef)
@@ -516,10 +530,38 @@ std::string ConstraintPy::representation(void) const
                 case EllipseFocus2          : result << "'InternalAlignment:EllipseFocus2'>";break;
                 default                     : result << "'InternalAlignment:?'>";break;
             }
-        break;   
+        break;
+        case Equal              : result << "'Equal' (" << getConstraintPtr()->First << "," << getConstraintPtr()->Second << ")>";break;
+        case PointOnObject      : result << "'PointOnObject' (" << getConstraintPtr()->First << "," << getConstraintPtr()->Second << ")>";break;
         default                 : result << "'?'>";break;
     }
     return result.str();
+}
+
+Py::String ConstraintPy::getType(void) const
+{
+    switch(this->getConstraintPtr()->Type) {
+        case None               : return Py::String("None");break;
+        case DistanceX          : return Py::String("DistanceX");break;
+        case DistanceY          : return Py::String("DistanceY");break;
+        case Coincident         : return Py::String("Coincident");break;
+        case Horizontal         : return Py::String("Horizontal");break;
+        case Vertical           : return Py::String("Vertical");break;
+        case Block              : return Py::String("Block");break;
+        case Radius             : return Py::String("Radius");break;
+        case Diameter           : return Py::String("Diameter");break;
+        case Parallel           : return Py::String("Parallel");break;
+        case Tangent            : return Py::String("Tangent");break;
+        case Perpendicular      : return Py::String("Perpendicular");break;
+        case Distance           : return Py::String("Distance");break;
+        case Angle              : return Py::String("Angle");break;
+        case Symmetric          : return Py::String("Symmetric"); break;
+        case SnellsLaw          : return Py::String("SnellsLaw"); break;
+        case InternalAlignment  : return Py::String("InternalAlignment"); break;
+        case Equal              : return Py::String("Equal"); break;
+        case PointOnObject      : return Py::String("PointOnObject"); break;
+        default                 : return Py::String("Undefined");break;
+    }
 }
 
 Py::Long ConstraintPy::getFirst(void) const
@@ -536,6 +578,11 @@ void  ConstraintPy::setFirst(Py::Long arg)
 #endif
 }
 
+Py::Long ConstraintPy::getFirstPos(void) const
+{
+    return Py::Long(static_cast<int>(this->getConstraintPtr()->FirstPos));
+}
+
 Py::Long ConstraintPy::getSecond(void) const
 {
     return Py::Long(this->getConstraintPtr()->Second);
@@ -548,6 +595,30 @@ void  ConstraintPy::setSecond(Py::Long arg)
 #else
     this->getConstraintPtr()->Second = arg;
 #endif
+}
+
+Py::Long ConstraintPy::getSecondPos(void) const
+{
+    return Py::Long(static_cast<int>(this->getConstraintPtr()->SecondPos));
+}
+
+Py::Long ConstraintPy::getThird(void) const
+{
+    return Py::Long(this->getConstraintPtr()->Third);
+}
+
+void  ConstraintPy::setThird(Py::Long arg)
+{
+#if PY_MAJOR_VERSION < 3
+    this->getConstraintPtr()->Third = Py::Int(arg);
+#else
+    this->getConstraintPtr()->Third = arg;
+#endif
+}
+
+Py::Long ConstraintPy::getThirdPos(void) const
+{
+    return Py::Long(static_cast<int>(this->getConstraintPtr()->ThirdPos));
 }
 
 Py::String ConstraintPy::getName(void) const
@@ -563,6 +634,16 @@ void  ConstraintPy::setName(Py::String arg)
 Py::Float ConstraintPy::getValue(void) const
 {
     return Py::Float(this->getConstraintPtr()->getValue());
+}
+
+Py::Boolean ConstraintPy::getDriving(void) const
+{
+    return Py::Boolean(this->getConstraintPtr()->isDriving);
+}
+
+Py::Boolean ConstraintPy::getInVirtualSpace(void) const
+{
+    return Py::Boolean(this->getConstraintPtr()->isInVirtualSpace);
 }
 
 PyObject *ConstraintPy::getCustomAttributes(const char* /*attr*/) const

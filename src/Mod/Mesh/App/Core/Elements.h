@@ -33,6 +33,7 @@
 
 #include <Base/BoundBox.h>
 #include <Base/Vector3D.h>
+#include <Base/Matrix.h>
 
 // Cannot use namespace Base in constructors of MeshPoint
 #ifdef _MSC_VER
@@ -99,6 +100,7 @@ public:
   /** @name Construction */
   //@{
   MeshPoint (void) : _ucFlag(0), _ulProp(0) { }
+  inline MeshPoint (float x, float y, float z);
   inline MeshPoint (const Base::Vector3f &rclPt);
   inline MeshPoint (const MeshPoint &rclPt);
   ~MeshPoint (void) { }
@@ -281,7 +283,7 @@ public:
    * Therefore the two facets must be adjacent.
    */
   inline bool HasSameOrientation(const MeshFacet&) const;
-  /** Checks wether the facet is degenerated to a line of point. */
+  /** Checks whether the facet is degenerated to a line of point. */
   inline bool IsDegenerated() const;
   /** Flips the orientation of the facet. */
   void FlipNormal (void)
@@ -523,6 +525,7 @@ public:
 
   // Assignment
   MeshPointArray& operator = (const MeshPointArray &rclPAry);
+  void Transform(const Base::Matrix4D&);
   /**
    * Searches for the first point index  Two points are equal if the distance is less
    * than EPSILON. If no such points is found ULONG_MAX is returned. 
@@ -642,6 +645,17 @@ public:
 private:
     MeshFacetArray& rFacets;
 };
+
+inline MeshPoint::MeshPoint (float x, float y, float z)
+#ifdef _MSC_VER
+: Vector3f(x, y, z),
+#else
+: Base::Vector3f(x, y, z),
+#endif
+  _ucFlag(0),
+  _ulProp(0)
+{
+}
 
 inline MeshPoint::MeshPoint (const Base::Vector3f &rclPt)
 #ifdef _MSC_VER

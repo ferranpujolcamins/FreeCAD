@@ -133,17 +133,6 @@ int TopoShapeVertexPy::PyInit(PyObject* args, PyObject* /*kwd*/)
     return 0;
 }
 
-PyObject* TopoShapeVertexPy::setTolerance(PyObject *args)
-{
-    double tol;
-    if (!PyArg_ParseTuple(args, "d", &tol))
-        return 0;
-    BRep_Builder aBuilder;
-    const TopoDS_Vertex& v = TopoDS::Vertex(getTopoShapePtr()->getShape());
-    aBuilder.UpdateVertex(v, tol);
-    Py_Return;
-}
-
 Py::Float TopoShapeVertexPy::getTolerance(void) const
 {
     const TopoDS_Vertex& v = TopoDS::Vertex(getTopoShapePtr()->getShape());
@@ -163,9 +152,9 @@ Py::Float TopoShapeVertexPy::getX(void) const
         const TopoDS_Vertex& v = TopoDS::Vertex(getTopoShapePtr()->getShape());
         return Py::Float(BRep_Tool::Pnt(v).X());
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::RuntimeError(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -175,9 +164,9 @@ Py::Float TopoShapeVertexPy::getY(void) const
         const TopoDS_Vertex& v = TopoDS::Vertex(getTopoShapePtr()->getShape());
         return Py::Float(BRep_Tool::Pnt(v).Y());
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::RuntimeError(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -187,9 +176,9 @@ Py::Float TopoShapeVertexPy::getZ(void) const
         const TopoDS_Vertex& v = TopoDS::Vertex(getTopoShapePtr()->getShape());
         return Py::Float(BRep_Tool::Pnt(v).Z());
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::RuntimeError(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 
@@ -200,9 +189,9 @@ Py::Object TopoShapeVertexPy::getPoint(void) const
         gp_Pnt p = BRep_Tool::Pnt(v);
         return Py::asObject(new Base::VectorPy(new Base::Vector3d(p.X(),p.Y(),p.Z())));
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        throw Py::RuntimeError(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        throw Py::RuntimeError(e.GetMessageString());
     }
 }
 

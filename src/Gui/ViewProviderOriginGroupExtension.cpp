@@ -115,26 +115,30 @@ void ViewProviderOriginGroupExtension::extensionUpdateData( const App::Property*
 
 void ViewProviderOriginGroupExtension::slotChangedObjectApp ( const App::DocumentObject& obj) {
     auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::OriginGroupExtension>();
-    if ( group && group->hasObject (&obj, /*recusive=*/ true ) ) {
+    if ( group && group->hasObject (&obj, /*recursive=*/ true ) ) {
         updateOriginSize ();
     }
 }
 
 void ViewProviderOriginGroupExtension::slotChangedObjectGui ( const Gui::ViewProviderDocumentObject& vp) {
-    if ( !vp.hasExtension ( Gui::ViewProviderOrigin::getClassTypeId () ) &&
-         !vp.isDerivedFrom ( Gui::ViewProviderOriginFeature::getClassTypeId () ) ) {
-        // Ignore origins to avoid infinite recursion (not likely in a well-formed focument, 
+    if ( !vp.isDerivedFrom ( Gui::ViewProviderOriginFeature::getClassTypeId () )) {
+        // Ignore origins to avoid infinite recursion (not likely in a well-formed document, 
         //          but may happen in documents designed in old versions of assembly branch )
         auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::OriginGroupExtension>();
         App::DocumentObject *obj = vp.getObject ();
 
-        if ( group && obj && group->hasObject (obj, /*recusive=*/ true ) ) {
+        if ( group && obj && group->hasObject (obj, /*recursive=*/ true ) ) {
             updateOriginSize ();
         }
     }
 }
 
 void ViewProviderOriginGroupExtension::updateOriginSize () {
+    
+    if(getExtendedViewProvider()->getObject()->isRemoving() ||
+       getExtendedViewProvider()->getObject()->getDocument()->testStatus(App::Document::Restoring))
+        return;
+    
     auto* group = getExtendedViewProvider()->getObject()->getExtensionByType<App::OriginGroupExtension>();
     if(!group)
         return;

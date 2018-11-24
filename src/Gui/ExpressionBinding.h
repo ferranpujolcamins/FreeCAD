@@ -27,7 +27,7 @@
 #include <App/ObjectIdentifier.h>
 #include <boost/shared_ptr.hpp>
 #include <QLabel>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 
 namespace App {
 class Expression;
@@ -50,7 +50,7 @@ public:
 
     QPixmap getIcon(const char *name, const QSize &size) const;
    
-    //auto apply means that the python code is issues not only on aplly() but 
+    //auto apply means that the python code is issued not only on apply() but 
     //also on setExpression
     bool autoApply() const {return m_autoApply;};
     void setAutoApply(bool value) {m_autoApply = value;};
@@ -75,7 +75,7 @@ protected:
     int iconHeight;
 
     void expressionChange(const App::ObjectIdentifier& id);
-    boost::signals::scoped_connection connection;
+    boost::signals2::scoped_connection connection;
     bool m_autoApply;
 };
 

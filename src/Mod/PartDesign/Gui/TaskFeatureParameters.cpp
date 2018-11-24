@@ -27,6 +27,7 @@
 
 #include <Gui/Application.h>
 #include <Gui/Command.h>
+#include <Gui/MainWindow.h>
 #include <Gui/BitmapFactory.h>
 #include <Mod/PartDesign/App/Feature.h>
 #include <Mod/PartDesign/App/Body.h>
@@ -48,7 +49,6 @@ TaskFeatureParameters::TaskFeatureParameters(PartDesignGui::ViewProvider *vp, QW
 {
     Gui::Document* doc = vp->getDocument();
     this->attachDocument(doc);
-    this->enableNotifications(DocumentObserver::Delete);
 }
 
 void TaskFeatureParameters::slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj)
@@ -102,7 +102,7 @@ bool TaskDlgFeatureParameters::accept() {
         // Make sure the feature is what we are expecting
         // Should be fine but you never know...
         if ( !feature->getTypeId().isDerivedFrom(PartDesign::Feature::getClassTypeId()) ) {
-            throw Base::Exception("Bad object processed in the feature dialog.");
+            throw Base::TypeError("Bad object processed in the feature dialog.");
         }
 
         App::DocumentObject* previous = static_cast<PartDesign::Feature*>(feature)->getBaseObject(/* silent = */ true );
@@ -115,7 +115,7 @@ bool TaskDlgFeatureParameters::accept() {
         Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.recompute()");
 
         if (!feature->isValid()) {
-            throw Base::Exception(vp->getObject()->getStatusString());
+            throw Base::RuntimeError(vp->getObject()->getStatusString());
         }
 
         // detach the task panel from the selection to avoid to invoke
@@ -131,7 +131,7 @@ bool TaskDlgFeatureParameters::accept() {
         Gui::Command::commitCommand();
     } catch (const Base::Exception& e) {
         // Generally the only thing that should fail is feature->isValid() others should be fine
-        QMessageBox::warning( 0, tr("Input error"), QString::fromLatin1(e.what()));
+        QMessageBox::warning(Gui::getMainWindow(), tr("Input error"), QString::fromLatin1(e.what()));
         return false;
     }
 
@@ -163,7 +163,7 @@ bool TaskDlgFeatureParameters::reject()
 
     // if abort command deleted the object make the previous feature visible again
     if (!Gui::Application::Instance->getViewProvider(feature)) {
-        // Make the tip or the previous feature visiable again with preference to the previous one
+        // Make the tip or the previous feature visible again with preference to the previous one
         // TODO: ViewProvider::onDelete has the same code. May be this one is excess?
         if (previous && Gui::Application::Instance->getViewProvider(previous)) {
             Gui::Application::Instance->getViewProvider(previous)->show();

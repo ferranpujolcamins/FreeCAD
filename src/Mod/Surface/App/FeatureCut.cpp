@@ -44,6 +44,7 @@ PROPERTY_SOURCE(Surface::Cut, Part::Feature)
 Cut::Cut()
 {
     ADD_PROPERTY(ShapeList,(0,"TopoDS_Shape"));
+    ShapeList.setScope(App::LinkScope::Global);
 }
 
 //Check if any components of the surface have been modified
@@ -96,8 +97,8 @@ App::DocumentObjectExecReturn *Cut::execute(void)
         this->Shape.setValue(aCutShape);
         return 0;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        return new App::DocumentObjectExecReturn(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
 }

@@ -58,6 +58,7 @@ public:
     ImportOCAF(Handle(TDocStd_Document) h, App::Document* d, const std::string& name);
     virtual ~ImportOCAF();
     void loadShapes();
+    void setMerge(bool);
 
 private:
     void loadShapes(const TDF_Label& label, const TopLoc_Location&, const std::string& partname, const std::string& assembly, bool isRef, std::vector<App::DocumentObject*> &);
@@ -70,29 +71,26 @@ private:
     App::Document* doc;
     Handle(XCAFDoc_ShapeTool) aShapeTool;
     Handle(XCAFDoc_ColorTool) aColorTool;
+    bool merge;
     std::string default_name;
     std::set<int> myRefShapes;
     static const int HashUpper = INT_MAX;
 };
 
-class ImportExport ExportOCAF
+class ImportExport ImportOCAFCmd : public ImportOCAF
 {
 public:
-    void createNode(App::Part* part, int& root_it, std::vector <TDF_Label>& hierarchical_label,std::vector <TopLoc_Location>& hierarchical_loc);
-    ExportOCAF(Handle(TDocStd_Document) h, bool explicitPlacement);
-    int saveShape(Part::Feature* part, const std::vector<App::Color>&, std::vector <TDF_Label>& hierarchical_label,std::vector <TopLoc_Location>& hierarchical_loc);
-    void push_node(int root, int node, std::vector <TDF_Label>& hierarchical_label,std::vector <TopLoc_Location>& hierarchical_loc);
-
-
+    ImportOCAFCmd(Handle(TDocStd_Document) h, App::Document* d, const std::string& name);
+    std::map<Part::Feature*, std::vector<App::Color> > getPartColorsMap() const {
+        return partColors;
+    }
 
 private:
-    Handle(TDocStd_Document) pDoc;
-    Handle(XCAFDoc_ShapeTool) aShapeTool;
-    Handle(XCAFDoc_ColorTool) aColorTool;
-    TDF_Label rootLabel;
-    bool keepExplicitPlacement;
-};
+    void applyColors(Part::Feature* part, const std::vector<App::Color>& colors);
 
+private:
+    std::map<Part::Feature*, std::vector<App::Color> > partColors;
+};
 
 class ImportXCAF
 {

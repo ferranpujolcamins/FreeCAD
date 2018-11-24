@@ -71,6 +71,9 @@ void DrawSketchHandler::quit(void)
     sketchgui->drawEdit(std::vector<Base::Vector2d>());
     resetPositionText();
 
+    Gui::Selection().rmvSelectionGate();
+    Gui::Selection().rmvPreselect();
+
     unsetCursor();
     sketchgui->purgeHandler();
 }
@@ -509,7 +512,7 @@ void DrawSketchHandler::createAutoConstraints(const std::vector<AutoConstraint> 
 
 void DrawSketchHandler::renderSuggestConstraintsCursor(std::vector<AutoConstraint> &suggestedConstraints)
 {
-    // Auto Constrait icon size in px
+    // Auto Constraint icon size in px
     int iconSize = 16;
 
     // Create a pixmap that will contain icon and each autoconstraint icon

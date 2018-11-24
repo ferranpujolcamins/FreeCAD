@@ -84,7 +84,7 @@ using namespace Gui::DockWnd;
  *
  * \section wayout Way out
  * To solve these problems we have introduced the command framework to decouple QAction and MainWindow. The base classes of the framework are
- * \a Gui::CommandBase and \a Gui::Action that represent the link between Qt's QAction world and the FreeCAD's command  world. 
+ * \a Gui::CommandBase and \a Gui::Action that represent the link between Qt's QAction world and the FreeCAD's command world. 
  *
  * The Action class holds a pointer to QAction and CommandBase and acts as a mediator and -- to save memory -- that gets created 
  * (@ref Gui::CommandBase::createAction()) not before it is added (@ref Gui::Command::addTo()) to a menu or toolbar.
@@ -135,7 +135,7 @@ CommandBase::CommandBase( const char* sMenu, const char* sToolTip, const char* s
 
 CommandBase::~CommandBase()
 {
-    //Note: The Action object becomes a children of MainWindow which gets destoyed _before_ the
+    //Note: The Action object becomes a children of MainWindow which gets destroyed _before_ the
     //command manager hence before any command object. So the action pointer is a dangling pointer
     //at this state.
 }
@@ -412,9 +412,9 @@ void Command::setGroupName(const char* s)
 //--------------------------------------------------------------------------
 /** Open a new Undo transaction on the active document
  *  This method opens a new UNDO transaction on the active document. This transaction
- *  will later apear in the UNDO REDO dialog with the name of the command. If the user
+ *  will later appear in the UNDO REDO dialog with the name of the command. If the user
  *  recall the transaction everything changed on the document between OpenCommand() and
- *  CommitCommand will be undone (or redone). You can use an alternetive name for the
+ *  CommitCommand will be undone (or redone). You can use an alternative name for the
  *  operation default is the Command name.
  *  @see CommitCommand(),AbortCommand()
  */
@@ -431,16 +431,19 @@ void Command::openCommand(const char* sCmdName)
 
 void Command::commitCommand(void)
 {
+    assert(Gui::Application::Instance->activeDocument());
     Gui::Application::Instance->activeDocument()->commitCommand();
 }
 
 void Command::abortCommand(void)
 {
+    assert(Gui::Application::Instance->activeDocument());
     Gui::Application::Instance->activeDocument()->abortCommand();
 }
 
 bool Command::hasPendingCommand(void)
 {
+    assert(Gui::Application::Instance->activeDocument());
     return Gui::Application::Instance->activeDocument()->hasPendingCommand();
 }
 
@@ -610,17 +613,13 @@ void Command::applyCommandData(const char* context, Action* action)
         context, getMenuText()));
     action->setToolTip(QCoreApplication::translate(
         context, getToolTipText()));
+    action->setWhatsThis(QCoreApplication::translate(
+        context, getWhatsThis()));
     if (sStatusTip)
         action->setStatusTip(QCoreApplication::translate(
             context, getStatusTip()));
     else
         action->setStatusTip(QCoreApplication::translate(
-            context, getToolTipText()));
-    if (sWhatsThis)
-        action->setWhatsThis(QCoreApplication::translate(
-            context, getWhatsThis()));
-    else
-        action->setWhatsThis(QCoreApplication::translate(
             context, getToolTipText()));
     QString accel = action->shortcut().toString(QKeySequence::NativeText);
     if (!accel.isEmpty()) {
@@ -747,18 +746,18 @@ void MacroCommand::activated(int iMsg)
     Q_UNUSED(iMsg); 
 
     QDir d;
-    if(!systemMacro) {
-	std::string cMacroPath;
-	
-	cMacroPath = App::GetApplication().GetParameterGroupByPath
+    if (!systemMacro) {
+        std::string cMacroPath;
+
+        cMacroPath = App::GetApplication().GetParameterGroupByPath
                              ("User parameter:BaseApp/Preferences/Macro")->GetASCII("MacroPath",
                                      App::Application::getUserMacroDir().c_str());
-			     
-	d = QDir(QString::fromUtf8(cMacroPath.c_str()));
+
+        d = QDir(QString::fromUtf8(cMacroPath.c_str()));
     }
     else {
-	QString dirstr = QString::fromUtf8(App::GetApplication().getHomePath()) + QString::fromUtf8("Macro");
-	d = QDir(dirstr);
+        QString dirstr = QString::fromUtf8(App::GetApplication().getHomePath()) + QString::fromUtf8("Macro");
+        d = QDir(dirstr);
     }
     
     QFileInfo fi(d, QString::fromUtf8(sScriptName));
@@ -831,9 +830,7 @@ void MacroCommand::load()
             if ((*it)->GetASCII("Pixmap", "nix") != "nix")
                 macro->setPixmap    ( (*it)->GetASCII( "Pixmap"     ).c_str() );
             macro->setAccel       ( (*it)->GetASCII( "Accel",0    ).c_str() );
-	    
-	    macro->systemMacro = (*it)->GetBool("System", false);
-	    
+            macro->systemMacro = (*it)->GetBool("System", false);
             Application::Instance->commandManager().addCommand( macro );
         }
     }
@@ -856,7 +853,7 @@ void MacroCommand::save()
             hMacro->SetASCII( "Statustip", macro->getStatusTip  () );
             hMacro->SetASCII( "Pixmap",    macro->getPixmap     () );
             hMacro->SetASCII( "Accel",     macro->getAccel      () );
-	    hMacro->SetBool( "System",     macro->systemMacro );
+            hMacro->SetBool( "System",     macro->systemMacro );
         }
     }
 }
@@ -914,6 +911,7 @@ PythonCommand::~PythonCommand()
 
 const char* PythonCommand::getResource(const char* sName) const
 {
+    Base::PyGILStateLocker lock;
     PyObject* pcTemp;
 
     // get the "MenuText" resource string
@@ -1285,18 +1283,19 @@ void PythonGroupCommand::languageChange()
     QList<QAction*> a = pcAction->actions();
     for (QList<QAction*>::iterator it = a.begin(); it != a.end(); ++it) {
         Gui::Command* cmd = rcCmdMgr.getCommandByName((*it)->property("CommandName").toByteArray());
-        // Python command use getName as context
-        if (dynamic_cast<PythonCommand*>(cmd)) {
+        if (cmd) {
+            // Python command use getName as context
+            const char *context = dynamic_cast<PythonCommand*>(cmd) ? cmd->getName() : cmd->className();
+            const char *tooltip = cmd->getToolTipText();
+            const char *statustip = cmd->getStatusTip();
+            if (!statustip || '\0' == *statustip) {
+                statustip = tooltip;
+            }
+
             (*it)->setIcon(Gui::BitmapFactory().iconFromTheme(cmd->getPixmap()));
-            (*it)->setText(QApplication::translate(cmd->getName(), cmd->getMenuText()));
-            (*it)->setToolTip(QApplication::translate(cmd->getName(), cmd->getToolTipText()));
-            (*it)->setStatusTip(QApplication::translate(cmd->getName(), cmd->getStatusTip()));
-        }
-        else if (cmd) {
-            (*it)->setIcon(Gui::BitmapFactory().iconFromTheme(cmd->getPixmap()));
-            (*it)->setText(QApplication::translate(cmd->className(), cmd->getMenuText()));
-            (*it)->setToolTip(QApplication::translate(cmd->className(), cmd->getToolTipText()));
-            (*it)->setStatusTip(QApplication::translate(cmd->className(), cmd->getStatusTip()));
+            (*it)->setText(QApplication::translate(context, cmd->getMenuText()));
+            (*it)->setToolTip(QApplication::translate(context, tooltip));
+            (*it)->setStatusTip(QApplication::translate(context, statustip));
         }
     }
 }
@@ -1308,6 +1307,7 @@ const char* PythonGroupCommand::getHelpUrl(void) const
 
 const char* PythonGroupCommand::getResource(const char* sName) const
 {
+    Base::PyGILStateLocker lock;
     PyObject* pcTemp;
 
     // get the "MenuText" resource string

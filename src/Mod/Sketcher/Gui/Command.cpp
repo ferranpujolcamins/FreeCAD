@@ -488,7 +488,7 @@ void CmdSketcherMapSketch::activated(int iMsg)
             App::DocumentObject* part = static_cast<Part::Feature*>(selobjs[i].getObject());
             if (!part) {
                 assert(0);
-                throw Base::Exception("Unexpected null pointer in CmdSketcherMapSketch::activated");
+                throw Base::ValueError("Unexpected null pointer in CmdSketcherMapSketch::activated");
             }
             std::vector<App::DocumentObject*> input = part->getOutList();
             if (std::find(input.begin(), input.end(), &sketch) != input.end()) {
@@ -818,16 +818,22 @@ void CmdSketcherMergeSketches::activated(int iMsg)
         const Sketcher::SketchObject* Obj = static_cast<const Sketcher::SketchObject*>((*it).getObject());
         int addedGeometries=mergesketch->addGeometry(Obj->getInternalGeometry());
 
-        int addedConstraints=mergesketch->addConstraints(Obj->Constraints.getValues());
+        int addedConstraints=mergesketch->addCopyOfConstraints(*Obj);
 
         for (int i=0; i<=(addedConstraints-baseConstraints); i++){
             Sketcher::Constraint * constraint= mergesketch->Constraints.getValues()[i+baseConstraints];
 
-            if (constraint->First!=Sketcher::Constraint::GeoUndef || constraint->First==Sketcher::GeoEnum::HAxis || constraint->First==Sketcher::GeoEnum::VAxis) // not x, y axes or origin
+            if (constraint->First!=Sketcher::Constraint::GeoUndef &&
+                constraint->First!=Sketcher::GeoEnum::HAxis &&
+                constraint->First!=Sketcher::GeoEnum::VAxis) // not x, y axes or origin
                 constraint->First+=baseGeometry;
-            if (constraint->Second!=Sketcher::Constraint::GeoUndef || constraint->Second==Sketcher::GeoEnum::HAxis || constraint->Second==Sketcher::GeoEnum::VAxis) // not x, y axes or origin
+            if (constraint->Second!=Sketcher::Constraint::GeoUndef &&
+                constraint->Second!=Sketcher::GeoEnum::HAxis &&
+                constraint->Second!=Sketcher::GeoEnum::VAxis) // not x, y axes or origin
                 constraint->Second+=baseGeometry;
-            if (constraint->Third!=Sketcher::Constraint::GeoUndef || constraint->Third==Sketcher::GeoEnum::HAxis || constraint->Third==Sketcher::GeoEnum::VAxis) // not x, y axes or origin
+            if (constraint->Third!=Sketcher::Constraint::GeoUndef &&
+                constraint->Third!=Sketcher::GeoEnum::HAxis &&
+                constraint->Third!=Sketcher::GeoEnum::VAxis) // not x, y axes or origin
                 constraint->Third+=baseGeometry;
         }
 
@@ -835,12 +841,51 @@ void CmdSketcherMergeSketches::activated(int iMsg)
         baseConstraints=addedConstraints+1;
     }
 
-    doCommand(Gui,"App.activeDocument().recompute()");
+    // apply the placement of the first sketch in the list (#0002434)
+    doCommand(Doc,"App.activeDocument().ActiveObject.Placement=App.activeDocument().%s.Placement"
+                 ,selection.front().getFeatName());
+    doCommand(Doc,"App.activeDocument().recompute()");
 }
 
 bool CmdSketcherMergeSketches::isActive(void)
 {
     return (hasActiveDocument() && !Gui::Control().activeDialog());
+}
+
+// Acknowledgement of idea and original python macro goes to SpritKopf:
+// https://github.com/Spritkopf/freecad-macros/blob/master/clip-sketch/clip_sketch.FCMacro
+// https://forum.freecadweb.org/viewtopic.php?p=231481#p231085
+DEF_STD_CMD_A(CmdSketcherViewSection);
+
+CmdSketcherViewSection::CmdSketcherViewSection()
+: Command("Sketcher_ViewSection")
+{
+    sAppModule      = "Sketcher";
+    sGroup          = QT_TR_NOOP("Sketcher");
+    sMenuText       = QT_TR_NOOP("View section");
+    sToolTipText    = QT_TR_NOOP("Switches between section and full view");
+    sWhatsThis      = "Sketcher_ViewSection";
+    sStatusTip      = sToolTipText;
+    sPixmap         = "Sketcher_ViewSection";
+    eType           = 0;
+}
+
+void CmdSketcherViewSection::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    doCommand(Doc,"ActiveSketch.ViewObject.TempoVis.sketchClipPlane(ActiveSketch)");
+}
+
+bool CmdSketcherViewSection::isActive(void)
+{
+    Gui::Document *doc = getActiveGuiDocument();
+    if (doc) {
+        // checks if a Sketch Viewprovider is in Edit and is in no special mode
+        SketcherGui::ViewProviderSketch* vp = dynamic_cast<SketcherGui::ViewProviderSketch*>(doc->getInEdit());
+        if (vp /*&& vp->getSketchMode() == ViewProviderSketch::STATUS_NONE*/)
+            return true;
+    }
+    return false;
 }
 
 void CreateSketcherCommands(void)
@@ -856,4 +901,5 @@ void CreateSketcherCommands(void)
     rcCmdMgr.addCommand(new CmdSketcherValidateSketch());
     rcCmdMgr.addCommand(new CmdSketcherMirrorSketch());
     rcCmdMgr.addCommand(new CmdSketcherMergeSketches());
+    rcCmdMgr.addCommand(new CmdSketcherViewSection());
 }

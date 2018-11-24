@@ -200,7 +200,7 @@ void MeshSelection::prepareFreehandSelection(bool add,SoEventCallbackCB *cb)
         freehand->setColor(1.0f, 0.0f, 0.0f);
         freehand->setLineWidth(3.0f);
         viewer->navigationStyle()->startSelection(freehand);
-        
+
         QBitmap cursor = QBitmap::fromData(QSize(CROSS_WIDTH, CROSS_HEIGHT), cross_bitmap);
         QBitmap mask = QBitmap::fromData(QSize(CROSS_WIDTH, CROSS_HEIGHT), cross_mask_bitmap);
         QCursor custom(cursor, mask, CROSS_HOT_X, CROSS_HOT_Y);
@@ -329,21 +329,7 @@ void MeshSelection::invertSelection()
 {
     std::list<ViewProviderMesh*> views = getViewProviders();
     for (std::list<ViewProviderMesh*>::iterator it = views.begin(); it != views.end(); ++it) {
-        Mesh::Feature* mf = static_cast<Mesh::Feature*>((*it)->getObject());
-        const Mesh::MeshObject* mo = mf->Mesh.getValuePtr();
-        const MeshCore::MeshFacetArray& faces = mo->getKernel().GetFacets();
-        unsigned long num_notsel = std::count_if(faces.begin(), faces.end(),
-            std::bind2nd(MeshCore::MeshIsNotFlag<MeshCore::MeshFacet>(),
-            MeshCore::MeshFacet::SELECTED));
-        std::vector<unsigned long> notselect;
-        notselect.reserve(num_notsel);
-        MeshCore::MeshFacetArray::_TConstIterator beg = faces.begin();
-        MeshCore::MeshFacetArray::_TConstIterator end = faces.end();
-        for (MeshCore::MeshFacetArray::_TConstIterator jt = beg; jt != end; ++jt) {
-            if (!jt->IsFlag(MeshCore::MeshFacet::SELECTED))
-                notselect.push_back(jt-beg);
-        }
-        (*it)->setSelection(notselect);
+        (*it)->invertSelection();
     }
 }
 
@@ -465,7 +451,7 @@ void MeshSelection::selectGLCallback(void * ud, SoEventCallback * n)
 
     std::list<ViewProviderMesh*> views = self->getViewProviders();
     for (std::list<ViewProviderMesh*>::iterator it = views.begin(); it != views.end(); ++it) {
-        ViewProviderMesh* vp = static_cast<ViewProviderMesh*>(*it);
+        ViewProviderMesh* vp = *it;
 
         std::vector<unsigned long> faces;
         const Mesh::MeshObject& mesh = static_cast<Mesh::Feature*>((*it)->getObject())->Mesh.getValue();
@@ -475,7 +461,11 @@ void MeshSelection::selectGLCallback(void * ud, SoEventCallback * n)
         SoCamera* cam = view->getSoRenderManager()->getCamera();
         SbViewVolume vv = cam->getViewVolume();
         Gui::ViewVolumeProjection proj(vv);
+
+        Base::Placement plm = static_cast<Mesh::Feature*>(vp->getObject())->Placement.getValue();
+        proj.setTransform(plm.toMatrix());
         vp->getFacetsFromPolygon(polygon, proj, true, faces);
+
         if (self->onlyVisibleTriangles) {
             const SbVec2s& sz = view->getSoRenderManager()->getViewportRegion().getWindowSize();
             short width,height; sz.getValue(width,height);

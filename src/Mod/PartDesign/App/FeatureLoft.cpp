@@ -139,7 +139,7 @@ App::DocumentObjectExecReturn *Loft::execute(void)
 
             mkTS.Build();
             if (!mkTS.IsDone())
-                return new App::DocumentObjectExecReturn("Loft could not be build");
+                return new App::DocumentObjectExecReturn("Loft could not be built");
             
             //build the shell use simulate to get the top and bottom wires in an easy way
             shells.push_back(mkTS.Shape());
@@ -193,6 +193,10 @@ App::DocumentObjectExecReturn *Loft::execute(void)
             // lets check if the result is a solid
             if (boolOp.IsNull())
                 return new App::DocumentObjectExecReturn("Loft: Resulting shape is not a solid");
+            int solidCount = countSolids(boolOp);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Loft: Result has multiple solids. This is not supported at this time.");
+            }
             
             boolOp = refineShapeIfActive(boolOp);
             Shape.setValue(getSolid(boolOp));
@@ -207,6 +211,10 @@ App::DocumentObjectExecReturn *Loft::execute(void)
             // lets check if the result is a solid
             if (boolOp.IsNull())
                 return new App::DocumentObjectExecReturn("Loft: Resulting shape is not a solid");
+            int solidCount = countSolids(boolOp);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Loft: Result has multiple solids. This is not supported at this time.");
+            }
             
             boolOp = refineShapeIfActive(boolOp);
             Shape.setValue(getSolid(boolOp));
@@ -214,9 +222,9 @@ App::DocumentObjectExecReturn *Loft::execute(void)
         
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        return new App::DocumentObjectExecReturn(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
     catch (...) {
         return new App::DocumentObjectExecReturn("Loft: A fatal error occurred when making the loft");

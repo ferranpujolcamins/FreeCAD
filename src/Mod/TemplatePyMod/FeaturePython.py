@@ -56,7 +56,7 @@ class ViewProviderBox:
 
 	def setDisplayMode(self,mode):
 		''' Map the display mode defined in attach with those defined in getDisplayModes.
-		Since they have the same names nothing needs to be done. This method is optinal.
+		Since they have the same names nothing needs to be done. This method is optional.
 		'''
 		return mode
 
@@ -177,7 +177,7 @@ class Octahedron:
 		shell=Part.makeShell([f1,f2,f3,f4,f5,f6,f7,f8])
 		solid=Part.makeSolid(shell)
 		fp.Shape = solid
-	# helper mehod to create the faces
+	# helper method to create the faces
 	def make_face(self,v1,v2,v3):
 		wire = Part.makePolygon([v1,v2,v3,v1])
 		face = Part.Face(wire)
@@ -362,7 +362,7 @@ class ViewProviderPoints:
 
 	def setDisplayMode(self,mode):
 		''' Map the display mode defined in attach with those defined in getDisplayModes.
-		Since they have the same names nothing needs to be done. This method is optinal.
+		Since they have the same names nothing needs to be done. This method is optional.
 		'''
 		return mode
 

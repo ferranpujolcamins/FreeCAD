@@ -26,6 +26,7 @@
 #define APP_FEATUREPYTHON_H
 
 
+#include <Base/Exception.h>
 #include <Base/Writer.h>
 #include <App/GeoFeature.h>
 #include <App/DynamicProperty.h>
@@ -110,6 +111,7 @@ public:
         return props->addDynamicProperty(type, name, group, doc, attr, ro, hidden);
     }
     virtual bool removeDynamicProperty(const char* name) {
+        FeatureT::onAboutToRemoveProperty(name);
         return props->removeDynamicProperty(name);
     }
     std::vector<std::string> getDynamicPropertyNames() const {

@@ -27,6 +27,8 @@
 #endif
 
 #include <Base/Writer.h>
+#include <Base/Tools.h>
+#include <Base/Console.h>
 
 #include "Document.h"
 #include "DocumentObject.h"
@@ -34,8 +36,8 @@
 #include "PropertyLinks.h"
 #include "PropertyExpressionEngine.h"
 #include "DocumentObjectExtension.h"
+#include "GeoFeatureGroupExtension.h"
 #include <App/DocumentObjectPy.h>
-#include <boost/signals/connection.hpp>
 #include <boost/bind.hpp>
 
 using namespace App;
@@ -60,6 +62,7 @@ DocumentObject::DocumentObject(void)
 DocumentObject::~DocumentObject(void)
 {
     if (!PythonObject.is(Py::_None())){
+        Base::PyGILStateLocker lock;
         // Remark: The API of Py::Object has been changed to set whether the wrapper owns the passed
         // Python object or not. In the constructor we forced the wrapper to own the object so we need
         // not to dec'ref the Python object any more.
@@ -73,8 +76,16 @@ DocumentObject::~DocumentObject(void)
 
 App::DocumentObjectExecReturn *DocumentObject::recompute(void)
 {
+    //check if the links are valid before making the recompute
+    if(!GeoFeatureGroupExtension::areLinksValid(this))
+#if 1
+        Base::Console().Warning("%s: Links go out of the allowed scope\n", getTypeId().getName());
+#else
+        return new App::DocumentObjectExecReturn("Links go out of the allowed scope", this);
+#endif
+
     // set/unset the execution bit
-    ObjectStatusLocker exe(App::Recompute, this);
+    Base::ObjectStatusLocker<ObjectStatus, DocumentObject> exe(App::Recompute, this);
     return this->execute();
 }
 
@@ -99,19 +110,65 @@ bool DocumentObject::recomputeFeature()
     return isValid();
 }
 
+/**
+ * @brief Set this document object touched.
+ * Touching a document object does not mean to recompute it, it only means that
+ * other document objects that link it (i.e. its InList) will be recomputed.
+ * If it should be forced to recompute a document object then use
+ * \ref enforceRecompute() instead.
+ */
+void DocumentObject::touch(void)
+{
+    StatusBits.set(ObjectStatus::Touch);
+}
+
+/**
+ * @brief Check whether the document object is touched or not.
+ * @return true if document object is touched, false if not.
+ */
+bool DocumentObject::isTouched() const
+{
+    return ExpressionEngine.isTouched() || StatusBits.test(ObjectStatus::Touch);
+}
+
+/**
+ * @brief Enforces this document object to be recomputed.
+ * This can be useful to recompute the feature without
+ * having to change one of its input properties.
+ */
+void DocumentObject::enforceRecompute(void)
+{
+    StatusBits.set(ObjectStatus::Enforce);
+    StatusBits.set(ObjectStatus::Touch);
+}
+
+/**
+ * @brief Check whether the document object must be recomputed or not.
+ * This means that the 'Enforce' flag is set or that \ref mustExecute()
+ * returns a value > 0.
+ * @return true if document object must be recomputed, false if not.
+ */
+bool DocumentObject::mustRecompute(void) const
+{
+    if (StatusBits.test(ObjectStatus::Enforce))
+        return true;
+
+    return mustExecute() > 0;
+}
+
 short DocumentObject::mustExecute(void) const
 {
-    if(isTouched())
+    if (ExpressionEngine.isTouched())
         return 1;
 
     //ask all extensions
     auto vector = getExtensionsDerivedFromType<App::DocumentObjectExtension>();
     for(auto ext : vector) {
-        if(ext->extensionMustExecute())
+        if (ext->extensionMustExecute())
             return 1;
     }
+
     return 0;
-    
 }
 
 const char* DocumentObject::getStatusString(void) const
@@ -185,6 +242,42 @@ std::vector<DocumentObject*> DocumentObject::getOutList(void) const
     return ret;
 }
 
+std::vector<App::DocumentObject*> DocumentObject::getOutListOfProperty(App::Property* prop) const
+{
+    std::vector<DocumentObject*> ret;
+    if (!prop || prop->getContainer() != this)
+        return ret;
+
+    if (prop->isDerivedFrom(PropertyLinkList::getClassTypeId())) {
+        const std::vector<DocumentObject*> &OutList = static_cast<PropertyLinkList*>(prop)->getValues();
+        for (std::vector<DocumentObject*>::const_iterator It2 = OutList.begin();It2 != OutList.end(); ++It2) {
+            if (*It2)
+                ret.push_back(*It2);
+        }
+    }
+    else if (prop->isDerivedFrom(PropertyLinkSubList::getClassTypeId())) {
+        const std::vector<DocumentObject*> &OutList = static_cast<PropertyLinkSubList*>(prop)->getValues();
+        for (std::vector<DocumentObject*>::const_iterator It2 = OutList.begin();It2 != OutList.end(); ++It2) {
+            if (*It2)
+                ret.push_back(*It2);
+        }
+    }
+    else if (prop->isDerivedFrom(PropertyLink::getClassTypeId())) {
+        if (static_cast<PropertyLink*>(prop)->getValue())
+            ret.push_back(static_cast<PropertyLink*>(prop)->getValue());
+    }
+    else if (prop->isDerivedFrom(PropertyLinkSub::getClassTypeId())) {
+        if (static_cast<PropertyLinkSub*>(prop)->getValue())
+            ret.push_back(static_cast<PropertyLinkSub*>(prop)->getValue());
+    }
+    else if (prop == &ExpressionEngine) {
+        // Get document objects that this document object relies on
+        ExpressionEngine.getDocumentObjectDeps(ret);
+    }
+
+    return ret;
+}
+
 #ifdef USE_OLD_DAG
 std::vector<App::DocumentObject*> DocumentObject::getInList(void) const
 {
@@ -204,48 +297,51 @@ std::vector<App::DocumentObject*> DocumentObject::getInList(void) const
 #endif // if USE_OLD_DAG
 
 
-void _getInListRecursive(std::vector<DocumentObject*>& objSet, const DocumentObject* obj, const DocumentObject* checkObj, int depth)
+void _getInListRecursive(std::set<DocumentObject*>& objSet,
+                         const DocumentObject* obj,
+                         const DocumentObject* checkObj, int depth)
 {
-    for (const auto objIt : obj->getInList()){
+    for (const auto objIt : obj->getInList()) {
         // if the check object is in the recursive inList we have a cycle!
-        if (objIt == checkObj || depth <= 0){
-            std::cerr << "DocumentObject::getInListRecursive(): cyclic dependency detected!"<<std::endl;
+        if (objIt == checkObj || depth <= 0) {
             throw Base::RuntimeError("DocumentObject::getInListRecursive(): cyclic dependency detected!");
         }
 
-        objSet.push_back(objIt);
-        _getInListRecursive(objSet, objIt, checkObj,depth-1);
+        // if the element was already in the set then there is no need to process it again
+        auto pair = objSet.insert(objIt);
+        if (pair.second)
+            _getInListRecursive(objSet, objIt, checkObj, depth-1);
     }
 }
 
 std::vector<App::DocumentObject*> DocumentObject::getInListRecursive(void) const
 {
     // number of objects in document is a good estimate in result size
-    int maxDepth = getDocument()->countObjects() +2;
-    std::vector<App::DocumentObject*> result;
-    result.reserve(maxDepth);
+    int maxDepth = getDocument()->countObjects() + 2;
+    std::set<App::DocumentObject*> result;
 
     // using a rcursie helper to collect all InLists
     _getInListRecursive(result, this, this, maxDepth);
 
-    // remove duplicate entries and resize the vector
-    std::sort(result.begin(), result.end());
-    auto newEnd = std::unique(result.begin(), result.end());
-    result.resize(std::distance(result.begin(), newEnd));
-
-    return result;
+    std::vector<App::DocumentObject*> array;
+    array.insert(array.begin(), result.begin(), result.end());
+    return array;
 }
 
-void _getOutListRecursive(std::vector<DocumentObject*>& objSet, const DocumentObject* obj, const DocumentObject* checkObj, int depth)
+void _getOutListRecursive(std::set<DocumentObject*>& objSet,
+                          const DocumentObject* obj,
+                          const DocumentObject* checkObj, int depth)
 {
-    for (const auto objIt : obj->getOutList()){
+    for (const auto objIt : obj->getOutList()) {
         // if the check object is in the recursive inList we have a cycle!
-        if (objIt == checkObj || depth <= 0){
-            std::cerr << "DocumentObject::getOutListRecursive(): cyclic dependency detected!" << std::endl;
+        if (objIt == checkObj || depth <= 0) {
             throw Base::RuntimeError("DocumentObject::getOutListRecursive(): cyclic dependency detected!");
         }
-        objSet.push_back(objIt);
-        _getOutListRecursive(objSet, objIt, checkObj,depth-1);
+
+        // if the element was already in the set then there is no need to process it again
+        auto pair = objSet.insert(objIt);
+        if (pair.second)
+            _getOutListRecursive(objSet, objIt, checkObj, depth-1);
     }
 }
 
@@ -253,18 +349,95 @@ std::vector<App::DocumentObject*> DocumentObject::getOutListRecursive(void) cons
 {
     // number of objects in document is a good estimate in result size
     int maxDepth = getDocument()->countObjects() + 2;
-    std::vector<App::DocumentObject*> result;
-    result.reserve(maxDepth);
+    std::set<App::DocumentObject*> result;
 
     // using a recursive helper to collect all OutLists
     _getOutListRecursive(result, this, this, maxDepth);
 
-    // remove duplicate entries and resize the vector
-    std::sort(result.begin(), result.end());
-    auto newEnd = std::unique(result.begin(), result.end());
-    result.resize(std::distance(result.begin(), newEnd));
+    std::vector<App::DocumentObject*> array;
+    array.insert(array.begin(), result.begin(), result.end());
+    return array;
+}
 
-    return result;
+// helper for isInInListRecursive()
+bool _isInInListRecursive(const DocumentObject* act,
+                          const DocumentObject* checkObj, int depth)
+{
+#ifndef  USE_OLD_DAG
+    for (auto obj : act->getInList()) {
+        if (obj == checkObj)
+            return true;
+        // if we reach the depth limit we have a cycle!
+        if (depth <= 0) {
+            throw Base::RuntimeError("DocumentObject::isInInListRecursive(): cyclic dependency detected!");
+        }
+
+        if (_isInInListRecursive(obj, checkObj, depth - 1))
+            return true;
+    }
+#else
+    (void)act;
+    (void)checkObj;
+    (void)depth;
+#endif
+
+    return false;
+}
+
+bool DocumentObject::isInInListRecursive(DocumentObject *linkTo) const
+{
+    int maxDepth = getDocument()->countObjects() + 2;
+    return _isInInListRecursive(this, linkTo, maxDepth);
+}
+
+bool DocumentObject::isInInList(DocumentObject *linkTo) const
+{
+#ifndef  USE_OLD_DAG
+    if (std::find(_inList.begin(), _inList.end(), linkTo) != _inList.end())
+        return true;
+    else
+        return false;
+#else
+    (void)linkTo;
+    return false;
+#endif
+}
+
+// helper for isInOutListRecursive()
+bool _isInOutListRecursive(const DocumentObject* act,
+                           const DocumentObject* checkObj, int depth)
+{
+#ifndef  USE_OLD_DAG
+    for (auto obj : act->getOutList()) {
+        if (obj == checkObj)
+            return true;
+        // if we reach the depth limit we have a cycle!
+        if (depth <= 0) {
+            throw Base::RuntimeError("DocumentObject::isInOutListRecursive(): cyclic dependency detected!");
+        }
+
+        if (_isInOutListRecursive(obj, checkObj, depth - 1))
+            return true;
+    }
+#else
+    (void)act;
+    (void)checkObj;
+    (void)depth;
+#endif
+
+    return false;
+}
+
+bool DocumentObject::isInOutListRecursive(DocumentObject *linkTo) const
+{
+    int maxDepth = getDocument()->countObjects() + 2;
+    return _isInOutListRecursive(this, linkTo, maxDepth);
+}
+
+std::vector<std::list<App::DocumentObject*> >
+DocumentObject::getPathsByOutList(App::DocumentObject* to) const
+{
+    return _pDoc->getPathsByOutList(this, to);
 }
 
 DocumentObjectGroup* DocumentObject::getGroup() const
@@ -306,86 +479,6 @@ bool DocumentObject::testIfLinkDAGCompatible(PropertyLinkSub &linkTo) const
     return this->testIfLinkDAGCompatible(linkTo_in_vector);
 }
 
-bool DocumentObject::_isInInListRecursive(const DocumentObject* /*act*/,
-                                          const DocumentObject* test,
-                                          const DocumentObject* checkObj, int depth) const
-{
-#ifndef  USE_OLD_DAG
-    if (std::find(_inList.begin(), _inList.end(), test) != _inList.end())
-        return true;
-
-    for (auto obj : _inList){
-        // if the check object is in the recursive inList we have a cycle!
-        if (obj == checkObj || depth <= 0){
-            std::cerr << "DocumentObject::getOutListRecursive(): cyclic dependency detected!" << std::endl;
-            throw Base::RuntimeError("DocumentObject::getOutListRecursive(): cyclic dependency detected!");
-        }
-
-        if (_isInInListRecursive(obj, test, checkObj, depth - 1))
-            return true;
-    }
-#else
-    (void)test;
-    (void)checkObj;
-    (void)depth;
-#endif
-
-    return false;
-}
-
-bool DocumentObject::isInInListRecursive(DocumentObject *linkTo) const
-{
-    return _isInInListRecursive(this, linkTo, this, getDocument()->countObjects());
-}
-
-bool DocumentObject::isInInList(DocumentObject *linkTo) const
-{
-#ifndef  USE_OLD_DAG
-    if (std::find(_inList.begin(), _inList.end(), linkTo) != _inList.end())
-        return true;
-    else
-        return false;
-#else
-    (void)linkTo;
-    return false;
-#endif
-}
-
-bool DocumentObject::_isInOutListRecursive(const DocumentObject* act,
-                                           const DocumentObject* test,
-                                           const DocumentObject* checkObj, int depth) const
-{
-#ifndef  USE_OLD_DAG
-    std::vector <DocumentObject*> outList = act->getOutList();
-
-    if (std::find(outList.begin(), outList.end(), test) != outList.end())
-        return true;
-
-    for (auto obj : outList){
-        // if the check object is in the recursive inList we have a cycle!
-        if (obj == checkObj || depth <= 0){
-            std::cerr << "DocumentObject::isInOutListRecursive(): cyclic dependency detected!" << std::endl;
-            throw Base::RuntimeError("DocumentObject::isInOutListRecursive(): cyclic dependency detected!");
-        }
-
-        if (_isInOutListRecursive(obj, test, checkObj, depth - 1))
-            return true;
-    }
-#else
-    (void)act;
-    (void)test;
-    (void)checkObj;
-    (void)depth;
-#endif
-
-    return false;
-}
-
-bool DocumentObject::isInOutListRecursive(DocumentObject *linkTo) const
-{
-    return _isInOutListRecursive(this, linkTo, this, getDocument()->countObjects());
-}
-
 void DocumentObject::onLostLinkToObject(DocumentObject*)
 {
 
@@ -400,6 +493,12 @@ void DocumentObject::setDocument(App::Document* doc)
 {
     _pDoc=doc;
     onSettingDocument();
+}
+
+void DocumentObject::onAboutToRemoveProperty(const char* prop)
+{
+    if (_pDoc)
+        _pDoc->removePropertyOfObject(this, prop);
 }
 
 void DocumentObject::onBeforeChange(const Property* prop)
@@ -423,9 +522,13 @@ void DocumentObject::onChanged(const Property* prop)
         _pDoc->signalRelabelObject(*this);
 
     // set object touched if it is an input property
-    if (!(prop->getType() & Prop_Output))
+    if (!(prop->getType() & Prop_Output)) {
         StatusBits.set(ObjectStatus::Touch);
-    
+        // must execute on document recompute
+        if (!(prop->getType() & Prop_NoRecompute))
+            StatusBits.set(ObjectStatus::Enforce);
+    }
+
     //call the parent for appropriate handling
     TransactionalObject::onChanged(prop);
 }
@@ -445,24 +548,10 @@ std::vector<PyObject *> DocumentObject::getPySubObjects(const std::vector<std::s
     return std::vector<PyObject *>();
 }
 
-void DocumentObject::touch(void)
-{
-    StatusBits.set(ObjectStatus::Touch);
-}
-
-/**
- * @brief Check whether the document object is touched or not.
- * @return true if document object is touched, false if not.
- */
-
-bool DocumentObject::isTouched() const
-{
-    return ExpressionEngine.isTouched() || StatusBits.test(ObjectStatus::Touch);
-}
-
 void DocumentObject::Save (Base::Writer &writer) const
 {
-    writer.ObjectName = this->getNameInDocument();
+    if (this->getNameInDocument())
+        writer.ObjectName = this->getNameInDocument();
     App::ExtensionContainer::Save(writer);
 }
 
@@ -517,12 +606,19 @@ void DocumentObject::connectRelabelSignals()
     if (ExpressionEngine.numExpressions() > 0) {
 
         // Not already connected?
-        if (!onRelabledObjectConnection.connected())
-            onRelabledObjectConnection = getDocument()->signalRelabelObject.connect(boost::bind(&PropertyExpressionEngine::slotObjectRenamed, &ExpressionEngine, _1));
+        if (!onRelabledObjectConnection.connected()) {
+            onRelabledObjectConnection = getDocument()->signalRelabelObject
+                    .connect(boost::bind(&PropertyExpressionEngine::slotObjectRenamed,
+                                         &ExpressionEngine, _1));
+        }
 
-        // Connect to signalDeletedObject, to properly track deletion of other objects that might be referenced in an expression
-        if (!onDeletedObjectConnection.connected())
-            onDeletedObjectConnection = getDocument()->signalDeletedObject.connect(boost::bind(&PropertyExpressionEngine::slotObjectDeleted, &ExpressionEngine, _1));
+        // Connect to signalDeletedObject, to properly track deletion of other objects
+        // that might be referenced in an expression
+        if (!onDeletedObjectConnection.connected()) {
+            onDeletedObjectConnection = getDocument()->signalDeletedObject
+                    .connect(boost::bind(&PropertyExpressionEngine::slotObjectDeleted,
+                                         &ExpressionEngine, _1));
+        }
 
         try {
             // Crude method to resolve all expression dependencies
@@ -538,6 +634,14 @@ void DocumentObject::connectRelabelSignals()
         onRelabledDocumentConnection.disconnect();
         onDeletedObjectConnection.disconnect();
     }
+}
+
+void DocumentObject::onDocumentRestored()
+{
+    //call all extensions
+    auto vector = getExtensionsDerivedFromType<App::DocumentObjectExtension>();
+    for(auto ext : vector)
+        ext->onExtendedDocumentRestored();
 }
 
 void DocumentObject::onSettingDocument()
@@ -567,7 +671,11 @@ void DocumentObject::unsetupObject()
 void App::DocumentObject::_removeBackLink(DocumentObject* rmvObj)
 {
 #ifndef USE_OLD_DAG
-       _inList.erase(std::remove(_inList.begin(), _inList.end(), rmvObj), _inList.end());
+    //do not use erase-remove idom, as this erases ALL entries that match. we only want to remove a
+    //single one.
+    auto it = std::find(_inList.begin(), _inList.end(), rmvObj);
+    if(it != _inList.end())
+        _inList.erase(it);
 #else
     (void)rmvObj;
 #endif
@@ -576,8 +684,11 @@ void App::DocumentObject::_removeBackLink(DocumentObject* rmvObj)
 void App::DocumentObject::_addBackLink(DocumentObject* newObj)
 {
 #ifndef USE_OLD_DAG
-    if ( std::find(_inList.begin(), _inList.end(), newObj) == _inList.end() )
-       _inList.push_back(newObj);
+    //we need to add all links, even if they are available multiple times. The reason for this is the
+    //removal: If a link loses this object it removes the backlink. If we would have added it only once
+    //this removal would clear the object from the inlist, even though there may be other link properties 
+    //from this object that link to us.
+    _inList.push_back(newObj);
 #else
     (void)newObj;
 #endif //USE_OLD_DAG    

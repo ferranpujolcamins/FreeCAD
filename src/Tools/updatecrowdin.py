@@ -54,7 +54,6 @@ import sys,os,xml.sax,pycurl,StringIO
 
 files = [ ["Arch.ts",              "/Mod/Arch/Resources/translations/Arch.ts"],
           ["Assembly.ts",          "/Mod/Assembly/Gui/Resources/translations/Assembly_de.ts"],
-          ["Complete.ts",          "/Mod/Complete/Gui/Resources/translations/Complete_de.ts"],
           ["draft.ts",             "/Mod/Draft/Resources/translations/Draft.ts"],
           ["Drawing.ts",           "/Mod/Drawing/Gui/Resources/translations/Drawing_de.ts"],
           ["Fem.ts",               "/Mod/Fem/Gui/Resources/translations/Fem.ts"],
@@ -78,6 +77,7 @@ files = [ ["Arch.ts",              "/Mod/Arch/Resources/translations/Arch.ts"],
           ["Spreadsheet.ts",       "/Mod/Spreadsheet/Gui/Resources/translations/Spreadsheet.ts"],
           ["Path.ts",              "/Mod/Path/Gui/Resources/translations/Path.ts"],
           ["Tux.ts",               "/Mod/Tux/Resources/translations/Tux.ts"],
+          ["TechDraw.ts",          "/Mod/TechDraw/Gui/Resources/translations/TechDraw.ts"],
           ]
 
 
@@ -123,14 +123,14 @@ if __name__ == "__main__":
     # only one argument allowed
     arg = sys.argv[1:]
     if len(arg) != 1:
-        print __doc__
+        print(__doc__)
         sys.exit()
     arg = arg[0]
     
     # getting API key stored in ~/.crowdin-freecad
     configfile = os.path.expanduser("~")+os.sep+".crowdin-freecad"
     if not os.path.exists(configfile):
-        print "Config file not found!"
+        print("Config file not found!")
         sys.exit()
     f = open(configfile)
     url = "https://api.crowdin.com/api/project/freecad/"
@@ -146,10 +146,10 @@ if __name__ == "__main__":
         c.close()
         handler = ResponseHandler()
         xml.sax.parseString(b.getvalue(),handler)
-        print handler.data
+        print(handler.data)
         
     elif arg == "build":
-        print "Building (warning, this can be invoked only once per 30 minutes)..."
+        print("Building (warning, this can be invoked only once per 30 minutes)...")
         c = pycurl.Curl()
         c.setopt(pycurl.URL, url+"export"+key)
         b = StringIO.StringIO()
@@ -158,17 +158,17 @@ if __name__ == "__main__":
         c.close()
         handler = ResponseHandler()
         xml.sax.parseString(b.getvalue(),handler)
-        print handler.data
+        print(handler.data)
         
     elif arg == "download":
-        print "Downloading all.zip in current directory..."
+        print("Downloading all.zip in current directory...")
         cmd = "wget -O freecad.zip "+url+"download/all.zip"+key
         os.system(cmd)
         
     elif arg == "update":
         basepath = os.path.dirname(os.path.abspath("."))
         for f in files:
-            print "Sending ",f[0],"..."
+            print("Sending ",f[0],"...")
             c = pycurl.Curl()
             fields = [('files['+f[0]+']', (c.FORM_FILE, basepath+f[1]))]
             c.setopt(pycurl.URL, url+"update-file"+key)
@@ -179,9 +179,9 @@ if __name__ == "__main__":
             c.close()
             handler = ResponseHandler()
             xml.sax.parseString(b.getvalue(),handler)
-            print handler.data
+            print(handler.data)
 
     else:
-        print __doc__
+        print(__doc__)
         
 

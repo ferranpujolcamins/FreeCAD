@@ -25,7 +25,7 @@
 #define APP_DOCUMENTOBSERVER_H
 
 #include <Base/BaseClass.h>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 #include <set>
 
 namespace App
@@ -48,12 +48,16 @@ public:
     DocumentT();
     /*! Constructor */
     DocumentT(Document*);
+    /*! Constructor */
+    DocumentT(const std::string&);
     /*! Destructor */
     ~DocumentT();
     /*! Assignment operator */
     void operator=(const DocumentT&);
     /*! Assignment operator */
     void operator=(const Document*);
+    /*! Assignment operator */
+    void operator=(const std::string&);
 
     /*! Get a pointer to the document or 0 if it doesn't exist any more. */
     Document* getDocument() const;
@@ -151,22 +155,28 @@ private:
     virtual void slotDeletedObject(const App::DocumentObject& Obj);
     /** The property of an observed object has changed */
     virtual void slotChangedObject(const App::DocumentObject& Obj, const App::Property& Prop);
+    /** Called when a given object is recomputed */
+    virtual void slotRecomputedObject(const App::DocumentObject& Obj);
+    /** Called when a observed document is recomputed */
+    virtual void slotRecomputedDocument(const App::Document& Doc);
 
 protected:
     Document* getDocument() const;
 
 private:
     App::Document* _document;
-    typedef boost::signals::connection Connection;
+    typedef boost::signals2::connection Connection;
     Connection connectApplicationCreatedDocument;
     Connection connectApplicationDeletedDocument;
     Connection connectDocumentCreatedObject;
     Connection connectDocumentDeletedObject;
     Connection connectDocumentChangedObject;
+    Connection connectDocumentRecomputedObject;
+    Connection connectDocumentRecomputed;
 };
 
 /**
- * The DocumentObjectObserver class checks for a list of ojects
+ * The DocumentObjectObserver class checks for a list of objects
  * which of them get removed.
  *
  * @author Werner Mayer
@@ -198,7 +208,7 @@ private:
     /** The property of an observed object has changed */
     virtual void slotChangedObject(const App::DocumentObject& Obj, const App::Property& Prop);
     /** This method gets called when all observed objects are deleted or the whole document is deleted.
-      * This method can be re-implemented to perform an extra step like closing a dialog tht observes
+      * This method can be re-implemented to perform an extra step like closing a dialog that observes
       * a document.
       */
     virtual void cancelObservation();

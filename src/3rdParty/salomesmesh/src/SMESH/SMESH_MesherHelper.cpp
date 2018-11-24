@@ -765,7 +765,7 @@ bool SMESH_MesherHelper::CheckNodeUV(const TopoDS_Face&   F,
         MESSAGE( "SMESH_MesherHelper::CheckNodeUV() failed to project" );
         return false;
       }
-      Quantity_Parameter U,V;
+      Standard_Real U,V;
       projector.LowerDistanceParameters(U,V);
       uv.SetCoord( U,V );
       surfPnt = surface->Value( U, V );
@@ -1071,7 +1071,7 @@ bool SMESH_MesherHelper::CheckNodeU(const TopoDS_Edge&   E,
           MESSAGE( "SMESH_MesherHelper::CheckNodeU() failed to project" );
           return false;
         }
-        Quantity_Parameter U = projector->LowerDistanceParameter();
+        Standard_Real U = projector->LowerDistanceParameter();
         u = double( U );
         MESSAGE(" f " << f << " l " << l << " u " << u);
         curvPnt = curve->Value( u );
@@ -4445,7 +4445,7 @@ namespace { // Structures used by FixQuadraticElements()
             if ( curvNorm * D2 > 0 )
               continue; // convex edge
           }
-          catch ( Standard_Failure )
+          catch ( Standard_Failure &)
           {
             continue;
           }
@@ -4558,7 +4558,7 @@ namespace { // Structures used by FixQuadraticElements()
             if ( concaveU || concaveV )
               concaveFaces.push_back( face );
           }
-          catch ( Standard_Failure )
+          catch ( Standard_Failure &)
           {
             concaveFaces.push_back( face );
           }
@@ -5081,7 +5081,7 @@ void SMESH_MesherHelper::FixQuadraticElements(SMESH_ComputeErrorPtr& compError,
               try {
                 gp_Vec x = x01.Normalized() + x12.Normalized();
                 trsf.SetTransformation( gp_Ax3( gp::Origin(), link1->Normal(), x), gp_Ax3() );
-              } catch ( Standard_Failure ) {
+              } catch ( Standard_Failure &) {
                 trsf.Invert();
               }
               move.Transform(trsf);

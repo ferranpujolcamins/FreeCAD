@@ -35,26 +35,26 @@ def cpall(dirFrom, dirTo):
     """
     global dcount, fcount
     for file in os.listdir(dirFrom):                      # for files/dirs here
-        print file
+        print(file)
         pathFrom = os.path.join(dirFrom, file)
         pathTo   = os.path.join(dirTo,   file)            # extend both paths
         if not os.path.isdir(pathFrom):                   # copy simple files
             try:
-                if verbose > 1: print 'copying', pathFrom, 'to', pathTo
+                if verbose > 1: print('copying', pathFrom, 'to', pathTo)
                 cpfile(pathFrom, pathTo)
                 fcount = fcount+1
             except:
-                print 'Error copying', pathFrom, to, pathTo, '--skipped'
-                print sys.exc_type, sys.exc_value
+                print('Error copying', pathFrom, to, pathTo, '--skipped')
+                print(sys.exc_type, sys.exc_value)
         else:
-            if verbose: print 'copying dir', pathFrom, 'to', pathTo
+            if verbose: print ('copying dir', pathFrom, 'to', pathTo)
             try:
                 os.mkdir(pathTo)                          # make new subdir
                 cpall(pathFrom, pathTo)                   # recur into subdirs
                 dcount = dcount+1
             except:
-                print 'Error creating', pathTo, '--skipped'
-                print sys.exc_type, sys.exc_value
+                print('Error creating', pathTo, '--skipped')
+                print(sys.exc_type, sys.exc_value)
 
 def SetUpFilter(MatchList):
     RegList = []
@@ -73,27 +73,27 @@ def cpallWithFilter(dirFrom, dirTo,MatchList):
         for matchpat in MatchList:
             if(re.match(matchpat,file)):
                hitt = 1
-               print 'Refuse: '+file
+               print('Refuse: '+file)
         if hitt == 0:
             pathFrom = os.path.join(dirFrom, file)
             pathTo   = os.path.join(dirTo,   file)            # extend both paths
             if not os.path.isdir(pathFrom):                   # copy simple files
                 try:
-                    if verbose > 1: print 'copying', pathFrom, 'to', pathTo
+                    if verbose > 1: print('copying', pathFrom, 'to', pathTo)
                     cpfile(pathFrom, pathTo)
                     fcount = fcount+1
                 except:
-                    print 'Error copying', pathFrom, to, pathTo, '--skipped'
-                    print sys.exc_type, sys.exc_value
+                    print('Error copying', pathFrom, to, pathTo, '--skipped')
+                    print(sys.exc_type, sys.exc_value)
             else:
-                if verbose: print 'copying dir', pathFrom, 'to', pathTo
+                if verbose: print('copying dir', pathFrom, 'to', pathTo)
                 try:
                     os.mkdir(pathTo)                            # make new subdir
                     cpallWithFilter(pathFrom, pathTo,MatchList) # recur into subdirs
                     dcount = dcount+1
                 except:
-                    print 'Error creating', pathTo, '--skipped'
-                    print sys.exc_type, sys.exc_value
+                    print('Error creating', pathTo, '--skipped')
+                    print(sys.exc_type, sys.exc_value)
 
 ################################################################
 # Use: "python rmall.py directoryPath directoryPath..."
@@ -119,11 +119,11 @@ def rmall(dirPath):                             # delete dirPath and below
     dcount = dcount + 1
 
 def BuildDistName():
-    # line seperator 
+    # line separator 
     ls = os.linesep
-    # path seperator
+    # path separator
     ps = os.pathsep
-    # dir seperator
+    # dir separator
     ds = os.sep
 
     # Building dist name
@@ -133,11 +133,11 @@ def BuildDistName():
 
     return DistName
 def BuildSetupName():
-    # line seperator 
+    # line separator 
     ls = os.linesep
-    # path seperator
+    # path separator
     ps = os.pathsep
-    # dir seperator
+    # dir separator
     ds = os.sep
 
     # Building dist name
@@ -148,11 +148,11 @@ def BuildSetupName():
     return DistName
 
 def GetVersion():
-    # line seperator 
+    # line separator 
     ls = os.linesep
-    # path seperator
+    # path separator
     ps = os.pathsep
-    # dir seperator
+    # dir separator
     ds = os.sep
 
     # Building dist name
@@ -161,11 +161,11 @@ def GetVersion():
     return  FCVersionMajor[23:-1] + '.' +FCVersionMinor[23:-1] 
 
 def GetBuildNbr():
-    # line seperator 
+    # line separator 
     ls = os.linesep
-    # path seperator
+    # path separator
     ps = os.pathsep
-    # dir seperator
+    # dir separator
     ds = os.sep
 
     # Building dist name
@@ -174,11 +174,11 @@ def GetBuildNbr():
     return  FCVersionBuild[23:-1] 
 
 def GetBuildDate():
-    # line seperator 
+    # line separator 
     ls = os.linesep
-    # path seperator
+    # path separator
     ps = os.pathsep
-    # dir seperator
+    # dir separator
     ds = os.sep
 
     # Building dist name

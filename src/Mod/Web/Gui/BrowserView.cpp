@@ -51,6 +51,7 @@
 # include <QMenu>
 # include <QDesktopWidget>
 # include <QSignalMapper>
+# include <QPointer>
 #endif
 
 #include "BrowserView.h"
@@ -64,13 +65,75 @@
 
 #include <Base/Parameter.h>
 #include <Base/Exception.h>
+#include <CXX/Extensions.hxx>
 
 using namespace WebGui;
 using namespace Gui;
 
+namespace WebGui {
+class BrowserViewPy : public Py::PythonExtension<BrowserViewPy>
+{
+public:
+    static void init_type(void);    // announce properties and methods
+
+    BrowserViewPy(BrowserView* view);
+    ~BrowserViewPy();
+
+    Py::Object repr();
+
+    Py::Object setHtml(const Py::Tuple&);
+
+private:
+    QPointer<BrowserView> myWebView;
+};
+
+void BrowserViewPy::init_type()
+{
+    behaviors().name("BrowserView");
+    behaviors().doc("Python interface class to BrowserView");
+    // you must have overwritten the virtual functions
+    behaviors().supportRepr();
+    behaviors().supportGetattr();
+    behaviors().supportSetattr();
+    behaviors().readyType();
+
+    add_varargs_method("setHtml",&BrowserViewPy::setHtml,"setHtml(str)");
+}
+
+BrowserViewPy::BrowserViewPy(BrowserView* view) : myWebView(view)
+{
+}
+
+BrowserViewPy::~BrowserViewPy()
+{
+}
+
+Py::Object BrowserViewPy::repr()
+{
+    std::stringstream s;
+    s << "<BrowserView at " << this << ">";
+    return Py::String(s.str());
+}
+
+Py::Object BrowserViewPy::setHtml(const Py::Tuple& args)
+{
+    char* HtmlCode;
+    char* BaseUrl;
+    if (!PyArg_ParseTuple(args.ptr(), "et|s","utf-8",&HtmlCode,&BaseUrl))
+        throw Py::Exception();
+
+    std::string EncodedHtml = std::string(HtmlCode);
+    PyMem_Free(HtmlCode);
+
+    if (myWebView)
+        myWebView->setHtml(QString::fromUtf8(EncodedHtml.c_str()), QUrl(QString::fromLatin1(BaseUrl)));
+    return Py::None();
+}
+}
+
 /**
  *  Constructs a WebView widget which can be zoomed with Ctrl+Mousewheel
- *  
+ *
  */
 
 WebView::WebView(QWidget *parent)
@@ -169,10 +232,15 @@ BrowserView::BrowserView(QWidget* parent)
 
     view->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
     view->page()->setForwardUnsupportedContent(true);
-    
+
     // set our custom cookie manager
     FcCookieJar* cookiejar = new FcCookieJar(this);
     view->page()->networkAccessManager()->setCookieJar(cookiejar);
+
+    // enable local storage so we can store stuff across sessions (startpage)
+    QWebSettings* settings = view->settings();
+    settings->setAttribute(QWebSettings::LocalStorageEnabled, true);
+    settings->setLocalStoragePath(QString::fromUtf8((App::Application::getUserAppDataDir()+"webdata").c_str()));
 
     // setting background to white
     QPalette palette = view->palette();
@@ -204,24 +272,33 @@ BrowserView::~BrowserView()
     delete view;
 }
 
-void BrowserView::onLinkClicked (const QUrl & url) 
+void BrowserView::onLinkClicked (const QUrl & url)
 {
     QString scheme   = url.scheme();
     QString host     = url.host();
     //QString username = url.userName();
 
-    // path handling 
+    // path handling
     QString path     = url.path();
     QFileInfo fi(path);
     QString ext = fi.completeSuffix();
     QUrl exturl(url);
+
+    // query
+    QString q;
+    if (url.hasQuery())
+#if QT_VERSION >= 0x050000
+        q = url.query();
+#else
+        q = QString::fromAscii(url.encodedQuery().data());
+#endif
 
     //QString fragment = url.	fragment();
 
     if (scheme==QString::fromLatin1("http") || scheme==QString::fromLatin1("https")) {
         load(url);
     }
-    // Small trick to force opening a link in an external browser: use exthttp or exthttp
+    // Small trick to force opening a link in an external browser: use exthttp or exthttps
     // Write your URL as exthttp://www.example.com
     else if (scheme==QString::fromLatin1("exthttp")) {
         exturl.setScheme(QString::fromLatin1("http"));
@@ -238,12 +315,22 @@ void BrowserView::onLinkClicked (const QUrl & url)
             QString ext = fi.completeSuffix();
             if (ext == QString::fromLatin1("py")) {
                 try {
+                    if (!q.isEmpty()) {
+                        // encapsulate the value in quotes
+                        q = q.replace(QString::fromLatin1("="),QString::fromLatin1("=\""))+QString::fromLatin1("\"");
+                        q = q.replace(QString::fromLatin1("%"),QString::fromLatin1("%%"));
+                        // url queries in the form of somescript.py?key=value, the first key=value will be printed in the py console as key="value"
+                        Gui::Command::doCommand(Gui::Command::Gui,q.toStdString().c_str());
+                    }
                     // Gui::Command::doCommand(Gui::Command::Gui,"execfile('%s')",(const char*) fi.absoluteFilePath().	toLocal8Bit());
-                    Gui::Command::doCommand(Gui::Command::Gui,"exec(open('%s').read())",(const char*) fi.absoluteFilePath(). toLocal8Bit());  
+                    Gui::Command::doCommand(Gui::Command::Gui,"exec(open('%s').read())",(const char*) fi.absoluteFilePath()	.toLocal8Bit());
                 }
                 catch (const Base::Exception& e) {
                     QMessageBox::critical(this, tr("Error"), QString::fromUtf8(e.what()));
                 }
+
+                if(this->getAppDocument()->testStatus(App::Document::PartialRestore))
+                    QMessageBox::critical(this, tr("Error"), tr("There were errors while loading the file. Some data might have been modified or not recovered at all. Look in the report view for more specific information about the objects involved."));
             }
         }
         else {
@@ -255,7 +342,7 @@ void BrowserView::onLinkClicked (const QUrl & url)
 
 bool BrowserView::chckHostAllowed(const QString& host)
 {
-    // only check if a local file, later we can do here a dialog to ask the user if 
+    // only check if a local file, later we can do here a dialog to ask the user if
     return host.isEmpty();
 }
 
@@ -302,13 +389,12 @@ void BrowserView::load(const QUrl & url)
     setWindowIcon(QWebSettings::iconForUrl(url));
 }
 
-void BrowserView::setHtml(const QString& HtmlCode,const QUrl & BaseUrl,const QString& TabName)
+void BrowserView::setHtml(const QString& HtmlCode,const QUrl & BaseUrl)
 {
     if (isLoading)
         stop();
 
     view->setHtml(HtmlCode,BaseUrl);
-    setWindowTitle(TabName);
     setWindowIcon(QWebSettings::iconForUrl(BaseUrl));
 }
 
@@ -414,6 +500,17 @@ bool BrowserView::onHasMsg(const char* pMsg) const
 bool BrowserView::canClose(void)
 {
     return true;
+}
+
+PyObject* BrowserView::getPyObject(void)
+{
+    static bool init = false;
+    if (!init) {
+        init = true;
+        BrowserViewPy::init_type();
+    }
+
+    return new BrowserViewPy(this);
 }
 
 #include "moc_BrowserView.cpp"

@@ -26,12 +26,13 @@
 
 
 #include "ViewProviderOriginGroup.h"
+#include "ViewProviderDragger.h"
 #include "ViewProviderPythonFeature.h"
 
 
 namespace Gui {
 
-class GuiExport ViewProviderPart : public ViewProviderDocumentObject,
+class GuiExport ViewProviderPart : public ViewProviderDragger,
                                    public ViewProviderOriginGroupExtension
 {
     PROPERTY_HEADER_WITH_EXTENSIONS(Gui::ViewProviderPart);
@@ -42,9 +43,9 @@ public:
     /// destructor.
     virtual ~ViewProviderPart();
 
-    QIcon getIcon(void) const;
-
     virtual bool doubleClicked(void);
+    virtual void setupContextMenu(QMenu* menu, QObject* receiver, const char* member);
+
 protected:
     /// get called by the container whenever a property has been changed
     virtual void onChanged(const App::Property* prop);
@@ -54,5 +55,5 @@ typedef ViewProviderPythonFeatureT<ViewProviderPart> ViewProviderPartPython;
 
 } // namespace Gui
 
-#endif // GUI_VIEWPROVIDER_DOCUMENTOBJECTGROUP_H
+#endif // GUI_VIEWPROVIDER_ViewProviderPart_H
 

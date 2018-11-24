@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 # (c) 2006 Werner Mayer LGPL
 #
-# FreeCAD RevInfo script to get the revision information from Subversion.
+# FreeCAD RevInfo script to get the revision information from Subversion, Bazaar, and Git.
 #
 # Under Linux the Subversion tool SubWCRev shipped with TortoiseSVN isn't 
 # available which is provided by this script. 
+# 2012/02/01: The script was extended to support git
 # 2011/02/05: The script was extended to support also Bazaar
 
 import os,sys,string,re,time,getopt
@@ -73,7 +74,7 @@ class VersionControl:
 class UnknownControl(VersionControl):
     def extractInfo(self, srcdir):
         # Do not overwrite existing file with almost useless information
-        if os.path.exists(srcdir+"/src/Build/Version.h"):
+        if os.path.exists(srcdir+"/src/Build/Version.h.out"):
             return False
         self.rev = "Unknown"
         self.date = "Unknown"
@@ -86,7 +87,7 @@ class UnknownControl(VersionControl):
 class DebianChangelog(VersionControl):
     def extractInfo(self, srcdir):
         # Do not overwrite existing file with almost useless information
-        if os.path.exists(srcdir+"/src/Build/Version.h"):
+        if os.path.exists(srcdir+"/src/Build/Version.h.out"):
             return False
         try:
             f = open(srcdir+"/debian/changelog")
@@ -179,10 +180,8 @@ class GitControl(VersionControl):
         blessed master repository.
         the second part, separated by " +" reflects the number of commits that are
         different from the master repository"""
-        #referencecommit="f119e740c87918b103140b66b2316ae96f136b0e"
-        #referencerevision=4138
-        referencecommit="6b3d7b17a749e03bcbf2cf79bbbb903137298c44"
-        referencerevision=5235
+        referencecommit="7d8e53aaab17961d85c5009de34f69f2af084e8b"
+        referencerevision=14555
 
         result = None
         countallfh=os.popen("git rev-list --count %s..HEAD" % \
@@ -241,7 +240,7 @@ class GitControl(VersionControl):
         # date/time
         import time
         info=os.popen("git log -1 --date=raw --pretty=format:%cd").read()
-        # commit time is more meaningfull than author time
+        # commit time is more meaningful than author time
         # use UTC
         self.date = time.strftime("%Y/%m/%d %H:%M:%S",time.gmtime(\
                 float(info.strip().split(' ',1)[0])))
@@ -275,7 +274,7 @@ class GitControl(VersionControl):
             else: # guess
                 self.branch = '(%s)' % \
                     os.popen("git describe --all --dirty").read().strip()
-        #if the branch name conainted any slashes but was not a remote
+        #if the branch name contained any slashes but was not a remote
         #there might be not result by now. Hence we assume origin
         if self.url == "Unknown":
             for i in info:
@@ -384,12 +383,12 @@ def main():
             lines = inp.readlines()
             inp.close()
             lines = i.writeVersion(lines)
-            out  = open("%s/src/Build/Version.h" % (bindir),"w");
+            out  = open("%s/src/Build/Version.h.out" % (bindir),"w");
             out.writelines(lines)
             out.write('\n')
             out.close()
             i.printInfo()
-            sys.stdout.write("%s/src/Build/Version.h written\n" % (bindir))
+            sys.stdout.write("%s/src/Build/Version.h.out written\n" % (bindir))
             break
 
 if __name__ == "__main__":

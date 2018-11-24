@@ -315,7 +315,7 @@ void ViewProviderFemMesh::attach(App::DocumentObject *pcObj)
     SoGroup* pcFlatWireRoot = new SoSeparator();
     // add the complete flat group (contains the coordinates)
     pcFlatWireRoot->addChild(pcFlatRoot);
-    //pcFlatWireRoot->addChild(offset); // makes no differents.....
+    //pcFlatWireRoot->addChild(offset); // makes no difference.....
     // add the line nodes
     SoMaterialBinding *pcMatBind = new SoMaterialBinding;
     pcMatBind->value = SoMaterialBinding::OVERALL;
@@ -415,7 +415,7 @@ std::string ViewProviderFemMesh::getElement(const SoDetail* detail) const
 
             str << "Elem" << (edx>>3) << "F"<< (edx&7)+1;
         }
-        // trigger on edges only if edge only mesh, otherwise you only hit edges an never faces....
+        // trigger on edges only if edge only mesh, otherwise you only hit edges and never faces....
         else if (onlyEdges && detail->getTypeId() == SoLineDetail::getClassTypeId()) {
             const SoLineDetail* line_detail = static_cast<const SoLineDetail*>(detail);
             int edge = line_detail->getLineIndex() + 1;
@@ -424,8 +424,13 @@ std::string ViewProviderFemMesh::getElement(const SoDetail* detail) const
         else if (detail->getTypeId() == SoPointDetail::getClassTypeId()) {
             const SoPointDetail* point_detail = static_cast<const SoPointDetail*>(detail);
             int idx = point_detail->getCoordinateIndex();
-            if (idx < static_cast<int>(vNodeElementIdx.size())) {
-                int vertex = vNodeElementIdx[point_detail->getCoordinateIndex()];
+            // first check if the index is part of the highlighted nodes (#0003618)
+            if (idx < static_cast<int>(vHighlightedIdx.size())) {
+                int vertex = vHighlightedIdx[idx];
+                str << "Node" << vertex;
+            }
+            else if (idx < static_cast<int>(vNodeElementIdx.size())) {
+                int vertex = vNodeElementIdx[idx];
                 str << "Node" << vertex;
             }
             else {
@@ -471,15 +476,22 @@ std::vector<Base::Vector3d> ViewProviderFemMesh::getSelectionShape(const char* /
     return std::vector<Base::Vector3d>();
 }
 
+std::set<long> ViewProviderFemMesh::getHighlightNodes() const
+{
+    std::set<long> nodes;
+    nodes.insert(vHighlightedIdx.begin(), vHighlightedIdx.end());
+    return nodes;
+}
+
 void ViewProviderFemMesh::setHighlightNodes(const std::set<long>& HighlightedNodes)
 {
-    if(!HighlightedNodes.empty()){
+    if (!HighlightedNodes.empty()) {
         SMESHDS_Mesh* data = const_cast<SMESH_Mesh*>((static_cast<Fem::FemMeshObject*>(this->pcObject)->FemMesh).getValue().getSMesh())->GetMeshDS();
 
         pcAnoCoords->point.setNum(HighlightedNodes.size());
         SbVec3f* verts = pcAnoCoords->point.startEditing();
         int i=0;
-        for(std::set<long>::const_iterator it=HighlightedNodes.begin();it!=HighlightedNodes.end();++it,i++){
+        for (std::set<long>::const_iterator it=HighlightedNodes.begin();it!=HighlightedNodes.end();++it,i++){
             const SMDS_MeshNode *Node = data->FindNode(*it);
             if (Node)
                 verts[i].setValue((float)Node->X(),(float)Node->Y(),(float)Node->Z());
@@ -487,13 +499,22 @@ void ViewProviderFemMesh::setHighlightNodes(const std::set<long>& HighlightedNod
                 verts[i].setValue(0,0,0);
         }
         pcAnoCoords->point.finishEditing();
-    }else{
+
+        // save the node ids
+        vHighlightedIdx.clear();
+        vHighlightedIdx.insert(vHighlightedIdx.end(),
+                               HighlightedNodes.begin(), HighlightedNodes.end());
+    }
+    else {
         pcAnoCoords->point.setNum(0);
+        vHighlightedIdx.clear();
     }
 }
+
 void ViewProviderFemMesh::resetHighlightNodes(void)
 {
     pcAnoCoords->point.setNum(0);
+    vHighlightedIdx.clear();
 }
 
 PyObject * ViewProviderFemMesh::getPyObject()
@@ -507,12 +528,11 @@ PyObject * ViewProviderFemMesh::getPyObject()
 
 void ViewProviderFemMesh::setColorByNodeId(const std::map<long,App::Color> &NodeColorMap)
 {
-    long startId = NodeColorMap.begin()->first;
     long endId = (--NodeColorMap.end())->first;
 
-    std::vector<App::Color> colorVec(endId-startId+2,App::Color(0,1,0));
+    std::vector<App::Color> colorVec(endId+1,App::Color(0,1,0));
     for(std::map<long,App::Color>::const_iterator it=NodeColorMap.begin();it!=NodeColorMap.end();++it)
-        colorVec[it->first-startId] = it->second;
+        colorVec[it->first] = it->second;
 
     setColorByNodeIdHelper(colorVec);
 
@@ -520,14 +540,12 @@ void ViewProviderFemMesh::setColorByNodeId(const std::map<long,App::Color> &Node
 void ViewProviderFemMesh::setColorByNodeId(const std::vector<long> &NodeIds,const std::vector<App::Color> &NodeColors)
 {
 
-    long startId = *(std::min_element(NodeIds.begin(), NodeIds.end()));
-    long endId   = *(std::max_element(NodeIds.begin(), NodeIds.end()));
+    long endId = *(std::max_element(NodeIds.begin(), NodeIds.end()));
 
-    std::vector<App::Color> colorVec(endId-startId+2,App::Color(0,1,0));
+    std::vector<App::Color> colorVec(endId+1,App::Color(0,1,0));
     long i=0;
     for(std::vector<long>::const_iterator it=NodeIds.begin();it!=NodeIds.end();++it,i++)
-        colorVec[*it-startId] = NodeColors[i];
-
+        colorVec[*it] = NodeColors[i];
 
     setColorByNodeIdHelper(colorVec);
 
@@ -545,8 +563,7 @@ void ViewProviderFemMesh::setColorByNodeIdHelper(const std::vector<App::Color> &
     for(std::vector<unsigned long>::const_iterator it=vNodeElementIdx.begin()
             ;it!=vNodeElementIdx.end()
             ;++it,i++)
-       colors[i] = SbColor(colorVec[*it-1].r,colorVec[*it-1].g,colorVec[*it-1].b);
-
+       colors[i] = SbColor(colorVec[*it].r,colorVec[*it].g,colorVec[*it].b);
 
     pcShapeMaterial->diffuseColor.finishEditing();
 }
@@ -1101,7 +1118,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
     vFaceElementIdx.resize(triangleCount);
     int index=0,indexIdx=0;
     int32_t* indices = faces->coordIndex.startEditing();
-    // iterate all not hided element faces, always assure CLOCKWISE triangle ordering to allow backface culling
+    // iterate all non-hidden element faces, always assure CLOCKWISE triangle ordering to allow backface culling
     for(int l=0; l< FaceSize;l++){
         if(! facesHelper[l].hide){
             switch( facesHelper[l].Element->NbNodes()){
@@ -1124,7 +1141,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                             insEdgeVec(EdgeMap, nIdx0, nIdx1);
                             insEdgeVec(EdgeMap, nIdx1, nIdx2);
                             insEdgeVec(EdgeMap, nIdx2, nIdx0);
-                            // rember the element and face number for that triangle
+                            // remember the element and face number for that triangle
                             vFaceElementIdx[indexIdx++] = ElemFold(facesHelper[l].ElementNumber,0);
                             break;    }
                         default: assert(0);
@@ -1150,7 +1167,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                             // add the two edge segments for that triangle
                             insEdgeVec(EdgeMap, nIdx0, nIdx1);
                             insEdgeVec(EdgeMap, nIdx1, nIdx2);
-                            // rember the element and face number for that triangle
+                            // remember the element and face number for that triangle
                             vFaceElementIdx[indexIdx++] = ElemFold(facesHelper[l].ElementNumber,0);
                             // create triangle number 2 ----------------------------------------------
                             indices[index++] = nIdx2;
@@ -1298,7 +1315,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                 // 6 nodes
                 case 6:
                     // tria6 face
-                    // penta6 volume, two 3-node triangle and three 4-node qudrangles
+                    // penta6 volume, two 3-node triangle and three 4-node quadrangles
                     switch (facesHelper[l].FaceNo){
                         case 0: { // tria6 face, 6-node triangle
                             // prefeche all node indexes of this face
@@ -1317,7 +1334,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                             // add the two edge segments for that triangle
                             insEdgeVec(EdgeMap, nIdx5, nIdx0);
                             insEdgeVec(EdgeMap, nIdx0, nIdx1);
-                            // rember the element and face number for that triangle
+                            // remember the element and face number for that triangle
                             vFaceElementIdx[indexIdx++] = ElemFold(facesHelper[l].ElementNumber,0);
                             // create triangle number 2 ----------------------------------------------
                             indices[index++] = nIdx1;
@@ -1455,7 +1472,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                             // add the two edge segments for that triangle
                             insEdgeVec(EdgeMap, nIdx7, nIdx0);
                             insEdgeVec(EdgeMap, nIdx0, nIdx1);
-                            // rember the element and face number for that triangle
+                            // remember the element and face number for that triangle
                             vFaceElementIdx[indexIdx++] = ElemFold(facesHelper[l].ElementNumber,0);
                             // create triangle number 2 ----------------------------------------------
                             indices[index++] = nIdx1;
@@ -1758,9 +1775,9 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                     break;
                 // 13 nodes
                 case 13:
-                    // pyra13 volume, four 6-node triangle and one 8-node qudrangles
+                    // pyra13 volume, four 6-node triangle and one 8-node quadrangles
                     switch(facesHelper[l].FaceNo){
-                        case 1: { // pyra13 volume: face 1, 8-node qudrangles
+                        case 1: { // pyra13 volume: face 1, 8-node quadrangles
                             int nIdx0 = mapNodeIndex[facesHelper[l].Element->GetNode(0)];
                             int nIdx1 = mapNodeIndex[facesHelper[l].Element->GetNode(5)];
                             int nIdx2 = mapNodeIndex[facesHelper[l].Element->GetNode(1)];
@@ -1943,7 +1960,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                     break;
                 // 15 nodes
                 case 15:
-                    // penta15 volume, two 6-node triangles and three 8-node qudrangles
+                    // penta15 volume, two 6-node triangles and three 8-node quadrangles
                     switch(facesHelper[l].FaceNo){
                         case 1: { // penta15 volume: face 1, 6-node triangle
                             int nIdx0 = mapNodeIndex[facesHelper[l].Element->GetNode(0)];
@@ -2154,7 +2171,7 @@ void ViewProviderFEMMeshBuilder::createMesh(const App::Property* prop,
                     break;
                 // 20 nodes
                 case 20:
-                    // hexa20 volume, six 8-node qudrangles
+                    // hexa20 volume, six 8-node quadrangles
                     switch(facesHelper[l].FaceNo){
                         case 1: { // hexa20 volume: face 1
                             int nIdx0 = mapNodeIndex[facesHelper[l].Element->GetNode(0)];

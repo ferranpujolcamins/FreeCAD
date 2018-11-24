@@ -33,9 +33,11 @@
 #endif
 
 /// Here the FreeCAD includes sorted by Base,App,Gui......
+#include <Base/Tools.h>
 #include <Base/Console.h>
 #include <App/Material.h>
-#include <App/DocumentObject.h>
+#include <App/DocumentObjectGroup.h>
+#include <App/Origin.h>
 #include "Application.h"
 #include "Document.h"
 #include "Selection.h"
@@ -94,6 +96,15 @@ const char* ViewProviderDocumentObject::detachFromDocument()
     return "";
 }
 
+void ViewProviderDocumentObject::onAboutToRemoveProperty(const char* prop)
+{
+    // transactions of view providers are also managed in App::Document.
+    App::DocumentObject* docobject = getObject();
+    App::Document* document = docobject ? docobject->getDocument() : nullptr;
+    if (document)
+        document->removePropertyOfObject(this, prop);
+}
+
 void ViewProviderDocumentObject::onBeforeChange(const App::Property* prop)
 {
     if (isAttachedToDocument()) {
@@ -146,6 +157,11 @@ void ViewProviderDocumentObject::show(void)
 
 void ViewProviderDocumentObject::updateView()
 {
+    if(testStatus(ViewStatus::UpdatingView))
+        return;
+
+    Base::ObjectStatusLocker<ViewStatus,ViewProviderDocumentObject> lock(ViewStatus::UpdatingView,this);
+
     std::map<std::string, App::Property*> Map;
     pcObject->getPropertyMap(Map);
 
@@ -181,10 +197,10 @@ void ViewProviderDocumentObject::attach(App::DocumentObject *pcObj)
     const char* defmode = this->getDefaultDisplayMode();
     if (defmode)
         DisplayMode.setValue(defmode);
-    
+
     //attach the extensions
     auto vector = getExtensionsDerivedFromType<Gui::ViewProviderExtension>();
-    for(Gui::ViewProviderExtension* ext : vector)
+    for (Gui::ViewProviderExtension* ext : vector)
         ext->extensionAttach(pcObj);
 }
 
@@ -268,13 +284,23 @@ SoNode* ViewProviderDocumentObject::findFrontRootOfType(const SoType& type) cons
 
 void ViewProviderDocumentObject::setActiveMode()
 {
-    if (DisplayMode.getEnums()) {
+    if (DisplayMode.isValid()) {
         const char* mode = DisplayMode.getValueAsString();
         if (mode)
             setDisplayMode(mode);
     }
     if (!Visibility.getValue())
         ViewProvider::hide();
+}
+
+bool ViewProviderDocumentObject::canDelete(App::DocumentObject* obj) const
+{
+    Q_UNUSED(obj)
+    if (getObject()->hasExtension(App::GroupExtension::getExtensionClassTypeId()))
+        return true;
+    if (getObject()->isDerivedFrom(App::Origin::getClassTypeId()))
+        return true;
+    return false;
 }
 
 PyObject* ViewProviderDocumentObject::getPyObject()

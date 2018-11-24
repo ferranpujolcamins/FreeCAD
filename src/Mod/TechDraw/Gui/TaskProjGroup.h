@@ -63,8 +63,8 @@ public:
     virtual bool accept();
     virtual bool reject();
     void updateTask();
-    void nearestFraction(double val, int &a, int &b) const;
-    /// Sets the numerator and denominator widgets to match newScale
+    std::pair<int, int> nearestFraction(const double val, const long int maxDenom = 999) const;
+    // Sets the numerator and denominator widgets to match newScale
     void setFractionalScale(double newScale);
     void setCreateMode(bool b) { m_createMode = b;}
     bool getCreateMode() { return m_createMode; }
@@ -75,8 +75,7 @@ protected Q_SLOTS:
     /// Requests appropriate rotation of our DrawProjGroup
     void rotateButtonClicked(void);
 
-    void on3DClicked(void);
-    void onResetClicked(void);
+//    void onResetClicked(void);
     
     void projectionTypeChanged(int index);
     void scaleTypeChanged(int index);
@@ -91,7 +90,6 @@ protected:
      * between checkboxes and viewToggled()
      */
     void setupViewCheckboxes(bool addConnections = false);
-    std::pair<Base::Vector3d,Base::Vector3d> get3DViewDir(void);
     void setUiPrimary(void);
     QString formatVector(Base::Vector3d v);
 

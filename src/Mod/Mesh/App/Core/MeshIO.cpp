@@ -171,6 +171,9 @@ bool MeshInput::LoadAny(const char* FileName)
         else if (fi.hasExtension("obj")) {
             ok = LoadOBJ( str );
         }
+        else if (fi.hasExtension("smf")) {
+            ok = LoadSMF( str );
+        }
         else if (fi.hasExtension("off")) {
             ok = LoadOFF( str );
         }
@@ -200,6 +203,8 @@ bool  MeshInput::LoadFormat(std::istream &str, MeshIO::Format fmt)
         return LoadBinarySTL(str);
     case MeshIO::OBJ:
         return LoadOBJ(str);
+    case MeshIO::SMF:
+        return LoadSMF(str);
     case MeshIO::OFF:
         return LoadOFF(str);
     case MeshIO::IV:
@@ -207,7 +212,7 @@ bool  MeshInput::LoadFormat(std::istream &str, MeshIO::Format fmt)
     case MeshIO::NAS:
         return LoadNastran(str);
     default:
-        throw Base::FileException("Not supported file format");
+        throw Base::FileException("Unsupported file format");
     }
 }
 
@@ -436,6 +441,65 @@ bool MeshInput::LoadOBJ (std::istream &rstrIn)
     MeshCleanup meshCleanup(meshPoints,meshFacets);
     if (_material)
         meshCleanup.SetMaterial(_material);
+    meshCleanup.RemoveInvalids();
+    MeshPointFacetAdjacency meshAdj(meshPoints.size(),meshFacets);
+    meshAdj.SetFacetNeighbourhood();
+    this->_rclMesh.Adopt(meshPoints,meshFacets);
+
+    return true;
+}
+
+/** Loads an SMF file. */
+bool MeshInput::LoadSMF (std::istream &rstrIn)
+{
+    boost::regex rx_p("^v\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
+                        "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)"
+                        "\\s+([-+]?[0-9]*)\\.?([0-9]+([eE][-+]?[0-9]+)?)\\s*$");
+    boost::regex rx_f3("^f\\s+([-+]?[0-9]+)"
+                         "\\s+([-+]?[0-9]+)"
+                         "\\s+([-+]?[0-9]+)\\s*$");
+    boost::cmatch what;
+
+    unsigned long segment=0;
+    MeshPointArray meshPoints;
+    MeshFacetArray meshFacets;
+
+    std::string line;
+    float fX, fY, fZ;
+    int  i1=1,i2=1,i3=1;
+    MeshFacet item;
+
+    if (!rstrIn || rstrIn.bad() == true)
+        return false;
+
+    std::streambuf* buf = rstrIn.rdbuf();
+    if (!buf)
+        return false;
+
+    while (std::getline(rstrIn, line)) {
+        if (boost::regex_match(line.c_str(), what, rx_p)) {
+            fX = (float)std::atof(what[1].first);
+            fY = (float)std::atof(what[4].first);
+            fZ = (float)std::atof(what[7].first);
+            meshPoints.push_back(MeshPoint(Base::Vector3f(fX, fY, fZ)));
+        }
+        else if (boost::regex_match(line.c_str(), what, rx_f3)) {
+            // 3-vertex face
+            i1 = std::atoi(what[1].first);
+            i1 = i1 > 0 ? i1-1 : i1+static_cast<int>(meshPoints.size());
+            i2 = std::atoi(what[2].first);
+            i2 = i2 > 0 ? i2-1 : i2+static_cast<int>(meshPoints.size());
+            i3 = std::atoi(what[3].first);
+            i3 = i3 > 0 ? i3-1 : i3+static_cast<int>(meshPoints.size());
+            item.SetVertices(i1,i2,i3);
+            item.SetProperty(segment);
+            meshFacets.push_back(item);
+        }
+    }
+
+    this->_rclMesh.Clear(); // remove all data before
+
+    MeshCleanup meshCleanup(meshPoints,meshFacets);
     meshCleanup.RemoveInvalids();
     MeshPointFacetAdjacency meshAdj(meshPoints.size(),meshFacets);
     meshAdj.SetFacetNeighbourhood();
@@ -1164,7 +1228,11 @@ bool MeshInput::LoadAsciiSTL (std::istream &rstrIn)
     // restart from the beginning
     buf->pubseekoff(0, std::ios::beg, std::ios::in);
 
+#if 0
     MeshBuilder builder(this->_rclMesh);
+#else
+    MeshFastBuilder builder(this->_rclMesh);
+#endif
     builder.Initialize(ulFacetCt);
 
     ulVertexCt = 0;
@@ -1229,7 +1297,11 @@ bool MeshInput::LoadBinarySTL (std::istream &rstrIn)
     if (ulCt > ulFac)
         return false;// not a valid STL file
 
+#if 0
     MeshBuilder builder(this->_rclMesh);
+#else
+    MeshFastBuilder builder(this->_rclMesh);
+#endif
     builder.Initialize(ulCt);
 
     for (uint32_t i = 0; i < ulCt; i++) {
@@ -1610,6 +1682,12 @@ MeshIO::Format MeshOutput::GetFormat(const char* FileName)
     else if (file.hasExtension("ply")) {
         return MeshIO::PLY;
     }
+    else if (file.hasExtension("idtf")) {
+        return MeshIO::IDTF;
+    }
+    else if (file.hasExtension("mgl")) {
+        return MeshIO::MGL;
+    }
     else if (file.hasExtension("iv")) {
         return MeshIO::IV;
     }
@@ -1630,6 +1708,9 @@ MeshIO::Format MeshOutput::GetFormat(const char* FileName)
     }
     else if (file.hasExtension("amf")) {
         return MeshIO::AMF;
+    }
+    else if (file.hasExtension("smf")) {
+        return MeshIO::SMF;
     }
     else {
         return MeshIO::Undefined;
@@ -1676,12 +1757,16 @@ bool MeshOutput::SaveAny(const char* FileName, MeshIO::Format format) const
         ok = aWriter.SaveAsciiSTL( str );
         if (!ok)
             throw Base::FileException("Export of STL mesh failed",FileName);
-
     }
     else if (fileformat == MeshIO::OBJ) {
         // write file
         if (!SaveOBJ(str))
             throw Base::FileException("Export of OBJ mesh failed",FileName);
+    }
+    else if (fileformat == MeshIO::SMF) {
+        // write file
+        if (!SaveSMF(str))
+            throw Base::FileException("Export of SMF mesh failed",FileName);
     }
     else if (fileformat == MeshIO::OFF) {
         // write file
@@ -1697,6 +1782,16 @@ bool MeshOutput::SaveAny(const char* FileName, MeshIO::Format format) const
         // write file
         if (!SaveAsciiPLY(str))
             throw Base::FileException("Export of PLY mesh failed",FileName);
+    }
+    else if (fileformat == MeshIO::IDTF) {
+        // write file
+        if (!SaveIDTF(str))
+            throw Base::FileException("Export of IDTF mesh failed",FileName);
+    }
+    else if (fileformat == MeshIO::MGL) {
+        // write file
+        if (!SaveMGL(str))
+            throw Base::FileException("Export of MGL mesh failed",FileName);
     }
     else if (fileformat == MeshIO::IV) {
         // write file
@@ -1754,8 +1849,14 @@ bool MeshOutput::SaveFormat(std::ostream &str, MeshIO::Format fmt) const
         return SaveBinarySTL(str);
     case MeshIO::OBJ:
         return SaveOBJ(str);
+    case MeshIO::SMF:
+        return SaveSMF(str);
     case MeshIO::OFF:
         return SaveOFF(str);
+    case MeshIO::IDTF:
+        return SaveIDTF(str);
+    case MeshIO::MGL:
+        return SaveMGL(str);
     case MeshIO::IV:
         return SaveInventor(str);
     case MeshIO::X3D:
@@ -1774,7 +1875,7 @@ bool MeshOutput::SaveFormat(std::ostream &str, MeshIO::Format fmt) const
     case MeshIO::PY:
         return SavePython(str);
     default:
-        throw Base::FileException("Not supported file format");
+        throw Base::FileException("Unsupported file format");
     }
 }
 
@@ -2095,6 +2196,54 @@ bool MeshOutput::SaveMTL(std::ostream &out) const
     return false;
 }
 
+/** Saves an SMF file. */
+bool MeshOutput::SaveSMF (std::ostream &out) const
+{
+    // http://people.sc.fsu.edu/~jburkardt/data/smf/smf.txt
+    const MeshPointArray& rPoints = _rclMesh.GetPoints();
+    const MeshFacetArray& rFacets = _rclMesh.GetFacets();
+
+    if (!out || out.bad() == true)
+        return false;
+
+    Base::SequencerLauncher seq("saving...", _rclMesh.CountPoints() + _rclMesh.CountFacets());
+
+    // Header
+    out << "#$SMF 1.0" << std::endl;
+    out << "#$vertices " << rPoints.size() << std::endl;
+    out << "#$faces " << rFacets.size() << std::endl;
+    out << "#" << std::endl;
+    out << "# Created by FreeCAD <http://www.freecadweb.org>" << std::endl;
+
+    out.precision(6);
+    out.setf(std::ios::fixed | std::ios::showpoint);
+
+    // vertices
+    Base::Vector3f pt;
+    std::size_t index = 0;
+    for (MeshPointArray::_TConstIterator it = rPoints.begin(); it != rPoints.end(); ++it, ++index) {
+        if (this->apply_transform) {
+            pt = this->_transform * *it;
+        }
+        else {
+            pt.Set(it->x, it->y, it->z);
+        }
+
+        out << "v " << pt.x << " " << pt.y << " " << pt.z << std::endl;
+        seq.next(true); // allow to cancel
+    }
+
+    // facet indices
+    for (MeshFacetArray::_TConstIterator it = rFacets.begin(); it != rFacets.end(); ++it) {
+        out << "f " << it->_aulPoints[0]+1 << " "
+                    << it->_aulPoints[1]+1 << " "
+                    << it->_aulPoints[2]+1 << std::endl;
+        seq.next(true); // allow to cancel
+    }
+
+    return true;
+}
+
 /** Saves an OFF file. */
 bool MeshOutput::SaveOFF (std::ostream &out) const
 {
@@ -2401,6 +2550,152 @@ void MeshOutput::SaveXML (Base::Writer &writer) const
 
     writer.Stream() << writer.ind() << "</Mesh>" << std::endl;
     writer.decInd();
+}
+
+/** Writes an IDTF file. */
+bool MeshOutput::SaveIDTF (std::ostream &str) const
+{
+    if ((!str) || (str.bad() == true) || (_rclMesh.CountFacets() == 0))
+        return false;
+
+    const MeshPointArray& pts = _rclMesh.GetPoints();
+    const MeshFacetArray& fts = _rclMesh.GetFacets();
+    std::string resource = objectName;
+    if (resource.empty())
+        resource = "Resource";
+
+    str.precision(6);
+    str.setf(std::ios::fixed | std::ios::showpoint);
+
+    str << "FILE_FORMAT \"IDTF\"" << std::endl
+        << "FORMAT_VERSION 100" << std::endl << std::endl;
+
+    str << Base::tabs(0) << "NODE \"MODEL\" {" << std::endl;
+    str << Base::tabs(1) << "NODE_NAME \"FreeCAD\"" << std::endl;
+    str << Base::tabs(1) << "PARENT_LIST {" << std::endl;
+    str << Base::tabs(2) << "PARENT_COUNT 1" << std::endl;
+    str << Base::tabs(2) << "PARENT 0 {" << std::endl;
+    str << Base::tabs(3) << "PARENT_NAME \"<NULL>\"" << std::endl;
+    str << Base::tabs(3) << "PARENT_TM {" << std::endl;
+    str << Base::tabs(4) << "1.000000 0.000000 0.000000 0.000000" << std::endl;
+    str << Base::tabs(4) << "0.000000 1.000000 0.000000 0.000000" << std::endl;
+    str << Base::tabs(4) << "0.000000 0.000000 1.000000 0.000000" << std::endl;
+    str << Base::tabs(4) << "0.000000 0.000000 0.000000 1.000000" << std::endl;
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(2) << "}" << std::endl;
+    str << Base::tabs(1) << "}" << std::endl;
+    str << Base::tabs(1) << "RESOURCE_NAME \"FreeCAD\"" << std::endl;
+    str << Base::tabs(0) << "}" << std::endl << std::endl;
+
+    str << Base::tabs(0) << "RESOURCE_LIST \"MODEL\" {" << std::endl;
+    str << Base::tabs(1) << "RESOURCE_COUNT 1" << std::endl;
+    str << Base::tabs(1) << "RESOURCE 0 {" << std::endl;
+    str << Base::tabs(2) << "RESOURCE_NAME \"" << resource << "\"" << std::endl;
+    str << Base::tabs(2) << "MODEL_TYPE \"MESH\"" << std::endl;
+    str << Base::tabs(2) << "MESH {" << std::endl;
+    str << Base::tabs(3) << "FACE_COUNT " << fts.size() << std::endl;
+    str << Base::tabs(3) << "MODEL_POSITION_COUNT " << pts.size() << std::endl;
+    str << Base::tabs(3) << "MODEL_NORMAL_COUNT " << 3*fts.size() << std::endl;
+    str << Base::tabs(3) << "MODEL_DIFFUSE_COLOR_COUNT 0" << std::endl;
+    str << Base::tabs(3) << "MODEL_SPECULAR_COLOR_COUNT 0" << std::endl;
+    str << Base::tabs(3) << "MODEL_TEXTURE_COORD_COUNT 0" << std::endl;
+    str << Base::tabs(3) << "MODEL_BONE_COUNT 0" << std::endl;
+    str << Base::tabs(3) << "MODEL_SHADING_COUNT 1" << std::endl;
+    str << Base::tabs(3) << "MODEL_SHADING_DESCRIPTION_LIST {" << std::endl;
+    str << Base::tabs(4) << "SHADING_DESCRIPTION 0 {" << std::endl;
+    str << Base::tabs(5) << "TEXTURE_LAYER_COUNT 0" << std::endl;
+    str << Base::tabs(5) << "SHADER_ID 0" << std::endl;
+    str << Base::tabs(4) << "}" << std::endl;
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(3) << "MESH_FACE_POSITION_LIST {" << std::endl;
+    for (MeshFacetArray::_TConstIterator it = fts.begin(); it != fts.end(); ++it) {
+        str << Base::tabs(4) << it->_aulPoints[0] << " " << it->_aulPoints[1] << " " << it->_aulPoints[2] << std::endl;
+    }
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(3) << "MESH_FACE_NORMAL_LIST {" << std::endl;
+    int index = 0;
+    for (MeshFacetArray::_TConstIterator it = fts.begin(); it != fts.end(); ++it) {
+        str << Base::tabs(4) << index << " " << index + 1 << " " << index + 2 << std::endl;
+        index += 3;
+    }
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(3) << "MESH_FACE_SHADING_LIST {" << std::endl;
+    for (MeshFacetArray::_TConstIterator it = fts.begin(); it != fts.end(); ++it) {
+        str << Base::tabs(4) << "0" << std::endl;
+    }
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(3) << "MODEL_POSITION_LIST {" << std::endl;
+    for (MeshPointArray::_TConstIterator it = pts.begin(); it != pts.end(); ++it) {
+        str << Base::tabs(4) << it->x << " " << it->y << " " << it->z << std::endl;
+    }
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(3) << "MODEL_NORMAL_LIST {" << std::endl;
+    for (MeshFacetArray::_TConstIterator it = fts.begin(); it != fts.end(); ++it) {
+        MeshGeomFacet face = _rclMesh.GetFacet(*it);
+        Base::Vector3f normal = face.GetNormal();
+        str << Base::tabs(4) << normal.x << " " << normal.y << " " << normal.z << std::endl;
+        str << Base::tabs(4) << normal.x << " " << normal.y << " " << normal.z << std::endl;
+        str << Base::tabs(4) << normal.x << " " << normal.y << " " << normal.z << std::endl;
+    }
+
+    str << Base::tabs(3) << "}" << std::endl;
+    str << Base::tabs(2) << "}" << std::endl;
+    str << Base::tabs(1) << "}" << std::endl;
+    str << Base::tabs(0) << "}" << std::endl;
+
+    return true;
+}
+
+/** Writes an MGL file. */
+bool MeshOutput::SaveMGL (std::ostream &str) const
+{
+/*
+light on
+list t 0 1 2 | 0 1 3 | 0 2 3 | 1 2 3
+list xt 1 1 0 0
+list yt -1 -1 1 0
+list zt -1 -1 -1 1
+triplot t xt yt zt 'b'
+#triplot t xt yt zt '#k'
+*/
+    if ((!str) || (str.bad() == true) || (_rclMesh.CountFacets() == 0))
+        return false;
+
+    const MeshPointArray& pts = _rclMesh.GetPoints();
+    const MeshFacetArray& fts = _rclMesh.GetFacets();
+
+    str.precision(2);
+    str.setf(std::ios::fixed | std::ios::showpoint);
+
+    str << "light on" << std::endl;
+    str << "list t ";
+    for (MeshFacetArray::_TConstIterator it = fts.begin(); it != fts.end(); ++it) {
+        str << it->_aulPoints[0] << " " << it->_aulPoints[1] << " " << it->_aulPoints[2] << " | ";
+    }
+    str << std::endl;
+
+    str << "list xt ";
+    for (MeshPointArray::_TConstIterator it = pts.begin(); it != pts.end(); ++it) {
+        str << it->x << " ";
+    }
+    str << std::endl;
+
+    str << "list yt ";
+    for (MeshPointArray::_TConstIterator it = pts.begin(); it != pts.end(); ++it) {
+        str << it->y << " ";
+    }
+    str << std::endl;
+
+    str << "list zt ";
+    for (MeshPointArray::_TConstIterator it = pts.begin(); it != pts.end(); ++it) {
+        str << it->z << " ";
+    }
+    str << std::endl;
+
+    str << "triplot t xt yt zt 'b'" << std::endl;
+    str << "#triplot t xt yt zt '#k'" << std::endl;
+
+    return true;
 }
 
 /** Writes an OpenInventor file. */

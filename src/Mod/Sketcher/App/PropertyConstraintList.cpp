@@ -151,7 +151,7 @@ void PropertyConstraintList::setValue(const Constraint* lValue)
         if (renamed.size() > 0)
             signalConstraintsRenamed(renamed);
 
-        /* Collect infor about removals */
+        /* Collect info about removals */
         for (unsigned int i = start; i < _lValueList.size(); i++) {
             valueMap.erase(_lValueList[i]->tag);
             removed.insert(makePath(i, _lValueList[i]));
@@ -185,13 +185,17 @@ void PropertyConstraintList::applyValues(const std::vector<Constraint*>& lValue)
     std::vector<Constraint*> oldVals(_lValueList);
     std::map<App::ObjectIdentifier, App::ObjectIdentifier> renamed;
     std::set<App::ObjectIdentifier> removed;
-
+    
     /* Check for renames */
     for (unsigned int i = 0; i < lValue.size(); i++) {
         boost::unordered_map<boost::uuids::uuid, std::size_t>::const_iterator j = valueMap.find(lValue[i]->tag);
 
-        if (j != valueMap.end() && (i != j->second || _lValueList[j->second]->Name != lValue[i]->Name) )
-            renamed[makePath(j->second, _lValueList[j->second] )] = makePath(i, lValue[i]);
+        if (j != valueMap.end() && (i != j->second || _lValueList[j->second]->Name != lValue[i]->Name) ) {
+            App::ObjectIdentifier old_oid(makePath(j->second, _lValueList[j->second] ));
+            App::ObjectIdentifier new_oid(makePath(i, lValue[i]));
+            
+            renamed[old_oid] = new_oid;
+        }
     }
 
     /* Update value map with new tags from new array */
@@ -199,22 +203,24 @@ void PropertyConstraintList::applyValues(const std::vector<Constraint*>& lValue)
     for (std::size_t i = 0; i < lValue.size(); i++)
         valueMap[lValue[i]->tag] = i;
 
-    /* Signal renames */
-    if (renamed.size() > 0)
-        signalConstraintsRenamed(renamed);
-
     /* Collect info about removed elements */
     for (std::size_t i = 0; i < oldVals.size(); i++) {
         boost::unordered_map<boost::uuids::uuid, std::size_t>::const_iterator j = valueMap.find(oldVals[i]->tag);
+        App::ObjectIdentifier oid(makePath(i, oldVals[i]));
 
+        /* If not found in new values, place it in the set to be removed */
         if (j == valueMap.end())
-            removed.insert(makePath(i, oldVals[i]));
+            removed.insert(oid);
     }
 
-    /* Signal removes */
+    /* Signal removes first, in case renamed values below have the same names as some of the removed ones. */
     if (removed.size() > 0)
         signalConstraintsRemoved(removed);
 
+    /* Signal renames */
+    if (renamed.size() > 0)
+        signalConstraintsRenamed(renamed);
+    
     /* Resize array to new size */
     _lValueList.resize(lValue.size());
 
@@ -336,9 +342,8 @@ void PropertyConstraintList::acceptGeometry(const std::vector<Part::Geometry *> 
     aboutToSetValue();
     validGeometryKeys.clear();
     validGeometryKeys.reserve(GeoList.size());
-    for (std::vector< Part::Geometry * >::const_iterator it=GeoList.begin();
-         it != GeoList.end(); ++it)
-        validGeometryKeys.push_back((*it)->getTypeId().getKey());
+    for (const auto& it : GeoList)
+        validGeometryKeys.push_back((it)->getTypeId().getKey());
     invalidGeometry = false;
     hasSetValue();
 }
@@ -434,7 +439,7 @@ void PropertyConstraintList::setPathValue(const ObjectIdentifier &path, const bo
         int index = c0.getIndex();
 
         if (c0.getIndex() >= _lValueList.size())
-            throw Base::Exception("Array out of bounds");
+            throw Base::IndexError("Array out of bounds");
         switch (_lValueList[index]->Type) {
         case Angle:
             dvalue = Base::toRadians<double>(dvalue);
@@ -468,7 +473,7 @@ void PropertyConstraintList::setPathValue(const ObjectIdentifier &path, const bo
             }
         }
     }
-    throw Base::Exception("Invalid constraint");
+    throw Base::ValueError("Invalid constraint");
 }
 
 const Constraint * PropertyConstraintList::getConstraint(const ObjectIdentifier &path) const
@@ -477,7 +482,7 @@ const Constraint * PropertyConstraintList::getConstraint(const ObjectIdentifier 
 
     if (c0.isArray() && path.numSubComponents() == 1) {
         if (c0.getIndex() >= _lValueList.size())
-            throw Base::Exception("Array out of bounds");
+            throw Base::IndexError("Array out of bounds");
 
         return _lValueList[c0.getIndex()];
     }
@@ -489,7 +494,7 @@ const Constraint * PropertyConstraintList::getConstraint(const ObjectIdentifier 
                 return *it;
         }
     }
-    throw Base::Exception("Invalid constraint");
+    throw Base::ValueError("Invalid constraint");
 }
 
 const boost::any PropertyConstraintList::getPathValue(const ObjectIdentifier &path) const
@@ -513,7 +518,7 @@ const ObjectIdentifier PropertyConstraintList::canonicalPath(const ObjectIdentif
         if (c1.isSimple())
             return p;
     }
-    throw Base::Exception("Invalid constraint");
+    throw Base::ValueError("Invalid constraint");
 }
 
 void PropertyConstraintList::getPaths(std::vector<ObjectIdentifier> &paths) const

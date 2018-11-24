@@ -130,9 +130,9 @@ int PlateSurfacePy::PyInit(PyObject* args, PyObject* kwds)
         getGeomPlateSurfacePtr()->setHandle(buildPlate.Surface());
         return 0;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return -1;
     }
 }
@@ -180,7 +180,7 @@ PyObject* PlateSurfacePy::makeApprox(PyObject *args, PyObject* kwds)
             return new Part::BSplineSurfacePy(new Part::GeomBSplineSurface(hSurf));
         }
 
-        PyErr_SetString(PyExc_RuntimeError, "Approximation of B-Spline surface failed");
+        PyErr_SetString(PyExc_RuntimeError, "Approximation of B-spline surface failed");
         return 0;
     } PY_CATCH_OCC;
 }

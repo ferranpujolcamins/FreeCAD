@@ -25,6 +25,7 @@
 #ifndef _PreComp_
 # include <BRepAlgoAPI_BooleanOperation.hxx>
 # include <BRepCheck_Analyzer.hxx>
+# include <Standard_Failure.hxx>
 # include <memory>
 #endif
 
@@ -46,6 +47,13 @@ Boolean::Boolean(void)
     ADD_PROPERTY_TYPE(History,(ShapeHistory()), "Boolean", (App::PropertyType)
         (App::Prop_Output|App::Prop_Transient|App::Prop_Hidden), "Shape history");
     History.setSize(0);
+
+    ADD_PROPERTY_TYPE(Refine,(0),"Boolean",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after this boolean operation");
+
+    //init Refine property
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
+    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
 }
 
 short Boolean::mustExecute() const
@@ -74,10 +82,10 @@ App::DocumentObjectExecReturn *Boolean::execute(void)
         // Now, let's get the TopoDS_Shape
         TopoDS_Shape BaseShape = base->Shape.getValue();
         if (BaseShape.IsNull())
-            throw Base::Exception("Base shape is null");
+            throw NullShapeException("Base shape is null");
         TopoDS_Shape ToolShape = tool->Shape.getValue();
         if (ToolShape.IsNull())
-            throw Base::Exception("Tool shape is null");
+            throw NullShapeException("Tool shape is null");
 
         std::unique_ptr<BRepAlgoAPI_BooleanOperation> mkBool(makeOperation(BaseShape, ToolShape));
         if (!mkBool->IsDone()) {
@@ -101,13 +109,18 @@ App::DocumentObjectExecReturn *Boolean::execute(void)
         history.push_back(buildHistory(*mkBool.get(), TopAbs_FACE, resShape, BaseShape));
         history.push_back(buildHistory(*mkBool.get(), TopAbs_FACE, resShape, ToolShape));
 
-        if (hGrp->GetBool("RefineModel", false)) {
-            TopoDS_Shape oldShape = resShape;
-            BRepBuilderAPI_RefineModel mkRefine(oldShape);
-            resShape = mkRefine.Shape();
-            ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
-            history[0] = joinHistory(history[0], hist);
-            history[1] = joinHistory(history[1], hist);
+        if (this->Refine.getValue()) {
+            try {
+                TopoDS_Shape oldShape = resShape;
+                BRepBuilderAPI_RefineModel mkRefine(oldShape);
+                resShape = mkRefine.Shape();
+                ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
+                history[0] = joinHistory(history[0], hist);
+                history[1] = joinHistory(history[1], hist);
+            }
+            catch (Standard_Failure&) {
+                // do nothing
+            }
         }
 
         this->Shape.setValue(resShape);

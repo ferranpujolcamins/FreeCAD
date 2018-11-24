@@ -32,6 +32,7 @@
 /// Here the FreeCAD includes sorted by Base,App,Gui......
 #include <boost/math/special_functions/round.hpp>
 
+#include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/Reader.h>
 #include <Base/Writer.h>
@@ -295,7 +296,7 @@ TYPESYSTEM_SOURCE(App::PropertyEnumeration, App::PropertyInteger);
 
 PropertyEnumeration::PropertyEnumeration()
 {
-
+    _editorTypeName = "Gui::PropertyEditor::PropertyEnumItem";
 }
 
 PropertyEnumeration::PropertyEnumeration(const App::Enumeration &e)
@@ -356,6 +357,8 @@ bool PropertyEnumeration::isPartOf(const char *value) const
 
 const char * PropertyEnumeration::getValueAsString(void) const
 {
+    if (!_enum.isValid())
+        throw Base::RuntimeError("Cannot get value from invalid enumeration");
     return _enum.getCStr();
 }
 
@@ -372,6 +375,11 @@ std::vector<std::string> PropertyEnumeration::getEnumVector(void) const
 const char ** PropertyEnumeration::getEnums(void) const
 {
     return _enum.getEnums();
+}
+
+bool PropertyEnumeration::isValid(void) const
+{
+    return _enum.isValid();
 }
 
 void PropertyEnumeration::Save(Base::Writer &writer) const
@@ -413,6 +421,11 @@ void PropertyEnumeration::Restore(Base::XMLReader &reader)
         reader.readEndElement("CustomEnumList");
 
         _enum.setEnums(values);
+    }
+
+    if (val < 0) {
+        Base::Console().Warning("Enumeration index %d is out of range, ignore it\n", val);
+        val = getValue();
     }
 
     setValue(val);
@@ -580,7 +593,7 @@ void PropertyEnumeration::setPathValue(const ObjectIdentifier &path, const boost
 // PropertyIntegerConstraint
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-TYPESYSTEM_SOURCE(App::PropertyIntegerConstraint, App::PropertyInteger);
+TYPESYSTEM_SOURCE(App::PropertyIntegerConstraint, App::PropertyInteger)
 
 //**************************************************************************
 // Construction/Destruction
@@ -595,11 +608,17 @@ PropertyIntegerConstraint::PropertyIntegerConstraint()
 
 PropertyIntegerConstraint::~PropertyIntegerConstraint()
 {
-
+    if (_ConstStruct && _ConstStruct->isDeletable())
+        delete _ConstStruct;
 }
 
 void PropertyIntegerConstraint::setConstraints(const Constraints* sConstrain)
 {
+    if (_ConstStruct != sConstrain) {
+        if (_ConstStruct && _ConstStruct->isDeletable())
+            delete _ConstStruct;
+    }
+
     _ConstStruct = sConstrain;
 }
 
@@ -644,20 +663,16 @@ void PropertyIntegerConstraint::setPyObject(PyObject *value)
                 throw Base::TypeError("Type in tuple must be int");
         }
 
-        if (!_ConstStruct) {
-            Constraints* c = new Constraints();
-            c->LowerBound = values[1];
-            c->UpperBound = values[2];
-            c->StepSize = std::max<long>(1, values[3]);
-            if (values[0] > c->UpperBound)
-                values[0] = c->UpperBound;
-            else if (values[0] < c->LowerBound)
-                values[0] = c->LowerBound;
-            setConstraints(c);
-        }
-        else {
-            throw Base::RuntimeError("Cannot override limits of constraint");
-        }
+        Constraints* c = new Constraints();
+        c->setDeletable(true);
+        c->LowerBound = values[1];
+        c->UpperBound = values[2];
+        c->StepSize = std::max<long>(1, values[3]);
+        if (values[0] > c->UpperBound)
+            values[0] = c->UpperBound;
+        else if (values[0] < c->LowerBound)
+            values[0] = c->LowerBound;
+        setConstraints(c);
 
         aboutToSetValue();
         _lValue = values[0];
@@ -1108,7 +1123,7 @@ const boost::any PropertyFloat::getPathValue(const ObjectIdentifier &path) const
 // PropertyFloatConstraint
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-TYPESYSTEM_SOURCE(App::PropertyFloatConstraint, App::PropertyFloat);
+TYPESYSTEM_SOURCE(App::PropertyFloatConstraint, App::PropertyFloat)
 
 //**************************************************************************
 // Construction/Destruction
@@ -1122,11 +1137,16 @@ PropertyFloatConstraint::PropertyFloatConstraint()
 
 PropertyFloatConstraint::~PropertyFloatConstraint()
 {
-
+    if (_ConstStruct && _ConstStruct->isDeletable())
+        delete _ConstStruct;
 }
 
 void PropertyFloatConstraint::setConstraints(const Constraints* sConstrain)
 {
+    if (_ConstStruct != sConstrain) {
+        if (_ConstStruct && _ConstStruct->isDeletable())
+            delete _ConstStruct;
+    }
     _ConstStruct = sConstrain;
 }
 
@@ -1186,20 +1206,21 @@ void PropertyFloatConstraint::setPyObject(PyObject *value)
                 throw Base::TypeError("Type in tuple must be float or int");
         }
 
-        if (!_ConstStruct) {
-            Constraints* c = new Constraints();
-            c->LowerBound = values[1];
-            c->UpperBound = values[2];
-            c->StepSize = std::max<double>(0.1, values[3]);
-            if (values[0] > c->UpperBound)
-                values[0] = c->UpperBound;
-            else if (values[0] < c->LowerBound)
-                values[0] = c->LowerBound;
-            setConstraints(c);
-        }
-        else {
-            throw Base::RuntimeError("Cannot override limits of constraint");
-        }
+        double stepSize = values[3];
+        // need a value > 0
+        if (stepSize < DBL_EPSILON)
+            throw Base::ValueError("Step size must be greater than zero");
+
+        Constraints* c = new Constraints();
+        c->setDeletable(true);
+        c->LowerBound = values[1];
+        c->UpperBound = values[2];
+        c->StepSize = stepSize;
+        if (values[0] > c->UpperBound)
+            values[0] = c->UpperBound;
+        else if (values[0] < c->LowerBound)
+            values[0] = c->LowerBound;
+        setConstraints(c);
 
         aboutToSetValue();
         _dValue = values[0];
@@ -1349,7 +1370,7 @@ void PropertyFloatList::Restore(Base::XMLReader &reader)
     string file (reader.getAttribute("file") );
 
     if (!file.empty()) {
-        // initate a file read
+        // initiate a file read
         reader.addFile(file.c_str(),this);
     }
 }
@@ -1359,7 +1380,7 @@ void PropertyFloatList::SaveDocFile (Base::Writer &writer) const
     Base::OutputStream str(writer.Stream());
     uint32_t uCt = (uint32_t)getSize();
     str << uCt;
-    if (writer.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<double>::const_iterator it = _lValueList.begin(); it != _lValueList.end(); ++it) {
             str << *it;
         }
@@ -1378,7 +1399,7 @@ void PropertyFloatList::RestoreDocFile(Base::Reader &reader)
     uint32_t uCt=0;
     str >> uCt;
     std::vector<double> values(uCt);
-    if (reader.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<double>::iterator it = values.begin(); it != values.end(); ++it) {
             str >> *it;
         }
@@ -1745,6 +1766,16 @@ void PropertyStringList::setPyObject(PyObject *value)
         setValue(PyString_AsString(value));
     }
 #endif
+    else if (PyUnicode_Check(value)) {
+#if PY_MAJOR_VERSION >= 3
+        setValue(PyUnicode_AsUTF8(value));
+    }
+#else
+        PyObject* unicode = PyUnicode_AsUTF8String(value);
+        setValue(PyString_AsString(unicode));
+        Py_DECREF(unicode);
+    }
+#endif
     else if (PySequence_Check(value)) {
         Py_ssize_t nSize = PySequence_Size(value);
         std::vector<std::string> values;
@@ -1773,16 +1804,6 @@ void PropertyStringList::setPyObject(PyObject *value)
         
         setValues(values);
     }
-    else if (PyUnicode_Check(value)) {
-#if PY_MAJOR_VERSION >= 3
-        setValue(PyUnicode_AsUTF8(value));
-    }
-#else
-        PyObject* unicode = PyUnicode_AsUTF8String(value);
-        setValue(PyString_AsString(unicode));
-        Py_DECREF(unicode);
-    }
-#endif
     else {
         std::string error = std::string("type must be str or unicode or list of str or list of unicodes, not ");
         error += value->ob_type->tp_name;
@@ -2221,7 +2242,7 @@ PyObject *PropertyBoolList::getPyObject(void)
 
 void PropertyBoolList::setPyObject(PyObject *value)
 {
-    // string is also a sequence and must be be treated differently
+    // string is also a sequence and must be treated differently
     std::string str;
     if (PyUnicode_Check(value)) {
 #if PY_MAJOR_VERSION >= 3
@@ -2587,7 +2608,7 @@ void PropertyColorList::Restore(Base::XMLReader &reader)
         std::string file (reader.getAttribute("file"));
 
         if (!file.empty()) {
-            // initate a file read
+            // initiate a file read
             reader.addFile(file.c_str(),this);
         }
     }
@@ -2866,7 +2887,7 @@ void PropertyMaterialList::Restore(Base::XMLReader &reader)
         std::string file(reader.getAttribute("file"));
 
         if (!file.empty()) {
-            // initate a file read
+            // initiate a file read
             reader.addFile(file.c_str(), this);
         }
     }

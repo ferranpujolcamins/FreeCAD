@@ -44,6 +44,7 @@
 #include "FeatureLinearPattern.h"
 #include "FeaturePolarPattern.h"
 #include "FeatureSketchBased.h"
+#include "Body.h"
 
 #include <Base/Console.h>
 #include <Base/Exception.h>
@@ -63,6 +64,13 @@ Transformed::Transformed()
     ADD_PROPERTY(Originals,(0));
     Originals.setSize(0);
     Placement.setStatus(App::Property::ReadOnly, true);
+
+    ADD_PROPERTY_TYPE(Refine,(0),"SketchBased",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after adding/subtracting");
+
+    //init Refine property
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/PartDesign");
+    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
 }
 
 void Transformed::positionBySupport(void)
@@ -94,7 +102,7 @@ Part::Feature* Transformed::getBaseObject(bool silent) const {
     }
 
     if (!silent && err) {
-        throw Base::Exception(err);
+        throw Base::RuntimeError(err);
     }
 
     return rv;
@@ -150,7 +158,7 @@ void Transformed::Restore(Base::XMLReader &reader)
                 Base::Type inputType = Base::Type::fromName(TypeName);
                 if (prop->getTypeId().isDerivedFrom(App::PropertyFloat::getClassTypeId()) &&
                     inputType.isDerivedFrom(App::PropertyFloat::getClassTypeId())) {
-                    // Do not directly call the property's Restore method in case the implmentation
+                    // Do not directly call the property's Restore method in case the implementation
                     // has changed. So, create a temporary PropertyFloat object and assign the value.
                     App::PropertyFloat floatProp;
                     floatProp.Restore(reader);
@@ -172,7 +180,7 @@ void Transformed::Restore(Base::XMLReader &reader)
         }
 #ifndef FC_DEBUG
         catch (...) {
-            Base::Console().Error("Primitive::Restore: Unknown C++ exception thrown");
+            Base::Console().Error("Primitive::Restore: Unknown C++ exception thrown\n");
         }
 #endif
 
@@ -195,6 +203,13 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
     std::vector<App::DocumentObject*> originals = Originals.getValues();
     if (originals.empty()) // typically InsideMultiTransform
         return App::DocumentObject::StdReturn;
+
+    if(!this->BaseFeature.getValue()) {
+        auto body = getFeatureBody();
+        if(body) {
+            body->setBaseProperty(this);
+        }
+    }
 
     this->positionBySupport();
 
@@ -288,7 +303,7 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
                     // above you need:
                     // 1. The original support
                     // 2. Any extra support gained by any previous transformation of any previous feature (multi-feature transform)
-                    // 3. Any extra support gained by any previous tranformation of this feature (feature multi-trasform)
+                    // 3. Any extra support gained by any previous transformation of this feature (feature multi-trasform)
                     //
                     // Therefore, if the transformation succeeded, then we fuse it with the support now, before checking the intersection
                     // of the next transformation.
@@ -316,6 +331,7 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
                         // lets check if the result is a solid
                         if (current.IsNull())
                             return new App::DocumentObjectExecReturn("Resulting shape is not a solid", *o);
+
                         /*std::vector<TopoDS_Shape>::const_iterator individualIt;
                         for (individualIt = individualTools.begin(); individualIt != individualTools.end(); ++individualIt)
                         {
@@ -346,13 +362,13 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
                     }
                     support = current; // Use result of this operation for fuse/cut of next original
                 }
-            } catch (Standard_Failure) {
+            } catch (Standard_Failure& e) {
                 // Note: Ignoring this failure is probably pointless because if the intersection check fails, the later
                 // fuse operation of the transformation result will also fail
-                Handle(Standard_Failure) e = Standard_Failure::Caught();
+        
                 std::string msg("Transformation: Intersection check failed");
-                if (e->GetMessageString() != NULL)
-                    msg += std::string(": '") + e->GetMessageString() + "'";
+                if (e.GetMessageString() != NULL)
+                    msg += std::string(": '") + e.GetMessageString() + "'";
                 return new App::DocumentObjectExecReturn(msg.c_str());
             }
         }
@@ -362,6 +378,11 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
     for (rej_it_map::const_iterator it = nointersect_trsfms.begin(); it != nointersect_trsfms.end(); ++it)
         for (trsf_it::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2)
             rejected[it->first].push_back(**it2);
+
+    int solidCount = countSolids(support);
+    if (solidCount > 1) {
+        return new App::DocumentObjectExecReturn("Transformed: Result has multiple solids. This is not supported at this time.");
+    }
 
     this->Shape.setValue(getSolid(support));
 
@@ -374,12 +395,15 @@ App::DocumentObjectExecReturn *Transformed::execute(void)
 
 TopoDS_Shape Transformed::refineShapeIfActive(const TopoDS_Shape& oldShape) const
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/PartDesign");
-    if (hGrp->GetBool("RefineModel", false)) {
-        Part::BRepBuilderAPI_RefineModel mkRefine(oldShape);
-        TopoDS_Shape resShape = mkRefine.Shape();
-        return resShape;
+    if (this->Refine.getValue()) {
+        try {
+            Part::BRepBuilderAPI_RefineModel mkRefine(oldShape);
+            TopoDS_Shape resShape = mkRefine.Shape();
+            return resShape;
+        }
+        catch (Standard_Failure&) {
+            return oldShape;
+        }
     }
 
     return oldShape;
@@ -388,61 +412,56 @@ TopoDS_Shape Transformed::refineShapeIfActive(const TopoDS_Shape& oldShape) cons
 void Transformed::divideTools(const std::vector<TopoDS_Shape> &toolsIn, std::vector<TopoDS_Shape> &individualsOut,
                               TopoDS_Compound &compoundOut) const
 {
-  typedef std::pair<TopoDS_Shape, Bnd_Box> ShapeBoundPair;
-  typedef std::list<ShapeBoundPair> PairList;
-  typedef std::vector<ShapeBoundPair> PairVector;
-  
-  PairList pairList;
-  
-  std::vector<TopoDS_Shape>::const_iterator it;
-  for (it = toolsIn.begin(); it != toolsIn.end(); ++it)
-  {
-    Bnd_Box bound;
-    BRepBndLib::Add(*it, bound);
-    bound.SetGap(0.0);
-    ShapeBoundPair temp = std::make_pair(*it, bound);
-    pairList.push_back(temp);
-  }
-  
-  BRep_Builder builder;
-  builder.MakeCompound(compoundOut);
-  
-  while(!pairList.empty())
-  {
-    PairVector currentGroup;
-    currentGroup.push_back(pairList.front());
-    pairList.pop_front();
-    PairList::iterator it = pairList.begin();
-    while(it != pairList.end())
-    {
-      PairVector::const_iterator groupIt;
-      bool found(false);
-      for (groupIt = currentGroup.begin(); groupIt != currentGroup.end(); ++groupIt)
-      {
-	if (!(*it).second.IsOut((*groupIt).second))//touching means is out.
-	{
-	  found = true;
-	  break;
-	}
-      }
-      if (found)
-      {
-	currentGroup.push_back(*it);
-	pairList.erase(it);
-	it=pairList.begin();
-	continue;
-      }
-      it++;
+    typedef std::pair<TopoDS_Shape, Bnd_Box> ShapeBoundPair;
+    typedef std::list<ShapeBoundPair> PairList;
+    typedef std::vector<ShapeBoundPair> PairVector;
+
+    PairList pairList;
+
+    std::vector<TopoDS_Shape>::const_iterator it;
+    for (it = toolsIn.begin(); it != toolsIn.end(); ++it) {
+        Bnd_Box bound;
+        BRepBndLib::Add(*it, bound);
+        bound.SetGap(0.0);
+        ShapeBoundPair temp = std::make_pair(*it, bound);
+        pairList.push_back(temp);
     }
-    if (currentGroup.size() == 1)
-      builder.Add(compoundOut, currentGroup.front().first);
-    else
-    {
-      PairVector::const_iterator groupIt;
-      for (groupIt = currentGroup.begin(); groupIt != currentGroup.end(); ++groupIt)
-	individualsOut.push_back((*groupIt).first);
+
+    BRep_Builder builder;
+    builder.MakeCompound(compoundOut);
+
+    while(!pairList.empty()) {
+        PairVector currentGroup;
+        currentGroup.push_back(pairList.front());
+        pairList.pop_front();
+        PairList::iterator it = pairList.begin();
+        while(it != pairList.end()) {
+            PairVector::const_iterator groupIt;
+            bool found(false);
+            for (groupIt = currentGroup.begin(); groupIt != currentGroup.end(); ++groupIt) {
+                if (!(*it).second.IsOut((*groupIt).second)) {//touching means is out.
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                currentGroup.push_back(*it);
+                pairList.erase(it);
+                it=pairList.begin();
+                continue;
+            }
+            ++it;
+        }
+
+        if (currentGroup.size() == 1) {
+            builder.Add(compoundOut, currentGroup.front().first);
+        }
+        else {
+            PairVector::const_iterator groupIt;
+            for (groupIt = currentGroup.begin(); groupIt != currentGroup.end(); ++groupIt)
+                individualsOut.push_back((*groupIt).first);
+        }
     }
-  }
 }
-  
+
 }

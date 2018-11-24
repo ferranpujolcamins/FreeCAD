@@ -89,6 +89,7 @@ void Gui::SoFCDB::init()
     SoFCBoundingBox                 ::initClass();
     SoFCSelection                   ::initClass();
     SoFCUnifiedSelection            ::initClass();
+    SoFCHighlightAction             ::initClass();
     SoFCSelectionAction             ::initClass();
     SoFCDocumentAction              ::initClass();
     SoGLWidgetNode                  ::initClass();
@@ -136,6 +137,8 @@ void Gui::SoFCDB::init()
     PropertyBoolItem                ::init();
     PropertyVectorItem              ::init();
     PropertyVectorDistanceItem      ::init();
+    PropertyPositionItem            ::init();
+    PropertyDirectionItem           ::init();
     PropertyMatrixItem              ::init();
     PropertyPlacementItem           ::init();
     PropertyEnumItem                ::init();
@@ -149,11 +152,13 @@ void Gui::SoFCDB::init()
     PropertyPathItem                ::init();
     PropertyTransientFileItem       ::init();
     PropertyLinkItem                ::init();
+    PropertyLinkListItem            ::init();
 
     NavigationStyle                 ::init();
     UserNavigationStyle             ::init();
     InventorNavigationStyle         ::init();
     CADNavigationStyle              ::init();
+    RevitNavigationStyle            ::init();
     BlenderNavigationStyle          ::init();
     MayaGestureNavigationStyle      ::init();
     TouchpadNavigationStyle         ::init();
@@ -170,7 +175,7 @@ void Gui::SoFCDB::init()
     qRegisterMetaType<Base::Quantity>("Base::Quantity");
     qRegisterMetaType<QList<Base::Quantity> >("Base::QuantityList");
     init_done = true;
-    
+
     assert(!storage);
     storage = new SoGroup();
     storage->ref();
@@ -188,6 +193,7 @@ void Gui::SoFCDB::finish()
     SoFCBackgroundGradient          ::finish();
     SoFCBoundingBox                 ::finish();
     SoFCSelection                   ::finish();
+    SoFCHighlightAction             ::finish();
     SoFCSelectionAction             ::finish();
     SoFCDocumentAction              ::finish();
     SoFCDocumentObjectAction        ::finish();
@@ -231,13 +237,66 @@ const std::string& Gui::SoFCDB::writeNodesToString(SoNode * root)
     return cReturnString;
 }
 
+SoNode* replaceSwitches(SoNodeList* children, SoGroup* parent)
+{
+    if (!children) {
+        return parent;
+    }
+
+    for (int i=0; i<children->getLength(); i++) {
+        SoNode* node = (*children)[i];
+        if (node->getTypeId().isDerivedFrom(SoGroup::getClassTypeId())) {
+            if (node->getTypeId().isDerivedFrom(SoSwitch::getClassTypeId())) {
+                SoSwitch* group = static_cast<SoSwitch*>(node);
+                int which = group->whichChild.getValue();
+                if (which == SO_SWITCH_NONE)
+                    continue;
+                SoGroup* newParent = new SoGroup();
+                SoNodeList c;
+                if (which >= 0) {
+                    c.append(group->getChild(which));
+                }
+                else {
+                    // SO_SWITCH_INHERIT or SO_SWITCH_ALL
+                    for (int i=0; i<group->getNumChildren(); i++)
+                        c.append(group->getChild(i));
+                }
+
+                replaceSwitches(&c, newParent);
+                parent->addChild(newParent);
+            }
+            else {
+                SoGroup* newParent = static_cast<SoGroup*>(node->getTypeId().createInstance());
+                replaceSwitches(node->getChildren(), newParent);
+                parent->addChild(newParent);
+            }
+        }
+        else {
+            parent->addChild(node);
+        }
+    }
+
+    return parent;
+}
+
+SoNode* replaceSwitchesInSceneGraph(SoNode* node)
+{
+    if (node->getTypeId().isDerivedFrom(SoGroup::getClassTypeId())) {
+        return replaceSwitches(node->getChildren(), new SoSeparator);
+    }
+
+    return node;
+}
+
 bool Gui::SoFCDB::writeToVRML(SoNode* node, const char* filename, bool binary)
 {
+    SoNode* noSwitches = replaceSwitchesInSceneGraph(node);
+    noSwitches->ref();
     SoVRMLAction vrml2;
     vrml2.setOverrideMode(true);
-    vrml2.apply(node);
+    vrml2.apply(noSwitches);
     SoToVRML2Action tovrml2;
-    tovrml2.apply(node);
+    tovrml2.apply(noSwitches);
     SoVRMLGroup* vrmlRoot = tovrml2.getVRML2SceneGraph();
     vrmlRoot->setInstancePrefix(SbString("o"));
     vrmlRoot->ref();
@@ -246,7 +305,8 @@ bool Gui::SoFCDB::writeToVRML(SoNode* node, const char* filename, bool binary)
 
     // restore old settings
     vrml2.setOverrideMode(false);
-    vrml2.apply(node);
+    vrml2.apply(noSwitches);
+    noSwitches->unref();
 
     Base::FileInfo fi(filename);
     if (binary) {

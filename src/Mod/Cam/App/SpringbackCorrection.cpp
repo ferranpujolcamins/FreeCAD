@@ -278,7 +278,7 @@ bool SpringbackCorrection::CalcCurv()
 
 
 
-        FacePntVector.resize(innerpoints);  // stores inner-points and sourrounding edges-distances
+        FacePntVector.resize(innerpoints);  // stores inner-points and surrounding edges-distances
 
         // explores the edges of the face ----------------------
         for (aExpEdge.Init(aFace,TopAbs_EDGE);aExpEdge.More();aExpEdge.Next())
@@ -308,7 +308,7 @@ bool SpringbackCorrection::CalcCurv()
 
                     if (pnt2edge.IsDone() == false)
                     {
-                        throw Base::Exception("couldn't perform distance calculation pnt2edge \n");
+                        throw Base::RuntimeError("couldn't perform distance calculation pnt2edge \n");
                     }
 
                     dist = pnt2edge.Value();
@@ -730,7 +730,7 @@ bool SpringbackCorrection::TransferFaceTriangulationtoFreeCAD(const TopoDS_Face&
     // if the triangulation of only one face is not possible to get
     else
     {
-        throw Base::Exception("Empty face triangulation\n");
+        throw Base::RuntimeError("Empty face triangulation\n");
     }
 
     // finish FreeCAD Mesh Builder and exit with new mesh
@@ -1973,8 +1973,8 @@ bool SpringbackCorrection::GetCurvature(TopoDS_Face aFace)
 }
 
 
-// 1. Computes the curvature of the mesh at the verticies
-// 2. Stores the minimum curvatures along the neighbours for all verticies in a vector
+// 1. Computes the curvature of the mesh at the vertices
+// 2. Stores the minimum curvatures along the neighbours for all vertices in a vector
 std::vector<double> SpringbackCorrection::MeshCurvature(const TopoDS_Face& aFace, const MeshCore::MeshKernel& mesh)
 {
 

@@ -59,7 +59,7 @@ public:
     /** @name Topological Operations */
     //@{
     /**
-     * Inserts a new vertex in the given triangle so that is splitted into three
+     * Inserts a new vertex in the given triangle so that is split into three
      * triangles. The given point must lie inside the triangle not outside or on
      * an edge.
      */
@@ -77,9 +77,9 @@ public:
                                  float fMaxAngle);
     /**
      * Swaps the common edge of two adjacent facets even if the operation might
-     * be illegal. To be sure that this operation is legal check either with
+     * be illegal. To be sure that this operation is legal, check either with
      * IsSwapEdgeLegal() or ShouldSwapEdge() before.
-     * An illegel swap edge operation can produce non-manifolds, degenrated
+     * An illegel swap edge operation can produce non-manifolds, degenerated
      * facets or it might create a fold on the surface, i.e. geometric overlaps
      * of several triangles. 
      */
@@ -106,7 +106,7 @@ public:
      * \a rP1 and \a rP2 should lie on two different edges of the facet. This method
      * splits up the both neighbour facets as well.
      * If either \a rP1 or \a rP2 (probably due to a previous call of SplitFacet())
-     * is coincident with a corner point then the facet is splitted into two facets.
+     * is coincident with a corner point then the facet is split into two facets.
      * If both points are coincident with corner points of this facet nothing is done.
      */
     void SplitFacet(unsigned long ulFacetPos, const Base::Vector3f& rP1,
@@ -166,7 +166,7 @@ public:
      * \a fMaxAngle is the maximum allowed angle between the normals of two
      * adjacent facets to allow swapping the common edge. A too high value might
      * result into folds on the surface.
-     * @note This is a high-level operation and tries to optimze the mesh as a whole.
+     * @note This is a high-level operation and tries to optimize the mesh as a whole.
      */
     void OptimizeTopology(float fMaxAngle);
     void OptimizeTopology();
@@ -184,7 +184,7 @@ public:
     /**
      * Tries to adjust the edges to the curvature direction with the minimum
      * absolute value of maximum and minimum curvature.
-     * @note This is a high-level operation and tries to optimze the mesh as a
+     * @note This is a high-level operation and tries to optimize the mesh as a
      * whole.
      */
     void AdjustEdgesToCurvatureDirection();
@@ -200,7 +200,7 @@ public:
      */
     bool SnapVertex(unsigned long ulFacetPos, const Base::Vector3f& rP);
     /**
-     * Checks whether a swap edge operation is legel that is fulfilled if the
+     * Checks whether a swap edge operation is legal, that is fulfilled if the
      * two adjacent facets builds a convex polygon. If this operation is legal
      * true is returned, false is returned if this operation is illegal or if
      * \a ulFacetPos and \a ulNeighbour are not adjacent facets.

@@ -170,7 +170,7 @@ void TaskFemConstraint::onButtonWizCancel()
 {
     Fem::Constraint* pcConstraint = static_cast<Fem::Constraint*>(ConstraintView->getObject());
     if (pcConstraint != NULL)
-        pcConstraint->getDocument()->remObject(pcConstraint->getNameInDocument());
+        pcConstraint->getDocument()->removeObject(pcConstraint->getNameInDocument());
     onButtonWizOk();
 }
 
@@ -208,7 +208,7 @@ bool TaskDlgFemConstraint::accept()
 
         Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.recompute()");
         if (!ConstraintView->getObject()->isValid())
-            throw Base::Exception(ConstraintView->getObject()->getStatusString());
+            throw Base::RuntimeError(ConstraintView->getObject()->getStatusString());
         Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().resetEdit()");
         Gui::Command::commitCommand();
     }

@@ -55,6 +55,8 @@ enum ConstraintType {
     Symmetric = 14,
     InternalAlignment = 15,
     SnellsLaw = 16,
+    Block = 17,
+    Diameter = 18,
     NumConstraintTypes // must be the last item!
 };
 
@@ -94,12 +96,20 @@ public:
     virtual void Restore(Base::XMLReader &/*reader*/);
 
     virtual PyObject *getPyObject(void);
-
-    void setValue(double newValue);
+    
     Base::Quantity getPresentationValue() const;
-    double getValue() const;
+    inline void setValue(double newValue) {
+        Value = newValue;
+    }
+    inline double getValue() const {
+        return Value;
+    }
 
-    friend class Sketch;
+    inline bool isDimensional() const {
+        return Type == Distance || Type == DistanceX || Type == DistanceY ||
+               Type == Radius || Type == Diameter || Type == Angle || Type == SnellsLaw;
+    }
+
     friend class PropertyConstraintList;
 
 private:
@@ -118,6 +128,7 @@ public:
     float LabelPosition;
     bool isDriving;
     int InternalAlignmentIndex; // Note: for InternalAlignment Type this index indexes equal internal geometry elements (e.g. index of pole in a bspline). It is not a GeoId!! 
+    bool isInVirtualSpace;
 
 protected:
     boost::uuids::uuid tag;

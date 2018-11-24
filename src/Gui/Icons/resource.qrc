@@ -179,6 +179,10 @@
         <file>syntax-error.svg</file>
         <file>warning.svg</file>
         <file>indentation-error.svg</file>
+        <file>Group.svg</file>
+        <file>Geofeaturegroup.svg</file>
+        <file>Std_Axis.svg</file>
+        <file>Std_Plane.svg</file>
     </qresource>
     <!-- Alternative directory names for icons that should be loaded from a theme -->
     <!-- See also http://permalink.gmane.org/gmane.comp.lib.qt.general/26374 -->

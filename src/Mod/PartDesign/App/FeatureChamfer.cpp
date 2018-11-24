@@ -32,7 +32,9 @@
 # include <TopTools_IndexedMapOfShape.hxx>
 # include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 # include <TopTools_ListOfShape.hxx>
-#include <BRep_Tool.hxx>
+# include <BRep_Tool.hxx>
+# include <ShapeFix_Shape.hxx>
+# include <ShapeFix_ShapeTolerance.hxx>
 #endif
 
 #include <Base/Console.h>
@@ -82,6 +84,8 @@ App::DocumentObjectExecReturn *Chamfer::execute(void)
         return new App::DocumentObjectExecReturn("No edges specified");
 
     double size = Size.getValue();
+    if (size <= 0)
+        return new App::DocumentObjectExecReturn("Size must be greater than zero");
 
     this->positionByBaseFeature();
     // create an untransformed copy of the basefeature shape
@@ -112,15 +116,25 @@ App::DocumentObjectExecReturn *Chamfer::execute(void)
         TopTools_ListOfShape aLarg;
         aLarg.Append(baseShape.getShape());
         if (!BRepAlgo::IsValid(aLarg, shape, Standard_False, Standard_False)) {
-            return new App::DocumentObjectExecReturn("Resulting shape is invalid");
+            ShapeFix_ShapeTolerance aSFT;
+            aSFT.LimitTolerance(shape, Precision::Confusion(), Precision::Confusion(), TopAbs_SHAPE);
+            Handle(ShapeFix_Shape) aSfs = new ShapeFix_Shape(shape);
+            aSfs->Perform();
+            shape = aSfs->Shape();
+            if (!BRepAlgo::IsValid(aLarg, shape, Standard_False, Standard_False)) {
+                return new App::DocumentObjectExecReturn("Resulting shape is invalid");
+            }
+        }
+        int solidCount = countSolids(shape);
+        if (solidCount > 1) {
+            return new App::DocumentObjectExecReturn("Chamfer: Result has multiple solids. This is not supported at this time.");
         }
 
         this->Shape.setValue(getSolid(shape));
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        return new App::DocumentObjectExecReturn(e->GetMessageString());
+    catch (Standard_Failure& e) {
+        return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
 }
 

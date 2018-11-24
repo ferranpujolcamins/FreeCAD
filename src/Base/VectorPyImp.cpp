@@ -235,6 +235,63 @@ int VectorPy::sequence_ass_item(PyObject *self, Py_ssize_t index, PyObject *valu
     return 0;
 }
 
+// http://renesd.blogspot.de/2009/07/python3-c-api-simple-slicing-sqslice.html
+PyObject * VectorPy::mapping_subscript(PyObject *self, PyObject *item)
+{
+    if (PyIndex_Check(item)) {
+        Py_ssize_t i = PyNumber_AsSsize_t(item, PyExc_IndexError);
+        if (i == -1 && PyErr_Occurred())
+            return NULL;
+        if (i < 0)
+            i += sequence_length(self);
+        return sequence_item(self, i);
+    }
+    else if (PySlice_Check(item)) {
+        Py_ssize_t start, stop, step, slicelength, cur, i;
+#if PY_MAJOR_VERSION < 3
+        PySliceObject* slice = reinterpret_cast<PySliceObject*>(item);
+#else
+        PyObject* slice = item;
+#endif
+
+        if (PySlice_GetIndicesEx(slice,
+                         sequence_length(self),
+                         &start, &stop, &step, &slicelength) < 0) {
+            return NULL;
+        }
+
+        if (slicelength <= 0) {
+            return PyTuple_New(0);
+        }
+        else if (start == 0 && step == 1 &&
+                 slicelength == sequence_length(self) &&
+                 PyObject_TypeCheck(self, &(VectorPy::Type))) {
+            Base::Vector3d v = static_cast<VectorPy*>(self) ->value();
+            Py::Tuple xyz(3);
+            xyz.setItem(0, Py::Float(v.x));
+            xyz.setItem(1, Py::Float(v.y));
+            xyz.setItem(2, Py::Float(v.z));
+            return Py::new_reference_to(xyz);
+        }
+        else if (PyObject_TypeCheck(self, &(VectorPy::Type))) {
+            Base::Vector3d v = static_cast<VectorPy*>(self) ->value();
+            Py::Tuple xyz(slicelength);
+
+            for (cur = start, i = 0; i < slicelength;
+                 cur += step, i++) {
+                xyz.setItem(i, Py::Float(v[cur]));
+            }
+
+            return Py::new_reference_to(xyz);
+        }
+    }
+
+    PyErr_Format(PyExc_TypeError,
+                 "Vector indices must be integers or slices, not %.200s",
+                 Py_TYPE(item)->tp_name);
+    return NULL;
+}
+
 PyObject*  VectorPy::add(PyObject *args)
 {
     PyObject *obj;
@@ -394,7 +451,7 @@ PyObject*  VectorPy::normalize(PyObject *args)
     if (!PyArg_ParseTuple(args, ""))
         return 0;
     VectorPy::PointerType ptr = reinterpret_cast<VectorPy::PointerType>(_pcTwinPointer);
-    if (ptr->Length() < 1.0e-6) {
+    if (ptr->Length() < Vector3d::epsilon()) {
         PyErr_SetString(Base::BaseExceptionFreeCADError, "Cannot normalize null vector");
         return 0;
     }
@@ -555,8 +612,8 @@ void  VectorPy::setLength(Py::Float arg)
 {
     VectorPy::PointerType ptr = reinterpret_cast<VectorPy::PointerType>(_pcTwinPointer);
     double len = ptr->Length();
-    if (len < 1.0e-6) {
-        throw Py::Exception(std::string("Cannot set length of null vector"));
+    if (len < Vector3d::epsilon()) {
+        throw Py::RuntimeError(std::string("Cannot set length of null vector"));
     }
 
     double val = (double)arg/len;
@@ -608,50 +665,100 @@ PyObject *VectorPy::getCustomAttributes(const char* /*attr*/) const
 
 int VectorPy::setCustomAttributes(const char* /*attr*/, PyObject* /*obj*/)
 {
-    return 0; 
-}
-
-#if PY_MAJOR_VERSION < 3
-PyObject * VectorPy::number_divide_handler (PyObject* /*self*/, PyObject* /*other*/)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
-    return 0;
-}
-#endif
-
-PyObject * VectorPy::number_remainder_handler (PyObject* /*self*/, PyObject* /*other*/)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * VectorPy::number_divmod_handler (PyObject* /*self*/, PyObject* /*other*/)
+// TODO for v0.18:
+// In generation script allow to more precisely define which slots
+// of the number protocol should be supported instead of setting all.
+
+PyObject * VectorPy::number_divide_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    if (PyObject_TypeCheck(self, &(VectorPy::Type)) &&
+        PyNumber_Check(other)) {
+        // Vector passes PyNumber_Check because it sets nb_int and nb_float
+        // slots of the PyNumberMethods structure. So, it must be explicitly
+        // filered out here.
+        if (PyObject_TypeCheck(other, &(VectorPy::Type))) {
+            PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for /: '%s' and '%s'",
+                         Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
+            return 0;
+        }
+
+        Base::Vector3d vec = static_cast<VectorPy*>(self) ->value();
+        double div = PyFloat_AsDouble(other);
+        if (div == 0) {
+            PyErr_Format(PyExc_ZeroDivisionError, "'%s' division by zero",
+                         Py_TYPE(self)->tp_name);
+            return 0;
+        }
+
+        vec /= div;
+        return new VectorPy(vec);
+    }
+
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for /: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_power_handler (PyObject* /*self*/, PyObject* /*other*/, PyObject* /*arg*/)
+PyObject * VectorPy::number_remainder_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for %%: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_negative_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_divmod_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for divmod(): '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_positive_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_power_handler (PyObject* self, PyObject* other, PyObject* /*arg*/)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for ** or pow(): '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_absolute_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_negative_handler (PyObject* self)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    if (PyObject_TypeCheck(self, &(VectorPy::Type))) {
+        Base::Vector3d vec = static_cast<VectorPy*>(self) ->value();
+        return new VectorPy(-vec);
+    }
+
+    PyErr_Format(PyExc_TypeError, "bad operand type for unary -: '%s'",
+                 Py_TYPE(self)->tp_name);
+    return 0;
+}
+
+PyObject * VectorPy::number_positive_handler (PyObject* self)
+{
+    if (PyObject_TypeCheck(self, &(VectorPy::Type))) {
+        Base::Vector3d vec = static_cast<VectorPy*>(self) ->value();
+        return new VectorPy(vec);
+    }
+
+    PyErr_Format(PyExc_TypeError, "bad operand type for unary +: '%s'",
+                 Py_TYPE(self)->tp_name);
+    return 0;
+}
+
+PyObject * VectorPy::number_absolute_handler (PyObject* self)
+{
+    if (PyObject_TypeCheck(self, &(VectorPy::Type))) {
+        Base::Vector3d vec = static_cast<VectorPy*>(self) ->value();
+        vec.x = fabs(vec.x);
+        vec.y = fabs(vec.y);
+        vec.z = fabs(vec.z);
+        return new VectorPy(vec);
+    }
+
+    PyErr_Format(PyExc_TypeError, "bad operand type for abs(): '%s'",
+                 Py_TYPE(self)->tp_name);
     return 0;
 }
 
@@ -660,39 +767,45 @@ int VectorPy::number_nonzero_handler (PyObject* /*self*/)
     return 1;
 }
 
-PyObject * VectorPy::number_invert_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_invert_handler (PyObject* self)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "bad operand type for unary ~: '%s'",
+                 Py_TYPE(self)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_lshift_handler (PyObject* /*self*/, PyObject* /*other*/)
+PyObject * VectorPy::number_lshift_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for <<: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_rshift_handler (PyObject* /*self*/, PyObject* /*other*/)
+PyObject * VectorPy::number_rshift_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for >>: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_and_handler (PyObject* /*self*/, PyObject* /*other*/)
+PyObject * VectorPy::number_and_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for &: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_xor_handler (PyObject* /*self*/, PyObject* /*other*/)
+PyObject * VectorPy::number_xor_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for ^: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
-PyObject * VectorPy::number_or_handler (PyObject* /*self*/, PyObject* /*other*/)
+PyObject * VectorPy::number_or_handler (PyObject* self, PyObject* other)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "unsupported operand type(s) for |: '%s' and '%s'",
+                 Py_TYPE(self)->tp_name, Py_TYPE(other)->tp_name);
     return 0;
 }
 
@@ -703,36 +816,39 @@ int VectorPy::number_coerce_handler (PyObject ** /*self*/, PyObject ** /*other*/
 }
 #endif
 
-PyObject * VectorPy::number_int_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_int_handler (PyObject* self)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "int() argument must be a string or a number, not '%s'",
+                 Py_TYPE(self)->tp_name);
     return 0;
 }
 
 #if PY_MAJOR_VERSION < 3
-PyObject * VectorPy::number_long_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_long_handler (PyObject* self)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "long() argument must be a string or a number, not '%s'",
+                 Py_TYPE(self)->tp_name);
     return 0;
 }
 #endif
 
-PyObject * VectorPy::number_float_handler (PyObject* /*self*/)
+PyObject * VectorPy::number_float_handler (PyObject* self)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_Format(PyExc_TypeError, "float() argument must be a string or a number, not '%s'",
+                 Py_TYPE(self)->tp_name);
     return 0;
 }
 
 #if PY_MAJOR_VERSION < 3
 PyObject * VectorPy::number_oct_handler (PyObject* /*self*/)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_SetString(PyExc_TypeError, "oct() argument can't be converted to oct");
     return 0;
 }
 
 PyObject * VectorPy::number_hex_handler (PyObject* /*self*/)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    PyErr_SetString(PyExc_TypeError, "hex() argument can't be converted to hex");
     return 0;
 }
 #endif

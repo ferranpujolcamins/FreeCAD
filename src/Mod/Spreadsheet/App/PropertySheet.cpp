@@ -149,9 +149,11 @@ bool PropertySheet::isValidAlias(const std::string &candidate)
     if (getValueFromAlias(candidate) != 0)
         return false;
 
+    /* Check to make sure it doesn't clash with a predefined unit */
     if (ExpressionParser::isTokenAUnit(candidate))
         return false;
 
+    /* Check to make sure it doesn't match a cell reference */
     if (boost::regex_match(candidate.c_str(), cm, gen)) {
         static const boost::regex e("\\${0,1}([A-Z]{1,2})\\${0,1}([0-9]{1,5})");
 
@@ -454,13 +456,13 @@ void PropertySheet::setDisplayUnit(CellAddress address, const std::string &unit)
 void PropertySheet::setAlias(CellAddress address, const std::string &alias)
 {
     if (alias.size() > 0 && !isValidAlias(alias))
-        throw Base::Exception("Invalid alias");
+        throw Base::ValueError("Invalid alias");
 
     const Cell * aliasedCell = getValueFromAlias(alias);
     Cell * cell = nonNullCellAt(address);
 
     if (aliasedCell != 0 && cell != aliasedCell)
-        throw Base::Exception("Alias already defined.");
+        throw Base::ValueError("Alias already defined.");
 
     assert(cell != 0);
 
@@ -552,7 +554,14 @@ void PropertySheet::moveCell(CellAddress currPos, CellAddress newPos, std::map<A
 
     if (i != data.end()) {
         Cell * cell = i->second;
+        int rows, columns;
 
+        // Get merged cell data
+        cell->getSpans(rows, columns);
+
+        // Remove merged cell data
+        splitCell(currPos);
+        
         // Remove from old
         removeDependencies(currPos);
         data.erase(currPos);
@@ -561,6 +570,15 @@ void PropertySheet::moveCell(CellAddress currPos, CellAddress newPos, std::map<A
         // Insert into new spot
         cell->moveAbsolute(newPos);
         data[newPos] = cell;
+
+        if (rows > 1 || columns > 1) {
+            CellAddress toPos(newPos.row() + rows - 1, newPos.col() + columns - 1);
+
+            mergeCells(newPos, toPos);
+        }
+        else
+            cell->setSpans(-1, -1);
+
         addDependencies(newPos);
         setDirty(newPos);
 
@@ -601,23 +619,28 @@ public:
 
 
         if (varExpr) {
-            static const boost::regex e("(\\${0,1})([A-Za-z]+)(\\${0,1})([0-9]+)");
+            static const boost::regex e("\\${0,1}([A-Z]{1,2})\\${0,1}([0-9]{1,5})");
             boost::cmatch cm;
             std::string s = varExpr->name();
 
             if (boost::regex_match(s.c_str(), cm, e)) {
-                const boost::sub_match<const char *> colstr = cm[2];
-                const boost::sub_match<const char *> rowstr = cm[4];
+                const boost::sub_match<const char *> colstr = cm[1];
+                const boost::sub_match<const char *> rowstr = cm[2];
                 int thisRow, thisCol;
 
-                thisCol = decodeColumn(colstr.str());
-                thisRow = decodeRow(rowstr.str());
+                try {
+                    thisCol = decodeColumn(colstr.str());
+                    thisRow = decodeRow(rowstr.str());
 
-                if (thisRow >= mRow || thisCol >= mCol) {
-                    thisRow += mRowCount;
-                    thisCol += mColCount;
-                    varExpr->setPath(ObjectIdentifier(varExpr->getOwner(), columnName(thisCol) + rowName(thisRow)));
-                    mChanged = true;
+                    if (thisRow >= mRow || thisCol >= mCol) {
+                        thisRow += mRowCount;
+                        thisCol += mColCount;
+                        varExpr->setPath(ObjectIdentifier(varExpr->getOwner(), columnName(thisCol) + rowName(thisRow)));
+                        mChanged = true;
+                    }
+                }
+                catch (const Base::IndexError &) {
+                    /* Ignore this error here */
                 }
             }
         }
@@ -678,7 +701,8 @@ void PropertySheet::insertRows(int row, int count)
             moveCell(*i, CellAddress(i->row() + count, i->col()), renames);
     }
 
-    owner->getDocument()->renameObjectIdentifiers(renames);
+    const App::DocumentObject * docObj = static_cast<const App::DocumentObject*>(getContainer());
+    owner->getDocument()->renameObjectIdentifiers(renames, [docObj](const App::DocumentObject * obj) { return obj != docObj; });
 }
 
 /**
@@ -728,7 +752,8 @@ void PropertySheet::removeRows(int row, int count)
             moveCell(*i, CellAddress(i->row() - count, i->col()), renames);
     }
 
-    owner->getDocument()->renameObjectIdentifiers(renames);
+    const App::DocumentObject * docObj = static_cast<const App::DocumentObject*>(getContainer());
+    owner->getDocument()->renameObjectIdentifiers(renames, [docObj](const App::DocumentObject * obj) { return obj != docObj; });
 }
 
 void PropertySheet::insertColumns(int col, int count)
@@ -764,7 +789,8 @@ void PropertySheet::insertColumns(int col, int count)
             moveCell(*i, CellAddress(i->row(), i->col() + count), renames);
     }
 
-    owner->getDocument()->renameObjectIdentifiers(renames);
+    const App::DocumentObject * docObj = static_cast<const App::DocumentObject*>(getContainer());
+    owner->getDocument()->renameObjectIdentifiers(renames, [docObj](const App::DocumentObject * obj) { return obj != docObj; });
 }
 
 /**
@@ -814,7 +840,8 @@ void PropertySheet::removeColumns(int col, int count)
             moveCell(*i, CellAddress(i->row(), i->col() - count), renames);
     }
 
-    owner->getDocument()->renameObjectIdentifiers(renames);
+    const App::DocumentObject * docObj = static_cast<const App::DocumentObject*>(getContainer());
+    owner->getDocument()->renameObjectIdentifiers(renames, [docObj](const App::DocumentObject * obj) { return obj != docObj; } );
 }
 
 unsigned int PropertySheet::getMemSize() const
@@ -871,7 +898,7 @@ void PropertySheet::splitCell(CellAddress address)
             mergedCells.erase(CellAddress(r, c));
         }
 
-    setSpans(anchor, 1, 1);
+    setSpans(anchor, -1, -1);
 }
 
 void PropertySheet::getSpans(CellAddress address, int & rows, int & cols) const
@@ -881,7 +908,10 @@ void PropertySheet::getSpans(CellAddress address, int & rows, int & cols) const
     if (i != mergedCells.end()) {
         CellAddress anchor = i->second;
 
-        cellAt(anchor)->getSpans(rows, cols);
+        if (anchor == address)
+            cellAt(anchor)->getSpans(rows, cols);
+        else
+            rows = cols = 1;
     }
     else {
         rows = cols = 1;
@@ -974,7 +1004,7 @@ void PropertySheet::addDependencies(CellAddress key)
 }
 
 /**
-  * Remove dependecies given by \a expression for cell at \a key.
+  * Remove dependencies given by \a expression for cell at \a key.
   *
   * @param expression Expression to extract dependencies from
   * @param key        Address of cell containing the expression
@@ -1049,15 +1079,38 @@ void PropertySheet::recomputeDependants(const Property *prop)
             std::string fullName = std::string(docName) + "#" + std::string(nameInDoc) + "." + std::string(name);
             std::map<std::string, std::set< CellAddress > >::const_iterator i = propertyNameToCellMap.find(fullName);
 
-            if (i == propertyNameToCellMap.end())
-                return;
+            if (i != propertyNameToCellMap.end()) {
+                std::set<CellAddress>::const_iterator j = i->second.begin();
+                std::set<CellAddress>::const_iterator end = i->second.end();
 
-            std::set<CellAddress>::const_iterator j = i->second.begin();
-            std::set<CellAddress>::const_iterator end = i->second.end();
+                while (j != end) {
+                    setDirty(*j);
+                    ++j;
+                }
+            }
+            else if (prop->isDerivedFrom(App::PropertyLists::getClassTypeId())) {
+                // #0003610:
+                // Inside propertyNameToCellMap we keep a string including the
+                // index operator of the property. From the given property we
+                // can't build 'fullName' to include this index, so we must go
+                // through all elements and check for a string of the form:
+                // 'fullName[index]' and set dirty the appropriate cells.
+                std::string fullNameIndex = "^";
+                fullNameIndex += fullName;
+                fullNameIndex += "\\[[0-9]+\\]$";
+                boost::regex rx(fullNameIndex);
+                boost::cmatch what;
+                for (auto i : propertyNameToCellMap) {
+                    if (boost::regex_match(i.first.c_str(), what, rx)) {
+                        std::set<CellAddress>::const_iterator j = i.second.begin();
+                        std::set<CellAddress>::const_iterator end = i.second.end();
 
-            while (j != end) {
-                setDirty(*j);
-                ++j;
+                        while (j != end) {
+                            setDirty(*j);
+                            ++j;
+                        }
+                    }
+                }
             }
         }
     }

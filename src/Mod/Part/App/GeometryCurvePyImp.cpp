@@ -74,6 +74,7 @@
 
 namespace Part {
 extern const Py::Object makeGeometryCurvePy(const Handle(Geom_Curve)& c);
+extern const Py::Object makeTrimmedCurvePy(const Handle(Geom_Curve)& c, double f,double l);
 }
 
 using namespace Part;
@@ -114,9 +115,8 @@ PyObject* GeometryCurvePy::toShape(PyObject *args)
             return new TopoShapeEdgePy(new TopoShape(sh));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -320,9 +320,8 @@ PyObject* GeometryCurvePy::length(PyObject *args)
             return PyFloat_FromDouble(len);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -346,9 +345,8 @@ PyObject* GeometryCurvePy::parameterAtDistance(PyObject *args)
             return PyFloat_FromDouble(parm);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -369,9 +367,8 @@ PyObject* GeometryCurvePy::value(PyObject *args)
             return new Base::VectorPy(Base::Vector3d(p.X(),p.Y(),p.Z()));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -399,9 +396,8 @@ PyObject* GeometryCurvePy::tangent(PyObject *args)
             return Py::new_reference_to(tuple);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -424,9 +420,8 @@ PyObject* GeometryCurvePy::normal(PyObject *args)
             return new Base::VectorPy(new Base::Vector3d(dir.X(),dir.Y(),dir.Z()));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -448,9 +443,8 @@ PyObject* GeometryCurvePy::curvature(PyObject *args)
             return Py::new_reference_to(Py::Float(C));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -473,9 +467,8 @@ PyObject* GeometryCurvePy::centerOfCurvature(PyObject *args)
             return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -485,23 +478,19 @@ PyObject* GeometryCurvePy::centerOfCurvature(PyObject *args)
 
 PyObject* GeometryCurvePy::parameter(PyObject *args)
 {
-    Handle(Geom_Geometry) g = getGeometryPtr()->handle();
-    Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
     try {
-        if (!c.IsNull()) {
-            PyObject *p;
-            if (!PyArg_ParseTuple(args, "O!", &(Base::VectorPy::Type), &p))
-                return 0;
-            Base::Vector3d v = Py::Vector(p, false).toVector();
-            gp_Pnt pnt(v.x,v.y,v.z);
-            GeomAPI_ProjectPointOnCurve ppc(pnt, c);
-            double val = ppc.LowerDistanceParameter();
-            return Py::new_reference_to(Py::Float(val));
-        }
+        PyObject *p;
+        if (!PyArg_ParseTuple(args, "O!", &(Base::VectorPy::Type), &p))
+            return 0;
+        Base::Vector3d v = Py::Vector(p, false).toVector();
+        
+        double u;
+        
+        if(static_cast<Part::GeomCurve *>(getGeometryPtr())->closestParameter(v,u))
+            return Py::new_reference_to(Py::Float(u));
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Base::RuntimeError& e) {
+        PyErr_SetString(PartExceptionOCCError, e.what());
         return 0;
     }
 
@@ -541,9 +530,8 @@ PyObject* GeometryCurvePy::makeRuledSurface(PyObject *args)
             return 0;
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -576,9 +564,8 @@ PyObject* GeometryCurvePy::intersect2d(PyObject *args)
         }
         return Py::new_reference_to(list);
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -598,9 +585,8 @@ PyObject* GeometryCurvePy::toBSpline(PyObject * args)
             return new BSplineCurvePy(spline);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -623,9 +609,31 @@ PyObject* GeometryCurvePy::toNurbs(PyObject * args)
             return new BSplineCurvePy(spline);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
+        return 0;
+    }
+
+    PyErr_SetString(PartExceptionOCCError, "Geometry is not a curve");
+    return 0;
+}
+
+PyObject* GeometryCurvePy::trim(PyObject * args)
+{
+    Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+    Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+    try {
+        if (!c.IsNull()) {
+            double u,v;
+            u=c->FirstParameter();
+            v=c->LastParameter();
+            if (!PyArg_ParseTuple(args, "|dd", &u,&v))
+                return 0;
+            return Py::new_reference_to(makeTrimmedCurvePy(c,u,v));
+        }
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 
@@ -677,9 +685,8 @@ PyObject* GeometryCurvePy::approximateBSpline(PyObject *args)
             return 0;
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -775,9 +782,8 @@ PyObject* GeometryCurvePy::intersectCS(PyObject *args)
             return Py::new_reference_to(tuple);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PyExc_RuntimeError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
         return 0;
     }
 
@@ -796,7 +802,8 @@ PyObject* GeometryCurvePy::intersectCC(PyObject *args)
                 return 0;
             Handle(Geom_Curve) curve2 = Handle(Geom_Curve)::DownCast(static_cast<GeometryPy*>(p)->getGeometryPtr()->handle());
             GeomAPI_ExtremaCurveCurve intersector(curve1, curve2);
-            if (intersector.LowerDistance() > Precision::Confusion()) {
+            if (intersector.NbExtrema() == 0 ||
+                intersector.LowerDistance() > Precision::Confusion()) {
                 // No intersection
                 return Py::new_reference_to(Py::List());
             }
@@ -807,15 +814,14 @@ PyObject* GeometryCurvePy::intersectCC(PyObject *args)
                     continue;
                 gp_Pnt p1, p2;
                 intersector.Points(i, p1, p2);
-                points.append(Py::Object(new PointPy(new GeomPoint(Base::Vector3d(p1.X(), p1.Y(), p1.Z())))));
+                points.append(Py::asObject(new PointPy(new GeomPoint(Base::Vector3d(p1.X(), p1.Y(), p1.Z())))));
             }
 
             return Py::new_reference_to(points);
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PyExc_RuntimeError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
         return 0;
     }
 
@@ -844,12 +850,92 @@ PyObject* GeometryCurvePy::intersect(PyObject *args)
                 return 0;
         }
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        PyErr_SetString(PyExc_RuntimeError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
         return 0;
     }
 
     PyErr_SetString(PyExc_TypeError, "Geometry is not a curve");
     return 0;
+}
+
+PyObject* GeometryCurvePy::reverse(PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return 0;
+    try {
+        Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+        Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+        c->Reverse();
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
+        return 0;
+    }
+    Py_Return;
+}
+
+PyObject* GeometryCurvePy::reversedParameter(PyObject *args)
+{
+    double p;
+    if (!PyArg_ParseTuple(args, "d", &p))
+        return 0;
+    try {
+        Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+        Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+        Standard_Real val = c->ReversedParameter(p);
+        return PyFloat_FromDouble(val);
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
+        return 0;
+    }
+}
+
+PyObject* GeometryCurvePy::isPeriodic(PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return 0;
+    try {
+        Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+        Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+        Standard_Boolean val = c->IsPeriodic();
+        return PyBool_FromLong(val ? 1 : 0);
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
+        return 0;
+    }
+}
+
+PyObject* GeometryCurvePy::period(PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return 0;
+    try {
+        Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+        Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+        Standard_Real val = c->Period();
+        return PyFloat_FromDouble(val);
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
+        return 0;
+    }
+}
+
+PyObject* GeometryCurvePy::isClosed(PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, ""))
+        return 0;
+    try {
+        Handle(Geom_Geometry) g = getGeometryPtr()->handle();
+        Handle(Geom_Curve) c = Handle(Geom_Curve)::DownCast(g);
+        Standard_Boolean val = c->IsClosed();
+        return PyBool_FromLong(val ? 1 : 0);
+    }
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
+        return 0;
+    }
 }

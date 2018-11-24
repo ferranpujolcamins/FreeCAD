@@ -27,7 +27,7 @@
 #include <App/PropertyStandard.h>
 #include <Mod/Part/App/BodyBase.h>
 
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 
 namespace App {
     class Origin;
@@ -84,6 +84,8 @@ public:
      */
     void insertObject(App::DocumentObject* feature, App::DocumentObject* target, bool after=false);
 
+    void setBaseProperty(App::DocumentObject* feature);
+
     /// Remove the feature from the body
     virtual std::vector<DocumentObject*> removeObject(DocumentObject* obj) override;
 
@@ -108,7 +110,7 @@ public:
       * all features derived from PartDesign::Feature and Part::Datum and sketches
       */
     static bool isAllowed(const App::DocumentObject* f);
-    virtual bool allowObject(DocumentObject* f) override {return isAllowed(f);};
+    virtual bool allowObject(DocumentObject* f) override {return isAllowed(f);}
 
     /**
      * Return the body which this feature belongs too, or NULL
@@ -143,7 +145,7 @@ protected:
     virtual void unsetupObject () override;
 
 private:
-    boost::signals::scoped_connection connection;
+    boost::signals2::scoped_connection connection;
 };
 
 } //namespace PartDesign

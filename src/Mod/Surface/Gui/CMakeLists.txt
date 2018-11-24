@@ -25,6 +25,7 @@ set(SurfaceGui_LIBS
 
 set(SurfaceGui_MOC_HDRS
     TaskFilling.h
+    TaskFillingUnbound.h
     TaskFillingVertex.h
     TaskGeomFillSurface.h
 )
@@ -39,6 +40,7 @@ endif()
 
 SET(SurfaceGui_UIC_SRCS
     TaskFilling.ui
+    TaskFillingUnbound.ui
     TaskFillingVertex.ui
     TaskGeomFillSurface.ui
 )
@@ -54,6 +56,8 @@ SET(SurfaceGui_SRCS
     ${SurfaceGui_UIC_HDRS}
     TaskFilling.cpp
     TaskFilling.h
+    TaskFillingUnbound.cpp
+    TaskFillingUnbound.h
     TaskFillingVertex.cpp
     TaskFillingVertex.h
     TaskGeomFillSurface.cpp
@@ -71,11 +75,6 @@ SET(SurfaceGui_SRCS
 link_directories(${OCC_LIBRARY_DIR})
 add_library(SurfaceGui SHARED ${SurfaceGui_SRCS})
 target_link_libraries(SurfaceGui ${SurfaceGui_LIBS})
-
-fc_target_copy_resource(SurfaceGui 
-    ${CMAKE_SOURCE_DIR}/src/Mod/Surface
-    ${CMAKE_BINARY_DIR}/Mod/Surface
-    InitGui.py)
 
 SET_BIN_DIR(SurfaceGui SurfaceGui /Mod/Surface)
 SET_PYTHON_PREFIX_SUFFIX(SurfaceGui)

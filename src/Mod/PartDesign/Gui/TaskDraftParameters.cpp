@@ -25,6 +25,7 @@
 
 #ifndef _PreComp_
 # include <QMessageBox>
+# include <QAction>
 #endif
 
 #include "ui_TaskDraftParameters.h"
@@ -67,6 +68,9 @@ TaskDraftParameters::TaskDraftParameters(ViewProviderDressUp *DressUpView,QWidge
     ui->draftAngle->setValue(a);
     ui->draftAngle->selectAll();
     QMetaObject::invokeMethod(ui->draftAngle, "setFocus", Qt::QueuedConnection);
+
+    // Bind input fields to properties
+    ui->draftAngle->bind(pcDraft->Angle);
 
     bool r = pcDraft->Reversed.getValue();
     ui->checkReverse->setChecked(r);

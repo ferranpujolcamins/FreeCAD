@@ -78,8 +78,8 @@ int Part::ImportIgesParts(App::Document *pcDoc, const char* FileName)
         Message_MsgFile::LoadFromEnv("CSF_SHMessageStd","SHAPEStd");
 
         IGESControl_Reader aReader;
-        if (aReader.ReadFile((const Standard_CString)FileName) != IFSelect_RetDone)
-            throw Base::Exception("Error in reading IGES");
+        if (aReader.ReadFile((Standard_CString)FileName) != IFSelect_RetDone)
+            throw Base::FileException("Error in reading IGES");
 
         // Ignore construction elements
         // http://www.opencascade.org/org/forum/thread_20603/?forum=3
@@ -203,9 +203,8 @@ int Part::ImportIgesParts(App::Document *pcDoc, const char* FileName)
         }
 #endif
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) aFail = Standard_Failure::Caught();
-        throw Base::Exception(aFail->GetMessageString());
+    catch (Standard_Failure& e) {
+        throw Base::CADKernelError(e.GetMessageString());
     }
 
     return 0;

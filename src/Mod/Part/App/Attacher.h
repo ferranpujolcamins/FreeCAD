@@ -99,6 +99,15 @@ enum eMapMode {
 
     mmInertialCS,
 
+    mm1FaceNormal,
+
+    mmOZX,
+    mmOZY,
+    mmOXY,
+    mmOXZ,
+    mmOYZ,
+    mmOYX,
+
     mmDummy_NumberOfModes//a value useful to check the validity of mode value
 };//see also eMapModeStrings[] definition in .cpp
 
@@ -180,7 +189,7 @@ struct SuggestResult{
     std::set<eRefType> nextRefTypeHint;
 
     /**
-     * @brief reachableModes. List of modes that can be reached by selecing
+     * @brief reachableModes. List of modes that can be reached by selecting
      * more references. Is a map, where key is the mode that can be reached,
      * and value is a list of reference sequences that can be added to reach
      * the mode (stuff already linked is omitted from these lists; only extra
@@ -194,7 +203,7 @@ struct SuggestResult{
      */
     refTypeString references_Types;
 
-    Base::Exception error;
+    Base::RuntimeError error;
 };
 
 
@@ -213,7 +222,7 @@ public: //methods
                       bool mapReverse = false,
                       double attachParameter = 0.0,
                       double surfU = 0.0, double surfV = 0.0,
-                      const Base::Placement &superPlacement = Base::Placement());
+                      const Base::Placement &attachmentOffset = Base::Placement());
     virtual void setUp(const AttachEngine &another);
     virtual AttachEngine* copy() const = 0;
     virtual Base::Placement calculateAttachedPlacement(Base::Placement origPlacement) const = 0;
@@ -361,7 +370,7 @@ public: //members
     bool mapReverse;
     double attachParameter;
     double surfU, surfV;
-    Base::Placement superPlacement;
+    Base::Placement attachmentOffset;
 
     /**
      * @brief modeEnabled is an indicator, whether some mode is ever suggested

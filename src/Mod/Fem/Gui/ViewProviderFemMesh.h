@@ -83,7 +83,7 @@ public:
     void updateData(const App::Property*);
 
       /** @name Selection handling
-      * This group of methodes do the selection handling.
+      * This group of methods do the selection handling.
       * Here you can define how the selection for your ViewProvider
       * works.
      */
@@ -93,12 +93,13 @@ public:
     /// return a hit element to the selection path or 0
     virtual std::string getElement(const SoDetail*) const;
     virtual SoDetail* getDetail(const char*) const;
-    /// return the higlight lines for a given element or the whole shape
+    /// return the highlight lines for a given element or the whole shape
     virtual std::vector<Base::Vector3d> getSelectionShape(const char* Element) const;
     //@}
 
-    // interface methodes
+    // interface methods
     void setHighlightNodes(const std::set<long>&);
+    std::set<long> getHighlightNodes() const;
     void resetHighlightNodes(void);
 
     /** @name Postprocessing
@@ -145,6 +146,7 @@ protected:
     /// index of elements to their triangles
     std::vector<unsigned long> vFaceElementIdx;
     std::vector<unsigned long> vNodeElementIdx;
+    std::vector<unsigned long> vHighlightedIdx;
 
     std::vector<Base::Vector3d> DisplacementVector;
     double                      DisplacementFactor;

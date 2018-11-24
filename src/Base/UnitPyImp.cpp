@@ -17,13 +17,13 @@ std::string UnitPy::representation(void) const
     std::stringstream ret;
     ret << "Unit: "; 
     ret << getUnitPtr()->getString().toUtf8().constData() << " (";
-    ret << Sig.Length << ",";                 
-    ret << Sig.Mass  << ",";                    
-    ret << Sig.Time  << ",";                   
-    ret << Sig.ElectricCurrent  << ",";        
+    ret << Sig.Length << ",";
+    ret << Sig.Mass  << ",";
+    ret << Sig.Time  << ",";
+    ret << Sig.ElectricCurrent  << ",";
     ret << Sig.ThermodynamicTemperature << ",";
-    ret << Sig.AmountOfSubstance  << ",";      
-    ret << Sig.LuminoseIntensity  << ",";      
+    ret << Sig.AmountOfSubstance  << ",";
+    ret << Sig.LuminousIntensity  << ",";
     ret << Sig.Angle  << ")"; 
     std::string type = getUnitPtr()->getTypeString().toUtf8().constData();
     if(! type.empty())
@@ -194,13 +194,11 @@ int UnitPy::setCustomAttributes(const char* /*attr*/, PyObject* /*obj*/)
     return 0; 
 }
 
-#if PY_MAJOR_VERSION < 3
 PyObject * UnitPy::number_divide_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
-#endif
 
 PyObject * UnitPy::number_remainder_handler (PyObject* /*self*/, PyObject* /*other*/)
 {

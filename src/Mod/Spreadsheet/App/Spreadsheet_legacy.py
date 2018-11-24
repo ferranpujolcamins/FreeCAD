@@ -447,9 +447,9 @@ class Spreadsheet:
             #msg = ex.message
             #raise Exception(msg) #would discard the type
         return result
-        
+
     def recompute(self,obj):
-        "Fills the controlled cells  and properties"
+        "Fills the controlled cells and properties"
         if obj:
             if hasattr(obj,"Controllers"):
                 import Draft
@@ -832,7 +832,7 @@ class SpreadsheetView(QtGui.QWidget):
                             self.table.item(r,c).setBackground(brush)
 
     def changeCell(self,r,c,value=None):
-        "changes the contens of a cell"
+        "changes the contents of a cell"
         if self.doNotChange:
             if DEBUG: print("DoNotChange flag is set")
             self.doNotChange = False

@@ -38,6 +38,7 @@ set(SketcherGui_MOC_HDRS
     SketchMirrorDialog.h
     SketcherSettings.h
     SketchRectangularArrayDialog.h
+    SketcherRegularPolygonDialog.h
     PropertyConstraintListItem.h
 )
 fc_wrap_cpp(SketcherGui_MOC_SRCS ${SketcherGui_MOC_HDRS})
@@ -62,6 +63,7 @@ set(SketcherGui_UIC_SRCS
     SketcherSettings.ui
     SketcherSettingsColors.ui
     SketchRectangularArrayDialog.ui
+    SketcherRegularPolygonDialog.ui
 )
 
 if(BUILD_QT5)
@@ -81,6 +83,7 @@ SET(SketcherGui_SRCS
     CommandConstraints.cpp
     CommandSketcherTools.cpp
     CommandSketcherBSpline.cpp
+    CommandSketcherVirtualSpace.cpp
     CommandAlterGeometry.cpp
     Resources/Sketcher.qrc
     PreCompiled.cpp
@@ -127,35 +130,26 @@ SET(SketcherGui_SRCS
     SketcherSettings.h
     SketchRectangularArrayDialog.h
     SketchRectangularArrayDialog.cpp
+    SketcherRegularPolygonDialog.h
+    SketcherRegularPolygonDialog.cpp
     TaskDlgEditSketch.cpp
     TaskDlgEditSketch.h
     ViewProviderPython.cpp
     ViewProviderPython.h
 )
 
-SET(SketcherGui_Scripts
-    InitGui.py
-    TestSketcherGui.py
-)
-
-add_library(SketcherGui SHARED ${SketcherGui_SRCS})
-target_link_libraries(SketcherGui ${SketcherGui_LIBS})
-
-
-fc_target_copy_resource(SketcherGui 
-    ${CMAKE_SOURCE_DIR}/src/Mod/Sketcher
-    ${CMAKE_BINARY_DIR}/Mod/Sketcher
-    ${SketcherGui_Scripts})
-
-SET_BIN_DIR(SketcherGui SketcherGui /Mod/Sketcher)
-SET_PYTHON_PREFIX_SUFFIX(SketcherGui)
-
-INSTALL(TARGETS SketcherGui DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
 SET(SketcherGuiIcon_SVG
     Resources/icons/SketcherWorkbench.svg
 )
 
+add_library(SketcherGui SHARED ${SketcherGui_SRCS} ${SketcherGuiIcon_SVG})
+target_link_libraries(SketcherGui ${SketcherGui_LIBS})
+
+
+SET_BIN_DIR(SketcherGui SketcherGui /Mod/Sketcher)
+SET_PYTHON_PREFIX_SUFFIX(SketcherGui)
+
 fc_copy_sources(SketcherGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Sketcher" ${SketcherGuiIcon_SVG})
 
+INSTALL(TARGETS SketcherGui DESTINATION ${CMAKE_INSTALL_LIBDIR})
 INSTALL(FILES ${SketcherGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/Sketcher/Resources/icons")

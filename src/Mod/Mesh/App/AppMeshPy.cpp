@@ -85,7 +85,7 @@ public:
             "compressed.\n"
         );
         add_varargs_method("show",&Module::show,
-            "Put a mesh object in the active document or creates one if needed"
+            "show(shape,[string]) -- Add the mesh to the active document or create one if no document exists."
         );
         add_varargs_method("createBox",&Module::createBox,
             "Create a solid mesh box"
@@ -127,7 +127,7 @@ public:
         );
         initialize("The functions in this module allow working with mesh objects.\n"
                    "A set of functions are provided for reading in registered mesh\n"
-                   "file formats to either a new or exising document.\n"
+                   "file formats to either a new or existing document.\n"
                    "\n"
                    "open(string) -- Create a new document and a Mesh feature\n"
                    "                to load the file into the document.\n"
@@ -322,6 +322,33 @@ private:
             return Py::None();
         }
 
+        // collect all object types that can be exported as mesh
+        std::vector<App::DocumentObject*> objectList;
+        std::string label;
+        for (auto it : list) {
+            PyObject *item = it.ptr();
+            if (PyObject_TypeCheck(item, &(App::DocumentObjectPy::Type))) {
+                auto obj( static_cast<App::DocumentObjectPy *>(item)->getDocumentObjectPtr() );
+                label = obj->Label.getValue();
+                if (Exporter::isSupported(obj))
+                    objectList.push_back(obj);
+            }
+        }
+
+        if (objectList.empty()) {
+            std::string errorMessage;
+            if (list.length() == 1) {
+                std::stringstream str;
+                str << label << " cannot be exported to a mesh file";
+                errorMessage = str.str();
+            }
+            else {
+                errorMessage = "None of the objects can be exported to a mesh file";
+            }
+
+            throw Py::TypeError(errorMessage);
+        }
+
         auto exportFormat( MeshOutput::GetFormat(outputFileName.c_str()) );
 
         std::unique_ptr<Exporter> exporter;
@@ -343,13 +370,8 @@ private:
             throw Py::Exception(Base::BaseExceptionFreeCADError, exStr.c_str());
         }
 
-        for (auto it : list) {
-            PyObject *item = it.ptr();
-            if (PyObject_TypeCheck(item, &(App::DocumentObjectPy::Type))) {
-                auto obj( static_cast<App::DocumentObjectPy *>(item)->getDocumentObjectPtr() );
-
-                exporter->addObject(obj, fTolerance);
-            }
+        for (auto it : objectList) {
+            exporter->addObject(it, fTolerance);
         }
         exporter.reset();   // deletes Exporter, mesh file is written by destructor
 
@@ -359,14 +381,15 @@ private:
     Py::Object show(const Py::Tuple& args)
     {
         PyObject *pcObj;
-        if (!PyArg_ParseTuple(args.ptr(), "O!", &(MeshPy::Type), &pcObj))
+        char *name = "Mesh";
+        if (!PyArg_ParseTuple(args.ptr(), "O!|s", &(MeshPy::Type), &pcObj, &name))
             throw Py::Exception();
 
         App::Document *pcDoc = App::GetApplication().getActiveDocument();
         if (!pcDoc)
             pcDoc = App::GetApplication().newDocument();
         MeshPy* pMesh = static_cast<MeshPy*>(pcObj);
-        Mesh::Feature *pcFeature = (Mesh::Feature *)pcDoc->addObject("Mesh::Feature", "Mesh");
+        Mesh::Feature *pcFeature = static_cast<Mesh::Feature*>(pcDoc->addObject("Mesh::Feature", name));
         Mesh::MeshObject* mo = pMesh->getMeshObjectPtr();
         if (!mo) {
             throw Py::Exception(PyExc_ReferenceError, "object doesn't reference a valid mesh");

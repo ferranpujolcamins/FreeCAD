@@ -41,14 +41,14 @@
 #include <chrono>
 
 //**************************************************************************
-// Loging levels
+// Logging levels
 
 #ifdef FC_DEBUG
-/// switch on the loging of python object creation and destruction
+/// switch on the logging of python object creation and destruction
 #  undef FC_LOGPYOBJECTS 
-/// switch on the loging of Feature update and execution
+/// switch on the logging of Feature update and execution
 #  define FC_LOGFEATUREUPDATE 
-/// switch on the loging of the Update execution through Doc, App, GuiApp and GuiDoc
+/// switch on the logging of the Update execution through Doc, App, GuiApp and GuiDoc
 #  undef FC_LOGUPDATECHAIN 
 #endif
 
@@ -59,13 +59,13 @@
  *
  * \section Motivation 
  *
- * FreeCAD Base::Console() is capable of outputing to different targets, and has
+ * FreeCAD Base::Console() is capable of outputting to different targets, and has
  * some basic enable/disable control of different types of logs. There is,
- * however, no easy to use logging facility for various FC modules.  This set of
- * helper macros and function is aimed to provide a unified logging (and timing)
+ * however, no easy way to use logging facility for various FC modules.  This set
+ * of helper macros and function is aimed to provide a unified logging (and timing)
  * interface.  The interface is mainly designed for C++ code.  Python code can
  * also take some advantage of log level control interface. The developer can
- * now leave their logging code permantly active in the source code without
+ * now leave their logging code permanently active in the source code without
  * impact on performance, and the log can be easily turned on/off dynamically
  * using Python console for debugging purpose, even in release build.
  *
@@ -288,7 +288,7 @@
  * You can also use <tt>FC_DURATION_MSG, FC_DURATION_TRACE</tt> as usual. 
  *
  * If you use only macros provided here to do timing, the entire timing code
- * can be complied out by defining \c FC_LOG_NO_TIMING before including 
+ * can be compiled out by defining \c FC_LOG_NO_TIMING before including 
  * \c App/Console.h.
  *
  * \section Customization
@@ -460,13 +460,13 @@ public:
     ConsoleObserver()
         :bErr(true),bMsg(true),bLog(true),bWrn(true) {}
     virtual ~ConsoleObserver() {}
-    /// get calles when a Warning is issued
+    /// get calls when a Warning is issued
     virtual void Warning(const char *){}
-    /// get calles when a Message is issued
+    /// get calls when a Message is issued
     virtual void Message(const char *){}
-    /// get calles when a Error is issued
+    /// get calls when a Error is issued
     virtual void Error  (const char *)=0;
-    /// get calles when a Log Message is issued
+    /// get calls when a Log Message is issued
     virtual void Log    (const char *){}
 
     virtual const char *Name(void){return 0L;}
@@ -516,22 +516,27 @@ public:
     enum ConsoleMode{
         Verbose = 1,	// suppress Log messages
     };
+    enum ConnectionMode {
+        Direct = 0,
+        Queued =1
+    };
 
-    enum FreeCAD_ConsoleMsgType { 
+    enum FreeCAD_ConsoleMsgType {
         MsgType_Txt = 1,
         MsgType_Log = 2, // ConsoleObserverStd sends this and higher to stderr
         MsgType_Wrn = 4,
         MsgType_Err = 8
-    } ;
+    };
 
     /// Change mode
-    void SetMode(ConsoleMode m);
+    void SetConsoleMode(ConsoleMode m);
     /// Change mode
-    void UnsetMode(ConsoleMode m);
+    void UnsetConsoleMode(ConsoleMode m);
     /// Enables or disables message types of a certain console observer
     ConsoleMsgFlags SetEnabledMsgType(const char* sObs, ConsoleMsgFlags type, bool b);
     /// Enables or disables message types of a certain console observer
     bool IsMsgTypeEnabled(const char* sObs, FreeCAD_ConsoleMsgType type) const;
+    void SetConnectionMode(ConnectionMode mode);
 
     int *GetLogLevel(const char *tag, bool create=true);
 
@@ -549,7 +554,7 @@ public:
     // retrieval of an observer by name
     ConsoleObserver *Get(const char *Name) const;
 
-    static PyMethodDef    Methods[]; 
+    static PyMethodDef    Methods[];
 
     void Refresh();
     void EnableRefresh(bool enable);
@@ -557,15 +562,16 @@ public:
 protected:
     // python exports goes here +++++++++++++++++++++++++++++++++++++++++++	
     // static python wrapper of the exported functions
-    static PyObject *sPyLog      (PyObject *self,PyObject *args,PyObject *kwd);
-    static PyObject *sPyMessage  (PyObject *self,PyObject *args,PyObject *kwd);
-    static PyObject *sPyWarning  (PyObject *self,PyObject *args,PyObject *kwd);
-    static PyObject *sPyError    (PyObject *self,PyObject *args,PyObject *kwd);
-    static PyObject *sPySetStatus(PyObject *self,PyObject *args,PyObject *kwd);
-    static PyObject *sPyGetStatus(PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject *sPyLog      (PyObject *self,PyObject *args);
+    static PyObject *sPyMessage  (PyObject *self,PyObject *args);
+    static PyObject *sPyWarning  (PyObject *self,PyObject *args);
+    static PyObject *sPyError    (PyObject *self,PyObject *args);
+    static PyObject *sPySetStatus(PyObject *self,PyObject *args);
+    static PyObject *sPyGetStatus(PyObject *self,PyObject *args);
 
     bool _bVerbose;
     bool _bCanRefresh;
+    ConnectionMode connectionMode;
 
     // Singleton!
     ConsoleSingleton(void);
@@ -587,6 +593,8 @@ private:
 
     std::map<std::string, int> _logLevels;
     int _defaultLogLevel;
+
+    friend class ConsoleOutput;
 };
 
 /** Access to the Console

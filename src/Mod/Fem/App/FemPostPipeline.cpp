@@ -132,7 +132,7 @@ void FemPostPipeline::read(Base::FileInfo File) {
 
     // checking on the file
     if (!File.isReadable())
-        throw Base::Exception("File to load not existing or not readable");
+        throw Base::FileException("File to load not existing or not readable", File);
 
     if (File.hasExtension("vtu"))
         readXMLFile<vtkXMLUnstructuredGridReader>(File.filePath());
@@ -147,7 +147,7 @@ void FemPostPipeline::read(Base::FileInfo File) {
     else if (File.hasExtension("vtk"))
         readXMLFile<vtkDataSetReader>(File.filePath());
     else
-        throw Base::Exception("Unknown extension");
+        throw Base::FileException("Unknown extension");
 }
 
 
@@ -180,7 +180,7 @@ void FemPostPipeline::onChanged(const Property* prop)
             if(filter->Input.getValue() != Input.getValue())
                 filter->Input.setValue(Input.getValue());
 
-            //all the others need to be connected to the previous filter or the source, dependend on the mode
+            //all the others need to be connected to the previous filter or the source, dependent on the mode
             ++it;
             for(; it != objs.end(); ++it) {
                 FemPostFilter* nextFilter = static_cast<FemPostFilter*>(*it);
@@ -203,7 +203,7 @@ void FemPostPipeline::onChanged(const Property* prop)
             if(filter->Input.getValue() != NULL)
                 filter->Input.setValue(NULL);
 
-            //all the others need to be connected to the previous filter or grab the data, dependend on mode
+            //all the others need to be connected to the previous filter or grab the data, dependent on mode
             ++it;
             for(; it != objs.end(); ++it) {
                 FemPostFilter* nextFilter = static_cast<FemPostFilter*>(*it);
@@ -259,12 +259,7 @@ void FemPostPipeline::load(FemResultObject* res) {
 
     //Now copy the point data over
     //############################
-    if(res->getPropertyByName("Velocity")){  // TODO: consider better way to detect result type, res->Type == "CfdResult"
-        FemVTKTools::exportFluidicResult(res, grid);
-    }
-    else{
-        FemVTKTools::exportMechanicalResult(res, grid);
-    }
+    FemVTKTools::exportFreeCADResult(res, grid);
 
     Data.setValue(grid);
 }

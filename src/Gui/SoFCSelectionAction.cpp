@@ -54,6 +54,7 @@
 
 #include "SoFCSelectionAction.h"
 #include "SoFCSelection.h"
+#include "SoFCUnifiedSelection.h"
 #include <Inventor/bundles/SoMaterialBundle.h>
 #include <Inventor/elements/SoSwitchElement.h>
 #include "Selection.h"
@@ -93,6 +94,92 @@
 
 using namespace Gui;
 
+
+SO_ACTION_SOURCE(SoFCHighlightAction);
+
+/**
+ * The order of the defined SO_ACTION_ADD_METHOD statements is very important. First the base
+ * classes and afterwards subclasses of them must be listed, otherwise the registered methods
+ * of subclasses will be overridden. For more details see the thread in the Coin3d forum
+ * https://www.coin3d.org/pipermail/coin-discuss/2004-May/004346.html.
+ * This means that \c SoSwitch must be listed after \c SoGroup and \c SoFCSelection after
+ * \c SoSeparator because both classes inherits the others.
+ */
+void SoFCHighlightAction::initClass()
+{
+  SO_ACTION_INIT_CLASS(SoFCHighlightAction,SoAction);
+
+  SO_ENABLE(SoFCHighlightAction, SoSwitchElement);
+
+  SO_ACTION_ADD_METHOD(SoNode,nullAction);
+
+  SO_ENABLE(SoFCHighlightAction, SoModelMatrixElement);
+  SO_ENABLE(SoFCHighlightAction, SoShapeStyleElement);
+  SO_ENABLE(SoFCHighlightAction, SoComplexityElement);
+  SO_ENABLE(SoFCHighlightAction, SoComplexityTypeElement);
+  SO_ENABLE(SoFCHighlightAction, SoCoordinateElement);
+  SO_ENABLE(SoFCHighlightAction, SoFontNameElement);
+  SO_ENABLE(SoFCHighlightAction, SoFontSizeElement);
+  SO_ENABLE(SoFCHighlightAction, SoProfileCoordinateElement);
+  SO_ENABLE(SoFCHighlightAction, SoProfileElement);
+  SO_ENABLE(SoFCHighlightAction, SoSwitchElement);
+  SO_ENABLE(SoFCHighlightAction, SoUnitsElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewVolumeElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewingMatrixElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewportRegionElement);
+
+
+
+
+  SO_ACTION_ADD_METHOD(SoCallback,callDoAction);
+  SO_ACTION_ADD_METHOD(SoComplexity,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate3,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate4,callDoAction);
+  SO_ACTION_ADD_METHOD(SoFont,callDoAction);
+  SO_ACTION_ADD_METHOD(SoGroup,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfile,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfileCoordinate2,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfileCoordinate3,callDoAction);
+  SO_ACTION_ADD_METHOD(SoTransformation,callDoAction);
+  SO_ACTION_ADD_METHOD(SoSwitch,callDoAction);
+
+  SO_ACTION_ADD_METHOD(SoSeparator,callDoAction);
+  SO_ACTION_ADD_METHOD(SoFCSelection,callDoAction);
+
+  SO_ACTION_ADD_METHOD(SoIndexedLineSet,callDoAction);
+  SO_ACTION_ADD_METHOD(SoIndexedFaceSet,callDoAction);
+  SO_ACTION_ADD_METHOD(SoPointSet,callDoAction);
+}
+
+void SoFCHighlightAction::finish()
+{
+  atexit_cleanup();
+}
+
+
+SoFCHighlightAction::SoFCHighlightAction (const SelectionChanges &SelCh)
+:SelChange(SelCh)
+{
+  SO_ACTION_CONSTRUCTOR(SoFCHighlightAction);
+}
+
+
+SoFCHighlightAction::~SoFCHighlightAction()
+{
+}
+
+
+void SoFCHighlightAction::beginTraversal(SoNode *node)
+{
+  traverse(node);
+}
+
+void SoFCHighlightAction::callDoAction(SoAction *action,SoNode *node)
+{
+  node->doAction(action);
+}
+
+// ---------------------------------------------------------------
 
 SO_ACTION_SOURCE(SoFCSelectionAction);
 
@@ -1073,6 +1160,10 @@ SoBoxSelectionRenderAction::constructorCommon(void)
 
 SoBoxSelectionRenderAction::~SoBoxSelectionRenderAction(void)
 {
+    // clear highlighting node
+    if (PRIVATE(this)->highlightPath) {
+        PRIVATE(this)->highlightPath->unref();
+    }
     PRIVATE(this)->postprocpath->unref();
     PRIVATE(this)->localRoot->unref();
 
@@ -1132,12 +1223,30 @@ SoBoxSelectionRenderAction::apply(SoNode * node)
                     if (shapepath) {
                         SoPathList list;
                         list.append(shapepath);
+                        // clear old highlighting node if still active
+                        if (PRIVATE(this)->highlightPath) {
+                            PRIVATE(this)->highlightPath->unref();
+                        }
                         PRIVATE(this)->highlightPath = path;
                         PRIVATE(this)->highlightPath->ref();
                         this->drawBoxes(path, &list);
                     }
                     PRIVATE(this)->selectsearch->reset();
                 }
+            }
+        }
+        PRIVATE(this)->searchaction->reset();
+
+        // Search for selections of SoFCUnifiedSelection
+        PRIVATE(this)->searchaction->setType(SoFCUnifiedSelection::getClassTypeId());
+        PRIVATE(this)->searchaction->setInterest(SoSearchAction::FIRST);
+        PRIVATE(this)->searchaction->apply(node);
+        SoFullPath * path = static_cast<SoFullPath *>(PRIVATE(this)->searchaction->getPath());
+        if (path) {
+            SoFCUnifiedSelection * selection = static_cast<SoFCUnifiedSelection *>(path->getTail());
+            if (selection->getNumSelected()) {
+                PRIVATE(this)->basecolor->rgb.setValue(selection->colorSelection.getValue());
+                this->drawBoxes(path, selection->getList());
             }
         }
         PRIVATE(this)->searchaction->reset();
@@ -1176,6 +1285,10 @@ SoBoxSelectionRenderAction::apply(SoPath * path)
             if (shapepath) {
                 SoPathList list;
                 list.append(shapepath);
+                // clear old highlighting node if still active
+                if (PRIVATE(this)->highlightPath) {
+                    PRIVATE(this)->highlightPath->unref();
+                }
                 PRIVATE(this)->highlightPath = path;
                 PRIVATE(this)->highlightPath->ref();
                 this->drawBoxes(path, &list);

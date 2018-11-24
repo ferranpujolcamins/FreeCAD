@@ -74,7 +74,11 @@ void CmdDrawingOpen::activated(int iMsg)
     {
         // load the file with the module
         Command::doCommand(Command::Gui, "import Drawing, DrawingGui");
+#if PY_MAJOR_VERSION < 3
         Command::doCommand(Command::Gui, "DrawingGui.open(unicode(\"%s\",\"utf-8\"))", (const char*)filename.toUtf8());
+#else
+        Command::doCommand(Command::Gui, "DrawingGui.open(\"%s\")", (const char*)filename.toUtf8());
+#endif
     }
 }
 
@@ -432,7 +436,7 @@ DEF_STD_CMD_A(CmdDrawingOpenBrowserView);
 CmdDrawingOpenBrowserView::CmdDrawingOpenBrowserView()
   : Command("Drawing_OpenBrowserView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("Open &browser view");
     sToolTipText  = QT_TR_NOOP("Opens the selected page in a browser view");
@@ -470,7 +474,7 @@ DEF_STD_CMD_A(CmdDrawingAnnotation);
 CmdDrawingAnnotation::CmdDrawingAnnotation()
   : Command("Drawing_Annotation")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Annotation");
     sToolTipText  = QT_TR_NOOP("Inserts an Annotation view in the active drawing");
@@ -518,7 +522,7 @@ DEF_STD_CMD_A(CmdDrawingClip);
 CmdDrawingClip::CmdDrawingClip()
   : Command("Drawing_Clip")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Clip");
     sToolTipText  = QT_TR_NOOP("Inserts a clip group in the active drawing");
@@ -563,7 +567,7 @@ DEF_STD_CMD_A(CmdDrawingSymbol);
 CmdDrawingSymbol::CmdDrawingSymbol()
   : Command("Drawing_Symbol")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Symbol");
     sToolTipText  = QT_TR_NOOP("Inserts a symbol from a svg file in the active drawing");
@@ -593,7 +597,11 @@ void CmdDrawingSymbol::activated(int iMsg)
         std::string FeatName = getUniqueObjectName("Symbol");
         openCommand("Create Symbol");
         doCommand(Doc,"import Drawing");
+#if PY_MAJOR_VERSION < 3
         doCommand(Doc,"f = open(unicode(\"%s\",'utf-8'),'r')",(const char*)filename.toUtf8());
+#else
+        doCommand(Doc,"f = open(\"%s\",'r')",(const char*)filename.toUtf8());
+#endif
         doCommand(Doc,"svg = f.read()");
         doCommand(Doc,"f.close()");
         doCommand(Doc,"App.activeDocument().addObject('Drawing::FeatureViewSymbol','%s')",FeatName.c_str());
@@ -619,7 +627,7 @@ DEF_STD_CMD_A(CmdDrawingExportPage);
 CmdDrawingExportPage::CmdDrawingExportPage()
   : Command("Drawing_ExportPage")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Export page...");
     sToolTipText  = QT_TR_NOOP("Export a page to an SVG file");
@@ -649,7 +657,11 @@ void CmdDrawingExportPage::activated(int iMsg)
 
         doCommand(Doc,"PageFile = open(App.activeDocument().%s.PageResult,'r')",Sel[0].FeatName);
         std::string fname = (const char*)fn.toUtf8();
+#if PY_MAJOR_VERSION < 3
         doCommand(Doc,"OutFile = open(unicode(\"%s\",'utf-8'),'w')",fname.c_str());
+#else
+        doCommand(Doc,"OutFile = open(\"%s\",'w')",fname.c_str());
+#endif
         doCommand(Doc,"OutFile.write(PageFile.read())");
         doCommand(Doc,"del OutFile,PageFile");
 
@@ -671,7 +683,7 @@ DEF_STD_CMD_A(CmdDrawingProjectShape);
 CmdDrawingProjectShape::CmdDrawingProjectShape()
   : Command("Drawing_ProjectShape")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("Project shape...");
     sToolTipText  = QT_TR_NOOP("Project shape onto a user-defined plane");
@@ -707,7 +719,7 @@ DEF_STD_CMD_A(CmdDrawingDraftView);
 CmdDrawingDraftView::CmdDrawingDraftView()
   : Command("Drawing_DraftView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Draft View");
     sToolTipText  = QT_TR_NOOP("Inserts a Draft view of the selected object(s) in the active drawing");
@@ -738,7 +750,7 @@ DEF_STD_CMD_A(CmdDrawingSpreadsheetView);
 CmdDrawingSpreadsheetView::CmdDrawingSpreadsheetView()
   : Command("Drawing_SpreadsheetView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Spreadsheet View");
     sToolTipText  = QT_TR_NOOP("Inserts a view of a selected spreadsheet in the active drawing");

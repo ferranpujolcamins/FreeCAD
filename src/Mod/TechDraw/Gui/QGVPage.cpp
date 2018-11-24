@@ -38,10 +38,13 @@
 #endif
 
 #include <App/Application.h>
+#include <App/Document.h>
 #include <App/Material.h>
 #include <Base/Console.h>
+#include <Base/Parameter.h>
 #include <Base/Stream.h>
 #include <Gui/FileDialog.h>
+#include <Gui/Selection.h>
 #include <Gui/WaitCursor.h>
 
 #include <Mod/TechDraw/App/Geometry.h>
@@ -97,14 +100,22 @@ QGVPage::QGVPage(ViewProviderPage *vp, QGraphicsScene* s, QWidget *parent)
 
     setScene(s);
 
-    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
-    //setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-    //setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
+
+    setViewportUpdateMode(QGraphicsView::SmartViewportUpdate);
     setCacheMode(QGraphicsView::CacheBackground);
-    //setTransformationAnchor(AnchorUnderMouse);
-    //setTransformationAnchor(NoAnchor);
-    setTransformationAnchor(AnchorViewCenter);
-    setResizeAnchor(AnchorViewCenter);
+ 
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("View");
+    m_atCursor = hGrp->GetBool("ZoomAtCursor", 1l);
+    m_invertZoom = hGrp->GetBool("InvertZoom", 0l);
+
+    if (m_atCursor) {
+        setResizeAnchor(AnchorUnderMouse);
+        setTransformationAnchor(AnchorUnderMouse);
+    } else {
+        setResizeAnchor(AnchorViewCenter);
+        setTransformationAnchor(AnchorViewCenter);
+    }
     setAlignment(Qt::AlignCenter);
 
     setDragMode(ScrollHandDrag);
@@ -204,7 +215,8 @@ int QGVPage::addQView(QGIView *view)
     }
 
     view->setPos(viewPos);
-
+    view->updateView(true);
+    
     return 0;
 }
 
@@ -217,14 +229,14 @@ int QGVPage::removeQView(QGIView *view)
     return 0;
 }
 
-int QGVPage::removeQViewByDrawView(const TechDraw::DrawView* dv)
+int QGVPage::removeQViewByName(const char* name)
 {
     std::vector<QGIView*> items = getViews();
-    QString qsName = QString::fromUtf8(dv->getNameInDocument());
+    QString qsName = QString::fromUtf8(name);
     bool found = false;
     QGIView* ourItem = nullptr;
     for (auto& i:items) {
-        if (qsName == i->data(1).toString()) {          //is there really a QGIV for this DV in scene?
+        if (qsName == i->data(1).toString()) {          //is there a QGIV with this name in scene?
             found = true;
             ourItem = i;
             break;
@@ -632,7 +644,10 @@ void QGVPage::wheelEvent(QWheelEvent *event)
 //                                                              1 click = -0.5 ==> factor = 1.2^-0.5 = 0.91
 //so to change wheel direction, multiply (event->delta() / 240.0) by +/-1
     double mouseBase = 1.2;        //magic numbers. change for different mice?
-    double mouseAdjust = 240.0;
+    double mouseAdjust = -240.0;
+    if (m_invertZoom) {
+        mouseAdjust = -mouseAdjust;
+    }
 
     QPointF center = mapToScene(viewport()->rect().center());
     qreal factor = std::pow(mouseBase, event->delta() / mouseAdjust);

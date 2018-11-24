@@ -1,7 +1,8 @@
-# Example hwo to use the basic sketcher tools
+# Example how to use the basic sketcher tools
 from Sketcher import *
 from Part import *
 from FreeCAD import *
+import FreeCAD as App
 
 # set some constances for the constraints
 StartPoint = 1

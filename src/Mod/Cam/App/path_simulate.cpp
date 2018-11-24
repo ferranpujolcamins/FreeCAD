@@ -192,7 +192,7 @@ double path_simulate::GetVelocity(double t)
         }
     }
     else
-        throw Base::Exception("time input not inside [t0, T]");
+        throw Base::RuntimeError("time input not inside [t0, T]");
 
     return vel;
 }
@@ -242,7 +242,7 @@ double path_simulate::GetDistance(double t)
     }
     else
     {
-        throw Base::Exception("time input not inside [t0,T]");
+        throw Base::RuntimeError("time input not inside [t0,T]");
     }
 
     return d;
@@ -3060,7 +3060,7 @@ bool path_simulate::WriteOutputSingle(ofstream &anOutputFile, int &c, bool brob,
     n = Out_val.size();
 
     if (n != Out_time.size())
-        throw Base::Exception("Outputlängen passen nicht zusammen");
+        throw Base::RuntimeError("Outputlängen passen nicht zusammen");
 
     if (n>1)
     {
@@ -3161,7 +3161,7 @@ bool path_simulate::WriteOutputDouble(ofstream &anOutputFile, ofstream &anOutput
 	int pid2 = 3; // Slave
 	int pid3 = 4; // Platte
 
-    if (brob == false) // Simulations-Output (brob == true -> roboter-ouput)
+    if (brob == false) // Simulations-Output (brob == true -> roboter-output)
     {
 		TimeCorrection();
 

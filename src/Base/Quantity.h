@@ -36,7 +36,7 @@
 
 namespace Base {
 
-struct QuantityFormat {
+struct BaseExport QuantityFormat {
     enum NumberOption {
         None = 0x00,
         OmitGroupSeparator = 0x01,
@@ -51,7 +51,27 @@ struct QuantityFormat {
     NumberOption option;
     NumberFormat format;
     int precision;
+    int denominator;
 
+    // Default denominator of minimum fractional inch. Only used in certain 
+    // schemas.
+    static int defaultDenominator; // i.e 8 for 1/8"
+
+    static inline int getDefaultDenominator() {
+        return defaultDenominator;
+    }
+
+    static inline void setDefaultDenominator(int denom) {
+        defaultDenominator = denom;
+    }
+
+    inline int getDenominator() const {
+        return denominator;
+    }
+
+    inline void setDenominator(int denom) {
+        denominator = denom;
+    }
     QuantityFormat();
     inline char toFormat() const {
         switch (format) {
@@ -61,6 +81,22 @@ struct QuantityFormat {
             return 'e';
         default:
             return 'g';
+        }
+    }
+    static inline NumberFormat toFormat(char c, bool* ok = 0) {
+        if (ok)
+            *ok = true;
+        switch (c) {
+        case 'f':
+            return Fixed;
+        case 'e':
+            return Scientific;
+        case 'g':
+            return Default;
+        default:
+            if (ok)
+                *ok = false;
+            return Default;
         }
     }
 };
@@ -206,6 +242,8 @@ public:
 
     static Quantity Watt;
     static Quantity VoltAmpere;
+
+    static Quantity Volt;
 
     static Quantity Joule;
     static Quantity NewtonMeter;

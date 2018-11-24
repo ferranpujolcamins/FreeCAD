@@ -80,12 +80,20 @@ void DlgSettings3DViewImp::saveSettings()
     index = this->comboAliasing->currentIndex();
     hGrp->SetInt("AntiAliasing", index);
 
+    index = this->naviCubeCorner->currentIndex();
+    hGrp->SetInt("CornerNaviCube", index);
+
+    QVariant const &vBoxMarkerSize = this->boxMarkerSize->itemData(this->boxMarkerSize->currentIndex());
+    hGrp->SetInt("MarkerSize", vBoxMarkerSize.toInt());
+
     checkBoxZoomAtCursor->onSave();
     checkBoxInvertZoom->onSave();
     spinBoxZoomStep->onSave();
+    checkBoxDragAtCursor->onSave();
     CheckBox_CornerCoordSystem->onSave();
     CheckBox_ShowFPS->onSave();
     CheckBox_useVBO->onSave();
+    CheckBox_NaviCube->onSave();
     CheckBox_UseAutoRotation->onSave();
     FloatSpinBox_EyeDistance->onSave();
     checkBoxBacklight->onSave();
@@ -100,9 +108,11 @@ void DlgSettings3DViewImp::loadSettings()
     checkBoxZoomAtCursor->onRestore();
     checkBoxInvertZoom->onRestore();
     spinBoxZoomStep->onRestore();
+    checkBoxDragAtCursor->onRestore();
     CheckBox_CornerCoordSystem->onRestore();
     CheckBox_ShowFPS->onRestore();
     CheckBox_useVBO->onRestore();
+    CheckBox_NaviCube->onRestore();
     CheckBox_UseAutoRotation->onRestore();
     FloatSpinBox_EyeDistance->onRestore();
     checkBoxBacklight->onRestore();
@@ -127,6 +137,20 @@ void DlgSettings3DViewImp::loadSettings()
     // connect after setting current item of the combo box
     connect(comboAliasing, SIGNAL(currentIndexChanged(int)),
             this, SLOT(onAliasingChanged(int)));
+
+    index = hGrp->GetInt("CornerNaviCube", 1);
+    naviCubeCorner->setCurrentIndex(index);
+
+    int const current = hGrp->GetInt("MarkerSize", 9L);
+    this->boxMarkerSize->addItem(tr("5px"), QVariant(5));
+    this->boxMarkerSize->addItem(tr("7px"), QVariant(7));
+    this->boxMarkerSize->addItem(tr("9px"), QVariant(9));
+    this->boxMarkerSize->addItem(tr("11px"), QVariant(11));
+    this->boxMarkerSize->addItem(tr("13px"), QVariant(13));
+    this->boxMarkerSize->addItem(tr("15px"), QVariant(15));
+    index = this->boxMarkerSize->findData(QVariant(current));
+    if (index < 0) index = 2;
+    this->boxMarkerSize->setCurrentIndex(index);
 }
 
 void DlgSettings3DViewImp::on_mouseButton_clicked()
@@ -165,12 +189,14 @@ void DlgSettings3DViewImp::changeEvent(QEvent *e)
         int navigation = comboNavigationStyle->currentIndex();
         int orbit = comboOrbitStyle->currentIndex();
         int aliasing = comboAliasing->currentIndex();
+        int corner = naviCubeCorner->currentIndex();
         retranslateUi(this);
         retranslate();
         comboNavigationStyle->setCurrentIndex(navigation);
         comboOrbitStyle->setCurrentIndex(orbit);
         comboAliasing->setCurrentIndex(aliasing);
         comboAliasing->blockSignals(false);
+        naviCubeCorner->setCurrentIndex(corner);
     }
     else {
         QWidget::changeEvent(e);

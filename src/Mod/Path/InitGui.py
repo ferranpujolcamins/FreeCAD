@@ -21,6 +21,28 @@
 # *                                                                         *
 # ***************************************************************************/
 
+class PathCommandGroup:
+    def __init__(self, cmdlist, menu, tooltip = None):
+        self.cmdlist = cmdlist
+        self.menu = menu
+        if tooltip is None:
+            self.tooltip = menu
+        else:
+            self.tooltip = tooltip
+
+    def GetCommands(self):
+        return tuple(self.cmdlist)
+
+    def GetResources(self):
+        return { 'MenuText': self.menu, 'ToolTip': self.tooltip }
+
+    def IsActive(self):
+        if FreeCAD.ActiveDocument is not None:
+            for o in FreeCAD.ActiveDocument.Objects:
+                if o.Name[:3] == "Job":
+                    return True
+        return False
+
 class PathWorkbench (Workbench):
     "Path workbench"
 
@@ -30,98 +52,78 @@ class PathWorkbench (Workbench):
         self.__class__.ToolTip = "Path workbench"
 
     def Initialize(self):
+        global PathCommandGroup
+
         # Add preferences pages - before loading PathGui to properly order pages of Path group
         from PathScripts import PathPreferencesPathJob, PathPreferencesPathDressup
         FreeCADGui.addPreferencePage(PathPreferencesPathJob.JobPreferencesPage, "Path")
         FreeCADGui.addPreferencePage(PathPreferencesPathDressup.DressupPreferencesPage, "Path")
 
+        # Check enablement of experimental features
+        from PathScripts import PathPreferences
+
         # load the builtin modules
         import Path
+        import PathScripts
         import PathGui
-        from PySide import QtGui
+        from PySide import QtCore, QtGui
         FreeCADGui.addLanguagePath(":/translations")
         FreeCADGui.addIconPath(":/icons")
-        # load python modules
-        from PathScripts import PathArray
-        from PathScripts import PathComment
-        from PathScripts import PathCompoundExtended
-        from PathScripts import PathContour
-        from PathScripts import PathCopy
-        from PathScripts import PathCustom
-        from PathScripts import PathDressup
-        from PathScripts import PathDressupDogbone
-        from PathScripts import PathDressupDragknife
-        from PathScripts import PathDressupHoldingTags
-        from PathScripts import PathDressupRampEntry
-        from PathScripts import PathDrilling
-        from PathScripts import PathEngrave
-        from PathScripts import PathFacePocket
-        from PathScripts import PathFaceProfile
-        from PathScripts import PathFixture
-        from PathScripts import PathFromShape
-        from PathScripts import PathHelix
-        from PathScripts import PathHop
-        from PathScripts import PathInspect
-        from PathScripts import PathJob
-        from PathScripts import PathMillFace
-        from PathScripts import PathPlane
-        from PathScripts import PathPocket
-        from PathScripts import PathPost
-        from PathScripts import PathProfile
-        from PathScripts import PathProfileEdges
-        from PathScripts import PathSanity
-        from PathScripts import PathSimpleCopy
-        from PathScripts import PathStock
-        from PathScripts import PathStop
-        from PathScripts import PathSurface
-        from PathScripts import PathToolController
-        from PathScripts import PathToolLenOffset
-        from PathScripts import PathToolLibraryManager
+        from PathScripts import PathGuiInit
+        from PathScripts import PathJobCmd
         import PathCommands
+        PathGuiInit.Startup()
 
         # build commands list
-        projcmdlist = ["Path_Job", "Path_Post", "Path_Inspect", "Path_Sanity"]
-        toolcmdlist = ["Path_ToolLibraryEdit"]
-        prepcmdlist = ["Path_Plane", "Path_Fixture", "Path_ToolLenOffset", "Path_Comment", "Path_Stop", "Path_FaceProfile", "Path_FacePocket", "Path_Custom", "Path_Shape"]
-        twodopcmdlist = ["Path_Contour", "Path_Profile", "Path_Profile_Edges", "Path_Pocket", "Path_Drilling", "Path_Engrave", "Path_MillFace", "Path_Helix"]
-        threedopcmdlist = ["Path_Surfacing"]
-        modcmdlist = ["Path_Copy", "Path_CompoundExtended", "Path_Array", "Path_SimpleCopy" ]
-        dressupcmdlist = ["PathDressup_Dogbone", "PathDressup_DragKnife", "PathDressup_HoldingTags", "PathDressup_RampEntry"]
-        extracmdlist = ["Path_SelectLoop", "Path_Shape", "Path_Area", "Path_Area_Workplane", "Path_Stock"]
+        projcmdlist = ["Path_Job", "Path_Post"]
+        toolcmdlist = ["Path_Inspect", "Path_Simulator", "Path_ToolLibraryEdit", "Path_SelectLoop"]
+        prepcmdlist = ["Path_Fixture", "Path_Comment", "Path_Stop", "Path_Custom"]
+        twodopcmdlist = ["Path_Contour", "Path_Profile_Faces", "Path_Profile_Edges", "Path_Pocket_Shape", "Path_Drilling", "Path_MillFace", "Path_Helix", "Path_Adaptive" ]
+        threedopcmdlist = ["Path_Pocket_3D"]
+        engravecmdlist = ["Path_Engrave", "Path_Deburr"]
+        modcmdlist = ["Path_OperationCopy", "Path_Array", "Path_SimpleCopy" ]
+        dressupcmdlist = ["Path_DressupAxisMap", "Path_DressupDogbone", "Path_DressupDragKnife", "Path_DressupLeadInOut", "Path_DressupRampEntry", "Path_DressupTag"]
+        extracmdlist = []
         #modcmdmore = ["Path_Hop",]
         #remotecmdlist = ["Path_Remote"]
 
-        # Add commands to menu and toolbar
-        def QT_TRANSLATE_NOOP(scope, text):
-            return text
+        engravecmdgroup = ['Path_EngraveTools']
+        FreeCADGui.addCommand('Path_EngraveTools', PathCommandGroup(engravecmdlist, QtCore.QT_TRANSLATE_NOOP("Path", 'Engraving Operations')))
 
-        def translate(context, text):
-            return QtGui.QApplication.translate(context, text, None, QtGui.QApplication.UnicodeUTF8).encode("utf8")
-        self.appendToolbar(QT_TRANSLATE_NOOP("Path", "Project Setup"), projcmdlist)
-        self.appendToolbar(QT_TRANSLATE_NOOP("Path", "Tool Commands"), toolcmdlist)
-        #self.appendToolbar(QT_TRANSLATE_NOOP("Path", "Partial Commands"), prepcmdlist)
-        self.appendToolbar(QT_TRANSLATE_NOOP("Path", "New Operations"), twodopcmdlist+threedopcmdlist)
-        self.appendToolbar(QT_TRANSLATE_NOOP("Path", "Path Modification"), modcmdlist)
-        self.appendToolbar(QT_TRANSLATE_NOOP("Path", "Helpful Tools"), extracmdlist)
+        if PathPreferences.experimentalFeaturesEnabled():
+            projcmdlist.append("Path_Sanity")
+            prepcmdlist.append("Path_Shape")
+            extracmdlist.extend(["Path_Area", "Path_Area_Workplane"])
 
-        self.appendMenu([QT_TRANSLATE_NOOP("Path", "&Path")], projcmdlist +["Separator"] + toolcmdlist +["Separator"] +twodopcmdlist +["Separator"] +threedopcmdlist +["Separator"])
-        #self.appendMenu([QT_TRANSLATE_NOOP("Path", "Path"), QT_TRANSLATE_NOOP(
-        #    "Path", "Tools")], toolcmdlist)
-        self.appendMenu([QT_TRANSLATE_NOOP("Path", "&Path"), QT_TRANSLATE_NOOP(
+            threedopcmdlist.append("Path_Surface")
+            threedcmdgroup = ['Path_3dTools']
+            FreeCADGui.addCommand('Path_3dTools', PathCommandGroup(threedopcmdlist, QtCore.QT_TRANSLATE_NOOP("Path",'3D Operations')))
+
+        else:
+            threedcmdgroup = threedopcmdlist
+
+        self.appendToolbar(QtCore.QT_TRANSLATE_NOOP("Path", "Project Setup"), projcmdlist)
+        self.appendToolbar(QtCore.QT_TRANSLATE_NOOP("Path", "Tool Commands"), toolcmdlist)
+        self.appendToolbar(QtCore.QT_TRANSLATE_NOOP("Path", "New Operations"), twodopcmdlist+engravecmdgroup+threedcmdgroup)
+        self.appendToolbar(QtCore.QT_TRANSLATE_NOOP("Path", "Path Modification"), modcmdlist)
+        if extracmdlist:
+            self.appendToolbar(QtCore.QT_TRANSLATE_NOOP("Path", "Helpful Tools"), extracmdlist)
+
+        self.appendMenu([QtCore.QT_TRANSLATE_NOOP("Path", "&Path")], projcmdlist +["Path_ExportTemplate", "Separator"] + toolcmdlist +["Separator"] + twodopcmdlist + engravecmdlist +["Separator"] +threedopcmdlist +["Separator"])
+        self.appendMenu([QtCore.QT_TRANSLATE_NOOP("Path", "&Path"), QtCore.QT_TRANSLATE_NOOP(
             "Path", "Path Dressup")], dressupcmdlist)
-        self.appendMenu([QT_TRANSLATE_NOOP("Path", "&Path"), QT_TRANSLATE_NOOP(
-            "Path", "Partial Commands")], prepcmdlist)
-        #self.appendMenu([QT_TRANSLATE_NOOP("Path", "Path"), QT_TRANSLATE_NOOP(
-        #    "Path", "New Operations")], opcmdlist)
-        self.appendMenu([QT_TRANSLATE_NOOP("Path", "&Path"), QT_TRANSLATE_NOOP(
+        self.appendMenu([QtCore.QT_TRANSLATE_NOOP("Path", "&Path"), QtCore.QT_TRANSLATE_NOOP(
+            "Path", "Supplemental Commands")], prepcmdlist)
+        self.appendMenu([QtCore.QT_TRANSLATE_NOOP("Path", "&Path"), QtCore.QT_TRANSLATE_NOOP(
             "Path", "Path Modification")], modcmdlist)
-        #self.appendMenu([QT_TRANSLATE_NOOP("Path", "Path"), QT_TRANSLATE_NOOP(
-        #    "Path", "Path Modification")], modcmdmore)
-        # self.appendMenu([QT_TRANSLATE_NOOP("Path", "Path"), QT_TRANSLATE_NOOP(
-        #     "Path", "Remote Operations")], remotecmdlist)
-        self.appendMenu([QT_TRANSLATE_NOOP("Path", "&Path")], extracmdlist)
+        if extracmdlist:
+            self.appendMenu([QtCore.QT_TRANSLATE_NOOP("Path", "&Path")], extracmdlist)
 
         self.dressupcmds = dressupcmdlist
+
+        curveAccuracy = PathPreferences.defaultLibAreaCurveAccuracy()
+        if curveAccuracy:
+            Path.Area.setDefaultParams(Accuracy = curveAccuracy)
 
         Log('Loading Path workbench... done\n')
 
@@ -137,20 +139,26 @@ class PathWorkbench (Workbench):
         Msg("Path workbench deactivated\n")
 
     def ContextMenu(self, recipient):
+        import PathScripts
         if len(FreeCADGui.Selection.getSelection()) == 1:
-            if FreeCADGui.Selection.getSelection()[0].isDerivedFrom("Path::Feature"):
+            obj = FreeCADGui.Selection.getSelection()[0]
+            if obj.isDerivedFrom("Path::Feature"):
+                self.appendContextMenu("", "Separator")
                 self.appendContextMenu("", ["Path_Inspect"])
-                selectedName = FreeCADGui.Selection.getSelection()[0].Name
+                selectedName = obj.Name
+                if "Remote" in selectedName:
+                    self.appendContextMenu("", ["Refresh_Path"])
                 if "Job" in selectedName:
                     self.appendContextMenu("", ["Path_ExportTemplate"])
-                if "Profile" in selectedName or "Contour" in selectedName:
-                    #self.appendContextMenu("", ["Add_Tag"])
+            if isinstance (obj.Proxy, PathScripts.PathOp.ObjectOp):
+                self.appendContextMenu("", ["Path_OperationCopy"])
+            if obj.isDerivedFrom("Path::Feature"):
+                if "Profile" in selectedName or "Contour" in selectedName or "Dressup" in selectedName:
+                    self.appendContextMenu("", "Separator")
                     #self.appendContextMenu("", ["Set_StartPoint"])
                     #self.appendContextMenu("", ["Set_EndPoint"])
                     for cmd in self.dressupcmds:
                         self.appendContextMenu("", [cmd])
-                if "Remote" in selectedName:
-                    self.appendContextMenu("", ["Refresh_Path"])
 
 Gui.addWorkbench(PathWorkbench())
 
@@ -158,3 +166,4 @@ FreeCAD.addImportType(
     "GCode (*.nc *.gc *.ncc *.ngc *.cnc *.tap *.gcode)", "PathGui")
 FreeCAD.addExportType(
     "GCode (*.nc *.gc *.ncc *.ngc *.cnc *.tap *.gcode)", "PathGui")
+

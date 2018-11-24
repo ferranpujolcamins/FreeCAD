@@ -41,9 +41,6 @@ except AttributeError:
         "convenience function for Qt translator"
         return QtGui.QApplication.translate(context, text, None)
 
-def utf8(unio):
-    return unicode(unio).encode('UTF8')
-
 class ExplodeGroup:
     "Ungroup Objects"
     def IsActive(self):
@@ -95,8 +92,8 @@ class ExplodeGroup:
                                 else:
                                     oo.ViewObject.DiffuseColor=color
                 else:
-                    FreeCAD.Console.PrintError(unicode(translate('OpenSCAD',\
-                    'Unable to explode %s')) % obj.Name +u'\n')
+                    FreeCAD.Console.PrintError(translate('OpenSCAD',\
+                    'Unable to explode %s') % obj.Name +u'\n')
 
         for obj in FreeCADGui.Selection.getSelection():
             if len(obj.InList) == 0: # allowed only for for top level objects
@@ -107,7 +104,7 @@ class ExplodeGroup:
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_ExplodeGroup',\
                 'Explode Group'), 'ToolTip': \
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_ExplodeGroup',\
-                'remove fusion, apply placement to children and color randomly')}
+                'Remove fusion, apply placement to children, and color randomly')}
 
 class ColorCodeShape:
     "Change the Color of selected or all Shapes based on their validity"
@@ -224,14 +221,14 @@ class ReplaceObject:
                 tuple((len(obj.InList)) for obj in objs) in ((0,1),(1,0)):
             replaceobj.replaceobjfromselection(objs)
         else:
-            FreeCAD.Console.PrintError(unicode(translate('OpenSCAD',\
-                    'Please select 3 objects first'))+u'\n')
+            FreeCAD.Console.PrintError(translate('OpenSCAD',\
+                    'Please select 3 objects first')+u'\n')
     def GetResources(self):
         return {'Pixmap'  : 'OpenSCAD_ReplaceObject', 'MenuText': \
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_ReplaceObject',\
                 'Replace Object'), 'ToolTip': \
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_ReplaceObject',\
-                'Replace an object in the Feature Tree. Please select old, new and parent object')}
+                'Replace an object in the Feature Tree. Please select old, new, and parent object')}
 
 
 class RemoveSubtree:
@@ -290,7 +287,7 @@ class AddSCADTask:
         return True
 
     def addelement(self):
-        scadstr=unicode(self.form.textEdit.toPlainText()).encode('utf8')
+        scadstr=self.form.textEdit.toPlainText()
         asmesh=self.form.checkboxmesh.checkState()
         import OpenSCADUtils, os
         extension= 'stl' if asmesh else 'csg'
@@ -403,7 +400,7 @@ class OpenSCADMeshBoolean:
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_MeshBoolean',\
                 'Mesh Boolean...'), 'ToolTip': \
                 QtCore.QT_TRANSLATE_NOOP('OpenSCAD_MeshBoolean',\
-                'Export objects as meshes and use OpenSCAD to perform a boolean operation.')}
+                'Export objects as meshes and use OpenSCAD to perform a boolean operation')}
 
 class Hull:
     def IsActive(self):

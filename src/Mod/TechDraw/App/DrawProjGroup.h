@@ -32,14 +32,12 @@
 #include <Base/Matrix.h>
 #include <Base/Vector3D.h>
 
-//#include "Cube.h"
 #include "DrawViewCollection.h"
 
 namespace TechDraw
 {
 
 class DrawProjGroupItem;
-class Cube;
 
 /**
  * Class super-container for managing a collection of DrawProjGroupItem
@@ -54,6 +52,7 @@ public:
     DrawProjGroup();
     ~DrawProjGroup();
 
+    App::PropertyLinkList  Source;
     App::PropertyEnumeration ProjectionType;
 
     App::PropertyBool AutoDistribute;
@@ -63,8 +62,6 @@ public:
     App::PropertyFloat spacingY;
 
     App::PropertyLink Anchor; /// Anchor Element to align views to
-    App::PropertyVectorList  CubeDirs;
-    App::PropertyVectorList  CubeRotations;
 
     Base::BoundBox3d getBoundingBox() const;
     double calculateAutomaticScale() const;
@@ -89,12 +86,10 @@ public:
     int removeProjection(const char *viewProjType);
 
     int purgeProjections();
-    /// Automatically position child views
-    bool distributeProjections(void);
-    void resetPositions(void);
+    Base::Vector3d getXYPosition(const char *viewTypeCStr);
 
     short mustExecute() const override;
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature
     virtual App::DocumentObjectExecReturn *execute(void) override;
@@ -117,9 +112,10 @@ public:
     void setAnchorDirection(Base::Vector3d dir);
     Base::Vector3d getAnchorDirection(void);
     TechDraw::DrawProjGroupItem* getAnchor(void);
+    std::pair<Base::Vector3d,Base::Vector3d> getDirsFromFront(DrawProjGroupItem* view);
+    std::pair<Base::Vector3d,Base::Vector3d> getDirsFromFront(std::string viewType);
 
     void updateSecondaryDirs();
-    void resetCube(void);
 
     void rotateRight(void);
     void rotateLeft(void);
@@ -129,6 +125,7 @@ public:
     void spinCCW(void);
     
     void dumpISO(char * title);
+    std::vector<DrawProjGroupItem*> getViewsAsDPGI();
 
 protected:
     void onChanged(const App::Property* prop) override;
@@ -164,11 +161,10 @@ protected:
 
     /// Returns pointer to our page, or NULL if it couldn't be located
     TechDraw::DrawPage * getPage(void) const;
-    void updateChildren(double scale);
-    void setPropsFromCube(void);
-    void setCubeFromProps(void);
-    
-    TechDraw::Cube* m_cube;
+    void updateChildren(void);
+    void updateChildrenSource(void);
+    int getViewIndex(const char *viewTypeCStr) const;
+
 };
 
 } //namespace TechDraw

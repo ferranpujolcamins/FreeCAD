@@ -66,6 +66,13 @@ MultiCommon::MultiCommon(void)
     ADD_PROPERTY_TYPE(History,(ShapeHistory()), "Boolean", (App::PropertyType)
         (App::Prop_Output|App::Prop_Transient|App::Prop_Hidden), "Shape history");
     History.setSize(0);
+
+    ADD_PROPERTY_TYPE(Refine,(0),"Boolean",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after this boolean operation");
+
+    //init Refine property
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
+    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
 }
 
 short MultiCommon::mustExecute() const
@@ -108,12 +115,18 @@ App::DocumentObjectExecReturn *MultiCommon::execute(void)
         try {
             std::vector<ShapeHistory> history;
             TopoDS_Shape resShape = s.front();
+            if (resShape.IsNull())
+                throw NullShapeException("Input shape is null");
+
             for (std::vector<TopoDS_Shape>::iterator it = s.begin()+1; it != s.end(); ++it) {
+                if (it->IsNull())
+                    throw Base::RuntimeError("Input shape is null");
+
                 // Let's call algorithm computing a fuse operation:
                 BRepAlgoAPI_Common mkCommon(resShape, *it);
                 // Let's check if the fusion has been successful
                 if (!mkCommon.IsDone()) 
-                    throw Base::Exception("Intersection failed");
+                    throw BooleanException("Intersection failed");
                 resShape = mkCommon.Shape();
 
                 ShapeHistory hist1 = buildHistory(mkCommon, TopAbs_FACE, resShape, mkCommon.Shape1());
@@ -129,7 +142,7 @@ App::DocumentObjectExecReturn *MultiCommon::execute(void)
                 }
             }
             if (resShape.IsNull())
-                throw Base::Exception("Resulting shape is invalid");
+                throw NullShapeException("Resulting shape is invalid");
 
             Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
                 .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
@@ -139,13 +152,18 @@ App::DocumentObjectExecReturn *MultiCommon::execute(void)
                      return new App::DocumentObjectExecReturn("Resulting shape is invalid");
                  }
             }
-            if (hGrp->GetBool("RefineModel", false)) {
-                TopoDS_Shape oldShape = resShape;
-                BRepBuilderAPI_RefineModel mkRefine(oldShape);
-                resShape = mkRefine.Shape();
-                ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
-                for (std::vector<ShapeHistory>::iterator jt = history.begin(); jt != history.end(); ++jt)
-                    *jt = joinHistory(*jt, hist);
+            if (this->Refine.getValue()) {
+                try {
+                    TopoDS_Shape oldShape = resShape;
+                    BRepBuilderAPI_RefineModel mkRefine(oldShape);
+                    resShape = mkRefine.Shape();
+                    ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
+                    for (std::vector<ShapeHistory>::iterator jt = history.begin(); jt != history.end(); ++jt)
+                        *jt = joinHistory(*jt, hist);
+                }
+                catch (Standard_Failure&) {
+                    // do nothing
+                }
             }
 
             this->Shape.setValue(resShape);
@@ -173,13 +191,12 @@ App::DocumentObjectExecReturn *MultiCommon::execute(void)
             }
             this->History.setValues(history);
         }
-        catch (Standard_Failure) {
-            Handle(Standard_Failure) e = Standard_Failure::Caught();
-            return new App::DocumentObjectExecReturn(e->GetMessageString());
+        catch (Standard_Failure& e) {
+            return new App::DocumentObjectExecReturn(e.GetMessageString());
         }
     }
     else {
-        throw Base::Exception("Not enough shape objects linked");
+        throw Base::CADKernelError("Not enough shape objects linked");
     }
 
     return App::DocumentObject::StdReturn;

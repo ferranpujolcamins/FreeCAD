@@ -33,6 +33,12 @@ bool checkBothExternal(int GeoId1, int GeoId2);
 
 bool checkBothExternalOrConstructionPoints(const Sketcher::SketchObject* Obj,int GeoId1, int GeoId2);
 
+bool isPointOrSegmentFixed(const Sketcher::SketchObject* Obj, int GeoId);
+
+bool areBothPointsOrSegmentsFixed(const Sketcher::SketchObject* Obj, int GeoId1, int GeoId2);
+
+bool areAllPointsOrSegmentsFixed(const Sketcher::SketchObject* Obj, int GeoId1, int GeoId2, int GeoId3);
+
 void getIdsFromName(const std::string &name, const Sketcher::SketchObject* Obj, int &GeoId, Sketcher::PointPos &PosId);
 
 bool inline isVertex(int GeoId, Sketcher::PointPos PosId);
@@ -54,7 +60,7 @@ bool IsPointAlreadyOnCurve(int GeoIdCurve, int GeoIdPoint, Sketcher::PointPos Po
 /// NOTE: A command must be opened before calling this function, which this function
 /// commits or aborts as appropriate. The reason is for compatibility reasons with
 /// other code e.g. "Autoconstraints" in DrawSketchHandler.cpp    
-void makeTangentToEllipseviaNewPoint(const Sketcher::SketchObject* Obj,
+void makeTangentToEllipseviaNewPoint(Sketcher::SketchObject* Obj,
                                              const Part::Geometry *geom1, 
                                              const Part::Geometry *geom2,
                                              int geoId1,
@@ -66,7 +72,7 @@ void makeTangentToEllipseviaNewPoint(const Sketcher::SketchObject* Obj,
 /// NOTE: A command must be opened before calling this function, which this function
 /// commits or aborts as appropriate. The reason is for compatibility reasons with
 /// other code e.g. "Autoconstraints" in DrawSketchHandler.cpp 
-void makeTangentToArcOfEllipseviaNewPoint(const Sketcher::SketchObject* Obj,
+void makeTangentToArcOfEllipseviaNewPoint(Sketcher::SketchObject* Obj,
                                              const Part::Geometry *geom1, 
                                              const Part::Geometry *geom2,
                                              int geoId1,
@@ -79,7 +85,7 @@ void makeTangentToArcOfEllipseviaNewPoint(const Sketcher::SketchObject* Obj,
 /// NOTE: A command must be opened before calling this function, which this function
 /// commits or aborts as appropriate. The reason is for compatibility reasons with
 /// other code e.g. "Autoconstraints" in DrawSketchHandler.cpp 
-void makeTangentToArcOfHyperbolaviaNewPoint(const Sketcher::SketchObject* Obj,
+void makeTangentToArcOfHyperbolaviaNewPoint(Sketcher::SketchObject* Obj,
                                           const Part::Geometry *geom1, 
                                           const Part::Geometry *geom2,
                                           int geoId1,
@@ -92,15 +98,31 @@ void makeTangentToArcOfHyperbolaviaNewPoint(const Sketcher::SketchObject* Obj,
 /// NOTE: A command must be opened before calling this function, which this function
 /// commits or aborts as appropriate. The reason is for compatibility reasons with
 /// other code e.g. "Autoconstraints" in DrawSketchHandler.cpp
-void makeTangentToArcOfParabolaviaNewPoint(const Sketcher::SketchObject* Obj,
+void makeTangentToArcOfParabolaviaNewPoint(Sketcher::SketchObject* Obj,
                                                        const Part::Geometry *geom1, 
                                                        const Part::Geometry *geom2,
                                                        int geoId1,
                                                        int geoId2
 );
 
-std::string getStrippedPythonExceptionString(const Base::Exception);
+std::string getStrippedPythonExceptionString(const Base::Exception&);
 
+/// This function tries to auto-recompute the active document if the option
+/// is set in the user parameter. If the option is not set nothing will be done
+/// @return true if a recompute was undertaken, false if not.
+bool tryAutoRecompute(Sketcher::SketchObject* obj);
+/// Same as the other overload, but also returns whether redundants shall be removed or not
+bool tryAutoRecompute(Sketcher::SketchObject* obj, bool &autoremoveredundants);
+
+/// This function tries to auto-recompute as tryAutoRecompute. If tryAutoRecompute
+/// is not enabled, then it solves the SketchObject.
+void tryAutoRecomputeIfNotSolve(Sketcher::SketchObject* obj);
+
+/// Checks whether there is a constraint of the given type with a First element geoid and a FirstPos PosId
+bool checkConstraint(const std::vector< Sketcher::Constraint * > &vals, Sketcher::ConstraintType type, int geoid, Sketcher::PointPos pos);
+
+/// Does an endpoint-to-endpoint tangency
+void doEndpointTangency(Sketcher::SketchObject* Obj, Gui::SelectionObject &selection, int GeoId1, int GeoId2, Sketcher::PointPos PosId1, Sketcher::PointPos PosId2);
 }
 #endif // SKETCHERGUI_DrawSketchHandler_H
 

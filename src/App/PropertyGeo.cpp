@@ -191,6 +191,15 @@ void PropertyVector::Paste(const Property &from)
     hasSetValue();
 }
 
+void PropertyVector::getPaths(std::vector<ObjectIdentifier> &paths) const
+{
+    paths.push_back(ObjectIdentifier(getContainer()) << ObjectIdentifier::Component::SimpleComponent(getName())
+                    << ObjectIdentifier::Component::SimpleComponent(ObjectIdentifier::String("x")));
+    paths.push_back(ObjectIdentifier(getContainer()) << ObjectIdentifier::Component::SimpleComponent(getName())
+                    << ObjectIdentifier::Component::SimpleComponent(ObjectIdentifier::String("y")));
+    paths.push_back(ObjectIdentifier(getContainer()) << ObjectIdentifier::Component::SimpleComponent(getName())
+                    << ObjectIdentifier::Component::SimpleComponent(ObjectIdentifier::String("z")));
+}
 
 //**************************************************************************
 // PropertyVectorDistance
@@ -207,11 +216,86 @@ PropertyVectorDistance::PropertyVectorDistance()
 
 }
 
+const boost::any PropertyVectorDistance::getPathValue(const ObjectIdentifier &path) const
+{
+    std::string p = path.getSubPathStr();
+
+    if (p == ".x" || p == ".y" || p == ".z") {
+        // Convert double to quantity
+        return Base::Quantity(boost::any_cast<double>(Property::getPathValue(path)), Unit::Length);
+    }
+    else
+        return Property::getPathValue(path);
+}
+
 PropertyVectorDistance::~PropertyVectorDistance()
 {
 
 }
 
+//**************************************************************************
+// PropertyPosition
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+TYPESYSTEM_SOURCE(App::PropertyPosition , App::PropertyVector);
+
+//**************************************************************************
+// Construction/Destruction
+
+
+PropertyPosition::PropertyPosition()
+{
+
+}
+
+PropertyPosition::~PropertyPosition()
+{
+
+}
+
+const boost::any PropertyPosition::getPathValue(const ObjectIdentifier &path) const
+{
+    std::string p = path.getSubPathStr();
+
+    if (p == ".x" || p == ".y" || p == ".z") {
+        // Convert double to quantity
+        return Base::Quantity(boost::any_cast<double>(Property::getPathValue(path)), Unit::Length);
+    }
+    else
+        return Property::getPathValue(path);
+}
+
+//**************************************************************************
+// PropertyPosition
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+TYPESYSTEM_SOURCE(App::PropertyDirection , App::PropertyVector);
+
+//**************************************************************************
+// Construction/Destruction
+
+
+PropertyDirection::PropertyDirection()
+{
+
+}
+
+PropertyDirection::~PropertyDirection()
+{
+
+}
+
+const boost::any PropertyDirection::getPathValue(const ObjectIdentifier &path) const
+{
+    std::string p = path.getSubPathStr();
+
+    if (p == ".x" || p == ".y" || p == ".z") {
+        // Convert double to quantity
+        return Base::Quantity(boost::any_cast<double>(Property::getPathValue(path)), Unit::Length);
+    }
+    else
+        return Property::getPathValue(path);
+}
 
 //**************************************************************************
 // PropertyVectorList
@@ -324,7 +408,7 @@ void PropertyVectorList::Restore(Base::XMLReader &reader)
     std::string file (reader.getAttribute("file") );
 
     if (!file.empty()) {
-        // initate a file read
+        // initiate a file read
         reader.addFile(file.c_str(),this);
     }
 }
@@ -334,7 +418,7 @@ void PropertyVectorList::SaveDocFile (Base::Writer &writer) const
     Base::OutputStream str(writer.Stream());
     uint32_t uCt = (uint32_t)getSize();
     str << uCt;
-    if (writer.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<Base::Vector3d>::const_iterator it = _lValueList.begin(); it != _lValueList.end(); ++it) {
             str << it->x << it->y << it->z;
         }
@@ -355,7 +439,7 @@ void PropertyVectorList::RestoreDocFile(Base::Reader &reader)
     uint32_t uCt=0;
     str >> uCt;
     std::vector<Base::Vector3d> values(uCt);
-    if (reader.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<Base::Vector3d>::iterator it = values.begin(); it != values.end(); ++it) {
             str >> it->x >> it->y >> it->z;
         }
@@ -618,7 +702,11 @@ const boost::any PropertyPlacement::getPathValue(const ObjectIdentifier &path) c
 {
     std::string p = path.getSubPathStr();
 
-    if (p == ".Base.x" || p == ".Base.y" || p == ".Base.z") {
+    if (p == ".Rotation.Angle") {
+        // Convert angle to degrees
+        return Base::Quantity(Base::toDegrees(boost::any_cast<double>(Property::getPathValue(path))), Unit::Angle);
+    }
+    else if (p == ".Base.x" || p == ".Base.y" || p == ".Base.z") {
         // Convert double to quantity
         return Base::Quantity(boost::any_cast<double>(Property::getPathValue(path)), Unit::Length);
     }
@@ -656,10 +744,18 @@ void PropertyPlacement::Save (Base::Writer &writer) const
     writer.Stream() << " Px=\"" <<  _cPos.getPosition().x 
                     << "\" Py=\"" <<  _cPos.getPosition().y
                     << "\" Pz=\"" <<  _cPos.getPosition().z << "\"";
+
     writer.Stream() << " Q0=\"" <<  _cPos.getRotation()[0]
                     << "\" Q1=\"" <<  _cPos.getRotation()[1]
                     << "\" Q2=\"" <<  _cPos.getRotation()[2]
                     << "\" Q3=\"" <<  _cPos.getRotation()[3] << "\"";
+    Vector3d axis;
+    double rfAngle;
+    _cPos.getRotation().getValue(axis, rfAngle);
+    writer.Stream() << " A=\"" <<  rfAngle
+                    << "\" Ox=\"" <<  axis.x
+                    << "\" Oy=\"" <<  axis.y
+                    << "\" Oz=\"" <<  axis.z << "\"";
     writer.Stream() <<"/>" << endl;
 }
 
@@ -669,13 +765,26 @@ void PropertyPlacement::Restore(Base::XMLReader &reader)
     reader.readElement("PropertyPlacement");
     // get the value of my Attribute
     aboutToSetValue();
-    _cPos = Base::Placement(Vector3d(reader.getAttributeAsFloat("Px"),
-                                     reader.getAttributeAsFloat("Py"),
-                                     reader.getAttributeAsFloat("Pz")),
-                            Rotation(reader.getAttributeAsFloat("Q0"),
-                                     reader.getAttributeAsFloat("Q1"),
-                                     reader.getAttributeAsFloat("Q2"),
-                                     reader.getAttributeAsFloat("Q3")));
+
+    if (reader.hasAttribute("A")) {
+        _cPos = Base::Placement(Vector3d(reader.getAttributeAsFloat("Px"),
+                                         reader.getAttributeAsFloat("Py"),
+                                         reader.getAttributeAsFloat("Pz")),
+                       Rotation(Vector3d(reader.getAttributeAsFloat("Ox"),
+                                         reader.getAttributeAsFloat("Oy"),
+                                         reader.getAttributeAsFloat("Oz")),
+                                reader.getAttributeAsFloat("A")));
+    }
+    else {
+        _cPos = Base::Placement(Vector3d(reader.getAttributeAsFloat("Px"),
+                                         reader.getAttributeAsFloat("Py"),
+                                         reader.getAttributeAsFloat("Pz")),
+                                Rotation(reader.getAttributeAsFloat("Q0"),
+                                         reader.getAttributeAsFloat("Q1"),
+                                         reader.getAttributeAsFloat("Q2"),
+                                         reader.getAttributeAsFloat("Q3")));
+    }
+
     hasSetValue();
 }
 
@@ -798,7 +907,7 @@ void PropertyPlacementList::Restore(Base::XMLReader &reader)
     std::string file (reader.getAttribute("file") );
 
     if (!file.empty()) {
-        // initate a file read
+        // initiate a file read
         reader.addFile(file.c_str(),this);
     }
 }
@@ -808,7 +917,7 @@ void PropertyPlacementList::SaveDocFile (Base::Writer &writer) const
     Base::OutputStream str(writer.Stream());
     uint32_t uCt = (uint32_t)getSize();
     str << uCt;
-    if (writer.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<Base::Placement>::const_iterator it = _lValueList.begin(); it != _lValueList.end(); ++it) {
             str << it->getPosition().x << it->getPosition().y << it->getPosition().z
                 << it->getRotation()[0] << it->getRotation()[1] << it->getRotation()[2] << it->getRotation()[3] ;
@@ -834,10 +943,10 @@ void PropertyPlacementList::RestoreDocFile(Base::Reader &reader)
     uint32_t uCt=0;
     str >> uCt;
     std::vector<Base::Placement> values(uCt);
-    if (reader.getFileVersion() > 0) {
+    if (!isSinglePrecision()) {
         for (std::vector<Base::Placement>::iterator it = values.begin(); it != values.end(); ++it) {
             Base::Vector3d pos;
-            float q0, q1, q2, q3;
+            double q0, q1, q2, q3;
             str >> pos.x >> pos.y >> pos.z >> q0 >> q1 >> q2 >> q3;
             Base::Rotation rot(q0,q1,q2,q3);
             it->setPosition(pos);

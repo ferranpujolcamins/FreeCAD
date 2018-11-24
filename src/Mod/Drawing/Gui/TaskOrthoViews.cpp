@@ -107,7 +107,7 @@ void pagesize(string & page_template, int dims[4], int block[4])
                 break;
         }
     }
-    catch (Standard_Failure)
+    catch (Standard_Failure&)
     { }
 
 
@@ -184,7 +184,7 @@ void orthoview::set_data(int r_x, int r_y)
 
 void orthoview::deleteme()
 {
-    parent_doc->remObject(myname.c_str());
+    parent_doc->removeObject(myname.c_str());
 }
 
 void orthoview::setPos(float px, float py)
@@ -314,7 +314,11 @@ OrthoViews::~OrthoViews()
     for (int i = views.size() - 1; i >= 0; i--)
         delete views[i];
 
-    page->recomputeFeature();
+    try {
+        page->recomputeFeature();
+    }
+    catch (...) {
+    }
 }
 
 void OrthoViews::slotDeletedDocument(const App::Document& Obj)
@@ -463,7 +467,7 @@ void OrthoViews::calc_scale()                               // compute scale req
 
 void OrthoViews::calc_offsets()                             // calcs SVG coords for centre of upper left view
 {
-    // space_x is the emptry clear white space between views
+    // space_x is the empty clear white space between views
     // gap_x is the centre - centre distance between views
 
     float space_x = (page_dims[2] - scale * layout_width) / num_gaps_x;
@@ -641,11 +645,12 @@ void OrthoViews::del_view(int rel_x, int rel_y)             // remove a view fro
 
     if (num > 0)
     {
-        connectDocumentDeletedObject.block();
-        views[num]->deleteme();
-        delete views[num];
-        views.erase(views.begin() + num);
-        connectDocumentDeletedObject.unblock();
+        {
+            boost::signals2::shared_connection_block blocker(connectDocumentDeletedObject);
+            views[num]->deleteme();
+            delete views[num];
+            views.erase(views.begin() + num);
+        }
 
         min_r_x = max_r_x = 0;
         min_r_y = max_r_y = 0;
@@ -667,14 +672,13 @@ void OrthoViews::del_view(int rel_x, int rel_y)             // remove a view fro
 
 void OrthoViews::del_all()
 {
-    connectDocumentDeletedObject.block();
+    boost::signals2::shared_connection_block blocker(connectDocumentDeletedObject);
     for (int i = views.size() - 1; i >= 0; i--)          // count downwards to delete from back
     {
         views[i]->deleteme();
         delete views[i];
         views.pop_back();
     }
-    connectDocumentDeletedObject.unblock();
 }
 
 int OrthoViews::is_Ortho(int rel_x, int rel_y)              // is the view at r_x, r_y an ortho or axo one?

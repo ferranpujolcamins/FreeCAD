@@ -43,7 +43,10 @@ class GuiExport QuantitySpinBox : public QAbstractSpinBox, public ExpressionBind
     Q_PROPERTY(double minimum READ minimum WRITE setMinimum)
     Q_PROPERTY(double maximum READ maximum WRITE setMaximum)
     Q_PROPERTY(double singleStep READ singleStep WRITE setSingleStep)
+    Q_PROPERTY(double rawValue READ rawValue WRITE setValue NOTIFY valueChanged)
     Q_PROPERTY(Base::Quantity value READ value WRITE setValue NOTIFY valueChanged USER true)
+    Q_PROPERTY(QString binding READ boundToName WRITE setBoundToByName)
+    Q_PROPERTY(QString expression READ expressionText)
 
 public:
     using ExpressionBinding::apply;
@@ -53,6 +56,8 @@ public:
 
     /// Get the current quantity
     Base::Quantity value() const;
+    /// Get the current quantity without unit
+    double rawValue() const;
 
     /// Gives the current state of the user input, gives true if it is a valid input with correct quantity
     /// or returns false if the input is a unparsable string or has a wrong unit.
@@ -85,6 +90,14 @@ public:
     double maximum() const;
     /// Sets the value of the maximum property 
     void setMaximum(double max);
+
+    /// Gets the path of the bound property
+    QString boundToName() const;
+    /// Sets the path of the bound property
+    void setBoundToByName(const QString &path);
+
+    /// Gets the expression as a string
+    QString expressionText() const;
 
     /// Set the number portion selected
     void selectNumber();
@@ -123,11 +136,10 @@ protected:
     virtual void showEvent(QShowEvent * event);
     virtual void focusInEvent(QFocusEvent * event);
     virtual void focusOutEvent(QFocusEvent * event);
-    virtual void  keyPressEvent(QKeyEvent *event);
+    virtual void keyPressEvent(QKeyEvent *event);
     virtual void resizeEvent(QResizeEvent *event);
 
 private:
-
     void updateText(const Base::Quantity&);
 
 Q_SIGNALS:
@@ -141,6 +153,10 @@ Q_SIGNALS:
      *  like: minimum, maximum and/or the right Unit (if specified).
      */
     void valueChanged(double);
+    /** Gets emitted if formula dialog is about to be opened (true)
+     *  or finished (false).
+     */
+    void showFormulaDialog(bool);
 
 private:
     QScopedPointer<QuantitySpinBoxPrivate> d_ptr;

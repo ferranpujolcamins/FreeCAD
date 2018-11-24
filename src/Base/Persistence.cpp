@@ -22,6 +22,9 @@
 
 
 #include "PreCompiled.h"
+#include "Writer.h"
+#include "Reader.h"
+#include "PyObjectBase.h"
 
 #ifndef _PreComp_
 #endif
@@ -40,7 +43,7 @@ TYPESYSTEM_SOURCE_ABSTRACT(Base::Persistence,Base::BaseClass);
 
 
 //**************************************************************************
-// separator for other implemetation aspects
+// separator for other implementation aspects
 
 unsigned int Persistence::getMemSize (void) const
 {
@@ -67,4 +70,63 @@ void Persistence::SaveDocFile (Writer &/*writer*/) const
 
 void Persistence::RestoreDocFile(Reader &/*reader*/)
 {
+}
+
+std::string Persistence::encodeAttribute(const std::string& str)
+{
+    std::string tmp;
+    for (std::string::const_iterator it = str.begin(); it != str.end(); ++it) {
+        if (*it == '<')
+            tmp += "&lt;";
+        else if (*it == '\"')
+            tmp += "&quot;";
+        else if (*it == '\'')
+            tmp += "&apos;";
+        else if (*it == '&')
+            tmp += "&amp;";
+        else if (*it == '>')
+            tmp += "&gt;";
+        else if (*it == '\r')
+            tmp += "&#13;";
+        else if (*it == '\n')
+            tmp += "&#10;";
+        else if (*it == '\t')
+            tmp += "&#9;";
+        else
+            tmp += *it;
+    }
+
+    return tmp;
+}
+
+void Persistence::dumpToStream(std::ostream& stream, int compression)
+{
+    //we need to close the zipstream to get a good result, the only way to do this is to delete the ZipWriter. 
+    //Hence the scope...
+    {
+        //create the writer
+        Base::ZipWriter writer(stream);
+        writer.setLevel(compression);
+        writer.putNextEntry("Persistence.xml");
+        writer.setMode("BinaryBrep");
+
+        //save the content (we need to encapsulte it with xml tags to be able to read single element xmls like happen for properties)
+        writer.Stream() << "<Content>" << std::endl;
+        Save(writer);
+        writer.Stream() << "</Content>";
+        writer.writeFiles();
+    }
+}
+
+void Persistence::restoreFromStream(std::istream& stream)
+{
+    zipios::ZipInputStream zipstream(stream);
+    Base::XMLReader reader("", zipstream);
+
+    if (!reader.isValid())
+        throw Base::ValueError("Unable to construct reader");
+
+    reader.readElement("Content");
+    Restore(reader);
+    reader.readFiles(zipstream);
 }

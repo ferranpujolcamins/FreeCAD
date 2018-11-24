@@ -55,7 +55,7 @@ void Workbench::setupContextMenu(const char* recipient, Gui::MenuItem* item) con
      StdWorkbench::setupContextMenu( recipient, item );
      *item << "Separator"
            << "FEM_MeshClear"
-           << "FEM_MeshPrintInfo";
+           << "FEM_MeshDisplayInfo";
 }
 
 Gui::ToolBarItem* Workbench::setupToolBars() const
@@ -68,7 +68,10 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
            << "FEM_MaterialSolid"
            << "FEM_MaterialFluid"
            << "FEM_MaterialMechanicalNonlinear"
+           << "FEM_MaterialEditor"
+           << "Separator"
            << "FEM_ElementGeometry1D"
+           << "FEM_ElementRotation1D"
            << "FEM_ElementGeometry2D"
            << "FEM_ElementFluid1D";
 
@@ -93,9 +96,12 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
 
      Gui::ToolBarItem* mesh = new Gui::ToolBarItem(root);
      mesh->setCommand("Mesh");
-     *mesh << "FEM_MeshNetgenFromShape"
-           << "FEM_MeshGmshFromShape"
+#ifdef FCWithNetgen
+     *mesh << "FEM_MeshNetgenFromShape";
+#endif
+     *mesh << "FEM_MeshGmshFromShape"
            << "Separator"
+           << "FEM_MeshBoundaryLayer"
            << "FEM_MeshRegion"
            << "FEM_MeshGroup"
            << "Separator"
@@ -103,11 +109,26 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
 
     Gui::ToolBarItem* fluid = new Gui::ToolBarItem(root);
     fluid->setCommand("Fluid Constraints");
-    *fluid << "FEM_ConstraintFluidBoundary";
+    *fluid << "FEM_ConstraintInitialFlowVelocity"
+           << "Separator"
+           << "FEM_ConstraintFluidBoundary"
+           << "FEM_ConstraintFlowVelocity";
+
+    Gui::ToolBarItem* electrostat = new Gui::ToolBarItem(root);
+    electrostat->setCommand("Electrostatic Constraints");
+    *electrostat << "FEM_ConstraintElectrostaticPotential";
 
      Gui::ToolBarItem* solve = new Gui::ToolBarItem(root);
      solve->setCommand("Solve");
-     *solve << "FEM_SolverCalculix"
+     *solve << "FEM_SolverCalculixCxxtools"
+           << "FEM_SolverCalculiX"
+           << "FEM_SolverElmer"
+           << "Separator"
+           << "FEM_EquationHeat"
+           << "FEM_EquationElasticity"
+           << "FEM_EquationFluxsolver"
+           << "FEM_EquationElectrostatic"
+           << "FEM_EquationFlow"
            << "Separator"
            << "FEM_SolverControl"
            << "FEM_SolverRun";
@@ -116,21 +137,26 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
      results->setCommand("Results");
      *results << "FEM_ResultsPurge"
               << "FEM_ResultShow";
-
 #ifdef FC_USE_VTK
      *results << "Separator"
               << "FEM_PostApplyChanges"
               << "FEM_PostPipelineFromResult"
               << "Separator"
-              << "FEM_PostCreateClipFilter"
+              << "FEM_PostCreateWarpVectorFilter"
               << "FEM_PostCreateScalarClipFilter"
               << "FEM_PostCreateCutFilter"
-              << "FEM_PostCreateWarpVectorFilter"
+              << "FEM_PostCreateClipFilter"
               << "FEM_PostCreateDataAlongLineFilter"
               << "FEM_PostCreateLinearizedStressesFilter"
+              << "FEM_PostCreateDataAtPointFilter"
               << "Separator"
               << "FEM_PostCreateFunctions";
 #endif
+
+     Gui::ToolBarItem* utils = new Gui::ToolBarItem(root);
+     utils->setCommand("Results");
+     *utils << "FEM_ClippingPlaneAdd"
+            << "FEM_ClippingPlaneRemoveAll";
 
     return root;
 }
@@ -139,6 +165,24 @@ Gui::MenuItem* Workbench::setupMenuBar() const
 {
     Gui::MenuItem* root = StdWorkbench::setupMenuBar();
     Gui::MenuItem* item = root->findItem("&Windows");
+
+    Gui::MenuItem* material = new Gui::MenuItem;
+    material->setCommand("Materials");
+    *material << "FEM_MaterialSolid"
+              << "FEM_MaterialFluid"
+              << "FEM_MaterialMechanicalNonlinear"
+              << "FEM_MaterialEditor";
+
+    Gui::MenuItem* elec = new Gui::MenuItem;
+    elec->setCommand("&Electrostatic Constraints");
+    *elec << "FEM_ConstraintElectrostaticPotential";
+
+    Gui::MenuItem* elegeom = new Gui::MenuItem;
+    elegeom->setCommand("&Element Geometry");
+    *elegeom << "FEM_ElementGeometry1D"
+             << "FEM_ElementRotation1D"
+             << "FEM_ElementGeometry2D"
+             << "FEM_ElementFluid1D";
 
     Gui::MenuItem* mech = new Gui::MenuItem;
     mech->setCommand("&Mechanical Constraints");
@@ -161,45 +205,57 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     *thermal << "FEM_ConstraintInitialTemperature"
              << "Separator"
              << "FEM_ConstraintHeatflux"
-             << "FEM_ConstraintTemperature";
+             << "FEM_ConstraintTemperature"
+             << "FEM_ConstraintBodyHeatSource";
 
     Gui::MenuItem* fluid = new Gui::MenuItem;
     fluid->setCommand("&Fluid Constraints");
-    *fluid << "FEM_ConstraintFluidBoundary";
+    *fluid << "FEM_ConstraintInitialFlowVelocity"
+           << "Separator"
+           << "FEM_ConstraintFluidBoundary"
+           << "FEM_ConstraintFlowVelocity";
 
     Gui::MenuItem* model = new Gui::MenuItem;
     root->insertItem(item, model);
     model->setCommand("M&odel");
     *model << "FEM_Analysis"
            << "Separator"
-           << "FEM_MaterialSolid"
-           << "FEM_MaterialFluid"
-           << "FEM_MaterialMechanicalNonlinear"
-           << "FEM_ElementGeometry1D"
-           << "FEM_ElementGeometry2D"
-           << "FEM_ElementFluid1D"
+           << material
+           << elegeom
            << "Separator"
+           << elec
+           << fluid
            << mech
-           << thermal
-           << fluid;
+           << thermal;
 
     Gui::MenuItem* mesh = new Gui::MenuItem;
     root->insertItem(item, mesh);
     mesh->setCommand("M&esh");
-    *mesh << "FEM_MeshNetgenFromShape"
-          << "FEM_MeshGmshFromShape"
-          << "Separator"
-          << "FEM_MeshRegion"
-          << "FEM_MeshGroup"
-          << "Separator"
-          << "FEM_CreateNodesSet"
-          << "FEM_FEMMesh2Mesh";
+#ifdef FCWithNetgen
+     *mesh << "FEM_MeshNetgenFromShape";
+#endif
+     *mesh << "FEM_MeshGmshFromShape"
+           << "Separator"
+           << "FEM_MeshBoundaryLayer"
+           << "FEM_MeshRegion"
+           << "FEM_MeshGroup"
+           << "Separator"
+           << "FEM_CreateNodesSet"
+           << "FEM_FEMMesh2Mesh";
 
     Gui::MenuItem* solve = new Gui::MenuItem;
     root->insertItem(item, solve);
     solve->setCommand("&Solve");
-    *solve << "FEM_SolverCalculix"
+    *solve << "FEM_SolverCalculixCxxtools"
+           << "FEM_SolverCalculiX"
+           << "FEM_SolverElmer"
            << "FEM_SolverZ88"
+           << "Separator"
+           << "FEM_EquationHeat"
+           << "FEM_EquationElasticity"
+           << "FEM_EquationElectrostatic"
+           << "FEM_EquationFluxsolver"
+           << "FEM_EquationFlow"
            << "Separator"
            << "FEM_SolverControl"
            << "FEM_SolverRun";
@@ -208,19 +264,28 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     root->insertItem(item, results);
     results->setCommand("&Results");
     *results << "FEM_ResultsPurge"
-             << "FEM_ResultShow"
-             << "Separator"
+             << "FEM_ResultShow";
+#ifdef FC_USE_VTK
+    *results << "Separator"
              << "FEM_PostApplyChanges"
              << "FEM_PostPipelineFromResult"
              << "Separator"
-             << "FEM_PostCreateClipFilter"
+             << "FEM_PostCreateWarpVectorFilter"
              << "FEM_PostCreateScalarClipFilter"
              << "FEM_PostCreateCutFilter"
-             << "FEM_PostCreateWarpVectorFilter"
+             << "FEM_PostCreateClipFilter"
              << "FEM_PostCreateDataAlongLineFilter"
              << "FEM_PostCreateLinearizedStressesFilter"
+             << "FEM_PostCreateDataAtPointFilter"
              << "Separator"
              << "FEM_PostCreateFunctions";
+#endif
+
+    Gui::MenuItem* utils = new Gui::MenuItem;
+    root->insertItem(item, utils);
+    utils->setCommand("Utilities");
+    *utils << "FEM_ClippingPlaneAdd"
+           << "FEM_ClippingPlaneRemoveAll";
 
     return root;
 }

@@ -37,6 +37,7 @@
 #endif
 
 #include <Base/Axis.h>
+#include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/Placement.h>
 #include <Base/Tools.h>
@@ -149,7 +150,7 @@ App::DocumentObjectExecReturn *Groove::execute(void)
             BRepAlgoAPI_Cut mkCut(base, result);
             // Let's check if the fusion has been successful
             if (!mkCut.IsDone())
-                throw Base::Exception("Cut out of base feature failed");
+                throw Base::CADKernelError("Cut out of base feature failed");
 
             // we have to get the solids (fuse sometimes creates compounds)
             TopoDS_Shape solRes = this->getSolid(mkCut.Shape());
@@ -158,19 +159,25 @@ App::DocumentObjectExecReturn *Groove::execute(void)
 
             solRes = refineShapeIfActive(solRes);
             this->Shape.setValue(getSolid(solRes));
+
+            int solidCount = countSolids(solRes);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Groove: Result has multiple solids. This is not supported at this time.");
+            }
+            
         }
         else
             return new App::DocumentObjectExecReturn("Could not revolve the sketch!");
 
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        if (std::string(e->GetMessageString()) == "TopoDS::Face")
+    catch (Standard_Failure& e) {
+
+        if (std::string(e.GetMessageString()) == "TopoDS::Face")
             return new App::DocumentObjectExecReturn("Could not create face from sketch.\n"
                 "Intersecting sketch entities in a sketch are not allowed.");
         else
-            return new App::DocumentObjectExecReturn(e->GetMessageString());
+            return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
     catch (Base::Exception& e) {
         return new App::DocumentObjectExecReturn(e.what());

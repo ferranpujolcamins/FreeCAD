@@ -22,8 +22,11 @@
 
 
 #include <QtGui>
+#include <QApplication>
+#include <QColorDialog>
 #include <QCursor>
 #include <QFileDialog>
+#include <QHeaderView>
 #include <QMessageBox>
 #include <QStyleOptionButton>
 #include <QStylePainter>
@@ -33,7 +36,7 @@
 using namespace Gui;
 
 
-UrlLabel::UrlLabel ( QWidget * parent, Qt::WFlags f )
+UrlLabel::UrlLabel ( QWidget * parent, Qt::WindowFlags f )
   : QLabel("TextLabel", parent, f)
 {
     _url = "http://localhost";
@@ -172,13 +175,15 @@ void FileChooser::setFileName( const QString &fn )
 
 void FileChooser::chooseFile()
 {
+    QFileDialog::Options dlgOpt = QFileDialog::DontUseNativeDialog;
     QString fn;
-    if ( mode() == File )
+    if ( mode() == File ) {
         fn = QFileDialog::getOpenFileName(this, tr("Select a file"),
-        lineEdit->text(), _filter);
-    else
-        fn = QFileDialog::getExistingDirectory(this, tr("Select a directory"),
-        lineEdit->text() );
+        lineEdit->text(), _filter,0,dlgOpt);
+    } else {
+        QFileDialog::Options option = QFileDialog::ShowDirsOnly | dlgOpt;
+        fn = QFileDialog::getExistingDirectory( this, tr( "Select a directory" ), lineEdit->text(),option );
+    }
 
     if (!fn.isEmpty()) {
         lineEdit->setText(fn);
@@ -280,49 +285,49 @@ void AccelLineEdit::keyPressEvent ( QKeyEvent * e)
     case Qt::ControlModifier:
         {
             QKeySequence key(Qt::CTRL+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::AltModifier:
         {
             QKeySequence key(Qt::ALT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::ShiftModifier:
         {
             QKeySequence key(Qt::SHIFT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::ControlModifier+Qt::AltModifier:
         {
             QKeySequence key(Qt::CTRL+Qt::ALT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::ControlModifier+Qt::ShiftModifier:
         {
             QKeySequence key(Qt::CTRL+Qt::SHIFT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::ShiftModifier+Qt::AltModifier:
         {
             QKeySequence key(Qt::SHIFT+Qt::ALT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     case Qt::ControlModifier+Qt::AltModifier+Qt::ShiftModifier:
         {
             QKeySequence key(Qt::CTRL+Qt::ALT+Qt::SHIFT+key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     default:
         {
             QKeySequence key(key);
-            txt += (QString)(key);
+            txt += key.toString(QKeySequence::NativeText);
             setText(txt);
         }   break;
     }
@@ -404,12 +409,12 @@ ActionSelector::ActionSelector(QWidget* parent)
     upButton->setText(QString());
     downButton->setText(QString());
 
-    labelAvailable->setText(QApplication::translate("Gui::ActionSelector", "Available:", 0, QApplication::UnicodeUTF8));
-    labelSelected->setText(QApplication::translate("Gui::ActionSelector", "Selected:", 0, QApplication::UnicodeUTF8));
-    addButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Add", 0, QApplication::UnicodeUTF8));
-    removeButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Remove", 0, QApplication::UnicodeUTF8));
-    upButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move up", 0, QApplication::UnicodeUTF8));
-    downButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move down", 0, QApplication::UnicodeUTF8));
+    labelAvailable->setText(QApplication::translate("Gui::ActionSelector", "Available:"));
+    labelSelected->setText(QApplication::translate("Gui::ActionSelector", "Selected:"));
+    addButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Add"));
+    removeButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Remove"));
+    upButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move up"));
+    downButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move down"));
 }
 
 ActionSelector::~ActionSelector()
@@ -620,6 +625,37 @@ QString QuantitySpinBox::unitText(void)
     return UnitStr;
 }
 
+// ------------------------------------------------------------------------------
+
+PrefUnitSpinBox::PrefUnitSpinBox ( QWidget * parent )
+  : QuantitySpinBox(parent)
+{
+}
+
+PrefUnitSpinBox::~PrefUnitSpinBox()
+{
+}
+
+QByteArray PrefUnitSpinBox::entryName () const
+{
+    return m_sPrefName;
+}
+
+QByteArray PrefUnitSpinBox::paramGrpPath () const
+{
+    return m_sPrefGrp;
+}
+
+void PrefUnitSpinBox::setEntryName ( const QByteArray& name )
+{
+    m_sPrefName = name;
+}
+
+void PrefUnitSpinBox::setParamGrpPath ( const QByteArray& name )
+{
+    m_sPrefGrp = name;
+}
+
 // --------------------------------------------------------------------
 
 CommandIconView::CommandIconView ( QWidget * parent )
@@ -643,7 +679,7 @@ void CommandIconView::startDrag ( Qt::DropActions /*supportedActions*/ )
     dataStream << items.count();
     for (QList<QListWidgetItem*>::ConstIterator it = items.begin(); it != items.end(); ++it) {
         if (it == items.begin())
-            pixmap = qVariantValue<QPixmap>((*it)->data(Qt::UserRole));
+            pixmap = ((*it)->data(Qt::UserRole)).value<QPixmap>();
         dataStream << (*it)->text();
     }
 
@@ -1224,3 +1260,35 @@ void PrefSlider::setParamGrpPath ( const QByteArray& name )
 {
     m_sPrefGrp = name;
 }
+
+// --------------------------------------------------------------------
+
+PrefFontBox::PrefFontBox ( QWidget * parent )
+  : QFontComboBox(parent)
+{
+}
+
+PrefFontBox::~PrefFontBox()
+{
+}
+
+QByteArray PrefFontBox::entryName () const
+{
+    return m_sPrefName;
+}
+
+QByteArray PrefFontBox::paramGrpPath () const
+{
+    return m_sPrefGrp;
+}
+
+void PrefFontBox::setEntryName ( const QByteArray& name )
+{
+    m_sPrefName = name;
+}
+
+void PrefFontBox::setParamGrpPath ( const QByteArray& name )
+{
+    m_sPrefGrp = name;
+}
+

@@ -68,7 +68,7 @@ PyObjectBase::~PyObjectBase()
  * the Py_TPFLAGS_BASETYPE flag. For example, the classes App::VectorPy and App::MatrixPy
  * have removed this flag and its Python proxies App.Vector and App.Matrix cannot be subclassed.
  * In case we want to allow to derive from subclasses of PyTypeObject in Python
- * we must either reimplment tp_new, tp_dealloc, tp_getattr, tp_setattr, tp_repr or set them to
+ * we must either reimplement tp_new, tp_dealloc, tp_getattr, tp_setattr, tp_repr or set them to
  * 0 and define tp_base as 0.
  */
 
@@ -141,12 +141,21 @@ PyMethodDef PyObjectBase::Methods[] = {
 
 PyObject* PyObjectBase::__getattro(PyObject * obj, PyObject *attro)
 {
-    char *attr;
+    const char *attr;
 #if PY_MAJOR_VERSION >= 3
     attr = PyUnicode_AsUTF8(attro);
 #else
     attr = PyString_AsString(attro);
 #endif
+
+    // For the __class__ attribute get it directly as with
+    // ExtensionContainerPy::getCustomAttributes we may get
+    // the wrong type object (#0003311)
+    if (streq(attr, "__class__")) {
+        PyObject* res = PyObject_GenericGetAttr(obj, attro);
+        if (res)
+            return res;
+    }
 
     // This should be the entry in Type
     PyObjectBase* pyObj = static_cast<PyObjectBase*>(obj);
@@ -195,7 +204,7 @@ PyObject* PyObjectBase::__getattro(PyObject * obj, PyObject *attro)
 
 int PyObjectBase::__setattro(PyObject *obj, PyObject *attro, PyObject *value)
 {
-    char *attr;
+    const char *attr;
 #if PY_MAJOR_VERSION >= 3
     attr = PyUnicode_AsUTF8(attro);
 #else
@@ -236,7 +245,7 @@ int PyObjectBase::__setattro(PyObject *obj, PyObject *attro, PyObject *value)
 /*------------------------------
  * PyObjectBase attributes	-- attributes
 ------------------------------*/
-PyObject *PyObjectBase::_getattr(char *attr)
+PyObject *PyObjectBase::_getattr(const char *attr)
 {
     if (streq(attr, "__class__")) {
         // Note: We must return the type object here, 
@@ -279,7 +288,7 @@ PyObject *PyObjectBase::_getattr(char *attr)
     }
 }
 
-int PyObjectBase::_setattr(char *attr, PyObject *value)
+int PyObjectBase::_setattr(const char *attr, PyObject *value)
 {
     if (streq(attr,"softspace"))
         return -1; // filter out softspace
@@ -424,5 +433,12 @@ void PyObjectBase::untrackAttribute(const char* attr)
 {
     if (attrDict) {
         PyDict_DelItemString(attrDict, attr);
+    }
+}
+
+void PyObjectBase::clearAttributes()
+{
+    if (attrDict) {
+        PyDict_Clear(attrDict);
     }
 }

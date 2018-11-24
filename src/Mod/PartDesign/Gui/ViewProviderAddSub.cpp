@@ -57,7 +57,6 @@ PROPERTY_SOURCE(PartDesignGui::ViewProviderAddSub,PartDesignGui::ViewProvider)
 
 ViewProviderAddSub::ViewProviderAddSub()
 {
-    
     previewShape = new SoSeparator();
     previewShape->ref();
     previewFaceSet = new PartGui::SoBrepFaceSet();
@@ -66,7 +65,7 @@ ViewProviderAddSub::ViewProviderAddSub()
     previewCoords->ref();
     previewNorm = new SoNormal();
     previewNorm->ref();
-    
+    whichChild = -1;
 }
 
 ViewProviderAddSub::~ViewProviderAddSub()
@@ -78,35 +77,34 @@ ViewProviderAddSub::~ViewProviderAddSub()
 }
 
 void ViewProviderAddSub::attach(App::DocumentObject* obj) {
-     
+
     ViewProvider::attach(obj);
-    
+
     auto* bind = new SoMaterialBinding();
     bind->value = SoMaterialBinding::OVERALL;
     auto* material = new SoMaterial();
-    if(static_cast<PartDesign::FeatureAddSub*>(obj)->getAddSubType() == PartDesign::FeatureAddSub::Additive)
+    if (static_cast<PartDesign::FeatureAddSub*>(obj)->getAddSubType() == PartDesign::FeatureAddSub::Additive)
         material->diffuseColor = SbColor(1,1,0);
     else
         material->diffuseColor = SbColor(1,0,0);
-    
+
     material->transparency = 0.7f;
     auto* pick = new SoPickStyle();
     pick->style = SoPickStyle::UNPICKABLE;
-    
+
     previewShape->addChild(pick);
     previewShape->addChild(bind);
     previewShape->addChild(material);
     previewShape->addChild(previewCoords);
     previewShape->addChild(previewNorm);
     previewShape->addChild(previewFaceSet);
-    
+
     addDisplayMaskMode(previewShape, "Shape preview");
     updateAddSubShapeIndicator();
 }
 
 void ViewProviderAddSub::updateAddSubShapeIndicator() {
 
-    
     TopoDS_Shape cShape(static_cast<PartDesign::FeatureAddSub*>(getObject())->AddSubShape.getValue());
     if (cShape.IsNull()) {
         previewCoords  ->point      .setNum(0);
@@ -197,7 +195,7 @@ void ViewProviderAddSub::updateAddSubShapeIndicator() {
             const Poly_Array1OfTriangle& Triangles = mesh->Triangles();
             const TColgp_Array1OfPnt& Nodes = mesh->Nodes();
             TColgp_Array1OfDir Normals (Nodes.Lower(), Nodes.Upper());
-            GetNormals(actFace, mesh, Normals);
+            getNormals(actFace, mesh, Normals);
             
             for (int g=1;g<=nbTriInFace;g++) {
                 // Get the triangle
@@ -267,7 +265,7 @@ void ViewProviderAddSub::updateAddSubShapeIndicator() {
 }
 
 void ViewProviderAddSub::updateData(const App::Property* p) {
-    
+
     if(strcmp(p->getName(), "AddSubShape")==0)
         updateAddSubShapeIndicator();
     
@@ -275,18 +273,23 @@ void ViewProviderAddSub::updateData(const App::Property* p) {
 }
 
 void ViewProviderAddSub::setPreviewDisplayMode(bool onoff) {
-
-    if(onoff && displayMode!="Shape preview") {
-    
+    // A mask mode is always set, also for hidden objects.
+    // Now when changing to another mask mode this automatically
+    // displays an object and when restoring the previous state it's
+    // not sufficient to only revert the mask mode. Also the child
+    // number of the switch node must be reverted.
+    if (onoff && displayMode!="Shape preview") {
         displayMode = getActiveDisplayMode();
+        whichChild = pcModeSwitch->whichChild.getValue();
         setDisplayMaskMode("Shape preview");
     }
-    
-    if(!onoff) {
+
+    if (!onoff) {
         setDisplayMaskMode(displayMode.c_str());
+        pcModeSwitch->whichChild.setValue(whichChild);
     }
-    
+
     App::DocumentObject* obj = static_cast<PartDesign::Feature*>(getObject())->BaseFeature.getValue();
-    if(obj)
+    if (obj)
         static_cast<PartDesignGui::ViewProvider*>(Gui::Application::Instance->getViewProvider(obj))->makeTemporaryVisible(onoff);
 }

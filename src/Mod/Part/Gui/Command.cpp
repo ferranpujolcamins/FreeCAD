@@ -24,6 +24,7 @@
 #include "PreCompiled.h"
 #ifndef _PreComp_
 # include <sstream>
+# include <Python.h>
 # include <QString>
 # include <QDir>
 # include <QFileInfo>
@@ -71,6 +72,7 @@
 #include "TaskSweep.h"
 #include "TaskDimension.h"
 #include "TaskCheckGeometry.h"
+#include "BoxSelection.h"
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -770,6 +772,7 @@ CmdPartCompound::CmdPartCompound()
     sToolTipText  = QT_TR_NOOP("Make a compound of several shapes");
     sWhatsThis    = "Part_Compound";
     sStatusTip    = sToolTipText;
+    sPixmap       = "Part_Compound";
 }
 
 void CmdPartCompound::activated(int iMsg)
@@ -1210,7 +1213,7 @@ CmdPartMakeFace::CmdPartMakeFace()
     sAppModule    = "Part";
     sGroup        = QT_TR_NOOP("Part");
     sMenuText     = QT_TR_NOOP("Make face from wires");
-    sToolTipText  = QT_TR_NOOP("Part_MakeFace: Make face from set of wires (e.g., from a sketch).");
+    sToolTipText  = QT_TR_NOOP("Part_MakeFace: Make face from set of wires (e.g. from a sketch)");
     sWhatsThis    = "Part_MakeFace";
     sStatusTip    = sToolTipText;
 }
@@ -2220,6 +2223,35 @@ bool CmdMeasureToggleDelta::isActive(void)
   return hasActiveDocument();
 }
 
+//===========================================================================
+// Part_BoxSelection
+//===========================================================================
+
+DEF_STD_CMD_A(CmdBoxSelection)
+
+CmdBoxSelection::CmdBoxSelection()
+  : Command("Part_BoxSelection")
+{
+    sAppModule    = "Part";
+    sGroup        = QT_TR_NOOP("Part");
+    sMenuText     = QT_TR_NOOP("Box selection");
+    sToolTipText  = QT_TR_NOOP("Box selection");
+    sWhatsThis    = "Part_BoxSelection";
+    sStatusTip    = QT_TR_NOOP("Box selection");
+}
+
+void CmdBoxSelection::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    PartGui::BoxSelection* sel = new PartGui::BoxSelection();
+    sel->start();
+}
+
+bool CmdBoxSelection::isActive(void)
+{
+    return hasActiveDocument();
+}
+
 void CreatePartCommands(void)
 {
     Gui::CommandManager &rcCmdMgr = Gui::Application::Instance->commandManager();
@@ -2266,4 +2298,5 @@ void CreatePartCommands(void)
     rcCmdMgr.addCommand(new CmdMeasureToggleAll());
     rcCmdMgr.addCommand(new CmdMeasureToggle3d());
     rcCmdMgr.addCommand(new CmdMeasureToggleDelta());
-} 
+    rcCmdMgr.addCommand(new CmdBoxSelection());
+}

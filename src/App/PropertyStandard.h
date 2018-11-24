@@ -185,9 +185,13 @@ public:
 
     /// get the pointer to the enum list
     const char ** getEnums(void) const;
+
+    /// Returns true if the instance is in a usable state
+    bool isValid(void) const;
     //@}
 
-    virtual const char * getEditorName(void) const { return "Gui::PropertyEditor::PropertyEnumItem"; }
+    const char* getEditorName(void) const { return _editorTypeName.c_str(); }
+    void setEditorName(const char* name) { _editorTypeName = name; } 
     
     virtual PyObject * getPyObject(void);
     virtual void setPyObject(PyObject *);
@@ -203,12 +207,13 @@ public:
 
 private:
     Enumeration _enum;
+    std::string _editorTypeName;
 };
 
 /** Constraint integer properties
  * This property fulfills the need of a constraint integer. It holds basically a 
  * state (integer) and a struct of boundaries. If the boundaries
- * is not set it act basically like a IntegerProperty and do no checking.
+ * is not set it acts basically like an IntegerProperty and does no checking.
  * The constraints struct can be created on the heap or build in.
  */
 class AppExport PropertyIntegerConstraint: public PropertyInteger
@@ -227,10 +232,37 @@ public:
     /// the boundary struct
     struct Constraints {
         long LowerBound, UpperBound, StepSize;
+        Constraints()
+            : LowerBound(0)
+            , UpperBound(0)
+            , StepSize(0)
+            , candelete(false)
+        {
+        }
+        Constraints(long l, long u, long s)
+            : LowerBound(l)
+            , UpperBound(u)
+            , StepSize(s)
+            , candelete(false)
+        {
+        }
+        ~Constraints()
+        {
+        }
+        void setDeletable(bool on)
+        {
+            candelete = on;
+        }
+        bool isDeletable() const
+        {
+            return candelete;
+        }
+    private:
+        bool candelete;
     };
     /** setting the boundaries
      * This sets the constraint struct. It can be dynamically 
-     * allocated or set as an static in the class the property
+     * allocated or set as a static in the class the property
      * belongs to:
      * \code
      * const Constraints percent = {0,100,1}
@@ -364,7 +396,7 @@ private:
 
 
 /** implements a key/value list as property 
- *  The key ought to be ASCII the Value should be treated as UTF8 to be save.
+ *  The key ought to be ASCII the Value should be treated as UTF8 to be saved.
  */
 class AppExport PropertyMap: public Property
 {
@@ -422,8 +454,8 @@ private:
 /** Float properties
  * This is the father of all properties handling floats.
  * Use this type only in rare cases. Mostly you want to 
- * use the more specialized types like e.g. PropertyLenth.
- * These properties fulfill also the needs of the unit system.
+ * use the more specialized types like e.g. PropertyLength.
+ * These properties also fulfill the needs of the unit system.
  * See PropertyUnits.h for all properties with units.
  */
 class AppExport PropertyFloat: public Property
@@ -432,7 +464,7 @@ class AppExport PropertyFloat: public Property
 
 public:
     /** Value Constructor
-     *  Construct with explicite Values
+     *  Construct with explicit Values
      */
     PropertyFloat(void);
 
@@ -479,7 +511,7 @@ class AppExport PropertyFloatConstraint: public PropertyFloat
 public:
 
     /** Value Constructor
-     *  Construct with explicite Values
+     *  Construct with explicit Values
      */
     PropertyFloatConstraint(void);
     
@@ -495,6 +527,33 @@ public:
     /// the boundary struct
     struct Constraints {
         double LowerBound, UpperBound, StepSize;
+        Constraints()
+            : LowerBound(0)
+            , UpperBound(0)
+            , StepSize(0)
+            , candelete(false)
+        {
+        }
+        Constraints(double l, double u, double s)
+            : LowerBound(l)
+            , UpperBound(u)
+            , StepSize(s)
+            , candelete(false)
+        {
+        }
+        ~Constraints()
+        {
+        }
+        void setDeletable(bool on)
+        {
+            candelete = on;
+        }
+        bool isDeletable() const
+        {
+            return candelete;
+        }
+    private:
+        bool candelete;
     };
     /** setting the boundaries
      * This sets the constraint struct. It can be dynamcly 
@@ -522,7 +581,7 @@ protected:
 /** Precision properties
  * This property fulfills the need of a floating value with many decimal points,
  * e.g. for holding values like Precision::Confusion(). The value has a default
- * constraint for non-negative, but can be overidden
+ * constraint for non-negative, but can be overridden
  */
 class AppExport PropertyPrecision: public PropertyFloatConstraint
 {

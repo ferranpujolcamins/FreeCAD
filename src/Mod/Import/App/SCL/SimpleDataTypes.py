@@ -185,7 +185,7 @@ class BINARY(str):
         self._fixed = fixed
         # Check implicit width
         if (width!=-1) and not fixed:
-            raise ValueError("The 'width' parameter is passed but 'fixed' is still false. Please explicitely set 'fixed' to True to avoid implicit declaration")
+            raise ValueError("The 'width' parameter is passed but 'fixed' is still false. Please explicitly set 'fixed' to True to avoid implicit declaration")
         # First check the string length if 'fixed' is set to True
         if fixed:
             if len(value) != width:
@@ -198,19 +198,19 @@ class BINARY(str):
 
 
 if __name__=="__main__":
-    print "Creating REAL from float value"
+    print("Creating REAL from float value")
     a = REAL(1.5)
-    print a*2
-    print "Creating REAL from string value"
+    print(a*2)
+    print("Creating REAL from string value")
     a = REAL("1.2")
-    print a*3
-    print "Creating INTEGER from int value"
+    print(a*3)
+    print("Creating INTEGER from int value")
     b = INTEGER(2)
     c = INTEGER(3)
-    print b+c
-    print "Creating INTEGER from string value"
+    print(b+c)
+    print("Creating INTEGER from string value")
     e = INTEGER("5")
     f = INTEGER("8")
-    print e*f
+    print(e*f)
     
     

@@ -109,6 +109,9 @@ public:
     virtual bool allow(App::Document*,App::DocumentObject*, const char*);
 
 protected:
+    SelectionFilterGate();
+
+protected:
     SelectionFilter *Filter;
 };
 
@@ -131,6 +134,10 @@ private:
 
 /**
  * Python binding for SelectionFilter class.
+ * \code
+ * filter=Gui.Selection.Filter("SELECT Part::Feature SUBELEMENT Edge")
+ * Gui.Selection.addSelectionGate(filter)
+ * \endcode
  * @see SelectionFilter
  * @author Werner Mayer
  */
@@ -157,6 +164,18 @@ private:
 
 /**
  * A Python wrapper around SelectionFilterPy to implement the SelectionGate interface
+ * \code
+ * class SelectionGate(object):
+ *   def allow(self, doc, obj, sub):
+ *     if not obj.isDerivedFrom("Part::Feature"):
+ *       return False
+ *     if not str(sub).startswith("Edge"):
+ *       return False
+ *     return True
+ *
+ * gate=SelectionGate()
+ * Gui.Selection.addSelectionGate(gate)
+ * \endcode
  * @author Werner Mayer
  */
 class SelectionFilterGatePython : public SelectionGate

@@ -49,6 +49,8 @@ Sewing::Sewing()
     ADD_PROPERTY_TYPE(DegenerateShape,(true), "Sewing", App::Prop_None, "Analysis of degenerated shapes");
     ADD_PROPERTY_TYPE(CutFreeEdges,(true), "Sewing", App::Prop_None, "Cutting of free edges");
     ADD_PROPERTY_TYPE(Nonmanifold,(false), "Sewing", App::Prop_None, "Non-manifold processing");
+
+    ShapeList.setScope(App::LinkScope::Global);
 }
 
 short Sewing::mustExecute() const
@@ -102,8 +104,8 @@ App::DocumentObjectExecReturn *Sewing::execute(void)
         this->Shape.setValue(aShape);
         return StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle(Standard_Failure) e = Standard_Failure::Caught();
-        return new App::DocumentObjectExecReturn(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
 }

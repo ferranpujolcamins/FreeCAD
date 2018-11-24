@@ -36,6 +36,7 @@
 #include <QCursor>
 #include <QEvent>
 #include <Base/BaseClass.h>
+#include <Gui/Namespace.h>
 
 // forward declarations
 class SoEvent;
@@ -98,6 +99,11 @@ public:
         Trackball
     };
 
+    enum RotationCenterMode {
+        ScenePointAtCursor,     /**< Find the point in the scene at the cursor position. If there is no point then the focal plane is used */
+        FocalPointAtCursor      /**< Find the point on the focal plane at the cursor position. */
+    };
+
 public:
     NavigationStyle();
     virtual ~NavigationStyle();
@@ -125,6 +131,12 @@ public:
     SbBool isZoomAtCursor() const;
     void zoomIn();
     void zoomOut();
+    void setDragAtCursor(SbBool);
+    SbBool isDragAtCursor() const;
+    void setRotationCenterMode(RotationCenterMode);
+    RotationCenterMode getRotationCenterMode() const;
+    void setRotationCenter(const SbVec3f& cnt);
+    SbVec3f getFocalPoint() const;
 
     void updateAnimation();
     void redraw();
@@ -146,7 +158,7 @@ public:
     void startSelection(SelectionMode = Lasso);
     void stopSelection();
     SbBool isSelecting() const;
-    const std::vector<SbVec2s>& getPolygon(SbBool* clip_inner=0) const;
+    const std::vector<SbVec2s>& getPolygon(SelectionRole* role=0) const;
 
     void setOrbitStyle(OrbitStyle style);
     OrbitStyle getOrbitStyle() const;
@@ -166,6 +178,7 @@ protected:
     SbBool seekToPoint(const SbVec2s screenpos);
     void seekToPoint(const SbVec3f& scenepos);
     SbBool lookAtPoint(const SbVec2s screenpos);
+    SbVec3f getRotationCenter(SbBool*) const;
 
     void reorientCamera(SoCamera * camera, const SbRotation & rot);
     void panCamera(SoCamera * camera,
@@ -226,7 +239,7 @@ protected:
     //@{
     AbstractMouseSelection* mouseSelection;
     std::vector<SbVec2s> pcPolygon;
-    SbBool clipInner;
+    SelectionRole selectedRole;
     //@}
 
     /** @name Spinning data */
@@ -289,6 +302,24 @@ class GuiExport CADNavigationStyle : public UserNavigationStyle {
 public:
     CADNavigationStyle();
     ~CADNavigationStyle();
+    const char* mouseButtons(ViewerMode);
+
+protected:
+    SbBool processSoEvent(const SoEvent * const ev);
+
+private:
+    SbBool lockButton1;
+    SoMouseButtonEvent mouseDownConsumedEvent;
+};
+
+class GuiExport RevitNavigationStyle : public UserNavigationStyle {
+    typedef UserNavigationStyle inherited;
+
+    TYPESYSTEM_HEADER();
+
+public:
+    RevitNavigationStyle();
+    ~RevitNavigationStyle();
     const char* mouseButtons(ViewerMode);
 
 protected:

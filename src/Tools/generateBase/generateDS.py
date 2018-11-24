@@ -187,12 +187,12 @@ class XschemaElement:
         self.mixed = 0
         self.base = None
         self.mixedExtensionError = 0
-        # Attribute definitions for the currect element.
+        # Attribute definitions for the correct element.
         self.attributeDefs = {}
         # Attribute definitions for the current attributeGroup, if there is one.
         self.attributeGroup = None
         # List of names of attributes for this element.
-        # We will add the attribute defintions in each of these groups
+        # We will add the attribute definitions in each of these groups
         #   to this element in annotate().
         self.attributeGroupNameList = []
         self.topLevel = 0
@@ -2286,7 +2286,7 @@ class Sax%sHandler(handler.ContentHandler):
         self.locator = locator
     
     def showError(self, msg):
-        print '*** (showError):', msg
+        print('*** (showError):', msg)
         sys.exit(-1)
 
 """
@@ -2391,6 +2391,8 @@ TEMPLATE_HEADER = """\
 #
 # WARNING! All changes made in this file will be lost!
 #
+
+from __future__ import print_function # this allows py2 to print(str1,str2) correctly
 
 import sys
 import getopt
@@ -2529,7 +2531,7 @@ Options:
 \"\"\"
 
 def usage():
-    print USAGE_TEXT
+    print(USAGE_TEXT)
     sys.exit(-1)
 
 
@@ -2558,10 +2560,10 @@ def parseSelect(inFileName):
         except StopIteration:
             topElementName = documentHandler.getTopElementName()
         if topElementName is None:
-            raise RuntimeError, 'no top level element'
+            raise RuntimeError('no top level element')
         topElementName = topElementName.replace('-', '_').replace(':', '_')
         if topElementName not in globals():
-            raise RuntimeError, 'no class for top element: %%s' %% topElementName
+            raise RuntimeError('no class for top element: %%s' %% topElementName)
         topElement = globals()[topElementName]
         infile.seek(0)
         doc = minidom.parse(infile)
@@ -3023,7 +3025,7 @@ def generateSubclasses(root, subclassFilename, behaviorFilename,
         baseUrl = None
         if behaviorFilename:
             try:
-                # Add the currect working directory to the path so that
+                # Add the correct working directory to the path so that
                 #   we use the user/developers local copy.
                 sys.path.insert(0, '.')
                 import xmlbehavior_sub as xmlbehavior

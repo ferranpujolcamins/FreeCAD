@@ -90,6 +90,12 @@ MeshPointArray& MeshPointArray::operator = (const MeshPointArray &rclPAry)
   return *this;
 }
 
+void MeshPointArray::Transform(const Base::Matrix4D& mat)
+{
+  for (_TIterator pP = begin(); pP != end(); ++pP)
+    mat.multVec(*pP,*pP);
+}
+
 void MeshFacetArray::Erase (_TIterator pIter)
 {
   unsigned long i, *pulN;
@@ -810,7 +816,7 @@ int MeshGeomFacet::IntersectWithFacet (const MeshGeomFacet& rclFacet,
 
     // With extremely acute-angled triangles it may happen that the algorithm
     // claims an intersection but the intersection points are far outside the
-    // model. So, a plausability check is to verify that the intersection points
+    // model. So, a plausibility check is to verify that the intersection points
     // are inside the bounding boxes of both triangles.
     Base::BoundBox3f box1 = this->GetBoundBox();
     if (!box1.IsInBox(rclPt0) || !box1.IsInBox(rclPt1))
@@ -860,7 +866,7 @@ bool MeshGeomFacet::IsPointOf (const Base::Vector3f &P) const
     double wv = w * v;
     double det = fabs((uu * vv) - (uv * uv));
 
-    // Note: Due to roundoff errros it can happen that we get very small
+    // Note: Due to roundoff errors it can happen that we get very small
     // negative values for s or t. This e.g. can happen if the point lies
     // at the border of the facet. And as det could also become very small
     // we need an adaptive tolerance.

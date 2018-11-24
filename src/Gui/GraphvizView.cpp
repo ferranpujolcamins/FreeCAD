@@ -57,7 +57,7 @@ namespace Gui {
  * @brief The GraphvizWorker class
  *
  * Implements a QThread class that does the actual conversion from dot to
- * svg. All critical communcation is done using queued signals.
+ * svg. All critical communication is done using queued signals.
  *
  */
 
@@ -93,6 +93,8 @@ public:
         // This is needed because embedding a QProcess into a QThread
         // causes some problems with Qt5.
         run();
+        // Can't use the finished() signal of QThread
+        emitFinished();
 #else
         start();
 #endif
@@ -136,6 +138,7 @@ public:
 Q_SIGNALS:
     void svgFileRead(const QByteArray & data);
     void error();
+    void emitFinished();
 
 private:
     QProcess dotProc, unflattenProc;
@@ -143,6 +146,8 @@ private:
 };
 
 }
+
+/* TRANSLATOR Gui::GraphvizView */
 
 GraphvizView::GraphvizView(App::Document & _doc, QWidget* parent)
   : MDIView(0, parent)
@@ -169,6 +174,9 @@ GraphvizView::GraphvizView(App::Document & _doc, QWidget* parent)
 
     // Create worker thread
     thread = new GraphvizWorker(this);
+#if QT_VERSION >= 0x050000
+    connect(thread, SIGNAL(emitFinished()), this, SLOT(done()));
+#endif
     connect(thread, SIGNAL(finished()), this, SLOT(done()));
     connect(thread, SIGNAL(error()), this, SLOT(error()));
     connect(thread, SIGNAL(svgFileRead(const QByteArray &)), this, SLOT(svgFileRead(const QByteArray &)));
@@ -219,20 +227,25 @@ void GraphvizView::updateSvgItem(const App::Document &doc)
     flatProc->setEnvironment(QProcess::systemEnvironment());
     do {
         flatProc->start(unflatten, flatArgs);
-        flatProc->waitForStarted();
+        bool value = flatProc->waitForStarted();
+        Q_UNUSED(value); // quieten code analyzer
         dotProc->start(dot, args);
         if (!dotProc->waitForStarted()) {
             int ret = QMessageBox::warning(Gui::getMainWindow(),
-                                           qApp->translate("Std_ExportGraphviz","Graphviz not found"),
-                                           qApp->translate("Std_ExportGraphviz","Graphviz couldn't be found on your system.\n"
-                                                           "Do you want to specify its installation path if it's already installed?"),
+                                           tr("Graphviz not found"),
+                                           QString::fromLatin1("<html><head/><body>%1 "
+                                                               "<a href=\"https://www.freecadweb.org/wiki/Std_DependencyGraph\">%2"
+                                                               "</a><p>%3</p></body></html>")
+                                           .arg(tr("Graphviz couldn't be found on your system."))
+                                           .arg(tr("Read more about it here."))
+                                           .arg(tr("Do you want to specify its installation path if it's already installed?")),
                                            QMessageBox::Yes, QMessageBox::No);
             if (ret == QMessageBox::No) {
                 disconnectSignals();
                 return;
             }
             path = QFileDialog::getExistingDirectory(Gui::getMainWindow(),
-                                                     qApp->translate("Std_ExportGraphviz","Graphviz installation path"));
+                                                     tr("Graphviz installation path"));
             if (path.isEmpty()) {
                 disconnectSignals();
                 return;
@@ -271,8 +284,8 @@ void GraphvizView::svgFileRead(const QByteArray & data)
         svgItem->setSharedRenderer(renderer);
     else {
         QMessageBox::warning(getMainWindow(),
-                             qApp->translate("Std_ExportGraphviz","Graphviz failed"),
-                             qApp->translate("Std_ExportGraphviz","Graphviz failed to create an image file"));
+                             tr("Graphviz failed"),
+                             tr("Graphviz failed to create an image file"));
         disconnectSignals();
     }
 }
@@ -289,7 +302,7 @@ void GraphvizView::done()
     if (nPending > 0) {
         nPending = 0;
         updateSvgItem(doc);
-        thread->start();
+        thread->startThread();
     }
 }
 

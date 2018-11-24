@@ -39,13 +39,19 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}/Quarter
     ${CMAKE_CURRENT_BINARY_DIR}/DAGView
     ${Boost_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
     ${COIN3D_INCLUDE_DIRS}
     ${PYTHON_INCLUDE_DIRS}
     ${XercesC_INCLUDE_DIRS}
-    ${QT_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIR}
     ${3DCONNEXION_INCLUDE_DIR}
 )
+
+if(MSVC)
+    include_directories(
+        ${CMAKE_SOURCE_DIR}/src/3rdParty/OpenGL/api
+    )
+endif(MSVC)
 
 if(MSVC)
     set(FreeCADGui_LIBS
@@ -53,6 +59,13 @@ if(MSVC)
          ${COIN3D_LIBRARIES}
          ${OPENGL_gl_LIBRARY}
     )
+
+    if(FREECAD_USE_3DCONNEXION)
+        list(APPEND FreeCADGui_LIBS
+            hid
+        )
+    endif()
+
 else(MSVC)
     set(FreeCADGui_LIBS
         FreeCADApp
@@ -93,6 +106,12 @@ else()
 endif()
 
 IF(SPNAV_FOUND)
+    if (BUILD_QT5 AND UNIX AND NOT APPLE)
+        find_package(Qt5X11Extras REQUIRED)
+        include_directories(${Qt5X11Extras_INCLUDE_DIRS})
+        list(APPEND FreeCADGui_LIBS ${Qt5X11Extras_LIBRARIES})
+    endif()
+
     add_definitions(-DSPNAV_FOUND)
     include_directories(
         ${SPNAV_INCLUDE_DIR}
@@ -399,6 +418,7 @@ SET(Command_CPP_SRCS
     CommandWindow.cpp
     CommandTest.cpp
     CommandView.cpp
+    CommandStructure.cpp
 )
 SET(Command_SRCS
     ${Command_CPP_SRCS}
@@ -790,6 +810,7 @@ set(qsint_MOC_HDRS
     QSint/actionpanel/actionpanel.h
     QSint/actionpanel/taskheader_p.h
 )
+
 if(BUILD_QT5)
     qt5_wrap_cpp(qsint_MOC_SRCS ${qsint_MOC_HDRS})
 else()
@@ -811,11 +832,13 @@ SOURCE_GROUP("Widget\\QSintActionPanel\\Mocs" FILES ${qsint_MOC_SRCS})
 # The 3d view
 SET(View3D_CPP_SRCS
     Flag.cpp
+    GLBuffer.cpp
     GLPainter.cpp
     MouseSelection.cpp
     NavigationStyle.cpp
     InventorNavigationStyle.cpp
     CADNavigationStyle.cpp
+    RevitNavigationStyle.cpp
     BlenderNavigationStyle.cpp
     MayaGestureNavigationStyle.cpp
     OpenCascadeNavigationStyle.cpp
@@ -830,10 +853,12 @@ SET(View3D_CPP_SRCS
     CoinRiftWidget.cpp
     View3DPy.cpp
     View3DViewerPy.cpp
+    NaviCube.cpp
 )
 SET(View3D_SRCS
     ${View3D_CPP_SRCS}
     Flag.h
+    GLBuffer.h
     GLPainter.h
     MouseSelection.h
     NavigationStyle.h
@@ -846,6 +871,7 @@ SET(View3D_SRCS
     View3DInventorRiftViewer.h
     CoinRiftWidget.h
     View3DViewerPy.h
+    NaviCube.h
 )
 SOURCE_GROUP("View3D" FILES ${View3D_SRCS})
 
@@ -887,6 +913,7 @@ SET(Viewprovider_CPP_SRCS
     ViewProviderDocumentObject.cpp
     ViewProviderDocumentObjectGroup.cpp
     ViewProviderDocumentObjectPyImp.cpp
+    ViewProviderDragger.cpp
     ViewProviderExtern.cpp
     ViewProviderFeature.cpp
     ViewProviderGeometryObject.cpp
@@ -917,6 +944,7 @@ SET(Viewprovider_SRCS
     ViewProviderAnnotation.h
     ViewProviderDocumentObject.h
     ViewProviderDocumentObjectGroup.h
+    ViewProviderDragger.h
     ViewProviderExtern.h
     ViewProviderFeature.h
     ViewProviderGeometryObject.h
@@ -1088,6 +1116,7 @@ SET(FreeCADGui_CPP_SRCS
     DocumentModel.cpp
     DocumentPyImp.cpp
     DocumentObserver.cpp
+    DocumentObserverPython.cpp
     ExpressionBinding.cpp
     GraphicsViewZoom.cpp
     ExpressionCompleter.cpp
@@ -1096,6 +1125,7 @@ SET(FreeCADGui_CPP_SRCS
     GuiConsole.cpp
     Macro.cpp
     MergeDocuments.cpp
+    Namespace.h
     resource.cpp
     Control.cpp
     SpaceballEvent.cpp
@@ -1113,6 +1143,7 @@ SET(FreeCADGui_SRCS
     Document.h
     DocumentModel.h
     DocumentObserver.h
+    DocumentObserverPython.h
     ExpressionBinding.cpp
     ExpressionCompleter.h
     FreeCADGuiInit.py
@@ -1170,7 +1201,6 @@ SET(FreeCADGui_SRCS
 )
 
 if(MSVC)
-    add_definitions(-D_PreComp_)
     SET(FreeCADGui_CPP_SRCS
         Language/Translator.cpp
         propertyeditor/PropertyEditor.cpp
@@ -1195,11 +1225,18 @@ if(MSVC)
         ${Workbench_CPP_SRCS}
         ${FreeCADGui_CPP_SRCS}
     )
-    ADD_MSVC_PRECOMPILED_HEADER(FreeCADGui PreCompiled.h PreCompiled.cpp FreeCADGui_CPP_SRCS)
 endif(MSVC)
 
-add_library(FreeCADGui SHARED ${FreeCADGui_SRCS})
+if (BUILD_USE_PCH)
+    add_definitions(-D_PreComp_)
+    ADD_MSVC_PRECOMPILED_HEADER(FreeCADGui PreCompiled.h PreCompiled.cpp FreeCADGui_CPP_SRCS)
+endif(BUILD_USE_PCH)
 
+if (FREECAD_USE_QT_FILEDIALOG)
+    set_source_files_properties(FileDialog.cpp PROPERTIES COMPILE_FLAGS -DUSE_QT_FILEDIALOG)
+endif()
+
+add_library(FreeCADGui SHARED ${FreeCADGui_SRCS})
 target_link_libraries(FreeCADGui ${FreeCADGui_LIBS})
 
 SET_BIN_DIR(FreeCADGui FreeCADGui)

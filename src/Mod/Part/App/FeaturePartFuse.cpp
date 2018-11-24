@@ -65,6 +65,14 @@ MultiFuse::MultiFuse(void)
     ADD_PROPERTY_TYPE(History,(ShapeHistory()), "Boolean", (App::PropertyType)
         (App::Prop_Output|App::Prop_Transient|App::Prop_Hidden), "Shape history");
     History.setSize(0);
+
+    ADD_PROPERTY_TYPE(Refine,(0),"Boolean",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after this boolean operation");
+
+    //init Refine property
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
+    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
+
 }
 
 short MultiFuse::mustExecute() const
@@ -109,16 +117,16 @@ App::DocumentObjectExecReturn *MultiFuse::execute(void)
 #if OCC_VERSION_HEX <= 0x060800
             TopoDS_Shape resShape = s.front();
             if (resShape.IsNull())
-                throw Base::Exception("Input shape is null");
+                throw NullShapeException("Input shape is null");
             for (std::vector<TopoDS_Shape>::iterator it = s.begin()+1; it != s.end(); ++it) {
                 if (it->IsNull())
-                    throw Base::Exception("Input shape is null");
+                    throw NullShapeException("Input shape is null");
 
                 // Let's call algorithm computing a fuse operation:
                 BRepAlgoAPI_Fuse mkFuse(resShape, *it);
                 // Let's check if the fusion has been successful
                 if (!mkFuse.IsDone()) 
-                    throw Base::Exception("Fusion failed");
+                    throw BooleanException("Fusion failed");
                 resShape = mkFuse.Shape();
 
                 ShapeHistory hist1 = buildHistory(mkFuse, TopAbs_FACE, resShape, mkFuse.Shape1());
@@ -136,24 +144,30 @@ App::DocumentObjectExecReturn *MultiFuse::execute(void)
 #else
             BRepAlgoAPI_Fuse mkFuse;
             TopTools_ListOfShape shapeArguments,shapeTools;
-            shapeArguments.Append(s.front());
+            const TopoDS_Shape& shape = s.front();
+            if (shape.IsNull())
+                throw Base::RuntimeError("Input shape is null");
+            shapeArguments.Append(shape);
+
             for (std::vector<TopoDS_Shape>::iterator it = s.begin()+1; it != s.end(); ++it) {
                 if (it->IsNull())
-                    throw Base::Exception("Input shape is null");
+                    throw Base::RuntimeError("Input shape is null");
                 shapeTools.Append(*it);
             }
+
             mkFuse.SetArguments(shapeArguments);
             mkFuse.SetTools(shapeTools);
             mkFuse.Build();
             if (!mkFuse.IsDone())
-                throw Base::Exception("MultiFusion failed");
+                throw Base::RuntimeError("MultiFusion failed");
+
             TopoDS_Shape resShape = mkFuse.Shape();
             for (std::vector<TopoDS_Shape>::iterator it = s.begin(); it != s.end(); ++it) {
                 history.push_back(buildHistory(mkFuse, TopAbs_FACE, resShape, *it));
             }
 #endif
             if (resShape.IsNull())
-                throw Base::Exception("Resulting shape is null");
+                throw Base::RuntimeError("Resulting shape is null");
 
             Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
                 .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part/Boolean");
@@ -163,13 +177,18 @@ App::DocumentObjectExecReturn *MultiFuse::execute(void)
                     return new App::DocumentObjectExecReturn("Resulting shape is invalid");
                 }
             }
-            if (hGrp->GetBool("RefineModel", false)) {
-                TopoDS_Shape oldShape = resShape;
-                BRepBuilderAPI_RefineModel mkRefine(oldShape);
-                resShape = mkRefine.Shape();
-                ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
-                for (std::vector<ShapeHistory>::iterator jt = history.begin(); jt != history.end(); ++jt)
-                    *jt = joinHistory(*jt, hist);
+            if (this->Refine.getValue()) {
+                try {
+                    TopoDS_Shape oldShape = resShape;
+                    BRepBuilderAPI_RefineModel mkRefine(oldShape);
+                    resShape = mkRefine.Shape();
+                    ShapeHistory hist = buildHistory(mkRefine, TopAbs_FACE, resShape, oldShape);
+                    for (std::vector<ShapeHistory>::iterator jt = history.begin(); jt != history.end(); ++jt)
+                        *jt = joinHistory(*jt, hist);
+                }
+                catch (Standard_Failure&) {
+                    // do nothing
+                }
             }
 
             this->Shape.setValue(resShape);
@@ -198,13 +217,12 @@ App::DocumentObjectExecReturn *MultiFuse::execute(void)
             }
             this->History.setValues(history);
         }
-        catch (Standard_Failure) {
-            Handle(Standard_Failure) e = Standard_Failure::Caught();
-            return new App::DocumentObjectExecReturn(e->GetMessageString());
+        catch (Standard_Failure& e) {
+            return new App::DocumentObjectExecReturn(e.GetMessageString());
         }
     }
     else {
-        throw Base::Exception("Not enough shape objects linked");
+        throw Base::CADKernelError("Not enough shape objects linked");
     }
 
     return App::DocumentObject::StdReturn;

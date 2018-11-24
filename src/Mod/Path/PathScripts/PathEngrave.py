@@ -22,15 +22,19 @@
 # *                                                                         *
 # ***************************************************************************
 
-import FreeCAD
-import Path
-import Part
 import ArchPanel
-
+import FreeCAD
+import Part
+import Path
+import PathScripts.PathEngraveBase as PathEngraveBase
 import PathScripts.PathLog as PathLog
-from PathScripts import PathUtils
+import PathScripts.PathOp as PathOp
+import PathScripts.PathUtils as PathUtils
+import traceback
 
-"""Path Engrave object and FreeCAD command"""
+from PySide import QtCore
+
+__doc__ = "Class and implementation of Path Engrave operation"
 
 if False:
     PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
@@ -38,368 +42,128 @@ if False:
 else:
     PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
 
-if FreeCAD.GuiUp:
-    import FreeCADGui
-    from PySide import QtCore, QtGui
-
 # Qt tanslation handling
 def translate(context, text, disambig=None):
     return QtCore.QCoreApplication.translate(context, text, disambig)
 
+class ObjectEngrave(PathEngraveBase.ObjectOp):
+    '''Proxy class for Engrave operation.'''
 
-class ObjectPathEngrave:
+    def opFeatures(self, obj):
+        '''opFeatures(obj) ... return all standard features and edges based geomtries'''
+        return PathOp.FeatureTool | PathOp.FeatureDepths | PathOp.FeatureHeights | PathOp.FeatureStepDown | PathOp.FeatureBaseEdges;
 
-    def __init__(self, obj):
-        obj.addProperty("App::PropertyLinkSubList", "Base", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "The base geometry of this object"))
-        obj.addProperty("App::PropertyBool", "Active", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "Make False, to prevent operation from generating code"))
-        obj.addProperty("App::PropertyString", "Comment", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "An optional comment for this profile"))
-        obj.addProperty("App::PropertyString", "UserLabel", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "User Assigned Label"))
+    def setupAdditionalProperties(self, obj):
+        if not hasattr(obj, 'BaseShapes'):
+            obj.addProperty("App::PropertyLinkList", "BaseShapes", "Path", QtCore.QT_TRANSLATE_NOOP("PathEngrave", "Additional base objects to be engraved"))
+        obj.setEditorMode('BaseShapes', 2) # hide
+        if not hasattr(obj, 'BaseObject'):
+            obj.addProperty("App::PropertyLink", "BaseObject", "Path", QtCore.QT_TRANSLATE_NOOP("PathEngrave", "Additional base objects to be engraved"))
+        obj.setEditorMode('BaseObject', 2) # hide
 
-        # Tool Properties
-        obj.addProperty("App::PropertyLink", "ToolController", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "The tool controller that will be used to calculate the path"))
+    def initOperation(self, obj):
+        '''initOperation(obj) ... create engraving specific properties.'''
+        obj.addProperty("App::PropertyInteger", "StartVertex", "Path", QtCore.QT_TRANSLATE_NOOP("PathEngrave", "The vertex index to start the path from"))
+        self.setupAdditionalProperties(obj)
 
-        # Depth Properties
-        obj.addProperty("App::PropertyDistance", "StartDepth", "Depth", QtCore.QT_TRANSLATE_NOOP("App::Property", "Start Depth of Tool"))
-        obj.addProperty("App::PropertyDistance", "FinalDepth", "Depth", QtCore.QT_TRANSLATE_NOOP("App::Property", "Final Depth of Tool- lowest value in Z"))
+    def opOnDocumentRestored(self, obj):
+        # upgrade ...
+        self.setupAdditionalProperties(obj)
 
-        # Heights
-        obj.addProperty("App::PropertyDistance", "ClearanceHeight", "Depth", QtCore.QT_TRANSLATE_NOOP("App::Property", "The height needed to clear clamps and obstructions"))
-        obj.addProperty("App::PropertyDistance", "SafeHeight", "Depth", QtCore.QT_TRANSLATE_NOOP("App::Property", "Rapid Safety Height between locations."))
-
-        obj.addProperty("App::PropertyInteger", "StartVertex", "Path", QtCore.QT_TRANSLATE_NOOP("App::Property", "The vertex index to start the path from"))
-
-        if FreeCAD.GuiUp:
-            _ViewProviderEngrave(obj.ViewObject)
-
-        obj.Proxy = self
-
-    def __getstate__(self):
-        return None
-
-    def __setstate__(self, state):
-        return None
-
-    def onChanged(self, obj, prop):
-        pass
-
-    def execute(self, obj):
+    def opExecute(self, obj):
+        '''opExecute(obj) ... process engraving operation'''
         PathLog.track()
 
-        if not obj.Active:
-            path = Path.Path("(inactive operation)")
-            obj.Path = path
-            obj.ViewObject.Visibility = False
-            return
+        job = PathUtils.findParentJob(obj)
 
-        output = ""
-        if obj.Comment != "":
-            output += '(' + str(obj.Comment)+')\n'
+        jobshapes = []
+        zValues = self.getZValues(obj)
 
-        toolLoad = obj.ToolController
-
-        if toolLoad is None or toolLoad.ToolNumber == 0:
-            FreeCAD.Console.PrintError("No Tool Controller is selected. We need a tool to build a Path.")
-            return
-        else:
-            self.vertFeed = toolLoad.VertFeed.Value
-            self.horizFeed = toolLoad.HorizFeed.Value
-            self.vertRapid = toolLoad.VertRapid.Value
-            self.horizRapid = toolLoad.HorizRapid.Value
-            tool = toolLoad.Proxy.getTool(toolLoad)  # PathUtils.getTool(obj, toolLoad.ToolNumber)
-            if not tool or tool.Diameter == 0:
-                FreeCAD.Console.PrintError("No Tool found or diameter is zero. We need a tool to build a Path.")
-                return
-            else:
-                self.radius = tool.Diameter/2
-
-        wires = []
-
-        parentJob = PathUtils.findParentJob(obj)
-        if parentJob is None:
-            return
-        baseobject = parentJob.Base
-        if baseobject is None:
-            return
         try:
-            if baseobject.isDerivedFrom('Sketcher::SketchObject') or \
-                    baseobject.isDerivedFrom('Part::Part2DObject') or \
-                    hasattr(baseobject, 'ArrayType'):
+            if len(self.model) == 1 and self.model[0].isDerivedFrom('Sketcher::SketchObject') or \
+                    self.model[0].isDerivedFrom('Part::Part2DObject') or \
+                    hasattr(self.model[0], 'ArrayType'):
+                PathLog.track()
 
-                output += "G0 Z" + PathUtils.fmt(obj.ClearanceHeight.Value) + "F " + PathUtils.fmt(self.vertRapid) + "\n"
+                self.commandlist.append(Path.Command('G0', {'Z': obj.ClearanceHeight.Value, 'F': self.vertRapid}))
 
                 # we only consider the outer wire if this is a Face
-                for w in baseobject.Shape.Wires:
-                    tempedges = PathUtils.cleanedges(w.Edges, 0.5)
-                    wires.append(Part.Wire(tempedges))
+                wires = []
+                for w in self.model[0].Shape.Wires:
+                    wires.append(Part.Wire(w.Edges))
+                self.buildpathocc(obj, wires, zValues)
+                self.wires = wires
 
-                output += self.buildpathocc(obj, wires)
+            elif len(self.model) == 1 and isinstance(self.model[0].Proxy, ArchPanel.PanelSheet):  # process the sheet
+                PathLog.track()
+                wires = []
+                for tag in self.model[0].Proxy.getTags(self.model[0], transform=True):
+                    self.commandlist.append(Path.Command('G0', {'Z': obj.ClearanceHeight.Value, 'F': self.vertRapid}))
+                    tagWires = []
+                    for w in tag.Wires:
+                        tagWires.append(Part.Wire(w.Edges))
+                    self.buildpathocc(obj, tagWires, zValues)
+                    wires.extend(tagWires)
+                self.wires = wires
+            elif obj.Base:
+                PathLog.track()
+                wires = []
+                for base, subs in obj.Base:
+                    edges = []
+                    basewires = []
+                    for feature in subs:
+                        sub = base.Shape.getElement(feature)
+                        if type(sub) == Part.Edge:
+                            edges.append(sub)
+                        elif sub.Wires:
+                            basewires.extend(sub.Wires)
+                        else:
+                            basewires.append(Part.Wire(sub.Edges))
 
-            elif isinstance(baseobject.Proxy, ArchPanel.PanelSheet):  # process the sheet
+                    for edgelist in Part.sortEdges(edges):
+                        basewires.append(Part.Wire(edgelist))
 
-                shapes = baseobject.Proxy.getTags(baseobject, transform=True)
-                for shape in shapes:
-                    output += "G0 Z" + PathUtils.fmt(obj.ClearanceHeight.Value) + "F " + PathUtils.fmt(self.vertRapid) + "\n"
-                    for w in shape.Wires:
-                        tempedges = PathUtils.cleanedges(w.Edges, 0.5)
-                        wires.append(Part.Wire(tempedges))
-                    output += self.buildpathocc(obj, wires)
-            else:
-                raise ValueError('Unknown baseobject type for engraving')
+                    wires.extend(basewires)
+                self.buildpathocc(obj, wires, zValues)
+                self.wires = wires
+            elif not obj.BaseShapes:
+                PathLog.track()
+                if not obj.Base and not obj.BaseShapes:
+                    for base in self.model:
+                        PathLog.track(base.Label)
+                        if base.isDerivedFrom('Part::Part2DObject'):
+                            jobshapes.append(base)
 
-            output += "G0 Z" + PathUtils.fmt(obj.ClearanceHeight.Value) + "F " + PathUtils.fmt(self.vertRapid) + "\n"
+                if not jobshapes:
+                    raise ValueError(translate('PathEngrave', "Unknown baseobject type for engraving (%s)") % (obj.Base))
 
-        except:
-            FreeCAD.Console.PrintError("The Job Base Object has no engraveable element.  Engraving operation will produce no output.")
+            if obj.BaseShapes or jobshapes:
+                PathLog.track()
+                wires = []
+                for shape in obj.BaseShapes + jobshapes:
+                    PathLog.track(shape.Label)
+                    shapeWires = shape.Shape.Wires
+                    self.buildpathocc(obj, shapeWires, zValues)
+                    wires.extend(shapeWires)
+                self.wires = wires
 
-        # print output
-        if output == "":
-            output += "(No commands processed)"
+        except Exception as e:
+            PathLog.error(e)
+            traceback.print_exc()
+            PathLog.error(translate('PathEngrave', 'The Job Base Object has no engraveable element.  Engraving operation will produce no output.'))
 
-        path = Path.Path(output)
-        obj.Path = path
-        #obj.ViewObject.Visibility = True
+    def opUpdateDepths(self, obj, ignoreErrors=False):
+        '''updateDepths(obj) ... engraving is always done at the top most z-value'''
+        job = PathUtils.findParentJob(obj)
+        self.opSetDefaultValues(obj, job)
 
-    def buildpathocc(self, obj, wires):
-        PathLog.track()
+def SetupProperties():
+    return [ "StartVertex" ]
 
-        # import Part
-        import DraftGeomUtils
-        output = ""
+def Create(name, obj = None):
+    '''Create(name) ... Creates and returns an Engrave operation.'''
+    if obj is None:
+        obj = FreeCAD.ActiveDocument.addObject("Path::FeaturePython", name)
+    proxy = ObjectEngrave(obj, name)
+    return obj
 
-        for wire in wires:
-            offset = wire
-
-            # reorder the wire
-            offset = DraftGeomUtils.rebaseWire(offset, obj.StartVertex)
-
-            # we create the path from the offset shape
-            last = None
-            for edge in offset.Edges:
-                if not last:
-                    # we set the first move to our first point
-                    last = edge.Vertexes[0].Point
-                    output += "G0" + " X" + PathUtils.fmt(last.x) + " Y" + PathUtils.fmt(last.y) + " Z" + PathUtils.fmt(obj.ClearanceHeight.Value) + "F " + PathUtils.fmt(self.horizRapid)  # Rapid to starting position
-                    output += "G0" + " X" + PathUtils.fmt(last.x) + " Y" + PathUtils.fmt(last.y) + " Z" + PathUtils.fmt(obj.SafeHeight.Value) + "F " + PathUtils.fmt(self.horizRapid)  # Rapid to safe height
-                    output += "G1" + " X" + PathUtils.fmt(last.x) + " Y" + PathUtils.fmt(last.y) + " Z" + PathUtils.fmt(obj.FinalDepth.Value) + "F " + PathUtils.fmt(self.vertFeed) + "\n"  # Vertical feed to depth
-                if isinstance(edge.Curve, Part.Circle):
-                    point = edge.Vertexes[-1].Point
-                    if point == last:  # edges can come flipped
-                        point = edge.Vertexes[0].Point
-                    center = edge.Curve.Center
-                    relcenter = center.sub(last)
-                    v1 = last.sub(center)
-                    v2 = point.sub(center)
-                    if v1.cross(v2).z < 0:
-                        output += "G2"
-                    else:
-                        output += "G3"
-                    output += " X" + PathUtils.fmt(point.x) + " Y" + PathUtils.fmt(point.y) + " Z" + PathUtils.fmt(obj.FinalDepth.Value)
-                    output += " I" + PathUtils.fmt(relcenter.x) + " J" + PathUtils.fmt(relcenter.y) + " K" + PathUtils.fmt(relcenter.z)
-                    output += " F " + PathUtils.fmt(self.horizFeed)
-                    output += "\n"
-                    last = point
-                else:
-                    point = edge.Vertexes[-1].Point
-                    if point == last:  # edges can come flipped
-                        point = edge.Vertexes[0].Point
-                    output += "G1 X" + PathUtils.fmt(point.x) + " Y" + PathUtils.fmt(point.y) + " Z" + PathUtils.fmt(obj.FinalDepth.Value)
-                    output += " F " + PathUtils.fmt(self.horizFeed)
-                    output += "\n"
-                    last = point
-            output += "G0 Z " + PathUtils.fmt(obj.ClearanceHeight.Value)
-        return output
-
-
-class _ViewProviderEngrave:
-
-    def __init__(self, vobj):
-        vobj.Proxy = self
-        self.taskPanel = None
-
-    def attach(self, vobj):
-        self.Object = vobj.Object
-
-    def deleteObjectsOnReject(self):
-        return hasattr(self, 'deleteOnReject') and self.deleteOnReject
-
-    def setEdit(self, vobj, mode=0):
-        PathLog.track()
-        FreeCADGui.Control.closeDialog()
-
-        self.taskPanel = TaskPanel(vobj, self.deleteObjectsOnReject())
-        FreeCADGui.Control.showDialog(self.taskPanel)
-        self.taskPanel.setupUi()
-        self.deleteOnReject = False
-        return True
-
-#     def unsetEdit(self, vobj, mode):
-#         PathLog.track()
-#         if hasattr(self, 'taskPanel') and self.taskPanel:
-#             self.taskPanel.abort()
-
-    def clearTaskPanel(self):
-        self.taskpanel = None
-        FreeCADGui.Selection.removeSelectionGate()
-        FreeCADGui.Selection.removeObserver(self)
-
-    def resetTaskPanel(self):
-        PathLog.track()
-        self.taskPanel = None
-
-    def getIcon(self):
-        return ":/icons/Path-Engrave.svg"
-
-    def __getstate__(self):
-        return None
-
-    def __setstate__(self, state):
-        return None
-
-
-class CommandPathEngrave:
-
-    def GetResources(self):
-        return {'Pixmap': 'Path-Engrave',
-                'MenuText': QtCore.QT_TRANSLATE_NOOP("Path_Engrave", "ShapeString Engrave"),
-                'ToolTip': QtCore.QT_TRANSLATE_NOOP("Path_Engrave", "Creates an Engraving Path around a Draft ShapeString")}
-
-    def IsActive(self):
-        if FreeCAD.ActiveDocument is not None:
-            for o in FreeCAD.ActiveDocument.Objects:
-                if o.Name[:3] == "Job":
-                        return True
-        return False
-
-    def Activated(self):
-
-        # if everything is ok, execute and register the transaction in the undo/redo stack
-        FreeCAD.ActiveDocument.openTransaction("Create Engrave Path")
-        FreeCADGui.addModule("PathScripts.PathFaceProfile")
-        FreeCADGui.addModule("PathScripts.PathUtils")
-
-        FreeCADGui.doCommand('obj = FreeCAD.ActiveDocument.addObject("Path::FeaturePython", "PathEngrave")')
-        FreeCADGui.doCommand('PathScripts.PathEngrave.ObjectPathEngrave(obj)')
-        FreeCADGui.doCommand('PathScripts.PathUtils.addToJob(obj)')
-
-        FreeCADGui.doCommand('obj.ClearanceHeight = 10')
-        FreeCADGui.doCommand('obj.FinalDepth= -0.1')
-        FreeCADGui.doCommand('obj.SafeHeight= 5.0')
-        FreeCADGui.doCommand('obj.Active = True')
-        FreeCADGui.doCommand('obj.ViewObject.Proxy.deleteOnReject = True')
-        FreeCADGui.doCommand('obj.ToolController = PathScripts.PathUtils.findToolController(obj)')
-
-        FreeCADGui.doCommand('obj.ViewObject.startEditing()')
-
-        FreeCAD.ActiveDocument.commitTransaction()
-
-
-class TaskPanel:
-    def __init__(self, vobj, deleteOnReject):
-        FreeCAD.ActiveDocument.openTransaction(translate("Path_Engrave", "Engraving Operation"))
-        self.form = FreeCADGui.PySideUic.loadUi(":/panels/EngraveEdit.ui")
-        self.vobj = vobj
-        self.obj = vobj.Object
-        self.deleteOnReject = deleteOnReject
-        self.isDirty = True
-
-    def accept(self):
-        FreeCADGui.Control.closeDialog()
-        FreeCADGui.ActiveDocument.resetEdit()
-        FreeCAD.ActiveDocument.commitTransaction()
-        FreeCADGui.Selection.removeObserver(self.s)
-        if self.isDirty:
-            FreeCAD.ActiveDocument.recompute()
-
-    def reject(self):
-        FreeCADGui.Control.closeDialog()
-        FreeCADGui.ActiveDocument.resetEdit()
-        FreeCAD.ActiveDocument.abortTransaction()
-        FreeCADGui.Selection.removeObserver(self.s)
-        if self.deleteOnReject:
-            FreeCAD.ActiveDocument.openTransaction(translate("Path_Engrave", "Uncreate Engrave Operation"))
-            FreeCAD.ActiveDocument.removeObject(self.obj.Name)
-            FreeCAD.ActiveDocument.commitTransaction()
-        FreeCAD.ActiveDocument.recompute()
-
-    def clicked(self,button):
-        if button == QtGui.QDialogButtonBox.Apply:
-            self.getFields()
-            FreeCAD.ActiveDocument.recompute()
-            self.isDirty = False
-
-
-    def getFields(self):
-        if self.obj:
-            if hasattr(self.obj, "StartDepth"):
-                self.obj.StartDepth = FreeCAD.Units.Quantity(self.form.startDepth.text()).Value
-            if hasattr(self.obj, "FinalDepth"):
-                self.obj.FinalDepth = FreeCAD.Units.Quantity(self.form.finalDepth.text()).Value
-            if hasattr(self.obj, "SafeHeight"):
-                self.obj.SafeHeight = FreeCAD.Units.Quantity(self.form.safeHeight.text()).Value
-            if hasattr(self.obj, "ClearanceHeight"):
-                self.obj.ClearanceHeight = FreeCAD.Units.Quantity(self.form.clearanceHeight.text()).Value
-            if hasattr(self.obj, "ToolController"):
-                tc = PathUtils.findToolController(self.obj, self.form.uiToolController.currentText())
-                self.obj.ToolController = tc
-        self.isDirty = True
-        # self.obj.Proxy.execute(self.obj)
-
-    def setFields(self):
-        self.form.finalDepth.setText(FreeCAD.Units.Quantity(self.obj.FinalDepth.Value, FreeCAD.Units.Length).UserString)
-        self.form.startDepth.setText(FreeCAD.Units.Quantity(self.obj.StartDepth.Value, FreeCAD.Units.Length).UserString)
-        self.form.safeHeight.setText(FreeCAD.Units.Quantity(self.obj.SafeHeight.Value, FreeCAD.Units.Length).UserString)
-        self.form.clearanceHeight.setText(FreeCAD.Units.Quantity(self.obj.ClearanceHeight.Value, FreeCAD.Units.Length).UserString)
-
-        controllers = PathUtils.getToolControllers(self.obj)
-        labels = [c.Label for c in controllers]
-        self.form.uiToolController.blockSignals(True)
-        self.form.uiToolController.addItems(labels)
-        self.form.uiToolController.blockSignals(False)
-
-        if self.obj.ToolController is None:
-            self.obj.ToolController = PathUtils.findToolController(self.obj)
-
-        if self.obj.ToolController is not None:
-            index = self.form.uiToolController.findText(
-                self.obj.ToolController.Label, QtCore.Qt.MatchFixedString)
-            if index >= 0:
-                self.form.uiToolController.blockSignals(True)
-                self.form.uiToolController.setCurrentIndex(index)
-                self.form.uiToolController.blockSignals(False)
-        else:
-            self.obj.ToolController = PathUtils.findToolController(self.obj)
-
-    def open(self):
-        self.s = SelObserver()
-        # install the function mode resident
-        FreeCADGui.Selection.addObserver(self.s)
-
-    def getStandardButtons(self):
-        return int(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Apply | QtGui.QDialogButtonBox.Cancel)
-
-    def setupUi(self):
-        # Connect Signals and Slots
-        self.form.startDepth.editingFinished.connect(self.getFields)
-        self.form.finalDepth.editingFinished.connect(self.getFields)
-        self.form.safeHeight.editingFinished.connect(self.getFields)
-        self.form.clearanceHeight.editingFinished.connect(self.getFields)
-        self.form.uiToolController.currentIndexChanged.connect(self.getFields)
-
-        self.setFields()
-
-
-class SelObserver:
-    def __init__(self):
-        import PathScripts.PathSelection as PST
-        PST.engraveselect()
-
-    def __del__(self):
-        import PathScripts.PathSelection as PST
-        PST.clear()
-
-    def addSelection(self, doc, obj, sub, pnt):
-        FreeCADGui.doCommand('Gui.Selection.addSelection(FreeCAD.ActiveDocument.' + obj + ')')
-        FreeCADGui.updateGui()
-
-if FreeCAD.GuiUp:
-    FreeCADGui.addCommand('Path_Engrave', CommandPathEngrave())

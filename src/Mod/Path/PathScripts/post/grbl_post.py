@@ -22,16 +22,38 @@
 #***************************************************************************/
 
 
-'''
-Generate g-code compatible with grbl from a Path.
+TOOLTIP='''
+Generate g-code from a Path that is compatible with the grbl controller.
 
 import grbl_post
 grbl_post.export(object,"/path/to/file.ncc")
 '''
 
+import FreeCAD
+import PathScripts.PostUtils as PostUtils
+import argparse
 import datetime
+import shlex
+import traceback
+
+
 now = datetime.datetime.now()
-from PathScripts import PostUtils
+
+parser = argparse.ArgumentParser(prog='grbl', add_help=False)
+parser.add_argument('--header', action='store_true', help='output headers (default)')
+parser.add_argument('--no-header', action='store_true', help='suppress header output')
+parser.add_argument('--comments', action='store_true', help='output comment (default)')
+parser.add_argument('--no-comments', action='store_true', help='suppress comment output')
+parser.add_argument('--line-numbers', action='store_true', help='prefix with line numbers')
+parser.add_argument('--no-line-numbers', action='store_true', help='don\'t prefix with line numbers (default)')
+parser.add_argument('--show-editor', action='store_true', help='pop up editor before writing output (default)')
+parser.add_argument('--no-show-editor', action='store_true', help='don\'t pop up editor before writing output')
+parser.add_argument('--precision', default='4', help='number of digits of precision, default=4')
+parser.add_argument('--preamble', help='set commands to be issued before the first command, default="G17\nG90"')
+parser.add_argument('--postamble', help='set commands to be issued after the last command, default="M05\nG17 G90\n; M2"')
+parser.add_argument('--tool-change', help='0 ... suppress all tool change commands\n1 ... insert M6 for all tool changes\n2 ... insert M6 for all tool changes except the initial tool')
+
+TOOLTIP_ARGS=parser.format_help()
 
 #These globals set common customization preferences
 OUTPUT_COMMENTS = True
@@ -48,6 +70,7 @@ UNITS = "G21" #G21 for metric, G20 for us standard
 MACHINE_NAME = "GRBL"
 CORNER_MIN = {'x':0, 'y':0, 'z':0 }
 CORNER_MAX = {'x':500, 'y':300, 'z':300 }
+PRECISION = 4
 
 RAPID_MOVES = ['G0', 'G00']
 
@@ -57,7 +80,6 @@ PREAMBLE = '''G17 G90
 
 #Postamble text will appear following the last operation.
 POSTAMBLE = '''M5
-G00 X-1.0 Y1.0
 G17 G90
 ; M2
 '''
@@ -73,25 +95,74 @@ POST_OPERATION = ''''''
 
 #Tool Change commands will be inserted before a tool change
 TOOL_CHANGE = ''''''
+SUPPRESS_TOOL_CHANGE=0
 
 
 # to distinguish python built-in open function from the one declared below
-if open.__module__ == '__builtin__':
+if open.__module__ in ['__builtin__','io']:
     pythonopen = open
 
 
-def export(objectslist,filename,args):
+def processArguments(argstring):
+    global OUTPUT_HEADER
+    global OUTPUT_COMMENTS
+    global OUTPUT_LINE_NUMBERS
+    global OUTPUT_TOOL_CHANGE
+    global SHOW_EDITOR
+    global PRECISION
+    global PREAMBLE
+    global POSTAMBLE
+    global SUPPRESS_TOOL_CHANGE
+
+    try:
+        args = parser.parse_args(shlex.split(argstring))
+        if args.no_header:
+            OUTPUT_HEADER = False
+        if args.header:
+            OUTPUT_HEADER = True
+        if args.no_comments:
+            OUTPUT_COMMENTS = False
+        if args.comments:
+            OUTPUT_COMMENTS = True
+        if args.no_line_numbers:
+            OUTPUT_LINE_NUMBERS = False
+        if args.line_numbers:
+            OUTPUT_LINE_NUMBERS = True
+        if args.no_show_editor:
+            SHOW_EDITOR = False
+        if args.show_editor:
+            SHOW_EDITOR = True
+        print("Show editor = %d" % SHOW_EDITOR)
+        PRECISION = args.precision
+        if not args.preamble is None:
+            PREAMBLE = args.preamble
+        if not args.postamble is None:
+            POSTAMBLE = args.postamble
+        if not args.tool_change is None:
+            OUTPUT_TOOL_CHANGE = int(args.tool_change) > 0
+            SUPPRESS_TOOL_CHANGE = min(1, int(args.tool_change) - 1)
+    except Exception as e:
+        traceback.print_exc(e)
+        return False
+
+    return True
+
+def export(objectslist,filename,argstring):
+    if not processArguments(argstring):
+        return None
+
     global UNITS
+
     for obj in objectslist:
         if not hasattr(obj,"Path"):
-            print "the object " + obj.Name + " is not a path. Please select only path and Compounds."
+            print("the object " + obj.Name + " is not a path. Please select only path and Compounds.")
             return
 
-    print "postprocessing..."
+    print("postprocessing...")
     gcode = ""
 
     #Find the machine.
-    #The user my have overriden post processor defaults in the GUI.  Make sure we're using the current values in the Machine Def.
+    #The user my have overridden post processor defaults in the GUI.  Make sure we're using the current values in the Machine Def.
     myMachine = None
     for pathobj in objectslist:
         if hasattr(pathobj,"Group"): #We have a compound or project.
@@ -99,7 +170,7 @@ def export(objectslist,filename,args):
                 if p.Name == "Machine":
                     myMachine = p
     if myMachine is None:
-        print "No machine found in this project"
+        print("No machine found in this project")
     else:
         if myMachine.MachineUnits == "Metric":
            UNITS = "G21"
@@ -139,7 +210,7 @@ def export(objectslist,filename,args):
     for line in POSTAMBLE.splitlines(True):
         gcode += linenumber() + line
 
-    if SHOW_EDITOR:
+    if FreeCAD.GuiUp and SHOW_EDITOR:
         dia = PostUtils.GCodeEditorDialog()
         dia.editor.setText(gcode)
         result = dia.exec_()
@@ -150,7 +221,7 @@ def export(objectslist,filename,args):
     else:
         final = gcode
 
-    print "done postprocessing."
+    print("done postprocessing.")
 
     gfile = pythonopen(filename,"wb")
     gfile.write(gcode)
@@ -167,6 +238,8 @@ def linenumber():
 def parse(pathobj):
     out = ""
     lastcommand = None
+    precision_string = '.' + str(PRECISION) +'f'
+    global SUPPRESS_TOOL_CHANGE
 
     #params = ['X','Y','Z','A','B','I','J','K','F','S'] #This list control the order of parameters
     params = ['X','Y','Z','A','B','I','J','F','S','T','Q','R','L'] #linuxcnc doesn't want K properties on XY plane  Arcs need work.
@@ -198,20 +271,22 @@ def parse(pathobj):
                 if param in c.Parameters:
                     if param == 'F':
                         if command not in RAPID_MOVES:
-                            outstring.append(param + format(c.Parameters['F'], '.2f'))
+                            outstring.append(param + format(c.Parameters['F'] * 60, '.2f'))
                     elif param == 'T':
-                        outstring.append(param + str(c.Parameters['T']))
+                        outstring.append(param + str(int(c.Parameters['T'])))
                     else:
-                        outstring.append(param + format(c.Parameters[param], '.4f'))
+                        outstring.append(param + format(c.Parameters[param], precision_string))
 
             # store the latest command
             lastcommand = command
 
             # Check for Tool Change:
             if command == 'M6':
-                if OUTPUT_COMMENTS: out += linenumber() + "(begin toolchange)\n"
-                if not OUTPUT_TOOL_CHANGE:
+                if OUTPUT_COMMENTS:
+                    out += linenumber() + "(begin toolchange)\n"
+                if not OUTPUT_TOOL_CHANGE or SUPPRESS_TOOL_CHANGE > 0:
                     outstring.insert(0, ";")
+                    SUPPRESS_TOOL_CHANGE = SUPPRESS_TOOL_CHANGE - 1
                 else:
                     for line in TOOL_CHANGE.splitlines(True):
                         out += linenumber() + line
@@ -238,5 +313,5 @@ def parse(pathobj):
         return out
 
 
-print __name__ + " gcode postprocessor loaded."
+print(__name__ + " gcode postprocessor loaded.")
 

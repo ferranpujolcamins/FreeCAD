@@ -28,10 +28,10 @@ install_manifest.txt
 /ZERO_CHECK.dir/
 /build/
 /src/Tools/offlinedoc/localwiki/
-/src/Tools/offlinedoc/todolist.txt
-/src/Tools/offlinedoc/wikifiles.txt
+/src/Tools/offlinedoc/*.txt
 OpenSCAD_rc.py
 .subuser-dev
 /\.idea/
 .tags
 tags
+/\.vscode/

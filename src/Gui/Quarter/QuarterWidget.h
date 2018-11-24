@@ -41,7 +41,7 @@
 #include <QGraphicsView>
 #include <QtCore/QUrl>
 #include <QtOpenGL.h>
-#include "Gui/Quarter/Basic.h"
+#include <Gui/Quarter/Basic.h>
 
 class QMenu;
 class SoNode;
@@ -191,6 +191,7 @@ Q_SIGNALS:
 
 private Q_SLOTS:
   void replaceViewport();
+  virtual void aboutToDestroyGLContext();
 
 protected:
   virtual void paintEvent(QPaintEvent*);
@@ -199,13 +200,11 @@ protected:
   virtual void actualRedraw(void);
   virtual bool updateDevicePixelRatio(void);
 
-  double renderTime;
-
 private:
   void constructor(const QtGLFormat& format, const QtGLWidget* sharewidget);
   friend class QuarterWidgetP;
   class QuarterWidgetP * pimpl;
-  bool initialized;  
+  bool initialized;
 };
 
 }}} // namespace

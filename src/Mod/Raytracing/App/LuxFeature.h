@@ -51,8 +51,9 @@ public:
     App::PropertyColor      Color;
     App::PropertyPercent    Transparency;
 
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
+    short mustExecute() const;
     /// recalculate the Feature
     App::DocumentObjectExecReturn *execute(void);
 

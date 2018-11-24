@@ -26,7 +26,7 @@
 
 #include <Gui/TaskView/TaskView.h>
 #include <Gui/Selection.h>
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 #include <QListWidget>
 
 namespace App {
@@ -68,10 +68,11 @@ protected Q_SLOTS:
     void doPerpendicularConstraint();
     void doLengthConstraint();
     void doRadiusConstraint();
+    void doDiameterConstraint();
     void doAngleConstraint();
     void doEqualConstraint();
     void doPointOnObjectConstraint();
-    void doSymetricConstraint();
+    void doSymmetricConstraint();
     void doTangentConstraint();
     // Other Commands
     void doToggleConstruction();    
@@ -115,7 +116,7 @@ protected:
     void changeEvent(QEvent *e);
     void leaveEvent ( QEvent * event );
     ViewProviderSketch *sketchView;
-    typedef boost::BOOST_SIGNALS_NAMESPACE::connection Connection;
+    typedef boost::signals2::connection Connection;
     Connection connectionElementsChanged;
 
 private:

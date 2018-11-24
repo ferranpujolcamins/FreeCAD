@@ -35,8 +35,9 @@
 #include <map>
 #include <vector>
 #include <stack>
+#include <functional>
 
-#include <boost/signals.hpp>
+#include <boost/signals2.hpp>
 
 namespace Base {
     class Writer;
@@ -66,7 +67,9 @@ public:
         SkipRecompute = 0,
         KeepTrailingDigits = 1,
         Closable = 2,
-        Restoring = 3
+        Restoring = 3,
+        Recomputing = 4,
+        PartialRestore = 5
     };
 
     /** @name Properties */
@@ -110,41 +113,58 @@ public:
 
     /** @name Signals of the document */
     //@{
+    /// signal before changing an doc property
+    boost::signals2::signal<void (const App::Document&, const App::Property&)> signalBeforeChange;
+    /// signal on changed doc property
+    boost::signals2::signal<void (const App::Document&, const App::Property&)> signalChanged;
     /// signal on new Object
-    boost::signal<void (const App::DocumentObject&)> signalNewObject;
-    //boost::signal<void (const App::DocumentObject&)>     m_sig;
+    boost::signals2::signal<void (const App::DocumentObject&)> signalNewObject;
+    //boost::signals2::signal<void (const App::DocumentObject&)>     m_sig;
     /// signal on deleted Object
-    boost::signal<void (const App::DocumentObject&)> signalDeletedObject;
+    boost::signals2::signal<void (const App::DocumentObject&)> signalDeletedObject;
+    /// signal before changing an Object
+    boost::signals2::signal<void (const App::DocumentObject&, const App::Property&)> signalBeforeChangeObject;
     /// signal on changed Object
-    boost::signal<void (const App::DocumentObject&, const App::Property&)> signalChangedObject;
+    boost::signals2::signal<void (const App::DocumentObject&, const App::Property&)> signalChangedObject;
     /// signal on relabeled Object
-    boost::signal<void (const App::DocumentObject&)> signalRelabelObject;
+    boost::signals2::signal<void (const App::DocumentObject&)> signalRelabelObject;
     /// signal on activated Object
-    boost::signal<void (const App::DocumentObject&)> signalActivatedObject;
+    boost::signals2::signal<void (const App::DocumentObject&)> signalActivatedObject;
     /// signal on created object
-    boost::signal<void (const App::DocumentObject&, Transaction*)> signalTransactionAppend;
+    boost::signals2::signal<void (const App::DocumentObject&, Transaction*)> signalTransactionAppend;
     /// signal on removed object
-    boost::signal<void (const App::DocumentObject&, Transaction*)> signalTransactionRemove;
+    boost::signals2::signal<void (const App::DocumentObject&, Transaction*)> signalTransactionRemove;
     /// signal on undo
-    boost::signal<void (const App::Document&)> signalUndo;
+    boost::signals2::signal<void (const App::Document&)> signalUndo;
     /// signal on redo
-    boost::signal<void (const App::Document&)> signalRedo;
+    boost::signals2::signal<void (const App::Document&)> signalRedo;
     /** signal on load/save document
      * this signal is given when the document gets streamed.
      * you can use this hook to write additional information in
-     * the file (like the Gui::Document it does).
+     * the file (like the Gui::Document does).
      */
-    boost::signal<void (Base::Writer   &)> signalSaveDocument;
-    boost::signal<void (Base::XMLReader&)> signalRestoreDocument;
-    boost::signal<void (const std::vector<App::DocumentObject*>&,
-                        Base::Writer   &)> signalExportObjects;
-    boost::signal<void (const std::vector<App::DocumentObject*>&,
-                        Base::Writer   &)> signalExportViewObjects;
-    boost::signal<void (const std::vector<App::DocumentObject*>&,
-                        Base::XMLReader&)> signalImportObjects;
-    boost::signal<void (const std::vector<App::DocumentObject*>&, Base::Reader&,
-                        const std::map<std::string, std::string>&)> signalImportViewObjects;
-    boost::signal<void (const App::Document&)> signalRecomputed;
+    boost::signals2::signal<void (Base::Writer   &)> signalSaveDocument;
+    boost::signals2::signal<void (Base::XMLReader&)> signalRestoreDocument;
+    boost::signals2::signal<void (const std::vector<App::DocumentObject*>&,
+                                  Base::Writer   &)> signalExportObjects;
+    boost::signals2::signal<void (const std::vector<App::DocumentObject*>&,
+                                  Base::Writer   &)> signalExportViewObjects;
+    boost::signals2::signal<void (const std::vector<App::DocumentObject*>&,
+                                  Base::XMLReader&)> signalImportObjects;
+    boost::signals2::signal<void (const std::vector<App::DocumentObject*>&, Base::Reader&,
+                                  const std::map<std::string, std::string>&)> signalImportViewObjects;
+    //signal starting a save action to a file
+    boost::signals2::signal<void (const App::Document&, const std::string&)> signalStartSave;
+    //signal finishing a save action to a file
+    boost::signals2::signal<void (const App::Document&, const std::string&)> signalFinishSave;
+    boost::signals2::signal<void (const App::Document&)> signalRecomputed;
+    boost::signals2::signal<void (const App::DocumentObject&)> signalRecomputedObject;
+    //signal a new opened transaction
+    boost::signals2::signal<void (const App::Document&, std::string)> signalOpenTransaction;
+    // signal a committed transaction
+    boost::signals2::signal<void (const App::Document&)> signalCommitTransaction;
+    // signal an aborted transaction
+    boost::signals2::signal<void (const App::Document&)> signalAbortTransaction;
     //@}
 
     /** @name File handling of the document */
@@ -154,7 +174,7 @@ public:
     /// Save the document to the file in Property Path
     bool save (void);
     bool saveAs(const char* file);
-    bool saveCopy(const char* file);
+    bool saveCopy(const char* file) const;
     /// Restore the document from the file in Property Path
     void restore (void);
     void exportObjects(const std::vector<App::DocumentObject*>&, std::ostream&);
@@ -162,7 +182,7 @@ public:
     std::vector<App::DocumentObject*> importObjects(Base::XMLReader& reader);
     /// Opens the document from its file name
     //void open (void);
-    /// Is the document already saved to a file
+    /// Is the document already saved to a file?
     bool isSaved() const;
     /// Get the document name
     const char* getName() const;
@@ -171,36 +191,36 @@ public:
     virtual void Save (Base::Writer &writer) const;
     virtual void Restore(Base::XMLReader &reader);
 
-    /// returns the complet document mermory consumption, including all managed DocObjects and Undo Redo.
+    /// returns the complete document memory consumption, including all managed DocObjects and Undo Redo.
     unsigned int getMemSize (void) const;
 
     /** @name Object handling  */
     //@{
     /** Add a feature of sType with sName (ASCII) to this document and set it active.
-     * Unicode names are set through the Label propery.
+     * Unicode names are set through the Label property.
      * @param sType       the type of created object
-     * @param pObjectName if nonNULL use that name otherwise generate a new uniq name based on the \a sType
+     * @param pObjectName if nonNULL use that name otherwise generate a new unique name based on the \a sType
      * @param isNew       if false don't call the \c DocumentObject::setupObject() callback (default is true)
      */
     DocumentObject *addObject(const char* sType, const char* pObjectName=0, bool isNew=true);
     /** Add an array of features of the given types and names.
-     * Unicode names are set through the Label propery.
+     * Unicode names are set through the Label property.
      * @param sType       The type of created object
      * @param objectNames A list of object names
      * @param isNew       If false don't call the \c DocumentObject::setupObject() callback (default is true)
      */
     std::vector<DocumentObject *>addObjects(const char* sType, const std::vector<std::string>& objectNames, bool isNew=true);
     /// Remove a feature out of the document
-    void remObject(const char* sName);
+    void removeObject(const char* sName);
     /** Add an existing feature with sName (ASCII) to this document and set it active.
      * Unicode names are set through the Label property.
      * This is an overloaded function of the function above and can be used to create
      * a feature outside and add it to the document afterwards.
      * \note The passed feature must not yet be added to a document, otherwise an exception
-     * is raisedd.
+     * is raised.
      */
     void addObject(DocumentObject*, const char* pObjectName=0);
-    
+
 
     /** Copy an object from another document to this document
      * If \a recursive is true then all objects this object depends on
@@ -230,7 +250,7 @@ public:
     /// Returns a list of all Objects
     std::vector<DocumentObject*> getObjects() const;
     std::vector<DocumentObject*> getObjectsOfType(const Base::Type& typeId) const;
-    /// Returns all object with given extensions. If derived=true also all objects with extenions derived from the given one
+    /// Returns all object with given extensions. If derived=true also all objects with extensions derived from the given one
     std::vector<DocumentObject*> getObjectsWithExtension(const Base::Type& typeId, bool derived = true) const;
     std::vector<DocumentObject*> findObjects(const Base::Type& typeId, const char* objname) const;
     /// Returns an array with the correct types already.
@@ -243,7 +263,7 @@ public:
     /** @name methods for modification and state handling
      */
     //@{
-    /// Remove all modifications. After this call The document becomes again Valid.
+    /// Remove all modifications. After this call The document becomes Valid again.
     void purgeTouched();
     /// check if there is any touched object in this document
     bool isTouched(void) const;
@@ -253,13 +273,13 @@ public:
     void setClosable(bool);
     /// check whether the document can be closed
     bool isClosable() const;
-    /// Recompute all touched features and return the amount of recalculated features
+    /// Recompute all touched features and return the number of recalculated features
     int recompute();
     /// Recompute only one feature
     void recomputeFeature(DocumentObject* Feat);
     /// get the error log from the recompute run
     const std::vector<App::DocumentObjectExecReturn*> &getRecomputeLog(void)const{return _RecomputeLog;}
-    /// get the text of the error of a spezified object
+    /// get the text of the error of a specified object
     const char* getErrorDescription(const App::DocumentObject*) const;
     /// return the status bits
     bool testStatus(Status pos) const;
@@ -274,16 +294,19 @@ public:
     void setUndoMode(int iMode);
     /// switch the level of Undo/Redo
     int getUndoMode(void) const;
-    /// switch the tranaction mode
+    /// switch the transaction mode
     void setTransactionMode(int iMode);
     /// Open a new command Undo/Redo, an UTF-8 name can be specified
     void openTransaction(const char* name=0);
     // Commit the Command transaction. Do nothing If there is no Command transaction open.
     void commitTransaction();
-    /// Abort the  actually running transaction.
+    /// Abort the actually running transaction.
     void abortTransaction();
     /// Check if a transaction is open
     bool hasPendingTransaction() const;
+    /// Check if a transaction is open and its list is empty.
+    /// If no transaction is open true is returned.
+    bool isTransactionEmpty() const;
     /// Set the Undo limit in Byte!
     void setUndoLimit(unsigned int UndoMemSize=0);
     /// Returns the actual memory consumption of the Undo redo stuff.
@@ -294,20 +317,22 @@ public:
     unsigned int getMaxUndoStackSize(void)const;
     /// Remove all stored Undos and Redos
     void clearUndos();
-    /// Returns the  number  of stored Undos. If greater than 0 Undo will be effective.
+    /// Returns the number of stored Undos. If greater than 0 Undo will be effective.
     int getAvailableUndos() const;
     /// Returns a list of the Undo names
     std::vector<std::string> getAvailableUndoNames() const;
-    /// Will UNDO  one step, returns  False if no undo was done (Undos == 0).
+    /// Will UNDO one step, returns False if no undo was done (Undos == 0).
     bool undo();
     /// Returns the number of stored Redos. If greater than 0 Redo will be effective.
     int getAvailableRedos() const;
     /// Returns a list of the Redo names.
     std::vector<std::string> getAvailableRedoNames() const;
-    /// Will REDO  one step, returns  False if no redo was done (Redos == 0).
+    /// Will REDO one step, returns False if no redo was done (Redos == 0).
     bool redo() ;
     /// returns true if the document is in an Transaction phase, e.g. currently performing a redo/undo or rollback
     bool isPerformingTransaction() const;
+    /// \internal remove property from a transactional object with name \a name
+    void removePropertyOfObject(TransactionalObject*, const char*);
     //@}
 
     /** @name dependency stuff */
@@ -329,10 +354,13 @@ public:
     std::vector<App::DocumentObject*> topologicalSort() const;
     /// get all root objects (objects no other one reference too)
     std::vector<App::DocumentObject*> getRootObjects() const;
+    /// get all possible paths from one object to another following the OutList
+    std::vector<std::list<App::DocumentObject*> > getPathsByOutList
+    (const App::DocumentObject* from, const App::DocumentObject* to) const;
     //@}
 
     /// Function called to signal that an object identifier has been renamed
-    void renameObjectIdentifiers(const std::map<App::ObjectIdentifier, App::ObjectIdentifier> & paths);
+    void renameObjectIdentifiers(const std::map<App::ObjectIdentifier, App::ObjectIdentifier> & paths, const std::function<bool(const App::DocumentObject*)> &selector = [](const App::DocumentObject *) { return true; });
 
     virtual PyObject *getPyObject(void);
 
@@ -350,14 +378,16 @@ protected:
     /// Construction
     Document(void);
 
-    void _remObject(DocumentObject* pcObject);
+    void _removeObject(DocumentObject* pcObject);
     void _addObject(DocumentObject* pcObject, const char* pObjectName);
     /// checks if a valid transaction is open
     void _checkTransaction(DocumentObject* pcObject);
     void breakDependency(DocumentObject* pcObject, bool clear);
     std::vector<App::DocumentObject*> readObjects(Base::XMLReader& reader);
     void writeObjects(const std::vector<App::DocumentObject*>&, Base::Writer &writer) const;
+    bool saveToFile(const char* filename) const;
 
+    void onBeforeChange(const Property* prop);
     void onChanged(const Property* prop);
     /// callback from the Document objects before property will be changed
     void onBeforeChangeProperty(const TransactionalObject *Who, const Property *What);

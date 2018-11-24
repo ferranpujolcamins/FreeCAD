@@ -26,6 +26,7 @@
 
 #include "Points.h"
 #include "Properties.h"
+#include <Eigen/Core>
 
 namespace Points
 {
@@ -79,13 +80,22 @@ public:
     void read(const std::string& filename);
 };
 
-#ifdef HAVE_PCL_IO
 class PlyReader : public Reader
 {
 public:
     PlyReader();
     ~PlyReader();
     void read(const std::string& filename);
+
+private:
+    std::size_t readHeader(std::istream&, std::string& format, std::size_t& offset,
+        std::vector<std::string>& fields, std::vector<std::string>& types,
+        std::vector<int>& sizes);
+    void readAscii(std::istream&, std::size_t offset, Eigen::MatrixXd& data);
+    void readBinary(bool swapByteOrder, std::istream&, std::size_t offset,
+        const std::vector<std::string>& types,
+        const std::vector<int>& sizes,
+        Eigen::MatrixXd& data);
 };
 
 class PcdReader : public Reader
@@ -94,8 +104,16 @@ public:
     PcdReader();
     ~PcdReader();
     void read(const std::string& filename);
+
+private:
+    std::size_t readHeader(std::istream&, std::string& format, std::vector<std::string>& fields,
+        std::vector<std::string>& types, std::vector<int>& sizes);
+    void readAscii(std::istream&, Eigen::MatrixXd& data);
+    void readBinary(bool transpose, std::istream&,
+        const std::vector<std::string>& types,
+        const std::vector<int>& sizes,
+        Eigen::MatrixXd& data);
 };
-#endif
 
 class Writer
 {
@@ -109,6 +127,7 @@ public:
     void setNormals(const std::vector<Base::Vector3f>&);
     void setWidth(int);
     void setHeight(int);
+    void setPlacement(const Base::Placement&);
 
 protected:
     const PointKernel& points;
@@ -116,6 +135,7 @@ protected:
     std::vector<App::Color> colors;
     std::vector<Base::Vector3f> normals;
     int width, height;
+    Base::Placement placement;
 };
 
 class AscWriter : public Writer
@@ -126,7 +146,6 @@ public:
     void write(const std::string& filename);
 };
 
-#ifdef HAVE_PCL_IO
 class PlyWriter : public Writer
 {
 public:
@@ -142,7 +161,6 @@ public:
     ~PcdWriter();
     void write(const std::string& filename);
 };
-#endif
 
 } // namespace Points
 

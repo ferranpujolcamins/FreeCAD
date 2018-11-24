@@ -21,19 +21,19 @@ IF (COIN3D_FOUND)
     ELSE(APPLE)
       # Unix systems
       find_path(COIN3D_DOC_PATH index.html 
-                /usr/share/doc/libcoin60-doc/html
+                /usr/share/doc/libcoin80-doc/html
                 /usr/share/doc/coin/html
       )
       IF( EXISTS ${COIN3D_DOC_PATH})
         message(STATUS "Coin3D doc is installed")
-        find_file(COIN3D_DOC_TAGFILE coin.tag 
+        find_file(COIN3D_DOC_TAGFILE coin.tag Coin.tag 
             ${COIN3D_DOC_PATH}
         )
         IF( EXISTS ${COIN3D_DOC_TAGFILE})
           SET( COIN3D_DOC_FOUND "YES"
           )
         ELSE( EXISTS ${COIN3D_DOC_TAGFILE})
-          find_file(COIN3D_DOC_TAGFILE_GZ coin.tag.gz 
+          find_file(COIN3D_DOC_TAGFILE_GZ coin.tag.gz Coin.tag.gz 
               ${COIN3D_DOC_PATH}
           )
           IF( EXISTS ${COIN3D_DOC_TAGFILE_GZ})

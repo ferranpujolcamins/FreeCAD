@@ -34,7 +34,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostClip, FemGui::ViewProviderFemPostObje
 
 ViewProviderFemPostClip::ViewProviderFemPostClip() {
 
-    sPixmap = "fem-clip";
+    sPixmap = "fem-post-filter-clip-region";
 }
 
 ViewProviderFemPostClip::~ViewProviderFemPostClip() {
@@ -55,7 +55,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostDataAlongLine, FemGui::ViewProviderFe
 
 ViewProviderFemPostDataAlongLine::ViewProviderFemPostDataAlongLine() {
 
-    sPixmap = "fem-DataAlongLine";
+    sPixmap = "fem-post-filter-data-along-line";
 }
 
 ViewProviderFemPostDataAlongLine::~ViewProviderFemPostDataAlongLine() {
@@ -69,12 +69,30 @@ void ViewProviderFemPostDataAlongLine::setupTaskDialog(TaskDlgPost* dlg) {
 
 }
 
+PROPERTY_SOURCE(FemGui::ViewProviderFemPostDataAtPoint, FemGui::ViewProviderFemPostObject)
+
+ViewProviderFemPostDataAtPoint::ViewProviderFemPostDataAtPoint() {
+
+    sPixmap = "fem-post-filter-data-at-point";
+}
+
+ViewProviderFemPostDataAtPoint::~ViewProviderFemPostDataAtPoint() {
+
+}
+
+void ViewProviderFemPostDataAtPoint::setupTaskDialog(TaskDlgPost* dlg) {
+
+    //add the function box
+    dlg->appendBox(new TaskPostDataAtPoint(dlg->getView()));
+
+}
+
 
 PROPERTY_SOURCE(FemGui::ViewProviderFemPostScalarClip, FemGui::ViewProviderFemPostObject)
 
 ViewProviderFemPostScalarClip::ViewProviderFemPostScalarClip() {
 
-    sPixmap = "fem-clip-scalar";
+    sPixmap = "fem-post-filter-clip-scalar";
 }
 
 ViewProviderFemPostScalarClip::~ViewProviderFemPostScalarClip() {
@@ -94,7 +112,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostWarpVector, FemGui::ViewProviderFemPo
 
 ViewProviderFemPostWarpVector::ViewProviderFemPostWarpVector() {
 
-    sPixmap = "fem-warp";
+    sPixmap = "fem-post-filter-warp";
 }
 
 ViewProviderFemPostWarpVector::~ViewProviderFemPostWarpVector() {
@@ -115,7 +133,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemPostCut, FemGui::ViewProviderFemPostObjec
 
 ViewProviderFemPostCut::ViewProviderFemPostCut() {
 
-    sPixmap = "fem-cut";
+    sPixmap = "fem-post-filter-cut-function";
 }
 
 ViewProviderFemPostCut::~ViewProviderFemPostCut() {

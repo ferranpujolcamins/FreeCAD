@@ -35,8 +35,10 @@
 #include <App/DynamicProperty.h>
 #include <App/FeaturePythonPyImp.h>
 #include <Base/Exception.h>
+#include <Base/FileInfo.h>
 #include <Base/Placement.h>
 #include <Base/Reader.h>
+#include <Base/Stream.h>
 #include <Base/Writer.h>
 #include <Base/Tools.h>
 #include "Sheet.h"
@@ -113,7 +115,7 @@ void Sheet::clearAll()
     std::vector<std::string> propNames = props.getDynamicPropertyNames();
 
     for (std::vector<std::string>::const_iterator i = propNames.begin(); i != propNames.end(); ++i)
-        props.removeDynamicProperty((*i).c_str());
+        this->removeDynamicProperty((*i).c_str());
 
     propAddress.clear();
     cellErrors.clear();
@@ -131,7 +133,7 @@ void Sheet::clearAll()
   * Import a file into the spreadsheet object.
   *
   * @param filename   Name of file to import
-  * @param delimiter  The field delimiter charater used.
+  * @param delimiter  The field delimiter character used.
   * @param quoteChar  Quote character, if any (set to '\0' to disable).
   * @param escapeChar The escape character used, if any (set to '0' to disable).
   *
@@ -140,14 +142,13 @@ void Sheet::clearAll()
 
 bool Sheet::importFromFile(const std::string &filename, char delimiter, char quoteChar, char escapeChar)
 {
-    std::ifstream file;
+    Base::FileInfo fi(filename);
+    Base::ifstream file(fi, std::ios::in);
     int row = 0;
 
     PropertySheet::AtomicPropertyChange signaller(cells);
 
     clearAll();
-
-    file.open(filename.c_str(), std::ios::in);
 
     if (file.is_open()) {
         std::string line;
@@ -426,7 +427,7 @@ void Sheet::getCellAddress(const Property *prop, CellAddress & address)
     if (i != propAddress.end())
         address = i->second;
     else
-        throw Base::Exception("Property is not a cell");
+        throw Base::TypeError("Property is not a cell");
 }
 
 /**
@@ -460,7 +461,7 @@ void Sheet::removeAliases()
     std::map<CellAddress, std::string>::iterator i = removedAliases.begin();
 
     while (i != removedAliases.end()) {
-        props.removeDynamicProperty(i->second.c_str());
+        this->removeDynamicProperty(i->second.c_str());
         ++i;
     }
     removedAliases.clear();
@@ -491,7 +492,7 @@ Property * Sheet::setFloatProperty(CellAddress key, double value)
 
     if (!prop || prop->getTypeId() != PropertyFloat::getClassTypeId()) {
         if (prop) {
-            props.removeDynamicProperty(key.toString().c_str());
+            this->removeDynamicProperty(key.toString().c_str());
             propAddress.erase(prop);
         }
         floatProp = freecad_dynamic_cast<PropertyFloat>(props.addDynamicProperty("App::PropertyFloat", key.toString().c_str(), 0, 0, Prop_ReadOnly | Prop_Hidden | Prop_Transient));
@@ -522,7 +523,7 @@ Property * Sheet::setQuantityProperty(CellAddress key, double value, const Base:
 
     if (!prop || prop->getTypeId() != PropertySpreadsheetQuantity::getClassTypeId()) {
         if (prop) {
-            props.removeDynamicProperty(key.toString().c_str());
+            this->removeDynamicProperty(key.toString().c_str());
             propAddress.erase(prop);
         }
         Property * p = props.addDynamicProperty("Spreadsheet::PropertySpreadsheetQuantity", key.toString().c_str(), 0, 0, Prop_ReadOnly | Prop_Hidden | Prop_Transient);
@@ -556,7 +557,7 @@ Property * Sheet::setStringProperty(CellAddress key, const std::string & value)
 
     if (!stringProp) {
         if (prop) {
-            props.removeDynamicProperty(key.toString().c_str());
+            this->removeDynamicProperty(key.toString().c_str());
             propAddress.erase(prop);
         }
         stringProp = freecad_dynamic_cast<PropertyString>(props.addDynamicProperty("App::PropertyString", key.toString().c_str(), 0, 0, Prop_ReadOnly | Prop_Hidden | Prop_Transient));
@@ -590,7 +591,7 @@ void Sheet::updateAlias(CellAddress key)
         if (aliasProp) {
             // Type of alias and property must always be the same
             if (aliasProp->getTypeId() != prop->getTypeId()) {
-                props.removeDynamicProperty(alias.c_str());
+                this->removeDynamicProperty(alias.c_str());
                 aliasProp = 0;
             }
         }
@@ -603,7 +604,7 @@ void Sheet::updateAlias(CellAddress key)
 }
 
 /**
-  * Update the Propery given by \a key. This will also eventually trigger recomputations of cells depending on \a key.
+  * Update the Property given by \a key. This will also eventually trigger recomputations of cells depending on \a key.
   *
   * @param key The address of the cell we want to recompute.
   *
@@ -649,7 +650,7 @@ void Sheet::updateProperty(CellAddress key)
 }
 
 /**
-  * Retrieve a specifc Property given by \a name.
+  * Retrieve a specific Property given by \a name.
   * This function might throw an exception if something fails, but might also
   * return 0 in case the property is not found.
   *
@@ -793,7 +794,7 @@ DocumentObjectExecReturn *Sheet::execute(void)
                 ++i;
             }
         }
-        catch (std::exception) {
+        catch (std::exception&) {
             // Cycle detected; flag all with errors
 
             std::map<CellAddress, Vertex>::const_iterator i = VertexList.begin();
@@ -882,7 +883,7 @@ void Sheet::clear(CellAddress address, bool /*all*/)
     // Remove alias, if defined
     std::string aliasStr;
     if (cell && cell->getAlias(aliasStr))
-        props.removeDynamicProperty(aliasStr.c_str());
+        this->removeDynamicProperty(aliasStr.c_str());
 
     cells.clear(address);
 
@@ -896,7 +897,7 @@ void Sheet::clear(CellAddress address, bool /*all*/)
     docDeps.setValues(dv);
 
     propAddress.erase(prop);
-    props.removeDynamicProperty(addr.c_str());
+    this->removeDynamicProperty(addr.c_str());
 }
 
 /**
@@ -1136,14 +1137,14 @@ void Sheet::setAlias(CellAddress address, const std::string &alias)
         if (existingAlias == address.toString()) // Same as old?
             return;
         else
-            throw Base::Exception("Alias already defined");
+            throw Base::ValueError("Alias already defined");
     }
     else if (alias.size() == 0) // Empty?
         cells.setAlias(address, "");
     else if (isValidAlias(alias)) // Valid?
         cells.setAlias(address, alias);
     else
-        throw Base::Exception("Invalid alias");
+        throw Base::ValueError("Invalid alias");
 }
 
 /**

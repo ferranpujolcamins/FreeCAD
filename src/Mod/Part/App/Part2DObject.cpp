@@ -20,7 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 
- 
+
 #include "PreCompiled.h"
 #ifndef _PreComp_
 # include <TopoDS_Shape.hxx>
@@ -121,6 +121,7 @@ bool Part2DObject::seekTrimPoints(const std::vector<Geometry *> &geomlist,
     Handle(Geom2d_Curve) primaryCurve;
     Handle(Geom_Geometry) geom = (geomlist[GeoId])->handle();
     Handle(Geom_Curve) curve3d = Handle(Geom_Curve)::DownCast(geom);
+
     if (curve3d.IsNull())
         return false;
     else {
@@ -152,12 +153,36 @@ bool Part2DObject::seekTrimPoints(const std::vector<Geometry *> &geomlist,
             if (!curve3d.IsNull()) {
                 secondaryCurve = GeomAPI::To2d(curve3d, plane);
                 // perform the curves intersection
+
+                std::vector<gp_Pnt2d> points;
+
+                // #2463 Check for endpoints of secondarycurve on primary curve
+                // If the OCCT Intersector should detect endpoint tangency when trimming, then
+                // this is just a work-around until that bug is fixed.
+                // https://www.freecadweb.org/tracker/view.php?id=2463
+                // https://tracker.dev.opencascade.org/view.php?id=30217
+                if (geomlist[id]->getTypeId().isDerivedFrom(Part::GeomBoundedCurve::getClassTypeId())) {
+
+                    Part::GeomBoundedCurve * bcurve = static_cast<Part::GeomBoundedCurve *>(geomlist[id]);
+
+                    points.push_back(gp_Pnt2d (bcurve->getStartPoint().x,bcurve->getStartPoint().y));
+                    points.push_back(gp_Pnt2d (bcurve->getEndPoint().x,bcurve->getEndPoint().y));
+                }
+
                 Intersector.Init(primaryCurve, secondaryCurve, 1.0e-12);
-                for (int i=1; i <= Intersector.NbPoints(); i++) {
-                    gp_Pnt2d p = Intersector.Point(i);
+
+                for (int i=1; i <= Intersector.NbPoints(); i++)
+                    points.push_back(Intersector.Point(i));
+
+                for (auto p : points) {
                     // get the parameter of the intersection point on the primary curve
                     Projector.Init(p, primaryCurve);
+
+                    if (Projector.NbPoints()<1 || Projector.LowerDistance() > Precision::Confusion())
+                        continue;
+
                     double param = Projector.LowerDistanceParameter();
+
                     if (periodic) {
                         // transfer param into the interval (pickedParam-period pickedParam]
                         param = param - period * ceil((param-pickedParam) / period);
@@ -215,57 +240,31 @@ void Part2DObject::acceptGeometry()
 
 void Part2DObject::Restore(Base::XMLReader &reader)
 {
+    Part::Feature::Restore(reader);
+}
+
+void Part2DObject::handleChangedPropertyType(Base::XMLReader &reader,
+                                             const char * TypeName,
+                                             App::Property * prop)
+{
     //override generic restoration to convert Support property from PropertyLinkSub to PropertyLinkSubList
-
-    reader.readElement("Properties");
-    int Cnt = reader.getAttributeAsInteger("Count");
-
-    for (int i=0 ;i<Cnt ;i++) {
-        reader.readElement("Property");
-        const char* PropName = reader.getAttribute("name");
-        const char* TypeName = reader.getAttribute("type");
-        App::Property* prop = getPropertyByName(PropName);
-        // NOTE: We must also check the type of the current property because a
-        // subclass of PropertyContainer might change the type of a property but
-        // not its name. In this case we would force to read-in a wrong property
-        // type and the behaviour would be undefined.
-        try {
-            if(prop){
-                if (strcmp(prop->getTypeId().getName(), TypeName) == 0){
-                    prop->Restore(reader);
-                } else if (prop->isDerivedFrom(App::PropertyLinkSubList::getClassTypeId())){
-                    //reading legacy Support - when the Support could only be a single flat face.
-                    App::PropertyLinkSub tmp;
-                    if (0 == strcmp(tmp.getTypeId().getName(),TypeName)) {
-                        tmp.setContainer(this);
-                        tmp.Restore(reader);
-                        static_cast<App::PropertyLinkSubList*>(prop)->setValue(tmp.getValue(), tmp.getSubValues());
-                    }
-                    this->MapMode.setValue(Attacher::mmFlatFace);
-                }
-            }
+    if (prop->isDerivedFrom(App::PropertyLinkSubList::getClassTypeId())) {
+        //reading legacy Support - when the Support could only be a single flat face.
+        App::PropertyLinkSub tmp;
+        if (0 == strcmp(tmp.getTypeId().getName(),TypeName)) {
+            tmp.setContainer(this);
+            tmp.Restore(reader);
+            static_cast<App::PropertyLinkSubList*>(prop)->setValue(tmp.getValue(), tmp.getSubValues());
         }
-        catch (const Base::XMLParseException&) {
-            throw; // re-throw
-        }
-        catch (const Base::Exception &e) {
-            Base::Console().Error("%s\n", e.what());
-        }
-        catch (const std::exception &e) {
-            Base::Console().Error("%s\n", e.what());
-        }
-        catch (const char* e) {
-            Base::Console().Error("%s\n", e);
-        }
-#ifndef FC_DEBUG
-        catch (...) {
-            Base::Console().Error("PropertyContainer::Restore: Unknown C++ exception thrown");
-        }
-#endif
-
-        reader.readEndElement("Property");
+        this->MapMode.setValue(Attacher::mmFlatFace);
     }
-    reader.readEndElement("Properties");
+}
+
+void Part2DObject::handleChangedPropertyName(Base::XMLReader &reader,
+                                             const char * TypeName,
+                                             const char *PropName)
+{
+    extHandleChangedPropertyName(reader, TypeName, PropName); // AttachExtension
 }
 
 // Python Drawing feature ---------------------------------------------------------
@@ -288,4 +287,3 @@ namespace App {
 // explicit template instantiation
   template class PartExport FeaturePythonT<Part::Part2DObject>;
 }
-

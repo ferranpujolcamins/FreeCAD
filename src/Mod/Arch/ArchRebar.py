@@ -43,7 +43,7 @@ else:
 #
 #  This module provides tools to build Rebar objects.
 #  Rebars (or Reinforcing Bars) are metallic bars placed
-#  inside concrete strutures to reinforce them.
+#  inside concrete structures to reinforce them.
 
 __title__="FreeCAD Rebar"
 __author__ = "Yorik van Havre"
@@ -51,10 +51,15 @@ __url__ = "http://www.freecadweb.org"
 
 
 def makeRebar(baseobj=None,sketch=None,diameter=None,amount=1,offset=None,name="Rebar"):
+
     """makeRebar([baseobj,sketch,diameter,amount,offset,name]): adds a Reinforcement Bar object
     to the given structural object, using the given sketch as profile."""
+
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Arch")
-    obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
+    obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython","Rebar")
     obj.Label = translate("Arch",name)
     _Rebar(obj)
     if FreeCAD.GuiUp:
@@ -83,23 +88,26 @@ def makeRebar(baseobj=None,sketch=None,diameter=None,amount=1,offset=None,name="
     else:
         obj.OffsetStart = p.GetFloat("RebarOffset",30)
         obj.OffsetEnd = p.GetFloat("RebarOffset",30)
-    ArchCommands.fixDAG(obj)
     return obj
 
 
 class _CommandRebar:
+
     "the Arch Rebar command definition"
 
     def GetResources(self):
+
         return {'Pixmap'  : 'Arch_Rebar',
-                'MenuText': QT_TRANSLATE_NOOP("Arch_Rebar","Rebar"),
+                'MenuText': QT_TRANSLATE_NOOP("Arch_Rebar","Custom Rebar"),
                 'Accel': "R, B",
                 'ToolTip': QT_TRANSLATE_NOOP("Arch_Rebar","Creates a Reinforcement bar from the selected face of a structural object")}
 
     def IsActive(self):
+
         return not FreeCAD.ActiveDocument is None
 
     def Activated(self):
+
         sel = FreeCADGui.Selection.getSelectionEx()
         if sel:
             obj = sel[0].Object
@@ -142,47 +150,82 @@ class _CommandRebar:
                             print("Arch: error: couldn't extract a base object")
                             return
 
-        FreeCAD.Console.PrintMessage(translate("Arch","Please select a base face on a structural object\n"))
+        FreeCAD.Console.PrintMessage(translate("Arch","Please select a base face on a structural object")+"\n")
+        FreeCADGui.Control.closeDialog()
         FreeCADGui.Control.showDialog(ArchComponent.SelectionTaskPanel())
         FreeCAD.ArchObserver = ArchComponent.ArchSelectionObserver(nextCommand="Arch_Rebar")
         FreeCADGui.Selection.addObserver(FreeCAD.ArchObserver)
 
 
 class _Rebar(ArchComponent.Component):
+
     "A parametric reinforcement bar (rebar) object"
 
     def __init__(self,obj):
+
         ArchComponent.Component.__init__(self,obj)
-        obj.addProperty("App::PropertyLength","Diameter","Arch",QT_TRANSLATE_NOOP("App::Property","The diameter of the bar"))
-        obj.addProperty("App::PropertyLength","OffsetStart","Arch",QT_TRANSLATE_NOOP("App::Property","The distance between the border of the beam and the fist bar (concrete cover)."))
-        obj.addProperty("App::PropertyLength","OffsetEnd","Arch",QT_TRANSLATE_NOOP("App::Property","The distance between the border of the beam and the last bar (concrete cover)."))
-        obj.addProperty("App::PropertyInteger","Amount","Arch",QT_TRANSLATE_NOOP("App::Property","The amount of bars"))
-        obj.addProperty("App::PropertyLength","Spacing","Arch",QT_TRANSLATE_NOOP("App::Property","The spacing between the bars"))
-        obj.addProperty("App::PropertyLength","Distance","Arch",QT_TRANSLATE_NOOP("App::Property","The total distance to span the rebars over. Keep 0 to automatically use the host shape size."))
-        obj.addProperty("App::PropertyVector","Direction","Arch",QT_TRANSLATE_NOOP("App::Property","The direction to use to spread the bars. Keep (0,0,0) for automatic direction."))
-        obj.addProperty("App::PropertyFloat","Rounding","Arch",QT_TRANSLATE_NOOP("App::Property","The fillet to apply to the angle of the base profile. This value is multiplied by the bar diameter."))
-        obj.addProperty("App::PropertyPlacementList","PlacementList","Arch",QT_TRANSLATE_NOOP("App::Property","List of placement of all the bars"))
-        obj.addProperty("App::PropertyLink","Host","Arch",QT_TRANSLATE_NOOP("App::Property","The structure object that hosts this rebar"))
-        obj.addProperty("App::PropertyString", "CustomSpacing", "Arch", QT_TRANSLATE_NOOP("App::Property","The custom spacing of rebar"))
+        self.setProperties(obj)
+        obj.IfcRole = "Reinforcing Bar"
+
+    def setProperties(self,obj):
+
+        pl = obj.PropertiesList
+        if not "Diameter" in pl:
+            obj.addProperty("App::PropertyLength","Diameter","Rebar",QT_TRANSLATE_NOOP("App::Property","The diameter of the bar"))
+        if not "OffsetStart" in pl:
+            obj.addProperty("App::PropertyLength","OffsetStart","Rebar",QT_TRANSLATE_NOOP("App::Property","The distance between the border of the beam and the first bar (concrete cover)."))
+        if not "OffsetEnd" in pl:
+            obj.addProperty("App::PropertyLength","OffsetEnd","Rebar",QT_TRANSLATE_NOOP("App::Property","The distance between the border of the beam and the last bar (concrete cover)."))
+        if not "Amount" in pl:
+            obj.addProperty("App::PropertyInteger","Amount","Rebar",QT_TRANSLATE_NOOP("App::Property","The amount of bars"))
+        if not "Spacing" in pl:
+            obj.addProperty("App::PropertyLength","Spacing","Rebar",QT_TRANSLATE_NOOP("App::Property","The spacing between the bars"))
+            obj.setEditorMode("Spacing", 1)
+        if not "Distance" in pl:
+            obj.addProperty("App::PropertyLength","Distance","Rebar",QT_TRANSLATE_NOOP("App::Property","The total distance to span the rebars over. Keep 0 to automatically use the host shape size."))
+        if not "Direction" in pl:
+            obj.addProperty("App::PropertyVector","Direction","Rebar",QT_TRANSLATE_NOOP("App::Property","The direction to use to spread the bars. Keep (0,0,0) for automatic direction."))
+        if not "Rounding" in pl:
+            obj.addProperty("App::PropertyFloat","Rounding","Rebar",QT_TRANSLATE_NOOP("App::Property","The fillet to apply to the angle of the base profile. This value is multiplied by the bar diameter."))
+        if not "PlacementList" in pl:
+            obj.addProperty("App::PropertyPlacementList","PlacementList","Rebar",QT_TRANSLATE_NOOP("App::Property","List of placement of all the bars"))
+        if not "Host" in pl:
+            obj.addProperty("App::PropertyLink","Host","Rebar",QT_TRANSLATE_NOOP("App::Property","The structure object that hosts this rebar"))
+        if not "CustomSpacing" in pl:
+            obj.addProperty("App::PropertyString", "CustomSpacing", "Rebar", QT_TRANSLATE_NOOP("App::Property","The custom spacing of rebar"))
+        if not "Length" in pl:
+            obj.addProperty("App::PropertyDistance", "Length", "Rebar", QT_TRANSLATE_NOOP("App::Property","Length of a single rebar"))
+            obj.setEditorMode("Length", 1)
+        if not "TotalLength" in pl:
+            obj.addProperty("App::PropertyDistance", "TotalLength", "Rebar", QT_TRANSLATE_NOOP("App::Property","Total length of all rebars"))
+            obj.setEditorMode("TotalLength", 1)
         self.Type = "Rebar"
-        obj.setEditorMode("Spacing",1)
+
+    def onDocumentRestored(self,obj):
+
+        ArchComponent.Component.onDocumentRestored(self,obj)
+        self.setProperties(obj)
 
     def getBaseAndAxis(self,wire):
+
         "returns a base point and orientation axis from the base wire"
         import DraftGeomUtils
         if wire:
             e = wire.Edges[0]
-            v = DraftGeomUtils.vec(e).normalize()
+            #v = DraftGeomUtils.vec(e).normalize()
+            v = e.tangentAt(e.FirstParameter)
             return e.Vertexes[0].Point,v
         if obj.Base:
             if obj.Base.Shape:
                 if obj.Base.Shape.Wires:
                     e = obj.Base.Shape.Wires[0].Edges[0]
-                    v = DraftGeomUtils.vec(e).normalize()
+                    #v = DraftGeomUtils.vec(e).normalize()
+                    v = e.tangentAt(e.FirstParameter)
                     return e.Vertexes[0].Point,v
         return None,None
 
     def getRebarData(self,obj):
+
         if len(obj.InList) != 1:
             return
         if Draft.getType(obj.InList[0]) != "Structure":
@@ -240,6 +283,7 @@ class _Rebar(ArchComponent.Component):
         return [wires,obj.Diameter.Value/2]
 
     def onChanged(self,obj,prop):
+
         if prop == "Host":
             if hasattr(obj,"Host"):
                 if obj.Host:
@@ -298,8 +342,6 @@ class _Rebar(ArchComponent.Component):
         if hasattr(obj,"Distance"):
             if obj.Distance.Value:
                 size = obj.Distance.Value
-        #print(axis)
-        #print(size)
         spacinglist = None
         if hasattr(obj, "CustomSpacing"):
             if obj.CustomSpacing:
@@ -308,22 +350,25 @@ class _Rebar(ArchComponent.Component):
         if (obj.OffsetStart.Value + obj.OffsetEnd.Value) > size:
             return
         # all tests ok!
+        if hasattr(obj, "Length"):
+            length = getLengthOfRebar(obj)
+            if length:
+                obj.Length = length
         pl = obj.Placement
         import Part
         circle = Part.makeCircle(obj.Diameter.Value/2,bpoint,bvec)
         circle = Part.Wire(circle)
         try:
             bar = wire.makePipeShell([circle],True,False,2)
+            basewire = wire.copy()
         except Part.OCCError:
             print("Arch: error sweeping rebar profile along the base sketch")
             return
         # building final shape
         shapes = []
         placementlist = []
-        if father:
-            rot = father.Placement.Rotation
-        else:
-            rot = FreeCAD.Rotation()
+        self.wires = []
+        rot = FreeCAD.Rotation()
         if obj.Amount == 1:
             barplacement = CalculatePlacement(obj.Amount, 1, size, axis, rot, obj.OffsetStart.Value, obj.OffsetEnd.Value)
             placementlist.append(barplacement)
@@ -345,9 +390,11 @@ class _Rebar(ArchComponent.Component):
         if spacinglist:
             placementlist[:] = []
             reqInfluenceArea = size - (obj.OffsetStart.Value + obj.OffsetEnd.Value)
-            if influenceArea > reqInfluenceArea:
-                return FreeCAD.Console.PrintError("Influence area of rebars is greater than "+ str(reqInfluenceArea) + ".\n")
-            elif influenceArea < reqInfluenceArea:
+            # Avoid unnecessary checks to pass like. For eg.: when we have values
+            # like influenceArea is 100.00001 and reqInflueneArea is 100
+            if round(influenceArea) > round(reqInfluenceArea):
+                FreeCAD.Console.PrintWarning("Influence area of rebars is greater than "+ str(reqInfluenceArea) + ".\n")
+            elif round(influenceArea) < round(reqInfluenceArea):
                 FreeCAD.Console.PrintWarning("Last span is greater that end offset.\n")
             for i in range(len(spacinglist)):
                 if i == 0:
@@ -363,28 +410,48 @@ class _Rebar(ArchComponent.Component):
             if i == 0:
                 bar.Placement = obj.PlacementList[i]
                 shapes.append(bar)
+                basewire.Placement = obj.PlacementList[i]
+                self.wires.append(basewire)
             else:
                 bar = bar.copy()
                 bar.Placement = obj.PlacementList[i]
                 shapes.append(bar)
+                w = basewire.copy()
+                w.Placement = obj.PlacementList[i]
+                self.wires.append(w)
         if shapes:
             obj.Shape = Part.makeCompound(shapes)
             obj.Placement = pl
+        obj.TotalLength = obj.Length * len(obj.PlacementList)
 
 class _ViewProviderRebar(ArchComponent.ViewProviderComponent):
+
     "A View Provider for the Rebar object"
 
     def __init__(self,vobj):
+
         ArchComponent.ViewProviderComponent.__init__(self,vobj)
-        vobj.addProperty("App::PropertyString","RebarShape","Arch",QT_TRANSLATE_NOOP("App::Property","Shape of rebar")).RebarShape
+        self.setProperties(vobj)
         vobj.ShapeColor = ArchCommands.getDefaultColor("Rebar")
-        vobj.setEditorMode("RebarShape",2)
+
+    def setProperties(self,vobj):
+
+        pl = vobj.PropertiesList
+        if not "RebarShape" in pl:
+            vobj.addProperty("App::PropertyString","RebarShape","Rebar",QT_TRANSLATE_NOOP("App::Property","Shape of rebar")).RebarShape
+            vobj.setEditorMode("RebarShape",2)
+
+    def onDocumentRestored(self,vobj):
+
+        self.setProperties(vobj)
 
     def getIcon(self):
+
         import Arch_rc
         return ":/icons/Arch_Rebar_Tree.svg"
 
     def setEdit(self, vobj, mode):
+
         if mode == 0:
             if vobj.RebarShape:
                 try:
@@ -395,7 +462,69 @@ class _ViewProviderRebar(ArchComponent.ViewProviderComponent):
                     return
                 module.editDialog(vobj)
 
+    def updateData(self,obj,prop):
+
+        if prop == "Shape":
+            if hasattr(self,"centerline"):
+                if self.centerline:
+                    self.centerlinegroup.removeChild(self.centerline)
+            if hasattr(obj.Proxy,"wires"):
+                if obj.Proxy.wires:
+                    from pivy import coin
+                    import re,Part
+                    self.centerline = coin.SoSeparator()
+                    comp = Part.makeCompound(obj.Proxy.wires)
+                    pts = re.findall("point \[(.*?)\]",comp.writeInventor().replace("\n",""))
+                    pts = [p.split(",") for p in pts]
+                    for pt in pts:
+                        ps = coin.SoSeparator()
+                        plist = []
+                        for p in pt:
+                            c = []
+                            for pstr in p.split(" "):
+                                if pstr:
+                                    c.append(float(pstr))
+                            plist.append(c)
+                        coords = coin.SoCoordinate3()
+                        coords.point.setValues(plist)
+                        ps.addChild(coords)
+                        ls = coin.SoLineSet()
+                        ls.numVertices = -1
+                        ps.addChild(ls)
+                        self.centerline.addChild(ps)
+                    self.centerlinegroup.addChild(self.centerline)
+        ArchComponent.ViewProviderComponent.updateData(self,obj,prop)
+
+    def attach(self,vobj):
+
+        from pivy import coin
+        self.centerlinegroup = coin.SoSeparator()
+        self.centerlinegroup.setName("Centerline")
+        self.centerlinecolor = coin.SoBaseColor()
+        self.centerlinestyle = coin.SoDrawStyle()
+        self.centerlinegroup.addChild(self.centerlinecolor)
+        self.centerlinegroup.addChild(self.centerlinestyle)
+        vobj.addDisplayMode(self.centerlinegroup,"Centerline")
+        ArchComponent.ViewProviderComponent.attach(self,vobj)
+
+    def onChanged(self,vobj,prop):
+
+        if (prop == "LineColor") and hasattr(vobj,"LineColor"):
+            if hasattr(self,"centerlinecolor"):
+                c = vobj.LineColor
+                self.centerlinecolor.rgb.setValue(c[0],c[1],c[2])
+        elif (prop == "LineWidth") and hasattr(vobj,"LineWidth"):
+            if hasattr(self,"centerlinestyle"):
+                self.centerlinestyle.lineWidth = vobj.LineWidth
+        ArchComponent.ViewProviderComponent.onChanged(self,vobj,prop)
+
+    def getDisplayModes(self,vobj):
+
+        modes=["Centerline"]
+        return modes+ArchComponent.ViewProviderComponent.getDisplayModes(self,vobj)
+
 def CalculatePlacement(baramount, barnumber, size, axis, rotation, offsetstart, offsetend):
+
     """ CalculatePlacement([baramount, barnumber, size, axis, rotation, offsetstart, offsetend]):
     Calculate the placement of the bar from given values."""
     if baramount == 1:
@@ -409,6 +538,7 @@ def CalculatePlacement(baramount, barnumber, size, axis, rotation, offsetstart, 
     return placement
 
 def CustomSpacingPlacement(spacinglist, barnumber, axis, rotation, offsetstart, offsetend):
+
     """ CustomSpacingPlacement(spacinglist, barnumber, axis, rotation, offsetstart, offsetend):
     Calculate placement of the bar from custom spacing list."""
     if barnumber == 1:
@@ -423,28 +553,46 @@ def CustomSpacingPlacement(spacinglist, barnumber, axis, rotation, offsetstart, 
     return placement
 
 def strprocessOfCustomSpacing(span_string):
+
     """ strprocessOfCustomSpacing(span_string): This function take input
     in specific syntax and return output in the form of list. For eg.
     Input: "3@100+2@200+3@100"
     Output: [100, 100, 100, 200, 200, 100, 100, 100]"""
-    import string
-    span_st = string.strip(span_string)
-    span_sp = string.split(span_st, '+')
+    # import string
+    span_st = span_string.strip()
+    span_sp = span_st.split('+')
     index = 0
     spacinglist = []
     while index < len(span_sp):
         # Find "@" recursively in span_sp array.
         # If not found, append the index value to "spacinglist" array.
-        if string.find(span_sp[index],'@') == -1:
+        if span_sp[index].find('@') == -1:
             spacinglist.append(float(span_sp[index]))
         else:
-            in_sp = string.split(span_sp[index], '@')
+            in_sp = span_sp[index].split('@')
             count = 0
             while count < int(in_sp[0]):
                 spacinglist.append(float(in_sp[1]))
                 count += 1
         index += 1
     return spacinglist
+
+def getLengthOfRebar(rebar):
+
+    """ getLengthOfRebar(RebarObject): Calculates the length of the rebar."""
+    base = rebar.Base
+    # When rebar is derived from DWire
+    if hasattr(base, "Length"):
+        return base.Length
+    # When rebar is derived from Sketch
+    elif base.isDerivedFrom("Sketcher::SketchObject"):
+        length = 0
+        for geo in base.Geometry:
+            length += geo.length()
+        return length
+    else:
+        FreeCAD.Console.PrintError("Cannot calculate rebar length from its base object\n")
+        return None
 
 if FreeCAD.GuiUp:
     FreeCADGui.addCommand('Arch_Rebar',_CommandRebar())

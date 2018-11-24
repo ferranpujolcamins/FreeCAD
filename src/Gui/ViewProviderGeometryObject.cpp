@@ -70,16 +70,31 @@
 
 using namespace Gui;
 
-PROPERTY_SOURCE(Gui::ViewProviderGeometryObject, Gui::ViewProviderDocumentObject)
+PROPERTY_SOURCE(Gui::ViewProviderGeometryObject, Gui::ViewProviderDragger)
 
 const App::PropertyIntegerConstraint::Constraints intPercent = {0,100,1};
 
-ViewProviderGeometryObject::ViewProviderGeometryObject() : pcBoundSwitch(0),pcBoundColor(0)
+ViewProviderGeometryObject::ViewProviderGeometryObject()
+    : pcBoundSwitch(0)
+    , pcBoundColor(0)
 {
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
-    unsigned long shcol = hGrp->GetUnsigned("DefaultShapeColor",3435973887UL); // light gray (204,204,204)
+    bool randomColor = hGrp->GetBool("RandomColor", false);
     float r,g,b;
-    r = ((shcol >> 24) & 0xff) / 255.0; g = ((shcol >> 16) & 0xff) / 255.0; b = ((shcol >> 8) & 0xff) / 255.0;
+
+    if (randomColor){
+        float fMax = (float)RAND_MAX;
+        r = (float)rand()/fMax;
+        g = (float)rand()/fMax;
+        b = (float)rand()/fMax;
+    }
+    else {
+        unsigned long shcol = hGrp->GetUnsigned("DefaultShapeColor",3435973887UL); // light gray (204,204,204)
+        r = ((shcol >> 24) & 0xff) / 255.0; 
+        g = ((shcol >> 16) & 0xff) / 255.0; 
+        b = ((shcol >> 8) & 0xff) / 255.0;
+    }
+
     ADD_PROPERTY(ShapeColor,(r, g, b));
     ADD_PROPERTY(Transparency,(0));
     Transparency.setConstraints(&intPercent);
@@ -102,6 +117,10 @@ ViewProviderGeometryObject::ViewProviderGeometryObject() : pcBoundSwitch(0),pcBo
 
     pcBoundingBox = new Gui::SoFCBoundingBox;
     pcBoundingBox->ref();
+
+    pcBoundColor = new SoBaseColor();
+    pcBoundColor->ref();
+
     sPixmap = "Feature";
 }
 
@@ -109,6 +128,7 @@ ViewProviderGeometryObject::~ViewProviderGeometryObject()
 {
     pcShapeMaterial->unref();
     pcBoundingBox->unref();
+    pcBoundColor->unref();
 }
 
 void ViewProviderGeometryObject::onChanged(const App::Property* prop)
@@ -150,18 +170,16 @@ void ViewProviderGeometryObject::onChanged(const App::Property* prop)
         pcShapeMaterial->shininess.setValue(Mat.shininess);
         pcShapeMaterial->transparency.setValue(Mat.transparency);
     }
-    else if (prop == &BoundingBox || prop == &SelectionStyle) {
-        applyBoundColor();
-        if(SelectionStyle.getValue()==0 || !Selectable.getValue())
-            showBoundingBox( BoundingBox.getValue() );
+    else if (prop == &BoundingBox) {
+        showBoundingBox(BoundingBox.getValue());
     }
 
-    ViewProviderDocumentObject::onChanged(prop);
+    ViewProviderDragger::onChanged(prop);
 }
 
 void ViewProviderGeometryObject::attach(App::DocumentObject *pcObj)
 {
-    ViewProviderDocumentObject::attach(pcObj);
+    ViewProviderDragger::attach(pcObj);
 }
 
 void ViewProviderGeometryObject::updateData(const App::Property* prop)
@@ -173,208 +191,10 @@ void ViewProviderGeometryObject::updateData(const App::Property* prop)
         pcBoundingBox->minBounds.setValue(box.MinX, box.MinY, box.MinZ);
         pcBoundingBox->maxBounds.setValue(box.MaxX, box.MaxY, box.MaxZ);
     }
-    else if (prop->isDerivedFrom(App::PropertyPlacement::getClassTypeId()) &&
-             strcmp(prop->getName(), "Placement") == 0) {
-        // Note: If R is the rotation, c the rotation center and t the translation
-        // vector then Inventor applies the following transformation: R*(x-c)+c+t
-        // In FreeCAD a placement only has a rotation and a translation part but
-        // no rotation center. This means that the following equation must be ful-
-        // filled: R * (x-c) + c + t = R * x + t
-        //    <==> R * x + t - R * c + c = R * x + t
-        //    <==> (I-R) * c = 0 ==> c = 0
-        // This means that the center point must be the origin!
-        Base::Placement p = static_cast<const App::PropertyPlacement*>(prop)->getValue();
-        updateTransform(p, pcTransform);
-    }
     else {
-        ViewProviderDocumentObject::updateData(prop);
+        ViewProviderDragger::updateData(prop);
     }
 }
-
-bool ViewProviderGeometryObject::doubleClicked(void)
-{
-    Gui::Application::Instance->activeDocument()->setEdit(this, (int)ViewProvider::Default);
-    return true;
-}
-
-void ViewProviderGeometryObject::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
-{
-    QAction* act = menu->addAction(QObject::tr("Transform"), receiver, member);
-    act->setData(QVariant((int)ViewProvider::Transform));
-}
-
-bool ViewProviderGeometryObject::setEdit(int ModNum)
-{
-  Q_UNUSED(ModNum);
-
-  App::DocumentObject *genericObject = this->getObject();
-  if (genericObject->isDerivedFrom(App::GeoFeature::getClassTypeId()))
-  {
-    App::GeoFeature *geoFeature = static_cast<App::GeoFeature *>(genericObject);
-    const Base::Placement &placement = geoFeature->Placement.getValue();
-    SoTransform *tempTransform = new SoTransform();
-    tempTransform->ref();
-    updateTransform(placement, tempTransform);
-    
-    assert(!csysDragger);
-    csysDragger = new SoFCCSysDragger();
-    csysDragger->draggerSize.setValue(0.05f);
-    csysDragger->translation.setValue(tempTransform->translation.getValue());
-    csysDragger->rotation.setValue(tempTransform->rotation.getValue());
-    
-    tempTransform->unref();
-    
-    pcTransform->translation.connectFrom(&csysDragger->translation);
-    pcTransform->rotation.connectFrom(&csysDragger->rotation);
-    
-    csysDragger->addStartCallback(dragStartCallback, this);
-    csysDragger->addFinishCallback(dragFinishCallback, this);
-    
-    pcRoot->insertChild(csysDragger, 0);
-    
-    TaskCSysDragger *task = new TaskCSysDragger(this, csysDragger);
-    Gui::Control().showDialog(task);
-  }
-  
-  return true;
-}
-
-void ViewProviderGeometryObject::unsetEdit(int ModNum)
-{
-  Q_UNUSED(ModNum);
-
-  if(csysDragger)
-  {
-    pcTransform->translation.disconnect(&csysDragger->translation);
-    pcTransform->rotation.disconnect(&csysDragger->rotation);
-    
-    pcRoot->removeChild(csysDragger); //should delete csysDragger
-    csysDragger = nullptr;
-  }
-  Gui::Control().closeDialog();
-}
-
-void ViewProviderGeometryObject::setEditViewer(Gui::View3DInventorViewer* viewer, int ModNum)
-{
-    Q_UNUSED(ModNum);
-
-    if (csysDragger && viewer)
-    {
-      SoPickStyle *rootPickStyle = new SoPickStyle();
-      rootPickStyle->style = SoPickStyle::UNPICKABLE;
-      static_cast<SoFCUnifiedSelection*>(viewer->getSceneGraph())->insertChild(rootPickStyle, 0);
-      csysDragger->setUpAutoScale(viewer->getSoRenderManager()->getCamera());
-    }
-}
-
-void ViewProviderGeometryObject::unsetEditViewer(Gui::View3DInventorViewer* viewer)
-{
-  SoNode *child = static_cast<SoFCUnifiedSelection*>(viewer->getSceneGraph())->getChild(0);
-  if (child && child->isOfType(SoPickStyle::getClassTypeId()))
-    static_cast<SoFCUnifiedSelection*>(viewer->getSceneGraph())->removeChild(child);
-}
-
-void ViewProviderGeometryObject::dragStartCallback(void *, SoDragger *)
-{
-    // This is called when a manipulator is about to manipulating
-    Gui::Application::Instance->activeDocument()->openCommand("Transform");
-}
-
-void ViewProviderGeometryObject::dragFinishCallback(void *data, SoDragger *d)
-{
-    // This is called when a manipulator has done manipulating
-    
-    ViewProviderGeometryObject* sudoThis = reinterpret_cast<ViewProviderGeometryObject *>(data);
-    SoFCCSysDragger *dragger = static_cast<SoFCCSysDragger *>(d);
-    updatePlacementFromDragger(sudoThis, dragger);
-    
-    Gui::Application::Instance->activeDocument()->commitCommand();
-}
-
-void ViewProviderGeometryObject::updatePlacementFromDragger(ViewProviderGeometryObject* sudoThis, SoFCCSysDragger* draggerIn)
-{
-  App::DocumentObject *genericObject = sudoThis->getObject();
-  if (!genericObject->isDerivedFrom(App::GeoFeature::getClassTypeId()))
-    return;
-  App::GeoFeature *geoFeature = static_cast<App::GeoFeature *>(genericObject);
-  Base::Placement originalPlacement = geoFeature->Placement.getValue();
-  double pMatrix[16];
-  originalPlacement.toMatrix().getMatrix(pMatrix);
-  Base::Placement freshPlacement = originalPlacement;
-  
-  //local cache for brevity.
-  double translationIncrement = draggerIn->translationIncrement.getValue();
-  double rotationIncrement = draggerIn->rotationIncrement.getValue();
-  int tCountX = draggerIn->translationIncrementCountX.getValue();
-  int tCountY = draggerIn->translationIncrementCountY.getValue();
-  int tCountZ = draggerIn->translationIncrementCountZ.getValue();
-  int rCountX = draggerIn->rotationIncrementCountX.getValue();
-  int rCountY = draggerIn->rotationIncrementCountY.getValue();
-  int rCountZ = draggerIn->rotationIncrementCountZ.getValue();
-  
-  //just as a little sanity check make sure only 1 field has changed.
-  int numberOfFieldChanged = 0;
-  if (tCountX) numberOfFieldChanged++;
-  if (tCountY) numberOfFieldChanged++;
-  if (tCountZ) numberOfFieldChanged++;
-  if (rCountX) numberOfFieldChanged++;
-  if (rCountY) numberOfFieldChanged++;
-  if (rCountZ) numberOfFieldChanged++;
-  if (numberOfFieldChanged == 0)
-    return;
-  assert(numberOfFieldChanged == 1);
-  
-  //helper lamdas.
-  auto getVectorX = [&pMatrix]() {return Base::Vector3d(pMatrix[0], pMatrix[4], pMatrix[8]);};
-  auto getVectorY = [&pMatrix]() {return Base::Vector3d(pMatrix[1], pMatrix[5], pMatrix[9]);};
-  auto getVectorZ = [&pMatrix]() {return Base::Vector3d(pMatrix[2], pMatrix[6], pMatrix[10]);};
-  
-  if (tCountX)
-  {
-    Base::Vector3d movementVector(getVectorX());
-    movementVector *= (tCountX * translationIncrement);
-    freshPlacement.move(movementVector);
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  else if (tCountY)
-  {
-    Base::Vector3d movementVector(getVectorY());
-    movementVector *= (tCountY * translationIncrement);
-    freshPlacement.move(movementVector);
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  else if (tCountZ)
-  {
-    Base::Vector3d movementVector(getVectorZ());
-    movementVector *= (tCountZ * translationIncrement);
-    freshPlacement.move(movementVector);
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  else if (rCountX)
-  {
-    Base::Vector3d rotationVector(getVectorX());
-    Base::Rotation rotation(rotationVector, rCountX * rotationIncrement);
-    freshPlacement.setRotation(rotation * freshPlacement.getRotation());
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  else if (rCountY)
-  {
-    Base::Vector3d rotationVector(getVectorY());
-    Base::Rotation rotation(rotationVector, rCountY * rotationIncrement);
-    freshPlacement.setRotation(rotation * freshPlacement.getRotation());
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  else if (rCountZ)
-  {
-    Base::Vector3d rotationVector(getVectorZ());
-    Base::Rotation rotation(rotationVector, rCountZ * rotationIncrement);
-    freshPlacement.setRotation(rotation * freshPlacement.getRotation());
-    geoFeature->Placement.setValue(freshPlacement);
-  }
-  
-  draggerIn->clearIncrementCounts();
-}
-
 
 SoPickedPointList ViewProviderGeometryObject::getPickedPoints(const SbVec2s& pos, const View3DInventorViewer& viewer,bool pickAll) const
 {
@@ -415,35 +235,28 @@ SoPickedPoint* ViewProviderGeometryObject::getPickedPoint(const SbVec2s& pos, co
     return (pick ? new SoPickedPoint(*pick) : 0);
 }
 
-unsigned long ViewProviderGeometryObject::getBoundColor() const {
+unsigned long ViewProviderGeometryObject::getBoundColor() const
+{
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
-    if(SelectionStyle.getValue() == 0 || !Selectable.getValue() || !hGrp->GetBool("EnableSelection", true))
-        return hGrp->GetUnsigned("BoundingBoxColor",4294967295UL); // white (255,255,255)
-    else
-        return hGrp->GetUnsigned("SelectionColor",0x00CD00UL); // rgb(0,205,0)
-}
-
-void ViewProviderGeometryObject::applyBoundColor() {
-    if(!pcBoundColor) return;
-
-    unsigned long bbcol = getBoundColor();
-    float r,g,b;
-    r = ((bbcol >> 24) & 0xff) / 255.0; g = ((bbcol >> 16) & 0xff) / 255.0; b = ((bbcol >> 8) & 0xff) / 255.0;
-    pcBoundColor->rgb.setValue(r, g, b);
+    unsigned long bbcol = hGrp->GetUnsigned("BoundingBoxColor",4294967295UL); // white (255,255,255)
+    return bbcol;
 }
 
 void ViewProviderGeometryObject::showBoundingBox(bool show)
 {
     if (!pcBoundSwitch && show) {
+        unsigned long bbcol = getBoundColor();
+        float r,g,b;
+        r = ((bbcol >> 24) & 0xff) / 255.0; g = ((bbcol >> 16) & 0xff) / 255.0; b = ((bbcol >> 8) & 0xff) / 255.0;
+
         pcBoundSwitch = new SoSwitch();
         SoSeparator* pBoundingSep = new SoSeparator();
         SoDrawStyle* lineStyle = new SoDrawStyle;
         lineStyle->lineWidth = 2.0f;
         pBoundingSep->addChild(lineStyle);
 
-        pcBoundColor = new SoBaseColor();
+        pcBoundColor->rgb.setValue(r, g, b);
         pBoundingSep->addChild(pcBoundColor);
-        applyBoundColor();
 
         pBoundingSep->addChild(new SoResetTransform());
         pBoundingSep->addChild(pcBoundingBox);
@@ -452,7 +265,7 @@ void ViewProviderGeometryObject::showBoundingBox(bool show)
 
         // add to the highlight node
         pcBoundSwitch->addChild(pBoundingSep);
-        pcRoot->insertChild(pcBoundSwitch,pcRoot->findChild(pcModeSwitch));
+        pcRoot->addChild(pcBoundSwitch);
     }
 
     if (pcBoundSwitch) {
@@ -462,15 +275,9 @@ void ViewProviderGeometryObject::showBoundingBox(bool show)
 
 void ViewProviderGeometryObject::setSelectable(bool selectable)
 {
-    if(SelectionStyle.getValue()) {
-        applyBoundColor();
-        if(!selectable) 
-            showBoundingBox(false);
-    }
-
     SoSearchAction sa;
     sa.setInterest(SoSearchAction::ALL);
-    sa.setSearchingAll(TRUE);
+    sa.setSearchingAll(true);
     sa.setType(Gui::SoFCSelection::getClassTypeId());
     sa.apply(pcRoot);
 
@@ -488,19 +295,4 @@ void ViewProviderGeometryObject::setSelectable(bool selectable)
             selNode->selected = SoFCSelection::NOTSELECTED;
         }
     }
-}
-
-void ViewProviderGeometryObject::updateTransform(const Base::Placement& from, SoTransform* to)
-{
-  float q0 = (float)from.getRotation().getValue()[0];
-  float q1 = (float)from.getRotation().getValue()[1];
-  float q2 = (float)from.getRotation().getValue()[2];
-  float q3 = (float)from.getRotation().getValue()[3];
-  float px = (float)from.getPosition().x;
-  float py = (float)from.getPosition().y;
-  float pz = (float)from.getPosition().z;
-  to->rotation.setValue(q0,q1,q2,q3);
-  to->translation.setValue(px,py,pz);
-  to->center.setValue(0.0f,0.0f,0.0f);
-  to->scaleFactor.setValue(1.0f,1.0f,1.0f);
 }

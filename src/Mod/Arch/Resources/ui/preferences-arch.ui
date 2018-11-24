@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>396</width>
-    <height>694</height>
+    <width>446</width>
+    <height>792</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -106,69 +106,90 @@
         </item>
        </layout>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox_7">
-     <property name="title">
-      <string>Tree behaviour</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_7">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_14">
         <item>
+         <spacer name="horizontalSpacer_9">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
          <widget class="QLabel" name="label_4">
-          <property name="toolTip">
-           <string>If these options are checked, the respective components will appear under their host object in the tree view. Otherwise, next to them.</string>
-          </property>
           <property name="text">
-           <string>Swallow </string>
+           <string>Do not compute areas for object with more than:</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="Gui::PrefCheckBox" name="checkBox_5">
-          <property name="text">
-           <string>Additions</string>
+         <widget class="Gui::PrefSpinBox" name="spinBox">
+          <property name="suffix">
+           <string> faces</string>
           </property>
-          <property name="checked">
-           <bool>true</bool>
+          <property name="value">
+           <number>20</number>
           </property>
           <property name="prefEntry" stdset="0">
-           <cstring>swallowAdditions</cstring>
+           <cstring>MaxComputeAreas</cstring>
           </property>
           <property name="prefPath" stdset="0">
            <cstring>Mod/Arch</cstring>
           </property>
          </widget>
         </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_17">
         <item>
-         <widget class="Gui::PrefCheckBox" name="checkBox_6">
+         <spacer name="horizontalSpacer_10">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeType">
+           <enum>QSizePolicy::Fixed</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_8">
           <property name="text">
-           <string>Subtractions</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-          <property name="prefEntry" stdset="0">
-           <cstring>swallowSubtractions</cstring>
-          </property>
-          <property name="prefPath" stdset="0">
-           <cstring>Mod/Arch</cstring>
+           <string>Interval between file checks for references</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="Gui::PrefCheckBox" name="checkBox_4">
-          <property name="text">
-           <string>Windows</string>
+         <widget class="Gui::PrefSpinBox" name="spinBox_2">
+          <property name="suffix">
+           <string> seconds</string>
           </property>
-          <property name="checked">
-           <bool>true</bool>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>9999</number>
+          </property>
+          <property name="value">
+           <number>60</number>
           </property>
           <property name="prefEntry" stdset="0">
-           <cstring>swallowWindows</cstring>
+           <cstring>ReferenceCheckInterval</cstring>
           </property>
           <property name="prefPath" stdset="0">
            <cstring>Mod/Arch</cstring>
@@ -581,7 +602,7 @@
         <item>
          <widget class="Gui::PrefCheckBox" name="checkBox_3">
           <property name="toolTip">
-           <string>if this is checked, the &quot;open BimServer in browser&quot; button will open the Bim Server interface in an external browser instead of the FreeCAD web workbench</string>
+           <string>If this is checked, the &quot;Open BimServer in browser&quot; button will open the Bim Server interface in an external browser instead of the FreeCAD web workbench</string>
           </property>
           <property name="text">
            <string>Open in external browser</string>
@@ -649,6 +670,11 @@
  <layoutdefault spacing="6" margin="11"/>
  <pixmapfunction>qPixmapFromMimeSource</pixmapfunction>
  <customwidgets>
+  <customwidget>
+   <class>Gui::PrefSpinBox</class>
+   <extends>QSpinBox</extends>
+   <header>Gui/PrefWidgets.h</header>
+  </customwidget>
   <customwidget>
    <class>Gui::PrefCheckBox</class>
    <extends>QCheckBox</extends>

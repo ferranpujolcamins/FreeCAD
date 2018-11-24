@@ -25,13 +25,16 @@
 
 #ifndef _PreComp_
 # include <QApplication>
+# include <QMenu>
 # include <QPixmap>
+# include <boost/bind.hpp>
 #endif
 
 #include <App/Part.h>
 #include <App/Document.h>
 
 #include "ActiveObjectList.h"
+#include "ActionFunction.h"
 #include "BitmapFactory.h"
 #include "Command.h"
 
@@ -43,7 +46,7 @@
 using namespace Gui;
 
 
-PROPERTY_SOURCE_WITH_EXTENSIONS(Gui::ViewProviderPart, Gui::ViewProviderDocumentObject)
+PROPERTY_SOURCE_WITH_EXTENSIONS(Gui::ViewProviderPart, Gui::ViewProviderDragger)
 
 
 /**
@@ -52,6 +55,8 @@ PROPERTY_SOURCE_WITH_EXTENSIONS(Gui::ViewProviderPart, Gui::ViewProviderDocument
 ViewProviderPart::ViewProviderPart()
 { 
     initExtension(this);
+
+    sPixmap = "Geofeaturegroup.svg";
 }
 
 ViewProviderPart::~ViewProviderPart()
@@ -63,7 +68,16 @@ ViewProviderPart::~ViewProviderPart()
  * associated view providers of the objects of the object group get changed as well.
  */
 void ViewProviderPart::onChanged(const App::Property* prop) {
-    ViewProviderDocumentObject::onChanged(prop);
+    ViewProviderDragger::onChanged(prop);
+}
+
+void ViewProviderPart::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
+{
+    Gui::ActionFunction* func = new Gui::ActionFunction(menu);
+    QAction* act = menu->addAction(QObject::tr("Toggle active part"));
+    func->trigger(act, boost::bind(&ViewProviderPart::doubleClicked, this));
+
+    ViewProviderDragger::setupContextMenu(menu, receiver, member);
 }
 
 bool ViewProviderPart::doubleClicked(void)
@@ -94,20 +108,6 @@ bool ViewProviderPart::doubleClicked(void)
     }
 
     return true;
-}
-
-/**
- * Returns the pixmap for the list item.
- */
-QIcon ViewProviderPart::getIcon() const
-{
-    // TODO Make a nice icon for the part (2015-09-01, Fat-Zer)
-    QIcon groupIcon;
-    groupIcon.addPixmap(QApplication::style()->standardPixmap(QStyle::SP_DirClosedIcon),
-                        QIcon::Normal, QIcon::Off);
-    groupIcon.addPixmap(QApplication::style()->standardPixmap(QStyle::SP_DirOpenIcon),
-                        QIcon::Normal, QIcon::On);
-    return groupIcon;
 }
 
 // Python feature -----------------------------------------------------------------------

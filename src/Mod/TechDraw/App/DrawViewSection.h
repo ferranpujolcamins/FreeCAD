@@ -30,11 +30,14 @@
 #include <App/FeaturePython.h>
 #include <App/Material.h>
 
+#include <TopoDS_Shape.hxx>
 #include <TopoDS_Compound.hxx>
 
 #include "DrawViewPart.h"
 
+class Bnd_Box;
 class gp_Pln;
+class gp_Pnt;
 class TopoDS_Face;
 
 namespace TechDrawGeometry
@@ -68,7 +71,9 @@ public:
     App::PropertyString SectionSymbol;
 
     virtual short mustExecute() const;
+
     bool isReallyInBox (const Base::Vector3d v, const Base::BoundBox3d bb) const;
+    bool isReallyInBox (const gp_Pnt p, const Bnd_Box& bb) const;
 
     virtual App::DocumentObjectExecReturn *execute(void);
     virtual void onChanged(const App::Property* prop);
@@ -90,6 +95,8 @@ public:
     std::vector<LineSet> getDrawableLines(int i = 0);
     std::vector<PATLineSpec> getDecodedSpecsFromFile(std::string fileSpec, std::string myPattern);
 
+    TopoDS_Shape getCutShape(void) {return m_cutShape;}
+
     static const char* SectionDirEnums[];
 
 protected:
@@ -104,6 +111,7 @@ protected:
                                      gp_Pnt faceCenter,
                                      const Base::Vector3d &direction);
     void getParameters(void);
+    TopoDS_Shape m_cutShape;
 };
 
 typedef App::FeaturePythonT<DrawViewSection> DrawViewSectionPython;

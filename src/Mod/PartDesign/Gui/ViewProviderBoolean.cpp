@@ -31,20 +31,30 @@
 
 #include "ViewProviderBoolean.h"
 #include "TaskBooleanParameters.h"
+#include "ViewProviderBody.h"
 #include <Mod/PartDesign/App/FeatureBoolean.h>
+#include <Mod/PartDesign/App/Body.h>
 #include <Mod/Sketcher/App/SketchObject.h>
 #include <Gui/Control.h>
 #include <Gui/Command.h>
 #include <Gui/Application.h>
+#include <Gui/Document.h>
 
 
 using namespace PartDesignGui;
 
-PROPERTY_SOURCE(PartDesignGui::ViewProviderBoolean,PartDesignGui::ViewProvider)
+PROPERTY_SOURCE_WITH_EXTENSIONS(PartDesignGui::ViewProviderBoolean,PartDesignGui::ViewProvider)
+
+const char* PartDesignGui::ViewProviderBoolean::DisplayEnum[] = {"Result","Tools",NULL};
+
 
 ViewProviderBoolean::ViewProviderBoolean()
 {
     sPixmap = "PartDesign_Boolean.svg";
+    initExtension(this);
+    
+    ADD_PROPERTY(Display,((long)0));
+    Display.setEnums(DisplayEnum);
 }
 
 ViewProviderBoolean::~ViewProviderBoolean()
@@ -57,6 +67,7 @@ void ViewProviderBoolean::setupContextMenu(QMenu* menu, QObject* receiver, const
     QAction* act;
     act = menu->addAction(QObject::tr("Edit boolean"), receiver, member);
     act->setData(QVariant((int)ViewProvider::Default));
+    PartDesignGui::ViewProvider::setupContextMenu(menu, receiver, member);
 }
 
 bool ViewProviderBoolean::setEdit(int ModNum)
@@ -101,17 +112,12 @@ bool ViewProviderBoolean::setEdit(int ModNum)
     }
 }
 
-std::vector<App::DocumentObject*> ViewProviderBoolean::claimChildren(void)const
-{
-    return static_cast<PartDesign::Boolean*>(getObject())->Bodies.getValues();
-}
-
 bool ViewProviderBoolean::onDelete(const std::vector<std::string> &s)
 {
     PartDesign::Boolean* pcBoolean = static_cast<PartDesign::Boolean*>(getObject());
 
     // if abort command deleted the object the bodies are visible again
-    std::vector<App::DocumentObject*> bodies = pcBoolean->Bodies.getValues();
+    std::vector<App::DocumentObject*> bodies = pcBoolean->Group.getValues();
     for (std::vector<App::DocumentObject*>::const_iterator b = bodies.begin(); b != bodies.end(); b++) {
         if (*b && Gui::Application::Instance->getViewProvider(*b))
         Gui::Application::Instance->getViewProvider(*b)->show();
@@ -120,4 +126,27 @@ bool ViewProviderBoolean::onDelete(const std::vector<std::string> &s)
     return ViewProvider::onDelete(s);
 }
 
+void ViewProviderBoolean::attach(App::DocumentObject* obj) {
+    PartGui::ViewProviderPartExt::attach(obj);
+    
+    //set default display mode to override the "Group" display mode
+    setDisplayMode("Flat Lines");
+}
 
+void ViewProviderBoolean::onChanged(const App::Property* prop) {
+    
+    PartDesignGui::ViewProvider::onChanged(prop);
+    
+    if(prop == &Display) {
+     
+        if(Display.getValue() == 0) {
+            auto vp = getBodyViewProvider();
+            if(vp)
+                setDisplayMode(vp->DisplayMode.getValueAsString());
+            else 
+                setDisplayMode("Flat Lines");
+        } else {
+            setDisplayMode("Group");
+        }
+    }
+}

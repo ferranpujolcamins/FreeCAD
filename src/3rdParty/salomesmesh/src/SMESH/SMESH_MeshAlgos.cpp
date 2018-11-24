@@ -581,7 +581,7 @@ bool SMESH_ElementSearcherImpl::getIntersParamOnLine(const gp_Lin&           lin
 //    anExtCC.Init( lineCurve, edge);
     if ( anExtCC.NbExtrema() > 0 && anExtCC.LowerDistance() <= tol)
     {
-      Quantity_Parameter pl, pe;
+      Standard_Real pl, pe;
       anExtCC.LowerDistanceParameters( pl, pe );
       param += pl;
       if ( ++nbInts == 2 )
@@ -1371,7 +1371,7 @@ double SMESH_MeshAlgos::GetDistance( const SMDS_MeshFace* face,
   try {
     tgtCS = gp_Ax3( xyz[0], OZ, OX );
   }
-  catch ( Standard_Failure ) {
+  catch ( Standard_Failure &) {
     return badDistance;
   }
   trsf.SetTransformation( tgtCS );
