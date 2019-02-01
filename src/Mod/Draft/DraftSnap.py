@@ -893,7 +893,7 @@ class Snapper:
             else:
                 return []
         elif self.isEnabled("passive"):
-            return [p,'passive',self.toWP(p)]
+            return [p,'passive',p]
         else:
             return []
             
@@ -1304,7 +1304,12 @@ class Snapper:
             c = 0
             for b in [self.masterbutton]+self.toolbarButtons:
                 if len(t) > c:
-                    b.setChecked(bool(int(t[c])))
+                    state = bool(int(t[c]))
+                    b.setChecked(state)
+                    if state:
+                        b.setToolTip(b.toolTip()+" (ON)")
+                    else:
+                        b.setToolTip(b.toolTip()+" (OFF)")
                     c += 1
         if not Draft.getParam("showSnapBar",True):
             self.toolbar.hide()
@@ -1317,6 +1322,10 @@ class Snapper:
         t = ''
         for b in [self.masterbutton]+self.toolbarButtons:
             t += str(int(b.isChecked()))
+            if b.isChecked():
+                b.setToolTip(b.toolTip().replace("OFF","ON"))
+            else:
+                b.setToolTip(b.toolTip().replace("ON","OFF"))
         Draft.setParam("snapModes",t)
 
     def toggle(self,checked=None):
@@ -1369,10 +1378,13 @@ class Snapper:
             self.toolbar.hide()
             self.toolbar.toggleViewAction().setVisible(True)
 
-    def setGrid(self):
+    def setGrid(self,init=False):
         "sets the grid, if visible"
+        if init:
+            if not self.grid:
+                self.grid = DraftTrackers.gridTracker()
         if self.grid and (not self.forceGridOff):
-            if self.grid.Visible:
+            if init or self.grid.Visible:
                 self.grid.set()
             self.setTrackers()
             
@@ -1399,10 +1411,11 @@ class Snapper:
             self.extLine2 = self.trackers[8][i]
             self.holdTracker = self.trackers[9][i]
         else:
-            if Draft.getParam("grid",True):
-                self.grid = DraftTrackers.gridTracker()
-            else:
-                self.grid = None
+            if not self.grid:
+                if Draft.getParam("grid",True):
+                    self.grid = DraftTrackers.gridTracker()
+                else:
+                    self.grid = None
             self.tracker = DraftTrackers.snapTracker()
             self.trackLine = DraftTrackers.lineTracker()
             if self.snapStyle:

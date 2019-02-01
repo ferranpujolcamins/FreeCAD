@@ -365,8 +365,15 @@ void ActionSelector::on_downButton_clicked()
 AccelLineEdit::AccelLineEdit ( QWidget * parent )
   : QLineEdit(parent)
 {
-    setText(tr("none"));
+    noneStr = tr("none");
+    setText(noneStr);
     keyPressedCount = 0;
+}
+
+bool AccelLineEdit::isNone() const
+{
+    QString t = text();
+    return t.isEmpty() || t == noneStr;
 }
 
 /**
@@ -386,7 +393,7 @@ void AccelLineEdit::keyPressEvent ( QKeyEvent * e)
     case Qt::Key_Backspace:
         if (state == Qt::NoModifier) {
             keyPressedCount = 0;
-            setText(tr("none"));
+            setText(noneStr);
         }
     case Qt::Key_Control:
     case Qt::Key_Shift:
@@ -748,6 +755,9 @@ void ColorButton::onChooseColor()
 #endif
         QColor currentColor = d->col;
         QColorDialog cd(d->col, this);
+#if QT_VERSION >= 0x050000
+        cd.setOptions(QColorDialog::DontUseNativeDialog);
+#endif
 
         if (d->autoChange) {
             connect(&cd, SIGNAL(currentColorChanged(const QColor &)),
@@ -771,6 +781,9 @@ void ColorButton::onChooseColor()
         if (d->cd.isNull()) {
             d->old = d->col;
             d->cd = new QColorDialog(d->col, this);
+#if QT_VERSION >= 0x050000
+            d->cd->setOptions(QColorDialog::DontUseNativeDialog);
+#endif
             d->cd->setAttribute(Qt::WA_DeleteOnClose);
             connect(d->cd, SIGNAL(rejected()),
                     this, SLOT(onRejected()));

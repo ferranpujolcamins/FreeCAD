@@ -331,7 +331,7 @@ void StdCmdMergeProjects::activated(int iMsg)
     QString exe = qApp->applicationName();
     QString project = QFileDialog::getOpenFileName(Gui::getMainWindow(),
         QString::fromUtf8(QT_TR_NOOP("Merge project")), FileDialog::getWorkingDirectory(),
-        QString::fromUtf8(QT_TR_NOOP("%1 document (*.fcstd)")).arg(exe));
+        QString::fromUtf8(QT_TR_NOOP("%1 document (*.FCStd)")).arg(exe));
     if (!project.isEmpty()) {
         FileDialog::setWorkingDirectory(project);
         App::Document* doc = App::GetApplication().getActiveDocument();
@@ -416,6 +416,7 @@ void StdCmdNew::activated(int iMsg)
     cmd = QString::fromLatin1("App.newDocument(\"%1\")")
         .arg(qApp->translate("StdCmdNew","Unnamed"));
     runCommand(Command::Doc,cmd.toUtf8());
+    doCommand(Command::Gui,"Gui.activeDocument().activeView().viewDefaultOrientation()");
 }
 
 //===========================================================================
@@ -1142,7 +1143,7 @@ void StdCmdDelete::activated(int iMsg)
                     //message for linked items
                     if (!affectedLabels.empty()) {
                         bodyMessageStream << qApp->translate("Std_Delete",
-                                                             "These items are linked to items selected for deletion and might break.\n\n");
+                                                             "These items are linked to items selected for deletion and might break.") << "\n\n";
                         for (const auto &currentLabel : affectedLabels)
                           bodyMessageStream << currentLabel << '\n';
                     }
@@ -1153,13 +1154,13 @@ void StdCmdDelete::activated(int iMsg)
                             bodyMessageStream << "\n";
                         }
                         std::string thisDoc = pGuiDoc->getDocument()->getName();
-                        bodyMessageStream << qApp->translate("Std_Delete", 
-                                             "These items are selected for deletion, but are not in the active document. \n\n"); 
+                        bodyMessageStream << qApp->translate("Std_Delete",
+                                             "These items are selected for deletion, but are not in the active document.") << "\n\n";
                         for (const auto &currentLabel : inactiveLabels)
                           bodyMessageStream << currentLabel << " / " << Base::Tools::fromStdString(thisDoc) << '\n';
                     }
-                    bodyMessageStream << qApp->translate("Std_Delete",
-                                                         "\n\nAre you sure you want to continue?");
+                    bodyMessageStream << "\n\n" << qApp->translate("Std_Delete",
+                                                         "Are you sure you want to continue?");
 
                     int ret = QMessageBox::question(Gui::getMainWindow(),
                         qApp->translate("Std_Delete", "Delete Selection Issues"), bodyMessage,
@@ -1476,4 +1477,3 @@ void CreateDocCommands(void)
 }
 
 } // namespace Gui
-

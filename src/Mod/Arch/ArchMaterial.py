@@ -383,6 +383,8 @@ class _ViewProviderArchMaterial:
     def setEdit(self,vobj,mode):
         self.taskd = _ArchMaterialTaskPanel(vobj.Object)
         FreeCADGui.Control.showDialog(self.taskd)
+        self.taskd.form.FieldName.setFocus()
+        self.taskd.form.FieldName.selectAll()
         return True
 
     def unsetEdit(self,vobj,mode):
@@ -401,7 +403,7 @@ class _ViewProviderArchMaterial:
     def claimChildren(self):
         ch = []
         if hasattr(self,"Object"):
-            for o in FreeCAD.ActiveDocument.Objects:
+            for o in self.Object.Document.Objects:
                 if o.isDerivedFrom("App::MaterialObject"):
                     if o.Material:
                         if "Father" in o.Material:

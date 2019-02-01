@@ -736,7 +736,7 @@ class _Panel(ArchComponent.Component):
                 base = self.vol.common(base)
                 base = base.removeSplitter()
                 if not base:
-                    FreeCAD.Console.PrintError(translate("Arch","Error computing shape of ")+obj.Label+"\n")
+                    FreeCAD.Console.PrintError(translate("Arch","Error computing shape of")+" "+obj.Label+"\n")
                     return False
 
         if base and (obj.Sheets > 1) and normal and thickness:
@@ -932,7 +932,7 @@ class PanelCut(Draft._DraftObject):
             obj.addProperty("App::PropertyLength","TagSize","PanelCut",QT_TRANSLATE_NOOP("App::Property","The size of the tag text"))
             obj.TagSize = 10
         if not "TagPosition" in pl:
-            obj.addProperty("App::PropertyVector","TagPosition","PanelCut",QT_TRANSLATE_NOOP("App::Property","The position of the tag text. Keep (0,0,0) for automatic center position"))
+            obj.addProperty("App::PropertyVector","TagPosition","PanelCut",QT_TRANSLATE_NOOP("App::Property","The position of the tag text. Keep (0,0,0) for center position"))
         if not "TagRotation" in pl:
             obj.addProperty("App::PropertyAngle","TagRotation","PanelCut",QT_TRANSLATE_NOOP("App::Property","The rotation of the tag text"))
         if not "FontFile" in pl:
