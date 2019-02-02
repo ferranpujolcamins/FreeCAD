@@ -1232,18 +1232,18 @@ PythonToken *PythonTextBlockData::lastInserted(bool lookInPreviousRows) const
         if (!lookInPreviousRows)
             return nullptr;
 
-        QTextBlock block = m_block;
+        QTextBlock block = m_block.previous();
         while (block.isValid()) {
-            PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(m_block.previous().userData());
+            PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(block.userData());
             if (textData)
                 return textData->lastInserted(true);
+            block = block.previous();
         }
         // not found
         return nullptr;
     }
 
     return m_tokens[m_tokens.size() -1];
-
 }
 
 const PythonToken *PythonTextBlockData::tokenAt(int pos) const
