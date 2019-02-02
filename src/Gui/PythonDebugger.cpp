@@ -170,7 +170,7 @@ int Py::ExceptionInfo::lineNr() const
     if (!vlu)
         return -1;
 
-    long lVlu = PyInt_AS_LONG(vlu);
+    long lVlu = PyLong_AS_LONG(vlu);
     Py_XDECREF(vlu);
     return static_cast<int>(lVlu);
 }
@@ -189,7 +189,7 @@ int Py::ExceptionInfo::offset() const
     if (!vlu)
         return -1;
 
-    long lVlu = PyInt_AS_LONG(vlu);
+    long lVlu = PyLong_AS_LONG(vlu);
     Py_XDECREF(vlu);
     return static_cast<int>(lVlu);
 }
@@ -204,18 +204,21 @@ QString Py::ExceptionInfo::message() const
     PyObject *vlu = getAttr("msg"); // new ref
     if (!vlu)
         vlu = getItem("msg");
-    if (!vlu)
+    if (!vlu) {
         vlu = getAttr("message");
         if (!vlu)
             vlu = getItem("message");
-    if (!vlu)
+    }
+    if (!vlu) {
         vlu = getAttr("what");
         if (!vlu)
             vlu = getItem("what");
-    if (!vlu)
+    }
+    if (!vlu) {
         vlu = getAttr("reason");
         if (!vlu)
             vlu = getItem("reason");
+    }
     if (!vlu && PyErr_GivenExceptionMatches(m_pyType, Base::BaseExceptionFreeCADError))
     {
         vlu = getItem("swhat");
@@ -1738,11 +1741,20 @@ bool PythonDebugger::evalCondition(const char *condition, PyFrameObject *frame)
     /* Clear flag use_tracing in current PyThreadState to avoid
          tracing evaluation self
       */
+#if PY_MAJOR_VERSION >= 3
+    PyThreadState* tstate = PyThreadState_GET();
+    tstate->use_tracing = 0;
+    result = PyEval_EvalCode(exprobj,
+                             frame->f_globals,
+                             frame->f_locals);
+    tstate->use_tracing = 1;
+#else
     frame->f_tstate->use_tracing = 0;
     result = PyEval_EvalCode((PyCodeObject*)exprobj,
                              frame->f_globals,
                              frame->f_locals);
     frame->f_tstate->use_tracing = 1;
+#endif
     Py_DecRef(exprobj);
 
     if (result == NULL) {
@@ -1776,7 +1788,11 @@ void PythonDebugger::finalizeFunction()
 bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
 {
     do {
+#if PY_MAJOR_VERSION >= 3
+        QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
+#else
         QString file = QString::fromUtf8(PyString_AsString(frame->f_code->co_filename));
+#endif
         if (hasBreakpoint(file))
             return true;
         if (file == QLatin1String("<string>"))

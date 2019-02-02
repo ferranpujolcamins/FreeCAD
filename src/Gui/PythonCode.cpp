@@ -231,10 +231,16 @@ public:
             Py_ssize_t pos = 0;
 
             while (PyDict_Next(pyObj, &pos, &key, &value)) {
-                char *name;
-                name = PyBytes_AS_STRING(key);
+
+#if PY_MAJOR_VERSION >= 3
+                wchar_t *name = PyUnicode_AsWideCharString(key, NULL);
+                if (name != nullptr)
+                    builtins << QString::fromWCharArray(name);
+#else
+                char *name = PyString_AS_STRING(key);
                 if (name != nullptr)
                     builtins << QString(QLatin1String(name));
+#endif
             }
         } // end GIL lock code block
 
@@ -478,6 +484,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             case '!': case '=':
                 setOperator(i, 1, T_OperatorCompare);
             // only single char
+                break;
             case '~':
                 setOperator(i, 1, T_Operator);
                 break;
@@ -2147,13 +2154,22 @@ JediInterpreter::JediInterpreter() :
 
     // reconstruct command line args passed to application on startup
     QStringList args = QApplication::arguments();
+#if PY_MAJOR_VERSION >= 3
+    wchar_t **argv = new wchar_t*[args.size()];
+#else
     char **argv = new char*[args.size()];
-    int argc = 0;
+#endif
+    size_t argc = 0;
 
     for (const QString str : args) {
+#if PY_MAJOR_VERSION >= 3
+        wchar_t *dest = new wchar_t[sizeof(wchar_t) * (str.size())];
+        str.toWCharArray(dest);
+#else
         char *src = str.toLatin1().data();
         char *dest = new char[sizeof(char) * (strlen(src))];
         strcpy(dest, src);
+#endif
         argv[argc++] = dest;
     }
 
