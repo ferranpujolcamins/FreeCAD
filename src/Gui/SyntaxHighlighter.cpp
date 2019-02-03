@@ -53,13 +53,13 @@ public:
 
         // keywords
         colorArray[SyntaxHighlighter::Keyword]                .setRgb(0, 0, 255);
-        colorArray[SyntaxHighlighter::KeywordClass]           .setRgb(255, 160, 0);
-        colorArray[SyntaxHighlighter::KeywordDef]             .setRgb(255, 140, 0);
+        colorArray[SyntaxHighlighter::KeywordClass]           .setRgb(229, 48, 20);
+        colorArray[SyntaxHighlighter::KeywordDef]             .setRgb(229, 38, 9);
 
         // operators
         colorArray[SyntaxHighlighter::Operator]               .setRgb(130, 120, 134);
 
-        // indentifiers
+        // identifiers
         colorArray[SyntaxHighlighter::IdentifierClass]        .setRgb(1, 122, 153);
         colorArray[SyntaxHighlighter::IdentifierDefined]      .setRgb(0, 61, 22);
         colorArray[SyntaxHighlighter::IdentifierFunction]     .setRgb(16, 145, 145);
