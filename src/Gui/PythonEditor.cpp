@@ -568,28 +568,49 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         QString nextChr = cursor.selectedText();
         QString insertAfter;
         bool clearPrevious = false;
+        bool block = false;
 
         static QString previousKeyText;
 
         if (e->key() == Qt::Key_ParenLeft) {
             if (nextChr != QLatin1String(")"))
                 insertAfter = QLatin1String(")");
+        } else if (e->key() == Qt::Key_ParenRight) {
+            if (previousKeyText == QLatin1String("("))
+                block = true;
         } else if (e->key() == Qt::Key_BraceLeft) {
             if (nextChr != QLatin1String("}"))
                 insertAfter = QLatin1String("}");
+        } else if (e->key() == Qt::Key_BraceRight) {
+            if (previousKeyText == QLatin1String("["))
+                block = true;
         } else if (e->key() == Qt::Key_BracketLeft) {
             if (nextChr != QLatin1String("]"))
                 insertAfter = QLatin1String("]");
+        } else if (e->key() == Qt::Key_BracketRight) {
+            if (previousKeyText == QLatin1String("{"))
+                block = true;
         } else if (e->key() == Qt::Key_QuoteDbl) {
-            if (nextChr != QLatin1String("\""))
+            if (previousKeyText == QLatin1String("\"")) {
+                block = true;
+                clearPrevious = true;
+            } else if (nextChr != QLatin1String("\""))
                 insertAfter = QLatin1String("\"");
         } else if (e->key() == Qt::Key_Apostrophe) {
-            if (nextChr != QLatin1String("'"))
+            if (previousKeyText == QLatin1String("'")) {
+                block = true;
+                clearPrevious = true;
+            } else if (nextChr != QLatin1String("'"))
                 insertAfter = QLatin1String("'");
         }
 
         d->autoIndented = false;
-        TextEditor::keyPressEvent(e);
+        if (block) {
+            cursor = textCursor();
+            cursor.movePosition(QTextCursor::Right);
+            setTextCursor(cursor);
+        } else
+            TextEditor::keyPressEvent(e);
 
         if (insertAfter.size()) {
             if (previousKeyText != e->text()) {
