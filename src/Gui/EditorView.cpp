@@ -1203,10 +1203,11 @@ EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
         if (!ew) {
             // find the registered editor for this mimetype
             for (EditorViewSingletonP::EditorType *et : d->editorTypes) {
-                if (et->mimetypes.contains(mime, Qt::CaseInsensitive))
+                if (et->mimetypes.contains(mime, Qt::CaseInsensitive)) {
                     ew = new EditorViewWrapper(et->factory(), fn);
                     icon = et->iconName;
                     break;
+                }
             }
         }
 
