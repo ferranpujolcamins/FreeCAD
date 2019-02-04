@@ -804,13 +804,14 @@ void PythonEditor::exception(const Py::ExceptionInfo *exc)
     if (d->exceptions.contains(exc->lineNr()))
         return; // already set
 
-    d->exceptions[exc->lineNr()] = *exc;
+    int linenr = exc->lineNr();
+    d->exceptions[linenr] = *exc;
     renderExceptionExtraSelections();
     lineMarkerArea()->update();
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
     if (vBar)
-        vBar->setMarker(exc->lineNr(), d->exceptionScrollBarMarkerColor);
+        vBar->setMarker(linenr, d->exceptionScrollBarMarkerColor);
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (hPrefGrp->GetBool("EnableScrollToExceptionLine", true)) {
@@ -823,7 +824,7 @@ void PythonEditor::exception(const Py::ExceptionInfo *exc)
 
         // scroll to view
         QTextCursor cursor(editView->getEditor()->document()->
-                           findBlockByLineNumber(exc->lineNr() - 1)); // ln-1 because line number starts from 0
+                           findBlockByLineNumber(linenr - 1)); // ln-1 because line number starts from 0
         editView->getEditor()->setTextCursor(cursor);
     }
 }
