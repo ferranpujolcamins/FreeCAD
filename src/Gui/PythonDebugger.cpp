@@ -51,8 +51,10 @@ Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
 
         // swap to and re-aquire lock for jedi thread
         PyGILState_Release(m_GILState);
-        Base::PyGILStateRelease release;
-        PyThreadState_Swap(newState);
+        {
+            Base::PyGILStateRelease release;
+            PyThreadState_Swap(newState);
+        } // end scopeguard
         m_GILState = PyGILState_Ensure();
     }
 }
@@ -245,8 +247,9 @@ QString Py::ExceptionInfo::message() const
 
 QString Py::ExceptionInfo::fileName() const
 {
+    QString ret;
     if (!isValid())
-        return QString();
+        return ret;
 
     SwapIn myState(m_pyState);
 
@@ -258,11 +261,17 @@ QString Py::ExceptionInfo::fileName() const
 
     PyObject *vlu = getAttr("filename"); // new ref
     if (!vlu)
-        return QString();
+        return ret;
 
-    const char *msg = PyBytes_AS_STRING(vlu);
+    if (PyBytes_Check(vlu)) {
+        const char *msg = PyBytes_AS_STRING(vlu);
+        ret = QLatin1String(msg);
+    } else if (PyUnicode_Check(vlu)) {
+        const char *msg = PyUnicode_AsUTF8(vlu);
+        ret.append(QLatin1String(msg));
+    }
     Py_XDECREF(vlu);
-    return QLatin1String(msg);
+    return ret;
 }
 
 QString Py::ExceptionInfo::functionName() const
@@ -425,8 +434,11 @@ PyObject *Py::ExceptionInfo::getAttr(const char *attr) const
     SwapIn myState(m_pyState);
 
     PyObject *vlu = nullptr;
-    if (PyObject_HasAttrString(m_pyValue, attr))
-        vlu = PyObject_GetAttrString(m_pyValue, attr); // new ref
+    if (!PyObject_HasAttrString(m_pyValue, attr)) {
+        vlu = PyObject_GetAttrString(m_pyValue, "args"); // hack, py3.7 needs to call args before filename?
+        Py_XDECREF(vlu);
+    }
+    vlu = PyObject_GetAttrString(m_pyValue, attr); // new ref
     if (!vlu)
         return nullptr;
     return vlu;
