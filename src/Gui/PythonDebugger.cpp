@@ -317,7 +317,7 @@ QString Py::ExceptionInfo::typeString() const
 
     SwapIn myState(m_pyState);
 
-    PyObject *vlu = PyObject_Str(m_pyType); // new ref
+    PyObject *vlu = PyObject_Bytes(m_pyType); // new ref
     if (!vlu)
         return QString();
 
@@ -1310,7 +1310,7 @@ void PythonDebugger::runFile(const QString& fn)
 #if PY_MAJOR_VERSION >= 3
             PyObject *f = PyUnicode_FromString((const char*)pxFileName);
 #else
-            PyObject *f = PyString_FromString((const char*)pxFileName);
+            PyObject *f = PyBytes_FromString((const char*)pxFileName);
 #endif
             if (f == NULL) {
                 fclose(fp);
@@ -1337,8 +1337,10 @@ void PythonDebugger::runFile(const QString& fn)
                 Q_EMIT exceptionFatal(&exp);
 
             // user code exit() makes PyErr_Print segfault
-            if (!PyErr_ExceptionMatches(PyExc_SystemExit))
+            if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
                 PyErr_Print();
+                PyErr_Clear();
+            }
 
             d->state = RunningState::Stopped;
          } else
@@ -1813,10 +1815,12 @@ bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
 {
     do {
 #if PY_MAJOR_VERSION >= 3
-        QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
+        PyObject *pyBytes = PyUnicode_AsUTF8String(frame->f_code->co_filename);
+        const char *fileName = PyBytes_AsString(pyBytes);
 #else
-        QString file = QString::fromUtf8(PyString_AsString(frame->f_code->co_filename));
+        const char *fileName = PyBytes_AsString(frame->f_code->co_filename);
 #endif
+        QString file = QString::fromUtf8(fileName);
         if (hasBreakpoint(file))
             return true;
         if (file == QLatin1String("<string>"))

@@ -1478,7 +1478,7 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
             Py_XINCREF(itm);
             if (PyCallable_Check(itm))
                 continue; // don't want to crowd explorer with functions
-            vl = PyObject_Str(itm);
+            vl = PyObject_Bytes(itm);
             if (vl) {
                 char *vlu = PyBytes_AS_STRING(vl);
                 newValue = QString(QLatin1String(vlu));
