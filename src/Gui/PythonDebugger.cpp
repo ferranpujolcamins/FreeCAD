@@ -47,15 +47,7 @@ Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
         static_GILHeld = true;
         // acquire for global thread
         m_GILState = PyGILState_Ensure();
-        m_oldState = PyThreadState_Get();
-
-        // swap to and re-aquire lock for jedi thread
-        PyGILState_Release(m_GILState);
-        {
-            Base::PyGILStateRelease release;
-            PyThreadState_Swap(newState);
-        } // end scopeguard
-        m_GILState = PyGILState_Ensure();
+        m_oldState = PyThreadState_Swap(newState);
     }
 }
 Py::ExceptionInfo::SwapIn::~SwapIn()
@@ -63,8 +55,10 @@ Py::ExceptionInfo::SwapIn::~SwapIn()
     // ensure we only swap back if this instance was the swapping one
     if (m_oldState) {
         // release from jedi thread and swap back to old thread
-        PyGILState_Release(m_GILState);
+
         PyThreadState_Swap(m_oldState);
+        PyGILState_Release(m_GILState);
+        m_oldState = nullptr;
 
         if (static_GILHeld)
             static_GILHeld = false;
@@ -105,11 +99,14 @@ Py::ExceptionInfo::ExceptionInfo(PyObject *tracebackArg) :
     m_pyType(nullptr),
     m_pyValue(nullptr),
     m_pyTraceback(nullptr),
-    m_pyState(PyThreadState_GET()),
+    m_pyState(nullptr),
     m_tracebackLevel(0)
 {
     if (!PyTuple_Check(tracebackArg))
         return;
+    PyGILState_STATE lock = PyGILState_Ensure();
+    m_pyState = PyThreadState_GET();
+    PyGILState_Release(lock);
 
     SwapIn myState(m_pyState);
 
@@ -339,15 +336,18 @@ bool Py::ExceptionInfo::isValid() const
     if (m_pyType == nullptr)
         return false;
 
-    PyThreadState *currentState = PyThreadState_GET();
-    if (currentState && m_pyState) {
-        if (currentState->interp == m_pyState->interp)
-            return true;
-        return false; // another interpreter
+    PyInterpreterState *interpState = PyInterpreterState_Head();
+    if (interpState == nullptr)
+        // no currentState, rely on ThreadState swapping
+        return true;
+
+    if (interpState && m_pyState &&
+        interpState == m_pyState->interp)
+    {
+        return true;
     }
 
-    // no currentState, rely on ThreadState swapping
-    return true;
+    return false; // another interpreter
 }
 
 int Py::ExceptionInfo::tracebackSize() const
