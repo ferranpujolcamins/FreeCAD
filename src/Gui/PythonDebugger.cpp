@@ -168,8 +168,11 @@ int Py::ExceptionInfo::lineNr() const
     PyObject *vlu = getAttr("lineno"); // new ref
     if (!vlu)
         return -1;
-
+#if PY_MAJOR_VERSION >= 3
     long lVlu = PyLong_AS_LONG(vlu);
+#else
+    long lVlu = PyInt_AS_LONG(vlu);
+#endif
     Py_XDECREF(vlu);
     return static_cast<int>(lVlu);
 }
@@ -188,7 +191,11 @@ int Py::ExceptionInfo::offset() const
     if (!vlu)
         return -1;
 
+#if PY_MAJOR_VERSION >= 3
     long lVlu = PyLong_AS_LONG(vlu);
+#else
+    long lVlu = PyInt_AS_LONG(vlu);
+#endif
     Py_XDECREF(vlu);
     return static_cast<int>(lVlu);
 }
@@ -264,7 +271,12 @@ QString Py::ExceptionInfo::fileName() const
         const char *msg = PyBytes_AS_STRING(vlu);
         ret = QLatin1String(msg);
     } else if (PyUnicode_Check(vlu)) {
+#if PY_MAJOR_VERSION >= 3
         const char *msg = PyUnicode_AsUTF8(vlu);
+#else
+        PyObject *pyBytes = PyUnicode_AsUTF8String(vlu);
+        const char *msg = PyBytes_AS_STRING(pyBytes);
+#endif
         ret.append(QLatin1String(msg));
     }
     Py_XDECREF(vlu);
