@@ -1567,7 +1567,12 @@ bool PythonDebugger::setStackLevel(int level)
         PyFrameObject *frame = currentFrame();
         if (frame) {
             int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-            QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
+#if PY_MAJOR_VERSION >= 3
+            const char *filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
+#else
+            const char *filename = PyBytes_AsString(frame->f_code->co_filename);
+#endif
+            QString file = QString::fromUtf8(filename);
             Q_EMIT haltAt(file, line);
             Q_EMIT nextInstruction(frame);
         }
@@ -1602,10 +1607,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
         return 0;
     }
     QCoreApplication::processEvents();
-    //int no;
 
-    //no = frame->f_tstate->recursion_depth;
-    //std::string funcname = PyBytes_AsString(frame->f_code->co_name);
 #if PY_MAJOR_VERSION >= 3
     QString file = QString::fromUtf8(PyUnicode_AsUTF8(frame->f_code->co_filename));
 #else

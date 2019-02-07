@@ -562,11 +562,19 @@ QVariant StackFramesModel::data(const QModelIndex &index, int role) const
             case 0:
                 return QString::number(j);
             case 1: { // function
+#if PY_MAJOR_VERSION >= 3
+                const char *funcname = PyUnicode_AsUTF8(frame->f_code->co_name);
+#else
                 const char *funcname = PyBytes_AsString(frame->f_code->co_name);
+#endif
                 return QString(QLatin1String(funcname));
             }
             case 2: {// file
+#if PY_MAJOR_VERSION >= 3
+                const char *filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
+#else
                 const char *filename = PyBytes_AsString(frame->f_code->co_filename);
+#endif
                 return QString(QLatin1String(filename));
             }
             case 3: {// line
