@@ -236,7 +236,13 @@ QString Py::ExceptionInfo::message() const
         if (PyBytes_CheckExact(m_pyValue) && PyBytes_Size(m_pyValue) > 0) {
             vlu = m_pyValue;
             Py_INCREF(vlu);
-        } else if (PyBytes_CheckExact(m_pyType) && PyBytes_Size(m_pyType) > 0) {
+        } else if (PyUnicode_CheckExact(m_pyType) &&
+#if PY_VERSION_HEX >= 0x03030000
+                   PyUnicode_GetLength(m_pyType) > 0)
+#else
+                   PyUnicode_GetSize(m_pyType) > 0)
+#endif
+        {
             vlu = m_pyType;
             Py_INCREF(vlu);
         }
@@ -244,7 +250,11 @@ QString Py::ExceptionInfo::message() const
     if (!vlu)
         return QString(); // unknown type
 
+#if PY_MAJOR_VERSION >= 3
+    const char *msg = PyUnicode_AsUTF8(vlu);
+#else
     const char *msg = PyBytes_AS_STRING(vlu);
+#endif
     Py_XDECREF(vlu);
     return QLatin1String(msg);
 }
@@ -314,7 +324,11 @@ QString Py::ExceptionInfo::text() const
     if (!vlu)
         return QString();
 
+#if PY_MAJOR_VERSION >= 3
+    const char *txt = PyUnicode_AsUTF8(vlu);
+#else
     const char *txt = PyBytes_AS_STRING(vlu);
+#endif
     Py_XDECREF(vlu);
     return QLatin1String(txt);
 }
