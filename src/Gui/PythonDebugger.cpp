@@ -259,7 +259,11 @@ QString Py::ExceptionInfo::fileName() const
 
     if (m_pyTraceback) {
         PyTracebackObject* tb = getTracebackFrame();
+#if PY_MAJOR_VERSION >= 3
+        const char *filename = PyUnicode_AsUTF8(tb->tb_frame->f_code->co_filename);
+#else
         const char *filename = PyBytes_AsString(tb->tb_frame->f_code->co_filename);
+#endif
         return QLatin1String(filename);
     }
 
@@ -276,6 +280,7 @@ QString Py::ExceptionInfo::fileName() const
 #else
         PyObject *pyBytes = PyUnicode_AsUTF8String(vlu);
         const char *msg = PyBytes_AS_STRING(pyBytes);
+        Py_XDECREF(pyBytes);
 #endif
         ret.append(QLatin1String(msg));
     }
@@ -289,7 +294,12 @@ QString Py::ExceptionInfo::functionName() const
         return QString();
 
     PyTracebackObject* tb = getTracebackFrame();
+
+#if PY_MAJOR_VERSION >= 3
+    const char *funcname = PyUnicode_AsUTF8(tb->tb_frame->f_code->co_name);
+#else
     const char *funcname = PyBytes_AsString(tb->tb_frame->f_code->co_name);
+#endif
     return QLatin1String(funcname);
 }
 
@@ -317,18 +327,8 @@ QString Py::ExceptionInfo::typeString() const
 
     SwapIn myState(m_pyState);
 
-    PyObject *vlu = PyObject_Bytes(m_pyType); // new ref
-    if (!vlu)
-        return QString();
-
-    Py_INCREF(vlu);
-    const char *txt = PyBytes_AS_STRING(vlu);
-    Py_XDECREF(vlu);
-    QRegExp re(QLatin1String("<.*\\.(\\w+).*>")); // extract typename from repr string
-    if (re.indexIn(QLatin1String(txt)) > -1)
-        return re.cap(1);
-
-    return QString();
+    const char *tpChars = reinterpret_cast<PyTypeObject*>(m_pyType)->tp_name;
+    return QLatin1String(tpChars);
 }
 
 const PyObject *Py::ExceptionInfo::type() const
@@ -1817,6 +1817,7 @@ bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
 #if PY_MAJOR_VERSION >= 3
         PyObject *pyBytes = PyUnicode_AsUTF8String(frame->f_code->co_filename);
         const char *fileName = PyBytes_AsString(pyBytes);
+        Py_XDECREF(pyBytes);
 #else
         const char *fileName = PyBytes_AsString(frame->f_code->co_filename);
 #endif
