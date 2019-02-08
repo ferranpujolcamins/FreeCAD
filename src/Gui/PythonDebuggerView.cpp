@@ -1486,10 +1486,14 @@ void VariableTreeModel::scanObject(PyObject *startObject, VariableTreeItem *pare
             Py_XINCREF(itm);
             if (PyCallable_Check(itm))
                 continue; // don't want to crowd explorer with functions
-            vl = PyObject_Bytes(itm);
+            vl = PyObject_Str(itm);
             if (vl) {
-                char *vlu = PyBytes_AS_STRING(vl);
-                newValue = QString(QLatin1String(vlu));
+#if PY_MAJOR_VERSION >= 3
+                const char *vlu = PyUnicode_AsUTF8(vl);
+#else
+                const char *vlu = PyBytes_AS_STRING(vl);
+#endif
+                newValue = QLatin1String(vlu);
 
                 if (!PyBytes_Check(itm)) {
                     // extract memory address if needed, but not on ordinary strings
