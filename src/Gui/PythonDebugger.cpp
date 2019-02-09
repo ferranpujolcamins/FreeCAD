@@ -225,6 +225,9 @@ QString Py::ExceptionInfo::message() const
         if (!vlu)
             vlu = getItem("reason");
     }
+    if (!vlu) {
+        vlu = PyObject_Str(m_pyValue);
+    }
     if (!vlu && PyErr_GivenExceptionMatches(m_pyType, Base::BaseExceptionFreeCADError))
     {
         vlu = getItem("swhat");
@@ -333,6 +336,9 @@ QString Py::ExceptionInfo::text() const
     SwapIn myState(m_pyState);
 
     PyObject *vlu = getAttr("text"); // new ref
+    if (!vlu) {
+        vlu = PyObject_Str(m_pyValue);
+    }
     if (!vlu)
         return QString();
 
