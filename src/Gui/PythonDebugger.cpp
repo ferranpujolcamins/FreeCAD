@@ -1847,6 +1847,8 @@ void PythonDebugger::finalizeFunction()
 
 bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
 {
+    if (!frame || !frame->f_code)
+        return false;
     do {
 #if PY_MAJOR_VERSION >= 3
         PyObject *pyBytes = PyUnicode_AsUTF8String(frame->f_code->co_filename);
@@ -1861,9 +1863,8 @@ bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
         if (file == QLatin1String("<string>"))
             return false; // eval-ed code
 
-        frame = frame->f_back;
-
-    } while (frame != nullptr);
+    } while (frame != nullptr &&
+             (frame = frame->f_back) != nullptr);
 
     return false;
 }
