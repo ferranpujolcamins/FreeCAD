@@ -236,6 +236,18 @@ QString Py::ExceptionInfo::message() const
         if (PyBytes_CheckExact(m_pyValue) && PyBytes_Size(m_pyValue) > 0) {
             vlu = m_pyValue;
             Py_INCREF(vlu);
+        } else if (PyBytes_CheckExact(m_pyType) && PyBytes_Size(m_pyType) > 0) {
+            vlu = m_pyType;
+            Py_INCREF(vlu);
+        } else if (PyUnicode_CheckExact(m_pyValue) &&
+#if PY_VERSION_HEX >= 0x03030000
+                   PyUnicode_GetLength(m_pyValue) > 0)
+#else
+                   PyUnicode_GetSize(m_pyValue) > 0)
+#endif
+        {
+            vlu = m_pyValue;
+            Py_INCREF(vlu);
         } else if (PyUnicode_CheckExact(m_pyType) &&
 #if PY_VERSION_HEX >= 0x03030000
                    PyUnicode_GetLength(m_pyType) > 0)
