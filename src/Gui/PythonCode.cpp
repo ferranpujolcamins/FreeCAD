@@ -46,6 +46,7 @@
 #include <Base/Parameter.h>
 #include <QApplication>
 #include <QDebug>
+#include <QEventLoop>
 
 namespace Gui {
 struct PythonCodeP
@@ -1601,8 +1602,32 @@ bool JediCommonP::squelshError = false;
 void JediCommonP::printErr()
 {
     JediInterpreter::SwapIn jedi;
-    if (!squelshError)
-        PyErr_Print();
+    if (!squelshError) {
+        //PyErr_Print(); // don't use python io
+        PyObject *tp, *vl, *tr;
+        PyErr_Fetch(&tp, &vl, &tr);
+        if (!tp)
+            return;
+        PyErr_NormalizeException(&tp, &vl, &tr);
+        PyObject *msgo = PyObject_Str(vl);
+        if (!msgo)
+            return;
+        const char *traceback = nullptr;
+#if PY_MAJOR_VERSION >=3
+        const char *msg = PyUnicode_AsUTF8(msgo);
+        if (tr)
+            traceback = PyUnicode_AsUTF8(tr);
+#else
+        const char *msg = PyBytes_AsString(msgo);
+        if (tr)
+            traceback = PyBytes_AsString(tr);
+#endif
+        if (tr)
+            Base::Console().Error("Code analyser: %s\n%s", msg, traceback);
+        else
+            Base::Console().Error("Code analyser: %s", msg);
+
+    }
 
     PyErr_Clear();
 }
@@ -2150,7 +2175,9 @@ const char *JediDebugProxy::ModuleName = "_jedi_debug_proxy";
 JediInterpreter::JediInterpreter() :
     m_jedi(nullptr), m_api(nullptr)
 {
+    assert(m_instance == nullptr && "JediInterpreter must be singleton");
     m_instance = const_cast<JediInterpreter*>(this);
+    m_evtLoop = new QEventLoop(this);
 
     // reconstruct command line args passed to application on startup
     QStringList args = QApplication::arguments();
@@ -2173,23 +2200,40 @@ JediInterpreter::JediInterpreter() :
         argv[argc++] = dest;
     }
 
-    Base::PyGILStateLocker lock;
+    //Base::PyGILStateLocker lock;
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
 
     // need to redirect in new interpreter
     PyObject *stdout = PySys_GetObject("stdout");
     PyObject *stderr = PySys_GetObject("stderr");
+    auto *pyhome = Py_GetPythonHome();
+    // halt possible current tracing/debugging
+    PyEval_SetTrace(haltMainInterpreter, NULL);
 
     // create subinterpreter and set up its threadstate
-    PyThreadState *oldState = PyThreadState_Swap(NULL);
+    PyThreadState *mainInterp = PyThreadState_Swap(NULL); // take reference to main python
+
+
+    if (!Py_IsInitialized())
+        Py_InitializeEx(0);
+
     m_interpState = Py_NewInterpreter();// new sub interpreter
-    m_threadState = PyThreadState_New(m_interpState->interp);
+    m_threadState = m_interpState;// PyThreadState_New(m_interpState->interp);
+    PyThreadState_Swap(m_threadState);
+    PySys_SetArgvEx(argc, argv, 0);
     int sr = PySys_SetObject("stdout", stdout);
     int er = PySys_SetObject("stderr", stderr);
-    PySys_SetArgvEx(argc, argv, 0);
+    Py_SetPythonHome(pyhome);
 
     // restore to main interpreter and release GIL lock
-    PyThreadState_Swap(oldState);
-    Base::PyGILStateRelease release;
+    PyThreadState_Swap(mainInterp);
+
+    // reset halt for main tread
+    PyEval_SetTrace(NULL, NULL);
+    m_evtLoop->quit();
+    PyGILState_Release(gstate);
 
 
     // delete argc again
@@ -2253,6 +2297,19 @@ JediInterpreter::JediInterpreter() :
 JediInterpreter::~JediInterpreter()
 {
     destroy();
+}
+
+// used to halt execution on main interpreter while we setup our subinterpreter
+QEventLoop *JediInterpreter::m_evtLoop = nullptr;
+int JediInterpreter::haltMainInterpreter(PyObject *obj, PyFrameObject *frame,
+                                         int what, PyObject *arg)
+{
+    Q_UNUSED(obj);
+    Q_UNUSED(frame);
+    Q_UNUSED(what);
+    Q_UNUSED(arg);
+    m_evtLoop->exec(); // halt main interpreter
+    return 0;
 }
 
 JediInterpreter *JediInterpreter::m_instance = nullptr;

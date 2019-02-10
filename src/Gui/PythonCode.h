@@ -30,7 +30,10 @@
 #include "SyntaxHighlighter.h"
 #include "CXX/Objects.hxx"
 #include <memory>
+#include <frameobject.h> // python
 
+
+class QEventLoop;
 
 namespace Gui {
 
@@ -728,6 +731,8 @@ public:
     };
 
     static JediInterpreter *instance();
+    static int haltMainInterpreter(PyObject *obj, PyFrameObject *frame,
+                                   int what, PyObject *arg);
 
     bool isValid() const;
 
@@ -787,6 +792,7 @@ private:
     Py::Module *m_jedi;
     Py::Module *m_api;
     static JediInterpreter *m_instance;
+    static QEventLoop *m_evtLoop;
 
     // so the proxy can emit as if originating from this class
     friend class JediDebugProxy;
