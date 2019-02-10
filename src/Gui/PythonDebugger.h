@@ -395,8 +395,8 @@ Q_SIGNALS:
     void breakpointAdded(const BreakpointLine *bpl);
     void breakpointChanged(const BreakpointLine *bpl);
     void breakpointRemoved(int idx, const BreakpointLine *bpl);
-    void exceptionOccured(const Base::PyExceptionInfo *exeption);
-    void exceptionFatal(const Base::PyExceptionInfo *exception);
+    void exceptionOccured(Base::PyExceptionInfo *exeption);
+    void exceptionFatal(Base::PyExceptionInfo *exception);
     void clearException(const QString &fn, int line);
     void clearAllExceptions();
 

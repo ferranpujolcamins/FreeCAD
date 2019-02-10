@@ -221,17 +221,17 @@ PythonEditor::PythonEditor(QWidget* parent)
             this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
     connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
             this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
-    connect(dbg, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
-            this, SLOT(exception(const Base::PyExceptionInfo*)));
-    connect(dbg, SIGNAL(exceptionOccured(const Base::PyExceptionInfo*)),
-            this, SLOT(exception(const Base::PyExceptionInfo*)));
+    connect(dbg, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
+            this, SLOT(exception(Base::PyExceptionInfo*)));
+    connect(dbg, SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
+            this, SLOT(exception(Base::PyExceptionInfo*)));
     connect(dbg, SIGNAL(started()), this, SLOT(clearAllExceptions()));
     connect(dbg, SIGNAL(clearAllExceptions()), this, SLOT(clearAllExceptions()));
     connect(dbg, SIGNAL(clearException(QString,int)), this, SLOT(clearException(QString,int)));
 
     MacroManager *macroMgr = Application::Instance->macroManager();
-    connect(macroMgr, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
-            this, SLOT(exception(const Base::PyExceptionInfo*)));
+    connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
+            this, SLOT(exception(Base::PyExceptionInfo*)));
 
     d->matchingChars = new PythonMatchingChars(this);
 
@@ -802,7 +802,7 @@ void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
     lineMarkerArea()->update();
 }
 
-void PythonEditor::exception(const Base::PyExceptionInfo *exc)
+void PythonEditor::exception(Base::PyExceptionInfo *exc)
 {
     if (exc->getFile() != d->filename.toStdString())
         return;

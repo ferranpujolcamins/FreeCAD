@@ -101,7 +101,7 @@ public:
     void OnChange(Base::Subject<const char*> &rCaller, const char * sReason);
 
 Q_SIGNALS:
-    void exceptionFatal(const Base::PyExceptionInfo *exception);
+    void exceptionFatal(Base::PyExceptionInfo *exception);
 
 protected:
     QStringList macroInProgress;    /**< Container for the macro */

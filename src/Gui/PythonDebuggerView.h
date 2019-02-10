@@ -150,8 +150,8 @@ public:
     bool removeRows(int row, int count, const QModelIndex & parent = QModelIndex());
 
 private Q_SLOTS:
-    void exceptionOccured(const Base::PyExceptionInfo *exc);
-    void exception(const Base::PyExceptionInfo *exc);
+    void exceptionOccured(Base::PyExceptionInfo *exc);
+    void exception(Base::PyExceptionInfo *exc);
     void clear();
     void clearException(const QString &fn, int line);
 

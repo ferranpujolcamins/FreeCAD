@@ -773,11 +773,11 @@ void PythonBreakpointModel::removed(int idx, const BreakpointLine *bpl)
 IssuesModel::IssuesModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    connect(PythonDebugger::instance(), SIGNAL(exceptionOccured(const Base::PyExceptionInfo*)),
-            this, SLOT(exceptionOccured(const Base::PyExceptionInfo*)));
+    connect(PythonDebugger::instance(), SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
+            this, SLOT(exceptionOccured(Base::PyExceptionInfo*)));
 
-    connect(PythonDebugger::instance(), SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
-            this, SLOT(exception(const Base::PyExceptionInfo*)));
+    connect(PythonDebugger::instance(), SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
+            this, SLOT(exception(Base::PyExceptionInfo*)));
 
     connect(PythonDebugger::instance(), SIGNAL(started()), this, SLOT(clear()));
     connect(PythonDebugger::instance(), SIGNAL(clearAllExceptions()), this, SLOT(clear()));
@@ -786,8 +786,8 @@ IssuesModel::IssuesModel(QObject *parent) :
 
 
     MacroManager *macroMgr = Application::Instance->macroManager();
-    connect(macroMgr, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
-            this, SLOT(exception(const Base::PyExceptionInfo*)));
+    connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
+            this, SLOT(exception(Base::PyExceptionInfo*)));
 }
 
 IssuesModel::~IssuesModel()
@@ -842,7 +842,7 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
             srcText += QLatin1Char('^');
         }
 
-        return  QString(tr("%1 on line %2 in file %3\nreason: '%4'\n"))
+        return  QString(tr("%1 on line %2 in file %3\nreason: '%4'\n\n%5"))
                                 .arg(QString::fromStdString(exc->getErrorType(true)))
                                 .arg(QString::number(exc->getLine()))
                                 .arg(QString::fromStdString(exc->getFile()))
@@ -896,7 +896,7 @@ bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
     return true;
 }
 
-void IssuesModel::exceptionOccured(const Base::PyExceptionInfo *exc)
+void IssuesModel::exceptionOccured(Base::PyExceptionInfo *exc)
 {
     // on runtime, we don't want to catch runtime exceptions before they are fatal
     // but we do want to catch warnings
@@ -905,7 +905,7 @@ void IssuesModel::exceptionOccured(const Base::PyExceptionInfo *exc)
 
 }
 
-void IssuesModel::exception(const Base::PyExceptionInfo *exception)
+void IssuesModel::exception(Base::PyExceptionInfo *exception)
 {
     // already set?
     for (const Base::PyExceptionInfo *exc : m_exceptions) {

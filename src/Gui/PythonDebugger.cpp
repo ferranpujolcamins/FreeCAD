@@ -1364,19 +1364,21 @@ void PythonDebugger::runFile(const QString& fn)
         Py_DECREF(dict);
 
         if (!result) {
-            // script failed, syntax error, import error, etc
-            Base::PyExceptionInfo exc;
-            if (exc.isValid() && !exc.isSystemExit() && !exc.isKeyboardInterupt()) {
-                Q_EMIT exceptionFatal(&exc);
+            if (!d->trystop && d->state != RunningState::Stopped) {
+                // script failed, syntax error, import error, etc
+                Base::PyExceptionInfo exc;
+                if (exc.isValid() && !exc.isSystemExit() && !exc.isKeyboardInterupt()) {
+                    Q_EMIT exceptionFatal(&exc);
 
-                // user code exit() makes PyErr_Print segfault
-                Base::Console().Error("(debugger):%s\n%s\n%s",
-                                        exc.getErrorType(true).c_str(),
-                                        exc.getStackTrace().c_str(),
-                                        exc.getMessage().c_str());
-                PyErr_Clear();
+                    // user code exit() makes PyErr_Print segfault
+                    Base::Console().Error("(debugger):%s\n%s\n%s",
+                                            exc.getErrorType(true).c_str(),
+                                            exc.getStackTrace().c_str(),
+                                            exc.getMessage().c_str());
+                    PyErr_Clear();
+                }
+
             }
-
             d->state = RunningState::Stopped;
          } else
             Py_DECREF(result);

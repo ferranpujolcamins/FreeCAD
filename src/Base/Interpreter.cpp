@@ -92,6 +92,7 @@ bool PyException::SwapIn::static_GILHeld = false;
 
 PyException::PyException():
     Exception(),
+    _offset(-1),
     _pyType(nullptr),
     _pyValue(nullptr),
     _pyTraceback(nullptr)
@@ -154,6 +155,8 @@ void PyException::_init()
     // calculate lineNr, functionName, fileName
     if (_pyTraceback) { // no traceback when in global space
         PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
+        while (tb && tb->tb_next) // traverse to find correct linenr
+            tb = tb->tb_next;
         _line = PyCode_Addr2Line(tb->tb_frame->f_code, tb->tb_frame->f_lasti);
 
         // functionName && fileName
@@ -171,21 +174,12 @@ void PyException::_init()
         Py_XDECREF(vlu);
 #endif
 
-        // linenr && offset global space
+        // linenr global space
         PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
         if (lineobj) {
             long line = PY_AS_LONG(lineobj);
             Py_DECREF(lineobj);
             _line = static_cast<int>(line);
-        } else
-            PyErr_Clear();
-
-        // get offset
-        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
-        if (offsetobj) {
-            long offset = PY_AS_LONG(offsetobj);
-            Py_DECREF(offsetobj);
-            _offset = static_cast<int>(offset);
         } else
             PyErr_Clear();
 
@@ -423,7 +417,7 @@ void PyExceptionInfo::setTracebackLevel(int level)
     if (level < 0 && level >= tracebackSize())
         return;
 
-    _tracebackLevel = level;
+    _tracebackLevel = level -1;
 }
 
 std::wstring PyExceptionInfo::currentFile() const
