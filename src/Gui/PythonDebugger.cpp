@@ -38,7 +38,7 @@
 
 using namespace Gui;
 
-
+/*
 Py::ExceptionInfo::SwapIn::SwapIn(PyThreadState *newState) :
     m_oldState(nullptr)
 {
@@ -512,6 +512,7 @@ PyObject *Py::ExceptionInfo::getItem(const char *attr) const
 
 // -----------------------------------------------------------------------------
 
+*/
 
 BreakpointLine::BreakpointLine(int lineNr, const BreakpointFile *parent):
     m_parent(parent), m_lineNr(lineNr), m_hitCount(0),
@@ -1008,7 +1009,7 @@ public:
     { }
     ~PythonDebuggerPy() {}
     PythonDebugger* dbg;
-    Py::ExceptionInfo *runtimeException;
+    Base::PyExceptionInfo *runtimeException;
 };
 
 // -----------------------------------------------------
@@ -1364,13 +1365,15 @@ void PythonDebugger::runFile(const QString& fn)
 
         if (!result) {
             // script failed, syntax error, import error, etc
-            Py::ExceptionInfo exp;
-            if (exp.isValid())
-                Q_EMIT exceptionFatal(&exp);
+            Base::PyExceptionInfo exc;
+            if (exc.isValid() && !exc.isSystemExit() && !exc.isKeyboardInterupt()) {
+                Q_EMIT exceptionFatal(&exc);
 
-            // user code exit() makes PyErr_Print segfault
-            if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
-                PyErr_Print();
+                // user code exit() makes PyErr_Print segfault
+                Base::Console().Error("(debugger):%s\n%s\n%s",
+                                        exc.getErrorType(true).c_str(),
+                                        exc.getStackTrace().c_str(),
+                                        exc.getMessage().c_str());
                 PyErr_Clear();
             }
 
@@ -1764,7 +1767,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
     case PyTrace_EXCEPTION:
         // we need to store this exception for later as it might be a recoverable exception
         if (dbg->frameRelatedToOpenedFiles(frame)) {
-            Py::ExceptionInfo *exc = new Py::ExceptionInfo(arg);
+            Base::PyExceptionInfo *exc = new Base::PyExceptionInfo(arg);
             if (exc->isValid())
                 self->runtimeException = exc;
             else

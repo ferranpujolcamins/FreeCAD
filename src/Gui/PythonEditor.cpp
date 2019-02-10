@@ -74,7 +74,7 @@ struct PythonEditorP
     QString filename;
     PythonDebugger* debugger;
     PythonCode *pythonCode;
-    QHash <int, Py::ExceptionInfo> exceptions;
+    QHash <int, Base::PyExceptionInfo> exceptions;
     //CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
@@ -221,14 +221,17 @@ PythonEditor::PythonEditor(QWidget* parent)
             this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
     connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
             this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
-    connect(dbg, SIGNAL(exceptionFatal(const Py::ExceptionInfo*)),
-            this, SLOT(exception(const Py::ExceptionInfo*)));
-    connect(dbg, SIGNAL(exceptionOccured(const Py::ExceptionInfo*)),
-            this, SLOT(exception(const Py::ExceptionInfo*)));
+    connect(dbg, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
+            this, SLOT(exception(const Base::PyExceptionInfo*)));
+    connect(dbg, SIGNAL(exceptionOccured(const Base::PyExceptionInfo*)),
+            this, SLOT(exception(const Base::PyExceptionInfo*)));
     connect(dbg, SIGNAL(started()), this, SLOT(clearAllExceptions()));
     connect(dbg, SIGNAL(clearAllExceptions()), this, SLOT(clearAllExceptions()));
     connect(dbg, SIGNAL(clearException(QString,int)), this, SLOT(clearException(QString,int)));
 
+    MacroManager *macroMgr = Application::Instance->macroManager();
+    connect(macroMgr, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
+            this, SLOT(exception(const Base::PyExceptionInfo*)));
 
     d->matchingChars = new PythonMatchingChars(this);
 
@@ -384,8 +387,9 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
         hadBreakpoint = true;
     }
     if (d->exceptions.contains(line)) {
-        const Py::ExceptionInfo *exp = &d->exceptions[line];
-        QIcon icon = BitmapFactory().iconFromTheme(exp->iconName());
+        Base::PyExceptionInfo *exc = &d->exceptions[line];
+        PyExceptionInfoGui excGui(exc);
+        QIcon icon = BitmapFactory().iconFromTheme(excGui.iconName());
         int excX = x;
         if (lineMarkerArea()->lineNumbersVisible() && hadBreakpoint)
             excX += d->breakpoint.width();
@@ -678,8 +682,8 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 {
     if (d->exceptions.contains(line)) {
-        QString srcText = d->exceptions[line].text();
-        int offset = d->exceptions[line].offset();
+        QString srcText = QString::fromStdWString(d->exceptions[line].text());
+        int offset = d->exceptions[line].getOffset();
         if (offset > 0) {
             if (!srcText.endsWith(QLatin1String("\n")))
                 srcText += QLatin1String("\n");
@@ -690,9 +694,9 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
         }
 
         QString txt = QString((tr("%1 on line %2\nreason: '%4'\n\n%5")))
-                                .arg(d->exceptions[line].typeString())
-                                .arg(QString::number(d->exceptions[line].lineNr()))
-                                .arg(d->exceptions[line].message())
+                                .arg(QString::fromStdString(d->exceptions[line].getErrorType(true)))
+                                .arg(QString::number(d->exceptions[line].getLine()))
+                                .arg(QString::fromStdString(d->exceptions[line].getMessage()))
                                 .arg(srcText);
         QToolTip::showText(pos, txt, this);
     } else {
@@ -707,7 +711,9 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
     QAction *clearException = nullptr;
 
     if (d->exceptions.contains(line)) {
-        clearException = new QAction(BitmapFactory().iconFromTheme(d->exceptions[line].iconName()),
+        Base::PyExceptionInfo exc(d->exceptions[line]);
+        PyExceptionInfoGui excGui(&exc);
+        clearException = new QAction(BitmapFactory().iconFromTheme(excGui.iconName()),
                                tr("Clear exception"), &menu);
         menu.addAction(clearException);
         menu.addSeparator();
@@ -796,15 +802,15 @@ void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
     lineMarkerArea()->update();
 }
 
-void PythonEditor::exception(const Py::ExceptionInfo *exc)
+void PythonEditor::exception(const Base::PyExceptionInfo *exc)
 {
-    if (exc->fileName() != d->filename)
+    if (exc->getFile() != d->filename.toStdString())
         return;
 
-    if (d->exceptions.contains(exc->lineNr()))
+    int linenr = exc->getLine();
+    if (d->exceptions.contains(linenr))
         return; // already set
 
-    int linenr = exc->lineNr();
     d->exceptions[linenr] = *exc;
     renderExceptionExtraSelections();
     lineMarkerArea()->update();
@@ -832,10 +838,10 @@ void PythonEditor::exception(const Py::ExceptionInfo *exc)
 void PythonEditor::clearAllExceptions()
 {
     for (int i : d->exceptions.keys()) {
-        Py::ExceptionInfo exc = d->exceptions.take(i);
+        Base::PyExceptionInfo exc = d->exceptions.take(i);
         AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
         if (vBar)
-            vBar->clearMarker(exc.lineNr(), d->exceptionScrollBarMarkerColor);
+            vBar->clearMarker(exc.getLine(), d->exceptionScrollBarMarkerColor);
     }
 
     renderExceptionExtraSelections();
@@ -884,14 +890,14 @@ void PythonEditor::renderExceptionExtraSelections()
 {
     QList<QTextEdit::ExtraSelection> selections;
 
-    for (Py::ExceptionInfo &exc : d->exceptions) {
-        if (exc.offset() > 0) {
+    for (Base::PyExceptionInfo &exc : d->exceptions) {
+        if (exc.getOffset() > 0) {
             // highlight text up to error in editor
             QTextEdit::ExtraSelection sel;
             sel.cursor = textCursor();
-            QTextBlock block = document()->findBlockByLineNumber(exc.lineNr() -1);
+            QTextBlock block = document()->findBlockByLineNumber(exc.getLine() -1);
             sel.cursor.setPosition(block.position());
-            sel.cursor.setPosition(sel.cursor.position() + exc.offset(),
+            sel.cursor.setPosition(sel.cursor.position() + exc.getOffset(),
                                QTextCursor::KeepAnchor);
 
             sel.format.setBackground(QColor("#e5e5de")); // lightgray

@@ -116,7 +116,7 @@ private Q_SLOTS:
     void breakpointAdded(const BreakpointLine *bpl);
     void breakpointChanged(const BreakpointLine *bpl);
     void breakpointRemoved(int idx, const BreakpointLine *bpl);
-    void exception(const Py::ExceptionInfo *exc);
+    void exception(const Base::PyExceptionInfo *exc);
 
 
 private:

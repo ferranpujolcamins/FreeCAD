@@ -32,9 +32,10 @@
 #include <QVariant>
 
 class QVBoxLayout;
-namespace  Py {
-    class ExceptionInfo;
-} // namespace Py
+namespace  Base {
+    class PyException;
+    class PyExceptionInfo;
+} // namespace Base
 
 namespace Gui {
 class BreakpointLine;
@@ -149,14 +150,14 @@ public:
     bool removeRows(int row, int count, const QModelIndex & parent = QModelIndex());
 
 private Q_SLOTS:
-    void exceptionOccured(const Py::ExceptionInfo *exc);
-    void exception(const Py::ExceptionInfo *exc);
+    void exceptionOccured(const Base::PyExceptionInfo *exc);
+    void exception(const Base::PyExceptionInfo *exc);
     void clear();
     void clearException(const QString &fn, int line);
 
 private:
     static const int colCount = 3;
-    QList<Py::ExceptionInfo*> m_exceptions;
+    QList<Base::PyExceptionInfo*> m_exceptions;
 };
 
 // -------------------------------------------------------------------------------

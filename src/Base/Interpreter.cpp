@@ -38,8 +38,19 @@
 #include "Exception.h"
 #include "PyObjectBase.h"
 #include <CXX/Extensions.hxx>
+#include <frameobject.h>
 
 #include "ExceptionFactory.h"
+
+#if PY_MAJOR_VERSION >= 3
+#define PY_AS_LONG(pyObj) PyLong_AS_LONG(pyObj)
+#define PY_LONG_CHECK(pyObj) PyLong_Check(pyObj)
+#define PY_AS_C_STRING(pyObj) PyUnicode_AsUTF8(pyObj)
+#else
+#define PY_AS_LONG(pyObj) PyInt_AS_LONG(pyObj)
+#define PY_LONG_CHECK(pyObj) PyInt_Check(pyObj)
+#define PY_AS_C_STRING(pyObj) PyBytes_AsString(pyObj)
+#endif
 
 
 char format2[1024];  //Warning! Can't go over 512 characters!!!
@@ -47,13 +58,176 @@ unsigned int format2_len = 1024;
 
 using namespace Base;
 
-#if PY_VERSION_HEX <= 0x02050000
-#error "Use Python2.5.x or higher"
+#if PY_VERSION_HEX <= 0x02070000
+#error "Use Python2.7.x or higher"
 #endif
 
-
-PyException::PyException(void)
+PyException::SwapIn::SwapIn(PyThreadState *newState) :
+    m_oldState(nullptr)
 {
+    // ensure we don't re-swap and acquire lock (leads to deadlock)
+    if (!static_GILHeld) {
+        static_GILHeld = true;
+        // acquire for global thread
+        m_GILState = PyGILState_Ensure();
+        m_oldState = PyThreadState_Swap(newState);
+    }
+}
+PyException::SwapIn::~SwapIn()
+{
+    // ensure we only swap back if this instance was the swapping once
+    // must only swap when reached bottom of swap stack
+    if (m_oldState) {
+        // release from sub interpreter thread and swap back to old thread
+
+        PyThreadState_Swap(m_oldState);
+        PyGILState_Release(m_GILState);
+        m_oldState = nullptr;
+
+        if (static_GILHeld)
+            static_GILHeld = false;
+    }
+}
+bool PyException::SwapIn::static_GILHeld = false;
+
+PyException::PyException():
+    Exception(),
+    _pyType(nullptr),
+    _pyValue(nullptr),
+    _pyTraceback(nullptr)
+{
+    // This should be done in the constructor because when doing
+    // in the destructor it's not always clear when it is called
+    // and thus may clear a Python exception when it should not.
+    PyGILStateLocker locker;
+
+    _pyState = PyThreadState_GET();
+    PyErr_Fetch(&_pyType, &_pyValue, &_pyTraceback);
+    PyErr_NormalizeException(&_pyType, &_pyValue, &_pyTraceback);
+
+    Py_XINCREF(_pyType);
+    Py_XINCREF(_pyTraceback);
+    Py_XINCREF(_pyValue);
+
+    _init();
+}
+
+// set exception from tracer function (ie within debugger)
+PyException::PyException(PyObject *tracebackArg) :
+    Exception(),
+    _offset(-1),
+    _pyType(nullptr),
+    _pyValue(nullptr),
+    _pyTraceback(nullptr),
+    _pyState(nullptr)
+{
+    if (!PyTuple_Check(tracebackArg))
+        return;
+
+    PyGILStateLocker locker;
+
+    _pyState = PyThreadState_GET();
+    _pyType = PyTuple_GET_ITEM(tracebackArg, 0);
+    _pyValue = PyTuple_GET_ITEM(tracebackArg, 1);
+    _pyTraceback = PyTuple_GET_ITEM(tracebackArg, 2);
+    Py_XINCREF(_pyType);
+    Py_XINCREF(_pyTraceback);
+    Py_XINCREF(_pyValue);
+
+    _init();
+}
+
+PyException::PyException(const PyException &other) :
+    Exception(),
+    _offset(-1),
+    _pyType(nullptr),
+    _pyValue(nullptr),
+    _pyTraceback(nullptr),
+    _pyState(nullptr)
+{
+    _clone(other);
+}
+
+// helper function for construtors, should never be called from another method
+void PyException::_init()
+{
+    // calculate lineNr, functionName, fileName
+    if (_pyTraceback) { // no traceback when in global space
+        PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
+        _line = PyCode_Addr2Line(tb->tb_frame->f_code, tb->tb_frame->f_lasti);
+
+        // functionName && fileName
+        const char *funcname = PY_AS_C_STRING(tb->tb_frame->f_code->co_name);
+        const char *filename = PY_AS_C_STRING(tb->tb_frame->f_code->co_filename);
+        _function = funcname;
+        _file = filename;
+
+    } else if (_pyValue) {
+        // in global space
+
+#if PY_MAJOR_VERSION >= 3
+        // hack, py3.7 needs to call args before filename?
+        PyObject *vlu = PyObject_GetAttrString(_pyValue, "args");
+        Py_XDECREF(vlu);
+#endif
+
+        // linenr && offset global space
+        PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
+        if (lineobj) {
+            long line = PY_AS_LONG(lineobj);
+            Py_DECREF(lineobj);
+            _line = static_cast<int>(line);
+        } else
+            PyErr_Clear();
+
+        // get offset
+        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
+        if (offsetobj) {
+            long offset = PY_AS_LONG(offsetobj);
+            Py_DECREF(offsetobj);
+            _offset = static_cast<int>(offset);
+        } else
+            PyErr_Clear();
+
+        // fileName global space
+        PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
+        if (filenameobj) {
+            if (PyBytes_Check(filenameobj)) {
+                const char *msg = PyBytes_AS_STRING(filenameobj);
+                _file = msg;
+            } else if (PyUnicode_Check(filenameobj)) {
+#if PY_MAJOR_VERSION >= 3
+                const char *msg = PyUnicode_AsUTF8(filenameobj);
+#else
+                PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
+                const char *msg = PyBytes_AsString(pyBytes);
+                Py_XDECREF(pyBytes);
+#endif
+                _file = msg;
+            }
+            Py_XDECREF(filenameobj);
+        } else
+            PyErr_Clear();
+    }
+    if (_pyValue) {
+        // we get here regardless of traceback or not
+#if PY_MAJOR_VERSION >= 3
+        // hack, py3.7 needs to call args before filename?
+        PyObject *vlu = PyObject_GetAttrString(_pyValue, "args");
+        Py_XDECREF(vlu);
+#endif
+        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
+        if (offsetobj) {
+            long offset = PY_AS_LONG(offsetobj);
+            _offset = static_cast<int>(offset);
+        } else
+            PyErr_Clear();
+    }
+
+    // must restore for PP_Fetch_Error_Text()
+    PyErr_Restore(_pyType, _pyValue, _pyTraceback);
+
+    // make use of PyTools.c
     PP_Fetch_Error_Text();    /* fetch (and clear) exception */
     std::string prefix = PP_last_error_type; /* exception name text */
 //  prefix += ": ";
@@ -70,18 +244,59 @@ PyException::PyException(void)
     _sErrMsg = error;
     _errorType = prefix;
 
-
     _stackTrace = PP_last_error_trace;     /* exception traceback text */
 
-    // This should be done in the constructor because when doing
-    // in the destructor it's not always clear when it is called
-    // and thus may clear a Python exception when it should not.
-    PyGILStateLocker locker;
     PyErr_Clear(); // must be called to keep Python interpreter in a valid state (Werner)
+}
+
+// helper function, should be called from copy constructor or from copy operator
+void PyException::_clone(const PyException &other)
+{
+    // clear possible old state (release memory)
+    if (_pyState) {
+        SwapIn oldState(_pyState);
+        Py_XDECREF(_pyType);
+        Py_XDECREF(_pyValue);
+        Py_XDECREF(_pyTraceback);
+    }
+
+    SwapIn myState(other._pyState);
+
+    _pyType = other._pyType;
+    _pyTraceback = other._pyTraceback;
+    _pyValue = other._pyValue;
+    _pyState =  other._pyState;
+    _sErrMsg = other._sErrMsg;
+    _errorType = other._errorType;
+    _file = other._file;
+    _function = other._function;
+    _isReported = other._isReported;
+    _isTranslatable = other._isTranslatable;
+    _line = other._line;
+    _stackTrace = other._stackTrace;
+    _offset = other._offset;
+
+    // grab a reference, prevent python from deleting these
+    Py_XINCREF(_pyType);
+    Py_XINCREF(_pyTraceback);
+    Py_XINCREF(_pyValue);
 }
 
 PyException::~PyException() throw()
 {
+    // we might get deleted after file has ended
+    // and some other python code is running
+    SwapIn myState(_pyState);
+
+    Py_XDECREF(_pyType);
+    Py_XDECREF(_pyValue);
+    Py_XDECREF(_pyTraceback);
+}
+
+PyException &PyException::operator =(const PyException &other)
+{
+    _clone(other);
+    return *this;
 }
 
 void PyException::ThrowException(void)
@@ -107,10 +322,263 @@ void PyException::ThrowException(void)
         throw myexcp;
 }
 
+const std::string PyException::getErrorType(bool extractName /*= false*/) const
+{
+    if (!extractName)
+        return _errorType;
+
+    std::size_t pos1 = _errorType.find_first_of("'\""),
+                pos2 = _errorType.find_first_of(_errorType[pos1], pos1 +1) -1;
+    std::string cleanTypeName = _errorType.substr(pos1 +1, pos2 - pos1);
+    return cleanTypeName;
+}
+
 void PyException::ReportException (void) const
 {
     Base::Console().Error("%s%s: %s\n",
         _stackTrace.c_str(), _errorType.c_str(), what());
+}
+
+// ---------------------------------------------------------
+
+Base::PyExceptionInfo::PyExceptionInfo() :
+
+    PyException()
+{
+    _tracebackLevel = tracebackSize() -1;
+}
+
+Base::PyExceptionInfo::PyExceptionInfo(const Base::PyException &exc) :
+    PyException(exc)
+{
+    _tracebackLevel = tracebackSize() -1;
+}
+
+PyExceptionInfo::PyExceptionInfo(const PyExceptionInfo &other) :
+    PyException(other)
+{
+    _cloneExcInfo(other);
+}
+
+PyExceptionInfo::~PyExceptionInfo() throw()
+{
+}
+
+void PyExceptionInfo::_cloneExcInfo(const PyExceptionInfo &other)
+{
+    _tracebackLevel = other._tracebackLevel;
+}
+
+PyExceptionInfo &PyExceptionInfo::operator =(const PyExceptionInfo &other)
+{
+    _clone(other);
+    _cloneExcInfo(other);
+    return *this;
+}
+
+PyException &PyExceptionInfo::operator =(const PyException &other)
+{
+    _clone(other);
+    _tracebackLevel = tracebackSize() -1;
+    return *static_cast<PyException*>(this);
+}
+
+bool PyExceptionInfo::isValid() const
+{
+    if (_pyType == nullptr)
+        return false;
+
+    PyInterpreterState *interpState = PyInterpreterState_Head();
+    if (interpState == nullptr)
+        // no currentState, rely on ThreadState swapping
+        return _pyState != nullptr;
+
+    if (interpState && _pyState &&
+        interpState == _pyState->interp)
+    {
+        return true;
+    }
+
+    return false; // another interpreter
+}
+
+int PyExceptionInfo::tracebackSize() const
+{
+    if (!isValid())
+        return -1;
+
+    int count = 0;    PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
+    while (tb != nullptr) {
+        tb = tb->tb_next;
+        ++count;
+    }
+    return count;
+}
+
+void PyExceptionInfo::setTracebackLevel(int level)
+{
+    if (!isValid())
+        return;
+
+    if (level < 0 && level >= tracebackSize())
+        return;
+
+    _tracebackLevel = level;
+}
+
+std::wstring PyExceptionInfo::currentFile() const
+{
+    if (!isValid())
+        return std::wstring();
+
+    SwapIn myState(_pyState);
+    const char *filename = nullptr;
+
+    if (_pyTraceback) {
+        // has a traceback
+        // get the current file as selected from traceback level
+        PyTracebackObject* tb = getTracebackFrame();
+        filename = PY_AS_C_STRING(tb->tb_frame->f_code->co_filename);
+    } else {
+        // is global space
+        filename = _file.c_str(); // string to wstring
+    }
+
+    // workaround cstr to std::wstring
+    std::string tmp = filename;
+    std::wstring ret(tmp.begin(), tmp.end());
+
+    return ret;
+}
+
+int PyExceptionInfo::currentLine() const
+{
+    if (!isValid())
+        return -1;
+
+    SwapIn myState(_pyState);
+
+    if (_pyTraceback) { // no traceback when in global space
+        PyTracebackObject* tb = getTracebackFrame();
+        return PyCode_Addr2Line(tb->tb_frame->f_code, tb->tb_frame->f_lasti);
+    }
+
+    // else in global space
+    return _line;
+}
+
+bool PyExceptionInfo::isWarning() const
+{
+    return compareException(PyExc_Warning);
+}
+
+bool PyExceptionInfo::isSyntaxError() const
+{
+    return compareException(PyExc_SyntaxError);
+}
+
+bool PyExceptionInfo::isIndentationError() const
+{
+    return compareException(PyExc_IndentationError) ||
+           compareException(PyExc_TabError);
+}
+
+bool PyExceptionInfo::isKeyboardInterupt() const
+{
+    return compareException(PyExc_KeyboardInterrupt);
+}
+
+bool PyExceptionInfo::isSystemExit() const
+{
+    return compareException(PyExc_SystemExit);
+}
+
+bool PyExceptionInfo::compareException(PyObject * pyExcType) const
+{
+    if (!isValid())
+        return false;
+
+    SwapIn myState(_pyState);
+    return PyErr_GivenExceptionMatches(_pyType, pyExcType);
+}
+
+std::wstring PyExceptionInfo::text() const
+{
+    if (!isValid())
+        return std::wstring();
+
+    SwapIn myState(_pyState);
+
+    PyObject *vlu = getAttr("text"); // new ref
+    if (!vlu) {
+        vlu = PyObject_Str(_pyValue);
+    }
+    if (!vlu)
+        return std::wstring();
+
+    const char *txt = PY_AS_C_STRING(vlu);
+    Py_XDECREF(vlu);
+
+    // workaround cstr to std::wstring
+    std::string tmp = txt;
+    std::wstring ret(tmp.begin(), tmp.end());
+
+    return ret;
+}
+
+const PyThreadState *PyExceptionInfo::threadState() const
+{
+    return _pyState;
+}
+
+
+PyTracebackObject *PyExceptionInfo::getTracebackFrame() const
+{
+    SwapIn myState(_pyState);
+
+    int lvl = _tracebackLevel;
+    PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
+    while (lvl > 0) {
+        tb = tb->tb_next;
+        --lvl;
+    }
+    return tb;
+}
+
+// returns new ref, caller need to Py_DECREF
+PyObject *PyExceptionInfo::getAttr(const char *attr) const // new ref
+{
+    SwapIn myState(_pyState);
+
+    PyObject *vlu = nullptr;
+    if (!PyObject_HasAttrString(_pyValue, attr)) {
+        vlu = PyObject_GetAttrString(_pyValue, "args"); // hack, py3.7 needs to call args before filename?
+        Py_XDECREF(vlu);
+    }
+    vlu = PyObject_GetAttrString(_pyValue, attr); // new ref
+    if (!vlu)
+        return nullptr;
+    return vlu;
+}
+
+/// borrowed ref, caller need to Py_DECREF
+PyObject *PyExceptionInfo::getItem(const char *attr) const
+{
+
+    SwapIn myState(_pyState);
+
+    PyObject *vlu = nullptr;
+    if (PyDict_Check(_pyValue)) {
+        vlu = PyDict_GetItemString(_pyValue, attr); // borrowed ref
+
+    } else if (PyList_Check(_pyValue)) {
+        int idx = atoi(attr);
+        if (PyList_Size(_pyValue) >= idx)
+            vlu = PyList_GET_ITEM(_pyValue, idx); // borrowed ref
+    }
+
+    Py_XINCREF(vlu); // we decref in caller functions so we need to inref here
+    return vlu;
 }
 
 // ---------------------------------------------------------
@@ -141,25 +609,14 @@ SystemExitException::SystemExitException()
            value = code;
         }
 
-#if PY_MAJOR_VERSION >= 3
-        if (PyLong_Check(value)) {
-            errCode = PyLong_AsLong(value);
+        if (PY_LONG_CHECK(value)) {
+            errCode = PY_AS_LONG(value);
         }
         else {
-            const char *str = PyUnicode_AsUTF8(value);
+            const char *str = PY_AS_C_STRING(value);
             if (str)
                 errMsg = errMsg + ": " + str;
         }
-#else
-        if (PyInt_Check(value)) {
-            errCode = PyInt_AsLong(value);
-        }
-        else {
-            const char *str = PyString_AsString(value);
-            if (str)
-                errMsg = errMsg + ": " + str;
-        }
-#endif
     }
 
     _sErrMsg  = errMsg;
@@ -243,11 +700,8 @@ std::string InterpreterSingleton::runString(const char *sCmd)
     PyObject* repr = PyObject_Repr(presult);
     Py_DECREF(presult);
     if (repr) {
-#if PY_MAJOR_VERSION >= 3
-        std::string ret(PyUnicode_AsUTF8(repr));
-#else
-        std::string ret(PyString_AsString(repr));
-#endif
+        std::string ret(PY_AS_C_STRING(repr));
+
         Py_DECREF(repr);
         return ret;
     }
@@ -307,13 +761,9 @@ void InterpreterSingleton::systemExit(void)
         /* If we failed to dig out the 'code' attribute,
            just let the else clause below print the error. */
     }
-#if PY_MAJOR_VERSION < 3
-    if (PyInt_Check(value))
-        exitcode = (int)PyInt_AsLong(value);
-#else
-    if (PyLong_Check(value))
-        exitcode = (int)PyLong_AsLong(value);
-#endif
+    if (PY_LONG_CHECK(value))
+        exitcode = (int)PY_AS_LONG(value);
+
     else {
         PyObject_Print(value, stderr, Py_PRINT_RAW);
         PySys_WriteStderr("\n");

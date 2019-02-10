@@ -30,8 +30,12 @@
 #include <string>
 #include <vector>
 
-//class PyTracebackObject;
+namespace Base {
+class PyException;
+class PyExceptionInfo;
+}
 
+/*
 namespace Py {
 
 class ExceptionInfo
@@ -80,6 +84,7 @@ private:
     PyObject *getItem(const char *attr) const;
 };
 }
+*/
 
 namespace Gui {
 
@@ -390,8 +395,8 @@ Q_SIGNALS:
     void breakpointAdded(const BreakpointLine *bpl);
     void breakpointChanged(const BreakpointLine *bpl);
     void breakpointRemoved(int idx, const BreakpointLine *bpl);
-    void exceptionOccured(const Py::ExceptionInfo *exeption);
-    void exceptionFatal(const Py::ExceptionInfo *exception);
+    void exceptionOccured(const Base::PyExceptionInfo *exeption);
+    void exceptionFatal(const Base::PyExceptionInfo *exception);
     void clearException(const QString &fn, int line);
     void clearAllExceptions();
 

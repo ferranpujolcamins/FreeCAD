@@ -48,7 +48,8 @@ using namespace Gui;
 
 
 MacroManager::MacroManager()
-  : openMacro(false),
+  : QObject(nullptr),
+    openMacro(false),
     recordGui(true),
     guiAsComment(true),
     scriptToPyConsole(true),
@@ -252,6 +253,9 @@ void MacroManager::run(MacroType eType, const char *sName)
     }
     catch (const Base::PyException& e) {
         e.ReportException();
+        // notify our textedit and debuggerview
+        Base::PyExceptionInfo exc(e);
+        Q_EMIT exceptionFatal(&exc);
     }
     catch (const Base::Exception& e) {
         qWarning("%s",e.what());
@@ -262,3 +266,5 @@ PythonDebugger* MacroManager::debugger() const
 {
     return pyDebugger;
 }
+
+#include "moc_Macro.cpp"

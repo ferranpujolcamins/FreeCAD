@@ -1509,6 +1509,31 @@ setformat:
     m_editor->highlightText(pos2, 1, format);
 }
 
+
+// ------------------------------------------------------------------------
+
+PyExceptionInfoGui::PyExceptionInfoGui(Base::PyExceptionInfo *exc) :
+    m_exc(exc)
+{
+}
+
+PyExceptionInfoGui::~PyExceptionInfoGui()
+{
+}
+
+const char *PyExceptionInfoGui::iconName() const
+{
+    const char *iconStr = "exception";
+
+    if (m_exc->isIndentationError())
+        iconStr = "indentation-error";
+    else if (m_exc->isSyntaxError())
+        iconStr = "syntax-error";
+    else if (m_exc->isWarning())
+        iconStr = "warning";
+    return iconStr;
+}
+
 // -------------------------------------------------------------------------
 
 namespace Gui {

@@ -27,9 +27,14 @@
 // Std. configurations
 #include <QString>
 #include <QStringList>
+#include <QObject>
 #include <Base/Observer.h>
 #include <Base/Parameter.h>
 
+namespace Base {
+class PyExceptionInfo;
+class PyException;
+}
 
 namespace Gui {
 struct ApplicationP;
@@ -41,8 +46,10 @@ class PythonDebugger;
  * a macro file (so far).
  * \author Jürgen Riegel
  */
-class GuiExport MacroManager : public Base::Observer<const char*> 
+class GuiExport MacroManager : public QObject,
+                               public Base::Observer<const char*>
 {
+    Q_OBJECT
 protected:
     MacroManager();
     ~MacroManager();
@@ -92,6 +99,9 @@ public:
     PythonDebugger* debugger() const;
     /** Observes its parameter group. */
     void OnChange(Base::Subject<const char*> &rCaller, const char * sReason);
+
+Q_SIGNALS:
+    void exceptionFatal(const Base::PyExceptionInfo *exception);
 
 protected:
     QStringList macroInProgress;    /**< Container for the macro */

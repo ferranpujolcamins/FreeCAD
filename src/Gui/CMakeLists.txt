@@ -274,6 +274,7 @@ set(Gui_MOC_HDRS
     MainWindow.h
     ManualAlignment.h
     MDIView.h
+    Macro.h
     NetworkRetriever.h
     OnlineDocumentation.h
     Placement.h

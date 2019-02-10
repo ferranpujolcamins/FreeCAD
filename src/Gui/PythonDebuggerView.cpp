@@ -39,6 +39,7 @@
 #include "MainWindow.h"
 #include "PythonEditor.h"
 #include "PythonCode.h"
+#include "Macro.h"
 
 #include <CXX/Extensions.hxx>
 #include <frameobject.h>
@@ -772,16 +773,21 @@ void PythonBreakpointModel::removed(int idx, const BreakpointLine *bpl)
 IssuesModel::IssuesModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    connect(PythonDebugger::instance(), SIGNAL(exceptionOccured(const Py::ExceptionInfo*)),
-            this, SLOT(exceptionOccured(const Py::ExceptionInfo*)));
+    connect(PythonDebugger::instance(), SIGNAL(exceptionOccured(const Base::PyExceptionInfo*)),
+            this, SLOT(exceptionOccured(const Base::PyExceptionInfo*)));
 
-    connect(PythonDebugger::instance(), SIGNAL(exceptionFatal(const Py::ExceptionInfo*)),
-            this, SLOT(exception(const Py::ExceptionInfo*)));
+    connect(PythonDebugger::instance(), SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
+            this, SLOT(exception(const Base::PyExceptionInfo*)));
 
     connect(PythonDebugger::instance(), SIGNAL(started()), this, SLOT(clear()));
     connect(PythonDebugger::instance(), SIGNAL(clearAllExceptions()), this, SLOT(clear()));
     connect(PythonDebugger::instance(), SIGNAL(clearException(QString,int)),
             this, SLOT(clearException(QString,int)));
+
+
+    MacroManager *macroMgr = Application::Instance->macroManager();
+    connect(macroMgr, SIGNAL(exceptionFatal(const Base::PyExceptionInfo*)),
+            this, SLOT(exception(const Base::PyExceptionInfo*)));
 }
 
 IssuesModel::~IssuesModel()
@@ -813,19 +819,20 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
     if (index.column() > colCount)
         return QVariant();
 
-    Py::ExceptionInfo *exc = m_exceptions.at(index.row());
+    Base::PyExceptionInfo *exc = m_exceptions.at(index.row());
     if (!exc || !exc->isValid())
         return QVariant();
 
     if (role == Qt::DecorationRole) {
         if (index.column() != 0)
             return QVariant();
-        return QVariant(BitmapFactory().iconFromTheme(exc->iconName()));
+        PyExceptionInfoGui excGui(exc);
+        return QVariant(BitmapFactory().iconFromTheme(excGui.iconName()));
 
     } else if (role == Qt::ToolTipRole) {
 
-        QString srcText = exc->text();
-        int offset = exc->offset();
+        QString srcText = QString::fromStdWString(exc->text());
+        int offset = exc->getOffset();
         if (offset > 0) { // syntax error and such that give a column where it occurred
             if (!srcText.endsWith(QLatin1String("\n")))
                 srcText += QLatin1String("\n");
@@ -835,23 +842,23 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
             srcText += QLatin1Char('^');
         }
 
-        return  QString(tr("%1 on line %2 in file %3\nreason: '%4'\n\n%5"))
-                                .arg(exc->typeString())
-                                .arg(QString::number(exc->lineNr()))
-                                .arg(exc->fileName())
-                                .arg(exc->message())
+        return  QString(tr("%1 on line %2 in file %3\nreason: '%4'\n"))
+                                .arg(QString::fromStdString(exc->getErrorType(true)))
+                                .arg(QString::number(exc->getLine()))
+                                .arg(QString::fromStdString(exc->getFile()))
+                                .arg(QString::fromStdString(exc->getMessage()))
                                 .arg(srcText);
     }
 
     switch(index.column()) {
     case 0:
-        return QString::number(exc->lineNr());
+        return QString::number(exc->getLine());
     case 1: // file
-        return exc->fileName();
+        return QString::fromStdString(exc->getFile());
     case 2: // msg
-        return exc->message();
+        return QString::fromStdString(exc->getMessage());
     case 3: // function
-        return exc->functionName();
+        return QString::fromStdString(exc->getFunction());
     default:
         return QVariant();
     }
@@ -889,7 +896,7 @@ bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
     return true;
 }
 
-void IssuesModel::exceptionOccured(const Py::ExceptionInfo *exc)
+void IssuesModel::exceptionOccured(const Base::PyExceptionInfo *exc)
 {
     // on runtime, we don't want to catch runtime exceptions before they are fatal
     // but we do want to catch warnings
@@ -898,17 +905,17 @@ void IssuesModel::exceptionOccured(const Py::ExceptionInfo *exc)
 
 }
 
-void IssuesModel::exception(const Py::ExceptionInfo *exception)
+void IssuesModel::exception(const Base::PyExceptionInfo *exception)
 {
     // already set?
-    for (const Py::ExceptionInfo *exc : m_exceptions) {
-        if (exc->fileName() == exception->fileName() &&
-            exc->lineNr() == exception->lineNr())
+    for (const Base::PyExceptionInfo *exc : m_exceptions) {
+        if (exc->getFile() == exception->getFile() &&
+            exc->getLine() == exception->getLine())
             return;
     }
 
     // copy exception and store it
-    Py::ExceptionInfo *exc = new Py::ExceptionInfo(*exception);
+    Base::PyExceptionInfo *exc = new Base::PyExceptionInfo(*exception);
     beginInsertRows(QModelIndex(), m_exceptions.size(), m_exceptions.size());
     m_exceptions.append(exc);
     endInsertRows();
@@ -924,8 +931,8 @@ void IssuesModel::clear()
 void IssuesModel::clearException(const QString &fn, int line)
 {
     for (int i = 0; i < m_exceptions.size(); ++i) {
-        if (m_exceptions[i]->fileName() == fn &&
-            m_exceptions[i]->lineNr() == line)
+        if (m_exceptions[i]->getFile() == fn.toStdString() &&
+            m_exceptions[i]->getLine() == line)
         {
             beginRemoveRows(QModelIndex(), i, 1);
             m_exceptions.removeAt(i);

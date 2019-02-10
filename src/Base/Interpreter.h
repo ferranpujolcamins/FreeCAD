@@ -62,10 +62,25 @@ namespace Base {
 
 class BaseExport PyException : public Exception
 {
+protected:
+    class SwapIn
+    {
+        PyThreadState *m_oldState;
+        PyGILState_STATE m_GILState;
+        static bool static_GILHeld;
+    public:
+        SwapIn(PyThreadState *newState);
+        ~SwapIn();
+    };
+
 public:
     /// constructor does the whole job
-    PyException(void);
+    explicit PyException();
+    PyException(PyObject *tracebackArg);
+    PyException(const PyException &other);
     ~PyException() throw();
+
+    PyException& operator =(const PyException &other);
     
     /// this method determines if the original exception
     /// can be reconstructed or not, if yes throws the reconstructed version
@@ -73,13 +88,85 @@ public:
     static void ThrowException(void);
 
     ///  this function returns the stack trace
-    const std::string &getStackTrace(void) const {return _stackTrace;}
-    const std::string &getErrorType(void) const {return _errorType;}
+    const std::string &getStackTrace(void) const { return _stackTrace; }
+
+    /// getErrorType
+    /// if extractName == false:
+    ///   Gets to typename as reported by python <class '*PyExcClassname'>
+    /// if extractName == true
+    ///   Gets type name minus <class '*PyExcClassName*'> -> PyExcClassname
+    const std::string getErrorType(bool extractName = false) const;
+
+    ///   At what column the exception happened, example syntax err at 7th char
+    int getOffset() const { return _offset; }
+
     void ReportException (void) const;
 
 protected:
     std::string _stackTrace;
     std::string _errorType;
+    int _offset;
+    PyObject *_pyType, *_pyValue, *_pyTraceback;
+    PyThreadState *_pyState;
+
+    void _clone(const PyException &other);
+    void _init();
+};
+
+/**
+ * The PyExceptionInfo is a class that provides more info and about stacktrace and
+ * Other info regarding PyExceptions
+ * For example what type of Exception it is (PyExc_Indetation or other)
+ */
+class BaseExport PyExceptionInfo : public PyException
+{
+public:
+    explicit PyExceptionInfo();
+    PyExceptionInfo(const PyException &exc);
+    PyExceptionInfo(const PyExceptionInfo &other);
+    ~PyExceptionInfo() throw();
+
+    PyExceptionInfo &operator =(const PyExceptionInfo &other);
+    PyException &operator =(const PyException &other);
+
+    /// If this exception is valid
+    bool isValid() const;
+    /// if it is a warning exception
+    bool isWarning() const;
+    /// If it is a syntax error
+    bool isSyntaxError() const;
+    /// If it is a indentation error
+    bool isIndentationError() const;
+    /// If it is a keyboardInterupt
+    bool isKeyboardInterupt() const;
+    /// If it is a SystemExit
+    bool isSystemExit() const;
+    /// compare this against pyExcType (is it a PyExc_NameError?)
+    bool compareException(PyObject *pyExcType) const;
+
+    /// How many levels traceback goes
+    int tracebackSize() const;
+    /// At what level in traceback we currently are pointing
+    int atTracebackLevel() const;
+    /// Set which traceback level we want to be pointing
+    void setTracebackLevel(int level);
+
+    /// Filename at current tracebacklevel (might differ from getFile)
+    std::wstring currentFile() const;
+    /// Line nr at current tracebacklevel (might differ from getLine)
+    int currentLine() const;
+    /// get exception attribute text (Might be thrown, should possibly be merged with message)
+    std::wstring text() const;
+    /// Get the threadstate that set this exception
+    const PyThreadState *threadState() const;
+
+private:
+    int _tracebackLevel;
+
+    void _cloneExcInfo(const PyExceptionInfo &other);
+    PyTracebackObject *getTracebackFrame() const;
+    PyObject *getAttr(const char *attr) const;
+    PyObject *getItem(const char *attr) const;
 };
 
 /**

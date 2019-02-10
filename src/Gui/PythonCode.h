@@ -382,6 +382,22 @@ private:
     TextEdit *m_editor;
 };
 
+
+
+// -------------------------------------------------------------------
+/**
+ * @brief helper to determine what icon to use based on exception
+ */
+class PyExceptionInfoGui
+{
+public:
+    explicit PyExceptionInfoGui(Base::PyExceptionInfo *exc);
+    ~PyExceptionInfoGui();
+    const char *iconName() const;
+private:
+    Base::PyExceptionInfo *m_exc;
+};
+
 // --------------------------------------------------------------------
 
 class JediDefinitionObj;
