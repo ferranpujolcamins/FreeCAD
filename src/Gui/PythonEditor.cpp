@@ -804,20 +804,7 @@ void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
 
 void PythonEditor::exception(Base::PyExceptionInfo *exc)
 {
-    if (exc->getFile() != d->filename.toStdString())
-        return;
-
     int linenr = exc->getLine();
-    if (d->exceptions.contains(linenr))
-        return; // already set
-
-    d->exceptions[linenr] = *exc;
-    renderExceptionExtraSelections();
-    lineMarkerArea()->update();
-
-    AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
-    if (vBar)
-        vBar->setMarker(linenr, d->exceptionScrollBarMarkerColor);
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (hPrefGrp->GetBool("EnableScrollToExceptionLine", true)) {
@@ -833,6 +820,20 @@ void PythonEditor::exception(Base::PyExceptionInfo *exc)
                            findBlockByLineNumber(linenr - 1)); // ln-1 because line number starts from 0
         editView->getEditor()->setTextCursor(cursor);
     }
+
+    if (exc->getFile() != d->filename.toStdString())
+        return;
+
+    if (d->exceptions.contains(linenr))
+        return; // already set
+
+    d->exceptions[linenr] = *exc;
+    renderExceptionExtraSelections();
+    lineMarkerArea()->update();
+
+    AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+    if (vBar)
+        vBar->setMarker(linenr, d->exceptionScrollBarMarkerColor);
 }
 
 void PythonEditor::clearAllExceptions()
