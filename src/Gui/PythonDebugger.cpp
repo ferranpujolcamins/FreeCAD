@@ -878,10 +878,11 @@ Py::Object PythonDebugStdout::write(const Py::Tuple& args)
     if (strlen(msg) > 0)
     {
         //send it to our stdout
-        printf("%s\n",msg);
+        fprintf(stdout, "%s\n", msg);
 
         //send it to the debugger as well
         //g_DebugSocket.SendMessage(eMSG_OUTPUT, msg);
+        Base::Console().Message("%s", msg);
     }
     return Py::None();
 }
@@ -930,7 +931,7 @@ Py::Object PythonDebugStderr::write(const Py::Tuple& args)
     if (strlen(msg) > 0)
     {
         //send the message to our own stderr
-        //dprintf(msg);
+        fprintf(stderr, "%s\n", msg);
 
         //send it to the debugger as well
         //g_DebugSocket.SendMessage(eMSG_TRACE, msg);
