@@ -39,6 +39,7 @@
 #include "PyObjectBase.h"
 #include <CXX/Extensions.hxx>
 #include <frameobject.h>
+#include <traceback.h>
 
 #include "ExceptionFactory.h"
 
@@ -153,7 +154,7 @@ PyException::PyException(const PyException &other) :
 void PyException::_init()
 {
     // calculate lineNr, functionName, fileName
-    if (_pyTraceback) { // no traceback when in global space
+    if (_pyTraceback && PyTraceBack_Check(_pyTraceback)) { // no traceback when in global space
         PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
         while (tb && tb->tb_next) // traverse to find correct linenr
             tb = tb->tb_next;
@@ -217,12 +218,25 @@ void PyException::_init()
         } else
             PyErr_Clear();
     }
-
     // must restore for PP_Fetch_Error_Text()
     PyErr_Restore(_pyType, _pyValue, _pyTraceback);
 
+    // PP_FetchError_Text Py_DECREFs _pyType, _pyValue and _pyTraceback
+    // need to restore these
+    Py_ssize_t  refType       = _pyType ? _pyType->ob_refcnt : 0,
+                refValue      = _pyValue ? _pyValue->ob_refcnt : 0,
+                refTraceback  = _pyTraceback ? _pyTraceback->ob_refcnt : 0;
+
     // make use of PyTools.c
     PP_Fetch_Error_Text();    /* fetch (and clear) exception */
+    // restore refconts
+    if (_pyType && _pyType->ob_refcnt < refType)
+        _pyType->ob_refcnt = refType;
+    if (_pyValue && _pyValue->ob_refcnt < refValue)
+        _pyValue->ob_refcnt = refValue;
+    if (_pyTraceback && _pyTraceback->ob_refcnt < refTraceback)
+        _pyTraceback->ob_refcnt = refTraceback;
+
     std::string prefix = PP_last_error_type; /* exception name text */
 //  prefix += ": ";
     std::string error = PP_last_error_info;            /* exception data text */
@@ -239,7 +253,6 @@ void PyException::_init()
     _errorType = prefix;
 
     _stackTrace = PP_last_error_trace;     /* exception traceback text */
-
     PyErr_Clear(); // must be called to keep Python interpreter in a valid state (Werner)
 }
 
@@ -401,7 +414,11 @@ int PyExceptionInfo::tracebackSize() const
     if (!isValid())
         return -1;
 
-    int count = 0;    PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
+    if (!_pyTraceback || !PyTraceBack_Check(_pyTraceback))
+        return 0;
+
+    int count = 0;
+    PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
     while (tb != nullptr) {
         tb = tb->tb_next;
         ++count;
@@ -428,7 +445,7 @@ std::wstring PyExceptionInfo::currentFile() const
     SwapIn myState(_pyState);
     const char *filename = nullptr;
 
-    if (_pyTraceback) {
+    if (_pyTraceback && PyTraceBack_Check(_pyTraceback)) {
         // has a traceback
         // get the current file as selected from traceback level
         PyTracebackObject* tb = getTracebackFrame();
@@ -452,7 +469,7 @@ int PyExceptionInfo::currentLine() const
 
     SwapIn myState(_pyState);
 
-    if (_pyTraceback) { // no traceback when in global space
+    if (_pyTraceback && PyTraceBack_Check(_pyTraceback)) { // no traceback when in global space
         PyTracebackObject* tb = getTracebackFrame();
         return PyCode_Addr2Line(tb->tb_frame->f_code, tb->tb_frame->f_lasti);
     }
