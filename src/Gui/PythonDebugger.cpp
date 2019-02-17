@@ -1685,6 +1685,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
                 self->runtimeException = nullptr;
 
             } else if (self->runtimeException->isValid()) {
+                Base::PyExceptionInfo exc(*self->runtimeException); // must make a copy so we dont decref twice
                 Q_EMIT dbg->exceptionOccured(self->runtimeException);
 
                 // halt debugger so we can view stack?
