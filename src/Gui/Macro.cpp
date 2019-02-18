@@ -38,11 +38,11 @@
 #include <Base/Console.h>
 #include <Base/Exception.h>
 #include <App/Application.h>
+#include <App/PythonDebugger.h>
 
 #include "MainWindow.h"
 #include "PythonConsole.h"
 #include "PythonConsolePy.h"
-#include "PythonDebugger.h"
 
 using namespace Gui;
 
@@ -55,7 +55,7 @@ MacroManager::MacroManager()
     scriptToPyConsole(true),
     localEnv(true),
     pyConsole(0),
-    pyDebugger(PythonDebugger::instance())
+    pyDebugger(App::PythonDebugger::instance())
 {
     // Attach to the Parametergroup regarding macros
     this->params = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Macro");
@@ -262,7 +262,7 @@ void MacroManager::run(MacroType eType, const char *sName)
     }
 }
 
-PythonDebugger* MacroManager::debugger() const
+App::PythonDebugger* MacroManager::debugger() const
 {
     return pyDebugger;
 }

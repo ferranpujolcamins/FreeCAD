@@ -121,6 +121,7 @@ SET(FreeCADApp_XML_SRCS
 )
 SOURCE_GROUP("XML" FILES ${FreeCADApp_XML_SRCS})
 
+# ----------------------------------------------------------------
 # The document stuff
 SET(Document_CPP_SRCS
     Annotation.cpp
@@ -210,6 +211,7 @@ SET(Document_SRCS
 )
 SOURCE_GROUP("Document" FILES ${Document_SRCS})
 
+# -----------------------------------------------------------------
 # The property stuff
 SET(Properties_CPP_SRCS
     DynamicProperty.cpp
@@ -244,9 +246,31 @@ SET(Properties_SRCS
 )
 SOURCE_GROUP("Properties" FILES ${Properties_SRCS})
 
+#-----------------------------------------------------------------
+# the python debugger stuff
+SET(PythonDebugger_CPP_SRCS
+    PythonDebugger.cpp
+)
+SET(PythonDebugger_HPP_SRCS
+    PythonDebugger.h
+)
+SET(PythonDebugger_MOC_HDRS
+    PythonDebugger.h
+)
+fc_wrap_cpp(PythonDebugger_MOC_SRCS ${PythonDebugger_MOC_HDRS})
+SET(PythonDebugger_SRCS
+    ${PythonDebugger_CPP_SRCS}
+    ${PythonDebugger_HPP_SRCS}
+    ${PythonDebugger_MOC_SRCS}
+)
+SOURCE_GROUP("PythonDebugger" FILES ${PythonDebugger_SRCS})
+
+# ----------------------------------------------------------------
+# all combined
 SET(FreeCADApp_CPP_SRCS
     ${Document_CPP_SRCS}
     ${Properties_CPP_SRCS}
+    ${PythonDebugger_CPP_SRCS}
     Application.cpp
     ApplicationPy.cpp
     Branding.cpp
@@ -261,6 +285,7 @@ SET(FreeCADApp_CPP_SRCS
 SET(FreeCADApp_HPP_SRCS
     ${Document_HPP_SRCS}
     ${Properties_HPP_SRCS}
+    ${PythonDebugger_HPP_SRCS}
     Application.h
     Branding.h
     ColorModel.h

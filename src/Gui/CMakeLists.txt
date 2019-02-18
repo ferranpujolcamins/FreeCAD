@@ -286,7 +286,6 @@ set(Gui_MOC_HDRS
     PythonCode.h
     PythonConsole.h
     PythonDebuggerView.h
-    PythonDebugger.h
     PythonEditor.h
     QuantitySpinBox.h
     QListWidgetCustom.h
@@ -661,7 +660,6 @@ SET(Editor_CPP_SRCS
     PythonCode.cpp
     PythonConsole.cpp
     PythonConsolePy.cpp
-    PythonDebugger.cpp
     PythonEditor.cpp
     SyntaxHighlighter.cpp
     TextEdit.cpp
@@ -673,7 +671,6 @@ SET(Editor_HPP_SRCS
     PythonCode.h
     PythonConsole.h
     PythonConsolePy.h
-    PythonDebugger.h
     PythonEditor.h
     SyntaxHighlighter.h
     TextEdit.h

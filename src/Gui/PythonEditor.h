@@ -39,8 +39,8 @@ class QLineEdit;
 class QCheckBox;
 QT_END_NAMESPACE
 
-namespace Py {
-class ExceptionInfo;
+namespace App {
+class BreakpointLine;
 }
 
 namespace Gui {
@@ -50,7 +50,6 @@ class PythonSyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
 class PythonEditorCodeAnalyzer;
 class PythonDebugger;
-class BreakpointLine;
 
 /**
  * Python text editor with syntax highlighting.
@@ -113,9 +112,9 @@ Q_SIGNALS:
 
 private Q_SLOTS:
     void markerAreaContextMenu(int line, QContextMenuEvent *event);
-    void breakpointAdded(const BreakpointLine *bpl);
-    void breakpointChanged(const BreakpointLine *bpl);
-    void breakpointRemoved(int idx, const BreakpointLine *bpl);
+    void breakpointAdded(const App::BreakpointLine *bpl);
+    void breakpointChanged(const App::BreakpointLine *bpl);
+    void breakpointRemoved(int idx, const App::BreakpointLine *bpl);
     void exception(Base::PyExceptionInfo *exc);
 
 
@@ -132,12 +131,12 @@ class PythonEditorBreakpointDlg : public QDialog
 {
     Q_OBJECT
 public:
-    PythonEditorBreakpointDlg(QWidget *parent, BreakpointLine *bp);
+    PythonEditorBreakpointDlg(QWidget *parent, App::BreakpointLine *bp);
     ~PythonEditorBreakpointDlg();
 protected:
     void accept();
  private:
-    BreakpointLine *m_bpl;
+    App::BreakpointLine *m_bpl;
 
     QSpinBox  *m_ignoreToHits;
     QSpinBox  *m_ignoreFromHits;

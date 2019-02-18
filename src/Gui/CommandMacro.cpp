@@ -31,7 +31,7 @@
 #include "DlgMacroExecuteImp.h"
 #include "DlgMacroRecordImp.h"
 #include "Macro.h"
-#include "PythonDebugger.h"
+#include <App/PythonDebugger.h>
 
 using namespace Gui;
 
@@ -169,7 +169,7 @@ StdCmdMacroStartDebug::StdCmdMacroStartDebug()
 void StdCmdMacroStartDebug::activated(int iMsg)
 {
     Q_UNUSED(iMsg); 
-    PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     if (!dbg->isRunning())
         doCommand(Command::Gui,"Gui.SendMsgToActiveView(\"StartDebug\")");
     else
@@ -204,7 +204,7 @@ void StdCmdMacroStopDebug::activated(int iMsg)
 
 bool StdCmdMacroStopDebug::isActive(void)
 {
-    static PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -231,7 +231,7 @@ void StdCmdMacroStepOver::activated(int iMsg)
 
 bool StdCmdMacroStepOver::isActive(void)
 {
-    static PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -258,7 +258,7 @@ void StdCmdMacroHaltOnNext::activated(int iMsg)
 
 bool StdCmdMacroHaltOnNext::isActive(void)
 {
-    static PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -285,7 +285,7 @@ void StdCmdMacroStepInto::activated(int iMsg)
 
 bool StdCmdMacroStepInto::isActive(void)
 {
-    static PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -312,7 +312,7 @@ void StdCmdMacroStepOut::activated(int iMsg)
 
 bool StdCmdMacroStepOut::isActive(void)
 {
-    static PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 

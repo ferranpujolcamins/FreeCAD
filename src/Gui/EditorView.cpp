@@ -61,12 +61,12 @@
 #include "BitmapFactory.h"
 #include "FileDialog.h"
 #include "Macro.h"
-#include "PythonDebugger.h"
 #include "PythonEditor.h"
 
 #include <Base/Interpreter.h>
 #include <Base/Parameter.h>
 #include <Base/Exception.h>
+#include <App/PythonDebugger.h>
 
 using namespace Gui;
 namespace Gui {
@@ -816,7 +816,7 @@ PythonEditorView::PythonEditorView(PythonEditor* editor, QWidget* parent)
     connect(this, SIGNAL(changeFileName(const QString&)),
             editor, SLOT(setFileName(const QString&)));
 
-    PythonDebugger *debugger = Application::Instance->macroManager()->debugger();
+    App::PythonDebugger *debugger = Application::Instance->macroManager()->debugger();
     connect(debugger, SIGNAL(haltAt(QString,int)),
             this, SLOT(showDebugMarker(QString, int)));
     connect(debugger, SIGNAL(releaseAt(QString,int)),
@@ -1261,7 +1261,7 @@ void EditorViewSingleton::docModifiedChanged(bool changed)
 void EditorViewSingleton::connectToDebugger(void)
 {
     // this must be done after Application is initialized, hence this slot
-    PythonDebugger *dbg = Application::Instance->macroManager()->debugger();
+    App::PythonDebugger *dbg = Application::Instance->macroManager()->debugger();
     connect(this, SIGNAL(fileOpened(QString)), dbg, SLOT(onFileOpened(QString)));
     connect(this, SIGNAL(fileClosed(QString)), dbg, SLOT(onFileClosed(QString)));
 }

@@ -34,7 +34,6 @@
 #include "PythonEditor.h"
 #include "EditorView.h"
 #include "PythonCode.h"
-#include "PythonDebugger.h"
 #include "Application.h"
 #include "BitmapFactory.h"
 #include "Macro.h"
@@ -50,6 +49,7 @@
 #include <Base/Interpreter.h>
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
+#include <App/PythonDebugger.h>
 #include <QRegExp>
 #include <QDebug>
 #include <QLabel>
@@ -72,7 +72,7 @@ struct PythonEditorP
     QPixmap breakpointDisabled;
     QPixmap debugMarker;
     QString filename;
-    PythonDebugger* debugger;
+    App::PythonDebugger* debugger;
     PythonCode *pythonCode;
     QHash <int, Base::PyExceptionInfo> exceptions;
     //CallTipsList* callTipsList;
@@ -211,16 +211,16 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(lineMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
             this, SLOT(markerAreaContextMenu(int,QContextMenuEvent*)));
 
-    PythonDebugger *dbg = PythonDebugger::instance();
+    App::PythonDebugger *dbg = App::PythonDebugger::instance();
     connect(dbg, SIGNAL(stopped()), this, SLOT(hideDebugMarker()));
-    connect(dbg, SIGNAL(breakpointAdded(const BreakpointLine*)),
-            this, SLOT(breakpointAdded(const BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointChanged(const BreakpointLine*)),
-            this, SLOT(breakpointChanged(const BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
-            this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointRemoved(int,const BreakpointLine*)),
-            this, SLOT(breakpointRemoved(int,const BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointAdded(const App::BreakpointLine*)),
+            this, SLOT(breakpointAdded(const App::BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointChanged(const App::BreakpointLine*)),
+            this, SLOT(breakpointChanged(const App::BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointRemoved(int,const App::BreakpointLine*)),
+            this, SLOT(breakpointRemoved(int,const App::BreakpointLine*)));
+    connect(dbg, SIGNAL(breakpointRemoved(int,const App::BreakpointLine*)),
+            this, SLOT(breakpointRemoved(int,const App::BreakpointLine*)));
     connect(dbg, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
             this, SLOT(exception(Base::PyExceptionInfo*)));
     connect(dbg, SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
@@ -377,7 +377,7 @@ void PythonEditor::hideDebugMarker()
 
 void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
 {
-    BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
+    App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     bool hadBreakpoint = false;
     if (bpl != nullptr) {
         if (bpl->disabled())
@@ -644,7 +644,8 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
             afterLineNr = this->textCursor().block().blockNumber();
         if (beforeLineNr != afterLineNr) {
             int move = afterLineNr - beforeLineNr;
-            BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFile(d->filename);
+            App::BreakpointFile *bp = App::PythonDebugger::instance()->
+                                            getBreakpointFile(d->filename);
             if (bp) {
                 bp->moveLines(beforeLineNr +1, move);
             }
@@ -719,7 +720,7 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
         menu.addSeparator();
     }
 
-    BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
+    App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     if (bpl != nullptr) {
         QAction disable(BitmapFactory().iconFromTheme("breakpoint-disabled"),
                         tr("Disable breakpoint"), &menu);
@@ -748,7 +749,7 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
         } else if (res == &del) {
             d->debugger->deleteBreakpoint(d->filename, line);
         } else if (res == clearException) {
-            PythonDebugger::instance()->sendClearException(d->filename, line);
+            App::PythonDebugger::instance()->sendClearException(d->filename, line);
         }
 
     } else {
@@ -759,7 +760,7 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
         if (res == &create)
             d->debugger->setBreakpoint(d->filename, line);
         else if (res == clearException)
-            PythonDebugger::instance()->sendClearException(d->filename, line);
+            App::PythonDebugger::instance()->sendClearException(d->filename, line);
     }
 
     if (clearException)
@@ -768,7 +769,7 @@ void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
     event->accept();
 }
 
-void PythonEditor::breakpointAdded(const BreakpointLine *bpl)
+void PythonEditor::breakpointAdded(const App::BreakpointLine *bpl)
 {
     if (bpl->parent()->fileName() != d->filename)
         return;
@@ -780,7 +781,7 @@ void PythonEditor::breakpointAdded(const BreakpointLine *bpl)
     lineMarkerArea()->update();
 }
 
-void PythonEditor::breakpointChanged(const BreakpointLine *bpl)
+void PythonEditor::breakpointChanged(const App::BreakpointLine *bpl)
 {
     if (bpl->parent()->fileName() != d->filename)
         return;
@@ -788,7 +789,7 @@ void PythonEditor::breakpointChanged(const BreakpointLine *bpl)
     lineMarkerArea()->update();
 }
 
-void PythonEditor::breakpointRemoved(int idx, const BreakpointLine *bpl)
+void PythonEditor::breakpointRemoved(int idx, const App::BreakpointLine *bpl)
 {
     Q_UNUSED(idx);
 
@@ -880,7 +881,8 @@ void PythonEditor::breakpointPasteOrCut(bool doCut)
     int currentLineNr = textCursor().block().blockNumber();
     if (beforeLineNr != currentLineNr) {
         int move = beforeLineNr - currentLineNr;
-        BreakpointFile *bp = PythonDebugger::instance()->getBreakpointFile(d->filename);
+        App::BreakpointFile *bp = App::PythonDebugger::instance()->
+                                        getBreakpointFile(d->filename);
         if (bp)
             bp->moveLines(beforeLineNr, move);
     }
@@ -1062,7 +1064,7 @@ void PythonEditor::onAutoIndent()
 // ------------------------------------------------------------------------
 
 PythonEditorBreakpointDlg::PythonEditorBreakpointDlg(QWidget *parent,
-                                                      BreakpointLine *bp):
+                                                      App::BreakpointLine *bp):
     QDialog(parent), m_bpl(bp)
 {
     QLabel *lblMsg   = new QLabel(this);

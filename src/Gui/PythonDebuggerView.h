@@ -37,9 +37,11 @@ namespace  Base {
     class PyExceptionInfo;
 } // namespace Base
 
-namespace Gui {
+namespace App {
 class BreakpointLine;
+}
 
+namespace Gui {
 namespace DockWnd {
 
 class PythonDebuggerViewP;
@@ -125,9 +127,9 @@ public:
                         int role = Qt::DisplayRole) const;
 
 private Q_SLOTS:
-    void added(const BreakpointLine *bp);
-    void changed(const BreakpointLine *bp);
-    void removed(int idx, const BreakpointLine *bpl);
+    void added(const App::BreakpointLine *bp);
+    void changed(const App::BreakpointLine *bp);
+    void removed(int idx, const App::BreakpointLine *bpl);
 
 private:
     static const int colCount = 2;

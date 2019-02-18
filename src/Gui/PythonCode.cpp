@@ -33,7 +33,6 @@
 
 #include "PythonCode.h"
 #include "PythonEditor.h"
-#include "PythonDebugger.h"
 #include "Application.h"
 #include "BitmapFactory.h"
 #include "Macro.h"
@@ -44,6 +43,7 @@
 #include <Base/Interpreter.h>
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
+#include <App/PythonDebugger.h>
 #include <QApplication>
 #include <QDebug>
 #include <QEventLoop>
@@ -118,7 +118,7 @@ PyObject *PythonCode::deepCopy(PyObject *obj)
 QString PythonCode::findFromCurrentFrame(QString varName)
 {
     Base::PyGILStateLocker locker;
-    PyFrameObject *current_frame = PythonDebugger::instance()->currentFrame();
+    PyFrameObject *current_frame = App::PythonDebugger::instance()->currentFrame();
     if (current_frame == 0)
         return QString();
 

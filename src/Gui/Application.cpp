@@ -62,6 +62,7 @@
 #include <Base/UnitsApi.h>
 #include <App/Document.h>
 #include <App/DocumentObjectPy.h>
+#include <App/PythonDebugger.h>
 
 #include "Application.h"
 #include "AutoSaver.h"
@@ -84,7 +85,6 @@
 #include "BitmapFactory.h"
 #include "SoFCDB.h"
 #include "PythonConsolePy.h"
-#include "PythonDebugger.h"
 #include "View3DPy.h"
 #include "DlgOnlineHelpImp.h"
 #include "SpaceballEvent.h"
@@ -415,7 +415,7 @@ Application::Application(bool GUIenabled)
     }
 
     // Python console binding
-    PythonDebugModule           ::init_module();
+    App::PythonDebugModule      ::init_module();
     PythonStdout                ::init_type();
     PythonStderr                ::init_type();
     OutputStdout                ::init_type();
