@@ -226,12 +226,13 @@ void TextEdit::createListBox()
 namespace Gui {
 struct TextEditorP
 {
-    QMap<QString, QColor> colormap; // Color map
+    //QMap<QString, QColor> colormap; // Color map
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
     TextEditorP() :
         completer(nullptr)
     {
+        /*
         colormap[QLatin1String("Text")] = Qt::black;
         colormap[QLatin1String("Bookmark")] = Qt::cyan;
         colormap[QLatin1String("Breakpoint")] = Qt::red;
@@ -247,6 +248,7 @@ struct TextEditorP
         colormap[QLatin1String("Python output")] = QColor(170, 170, 127);
         colormap[QLatin1String("Python error")] = Qt::red;
         colormap[QLatin1String("Current line highlight")] = QColor(224,224,224);
+        */
     }
     ~TextEditorP()
     { }
@@ -399,10 +401,10 @@ void TextEditor::highlightSelections()
 {
     QList<QTextEdit::ExtraSelection> extraSelections;
 
-    if (!isReadOnly()) {
-        // gighlight current line
+    if (!isReadOnly() && highlighter) {
+        // highlight current line
         QTextEdit::ExtraSelection selection;
-        QColor lineColor = d->colormap[QLatin1String("Current line highlight")];
+        QColor lineColor = highlighter->color(QLatin1String("color_Currentline")); //d->colormap[QLatin1String("Current line highlight")];
         unsigned long col = (lineColor.red() << 24) | (lineColor.green() << 16) | (lineColor.blue() << 8);
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         col = hPrefGrp->GetUnsigned( "Current line highlight", col);
@@ -592,7 +594,10 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         QFont font(fontFamily, fontSize);
         setFont(font);
         lineNumberArea->setFont(font);
-    } else {
+    } else if (strncmp(sReason, "color_", 6) == 0) {
+        if (this->highlighter)
+            this->highlighter->loadSettings();
+        /*
         QMap<QString, QColor>::ConstIterator it = d->colormap.find(QString::fromLatin1(sReason));
         if (it != d->colormap.end()) {
             QColor color = it.value();
@@ -602,6 +607,7 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
             if (this->highlighter)
                 this->highlighter->setColor(QLatin1String(sReason), color);
         }
+        */
     }
 
     if (strcmp(sReason, "TabSize") == 0 || strcmp(sReason, "FontSize") == 0) {

@@ -25,6 +25,7 @@
 
 #include "SyntaxHighlighter.h"
 #include "TextEdit.h"
+#include <QTimer>
 
 using namespace Gui;
 
@@ -81,6 +82,9 @@ public:
         colorArray[SyntaxHighlighter::PythonConsoleOutput]    .setRgb(170, 170, 127);
         colorArray[SyntaxHighlighter::PythonConsoleError]     .setRgb(255, 0, 0);
 
+        // current line-highlight
+        colorArray[SyntaxHighlighter::HighlightCurrentLine]   .setRgb(224, 224, 224);
+
         // adding a color should be accompanied by setting its key and
         // translated name in initNames()
 
@@ -94,60 +98,61 @@ public:
     static void initNames()
     {
         // a lookup string key to lookup table
-        keyToIdx[QLatin1String("Text")]               = SyntaxHighlighter::Text;
-        keyToIdx[QLatin1String("Comment")]            = SyntaxHighlighter::Comment;
+        keyToIdx[QLatin1String("color_Text")]               = SyntaxHighlighter::Text;
+        keyToIdx[QLatin1String("color_Comment")]            = SyntaxHighlighter::Comment;
 
         // strings
-        keyToIdx[QLatin1String("StringBlockDBlQte")]  = SyntaxHighlighter::StringBlockDoubleQoute;
-        keyToIdx[QLatin1String("StringBlockSglQte")]  = SyntaxHighlighter::StringBlockSingleQoute;
-        keyToIdx[QLatin1String("StringDblQte")]       = SyntaxHighlighter::StringDoubleQoute;
-        keyToIdx[QLatin1String("StringSglQte")]       = SyntaxHighlighter::StringSingleQoute;
+        keyToIdx[QLatin1String("color_StringBlockDBlQte")]  = SyntaxHighlighter::StringBlockDoubleQoute;
+        keyToIdx[QLatin1String("color_StringBlockSglQte")]  = SyntaxHighlighter::StringBlockSingleQoute;
+        keyToIdx[QLatin1String("color_StringDblQte")]       = SyntaxHighlighter::StringDoubleQoute;
+        keyToIdx[QLatin1String("color_StringSglQte")]       = SyntaxHighlighter::StringSingleQoute;
         // is aliased of names to support old settings file
-        keyToIdx[QLatin1String("Block comment")]      = SyntaxHighlighter::StringBlockDoubleQoute;
-        keyToIdx[QLatin1String("String")]             = SyntaxHighlighter::StringDoubleQoute;
+        keyToIdx[QLatin1String("color_Block comment")]      = SyntaxHighlighter::StringBlockDoubleQoute;
+        keyToIdx[QLatin1String("color_String")]             = SyntaxHighlighter::StringDoubleQoute;
 
         // Numbers
-        keyToIdx[QLatin1String("Number")]             = SyntaxHighlighter::Number;
-        keyToIdx[QLatin1String("NumberHex")]          = SyntaxHighlighter::NumberHex;
-        keyToIdx[QLatin1String("NumberBinary")]       = SyntaxHighlighter::NumberBinary;
-        keyToIdx[QLatin1String("NumberFloat")]        = SyntaxHighlighter::NumberFloat;
-        keyToIdx[QLatin1String("NumberOctal")]        = SyntaxHighlighter::NumberOctal;
+        keyToIdx[QLatin1String("color_Number")]             = SyntaxHighlighter::Number;
+        keyToIdx[QLatin1String("color_NumberHex")]          = SyntaxHighlighter::NumberHex;
+        keyToIdx[QLatin1String("color_NumberBinary")]       = SyntaxHighlighter::NumberBinary;
+        keyToIdx[QLatin1String("color_NumberFloat")]        = SyntaxHighlighter::NumberFloat;
+        keyToIdx[QLatin1String("color_NumberOctal")]        = SyntaxHighlighter::NumberOctal;
 
         // keywords
-        keyToIdx[QLatin1String("Keyword")]            = SyntaxHighlighter::Keyword;
-        keyToIdx[QLatin1String("KeywordClass")]       = SyntaxHighlighter::KeywordClass;
-        keyToIdx[QLatin1String("KeywordDef")]         = SyntaxHighlighter::KeywordDef;
+        keyToIdx[QLatin1String("color_Keyword")]            = SyntaxHighlighter::Keyword;
+        keyToIdx[QLatin1String("color_KeywordClass")]       = SyntaxHighlighter::KeywordClass;
+        keyToIdx[QLatin1String("color_KeywordDef")]         = SyntaxHighlighter::KeywordDef;
         // aliased to support old settings files
-        keyToIdx[QLatin1String("Class name")]         = SyntaxHighlighter::KeywordClass;
-        keyToIdx[QLatin1String("Define name")]        = SyntaxHighlighter::KeywordDef;
+        keyToIdx[QLatin1String("color_Class name")]         = SyntaxHighlighter::KeywordClass;
+        keyToIdx[QLatin1String("color_Define name")]        = SyntaxHighlighter::KeywordDef;
 
         // operator
-        keyToIdx[QLatin1String("Operator")]           = SyntaxHighlighter::Operator;
+        keyToIdx[QLatin1String("color_Operator")]           = SyntaxHighlighter::Operator;
 
         // identifiers
-        keyToIdx[QLatin1String("PythonUnknown")]      = SyntaxHighlighter::IdentifierUnknown;
-        keyToIdx[QLatin1String("PythonDefined")]      = SyntaxHighlighter::IdentifierDefined;
-        keyToIdx[QLatin1String("PythonModule")]       = SyntaxHighlighter::IdentifierModule;
-        keyToIdx[QLatin1String("PythonFunction")]     = SyntaxHighlighter::IdentifierFunction;
-        keyToIdx[QLatin1String("PythonMethod")]       = SyntaxHighlighter::IdentifierMethod;
-        keyToIdx[QLatin1String("PythonClass")]        = SyntaxHighlighter::IdentifierClass;
-        keyToIdx[QLatin1String("PythonSuperMethod")]  = SyntaxHighlighter::IdentifierSuperMethod;
-        keyToIdx[QLatin1String("PythonBuiltin")]      = SyntaxHighlighter::IdentifierBuiltin;
-        keyToIdx[QLatin1String("PythonDecorator")]    = SyntaxHighlighter::IdentifierDecorator;
+        keyToIdx[QLatin1String("color_PythonUnknown")]      = SyntaxHighlighter::IdentifierUnknown;
+        keyToIdx[QLatin1String("color_PythonDefined")]      = SyntaxHighlighter::IdentifierDefined;
+        keyToIdx[QLatin1String("color_PythonModule")]       = SyntaxHighlighter::IdentifierModule;
+        keyToIdx[QLatin1String("color_PythonFunction")]     = SyntaxHighlighter::IdentifierFunction;
+        keyToIdx[QLatin1String("color_PythonMethod")]       = SyntaxHighlighter::IdentifierMethod;
+        keyToIdx[QLatin1String("color_PythonClass")]        = SyntaxHighlighter::IdentifierClass;
+        keyToIdx[QLatin1String("color_PythonSuperMethod")]  = SyntaxHighlighter::IdentifierSuperMethod;
+        keyToIdx[QLatin1String("color_PythonBuiltin")]      = SyntaxHighlighter::IdentifierBuiltin;
+        keyToIdx[QLatin1String("color_PythonDecorator")]    = SyntaxHighlighter::IdentifierDecorator;
 
         // delimiters
-        keyToIdx[QLatin1String("Delimiter")]          = SyntaxHighlighter::Delimiter;
+        keyToIdx[QLatin1String("color_Delimiter")]          = SyntaxHighlighter::Delimiter;
 
         // special
-        keyToIdx[QLatin1String("SyntaxError")]        = SyntaxHighlighter::SyntaxError;
+        keyToIdx[QLatin1String("color_SyntaxError")]        = SyntaxHighlighter::SyntaxError;
 
         // in-out
-        keyToIdx[QLatin1String("PythonOutput")]       = SyntaxHighlighter::PythonConsoleOutput;
-        keyToIdx[QLatin1String("PythonError")]        = SyntaxHighlighter::PythonConsoleError;
+        keyToIdx[QLatin1String("color_PythonOutput")]       = SyntaxHighlighter::PythonConsoleOutput;
+        keyToIdx[QLatin1String("color_PythonError")]        = SyntaxHighlighter::PythonConsoleError;
         //  aliased to support old settings file
-        keyToIdx[QLatin1String("Python output")]      = SyntaxHighlighter::PythonConsoleOutput;
-        keyToIdx[QLatin1String("Python error")]       = SyntaxHighlighter::PythonConsoleError;
+        keyToIdx[QLatin1String("color_Python output")]      = SyntaxHighlighter::PythonConsoleOutput;
+        keyToIdx[QLatin1String("color_Python error")]       = SyntaxHighlighter::PythonConsoleError;
 
+        keyToIdx[QLatin1String("color_Currentline")]  = SyntaxHighlighter::HighlightCurrentLine;
 
 
 
@@ -155,68 +160,71 @@ public:
         // from here on is translation strings
 
         // names to editor settings dialog
-        translateNames[QLatin1String("Text")]               = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Text");
-        translateNames[QLatin1String("Comment")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Comment");
+        translateNames[QLatin1String("color_Text")]               = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Text");
+        translateNames[QLatin1String("color_Comment")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Comment");
 
         // strings
-        translateNames[QLatin1String("StringBlockDBlQte")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Block string(double quoted)");
-        translateNames[QLatin1String("StringBlockSglQte")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Block string (single qouted)");
-        translateNames[QLatin1String("StringSglQte")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "String (single qouted)");
-        translateNames[QLatin1String("StringDblQte")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "String (double quoted)");
+        translateNames[QLatin1String("color_StringBlockDBlQte")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Block string(double quoted)");
+        translateNames[QLatin1String("color_StringBlockSglQte")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Block string (single qouted)");
+        translateNames[QLatin1String("color_StringSglQte")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "String (single qouted)");
+        translateNames[QLatin1String("color_StringDblQte")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "String (double quoted)");
         // aliased old ones
-        translateNames[QLatin1String("String")]             = translateNames[QLatin1String("StringDblQte")];
-        translateNames[QLatin1String("Block comment")]      = translateNames[QLatin1String("StringBlockDBlQte")];
+        translateNames[QLatin1String("color_String")]             = translateNames[QLatin1String("StringDblQte")];
+        translateNames[QLatin1String("color_Block comment")]      = translateNames[QLatin1String("StringBlockDBlQte")];
 
         // numbers
-        translateNames[QLatin1String("Number")]             = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Number");
-        translateNames[QLatin1String("HexNumber")]          = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Hex. number");
-        translateNames[QLatin1String("BinaryNumber")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Binary number");
-        translateNames[QLatin1String("FloatNumber")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Fractional number");
-        translateNames[QLatin1String("OctalNumber")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Octal number");
+        translateNames[QLatin1String("color_Number")]             = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Number");
+        translateNames[QLatin1String("color_HexNumber")]          = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Hex. number");
+        translateNames[QLatin1String("color_BinaryNumber")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Binary number");
+        translateNames[QLatin1String("color_FloatNumber")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Fractional number");
+        translateNames[QLatin1String("color_OctalNumber")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Octal number");
 
         // keywords
-        translateNames[QLatin1String("Keyword")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Keyword");
-        translateNames[QLatin1String("KeywordClass")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "keyword 'class'");
-        translateNames[QLatin1String("KeywordDef")]         = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "keyword 'def'");
+        translateNames[QLatin1String("color_Keyword")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Keyword");
+        translateNames[QLatin1String("color_KeywordClass")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "keyword 'class'");
+        translateNames[QLatin1String("color_KeywordDef")]         = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "keyword 'def'");
         // aliased
-        translateNames[QLatin1String("Class name")]          = translateNames[QLatin1String("KeywordClass")];
-        translateNames[QLatin1String("Define name")]         = translateNames[QLatin1String("KeywordDef")];
+        translateNames[QLatin1String("color_Class name")]          = translateNames[QLatin1String("color_KeywordClass")];
+        translateNames[QLatin1String("color_Define name")]         = translateNames[QLatin1String("color_KeywordDef")];
 
         // operator
-        translateNames[QLatin1String("Operator")]           = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Operator");
+        translateNames[QLatin1String("color_Operator")]           = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Operator");
 
         // identifiers
-        translateNames[QLatin1String("PythonUnknown")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python unknown");
-        translateNames[QLatin1String("PythonDefined")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python defined");
-        translateNames[QLatin1String("PythonModule")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python module");
-        translateNames[QLatin1String("PythonFunction")]     = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python function");
-        translateNames[QLatin1String("PythonMethod")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python method");
-        translateNames[QLatin1String("PythonClass")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python class");
-        translateNames[QLatin1String("PythonSuperMethod")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python super (__method__)");
-        translateNames[QLatin1String("PythonBuiltin")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python builtin");
-        translateNames[QLatin1String("PythonDecorator")]    = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python decorator (@name)");
+        translateNames[QLatin1String("color_PythonUnknown")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python unknown");
+        translateNames[QLatin1String("color_PythonDefined")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python defined");
+        translateNames[QLatin1String("color_PythonModule")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python module");
+        translateNames[QLatin1String("color_PythonFunction")]     = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python function");
+        translateNames[QLatin1String("color_PythonMethod")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python method");
+        translateNames[QLatin1String("color_PythonClass")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python class");
+        translateNames[QLatin1String("color_PythonSuperMethod")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python super (__method__)");
+        translateNames[QLatin1String("color_PythonBuiltin")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python builtin");
+        translateNames[QLatin1String("color_PythonDecorator")]    = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python decorator (@name)");
 
         // delimiters
-        translateNames[QLatin1String("Delimiter")]                = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python delimiter");
+        translateNames[QLatin1String("color_Delimiter")]          = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python delimiter");
 
         // special
-        translateNames[QLatin1String("SyntaxError")]              = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Syntax error");
+        translateNames[QLatin1String("color_SyntaxError")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Syntax error");
 
         // in-out
-        translateNames[QLatin1String("PythonOutput")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python output");
-        translateNames[QLatin1String("PythonError")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python error");
+        translateNames[QLatin1String("color_PythonOutput")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python output");
+        translateNames[QLatin1String("color_PythonError")]        = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python error");
         // aliased
-        translateNames[QLatin1String("Python output")]      = translateNames[QLatin1String("PythonOutput")];
-        translateNames[QLatin1String("Python error")]       = translateNames[QLatin1String("PythonError")];
+        translateNames[QLatin1String("color_Python output")]      = translateNames[QLatin1String("color_PythonOutput")];
+        translateNames[QLatin1String("color_Python error")]       = translateNames[QLatin1String("color_PythonError")];
+
+        // current line color
+        translateNames[QLatin1String("color_Currentline")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Current line");
 
         // default translation.....
-        translateNames[QLatin1String("Unknown")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Unknown");
+        translateNames[QLatin1String("color_Unknown")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Unknown");
 
 
         // aliases, only show the more detailed name in editor settings
         // keys inserted here won't show up in editor settings dialog
-        aliased << QLatin1String("String")     << QLatin1String("BlockComment")
-                << QLatin1String("Class name") << QLatin1String("Define name");
+        aliased << QLatin1String("color_String")     << QLatin1String("color_BlockComment")
+                << QLatin1String("color_Class name") << QLatin1String("color_Define name");
     }
 
     // define a c array of pointers to our colors
@@ -225,6 +233,7 @@ public:
     static QMap<QString, SyntaxHighlighter::TColor> keyToIdx;
     static QMap<QString, const char*> translateNames;
     static QList<QString> aliased;
+    QTimer rehighlightTmr;
 };
 // need to declare these outside of class as they are static
 QMap<QString, SyntaxHighlighter::TColor> SyntaxHighlighterP::keyToIdx;
@@ -255,6 +264,9 @@ SyntaxHighlighter::SyntaxHighlighter(QObject* parent)
     : QSyntaxHighlighter(parent)
 {
     d = new SyntaxHighlighterP;
+    d->rehighlightTmr.setInterval(50);
+    d->rehighlightTmr.setSingleShot(true);
+    connect(&d->rehighlightTmr, SIGNAL(timeout()), this, SLOT(rehighlight()));
 }
 
 /** Destroys this object. */
@@ -312,7 +324,7 @@ void SyntaxHighlighter::setBatchOfColors(QMap<QString, ColorData> colors)
             d->colorArray[d->keyToIdx[key]] = colors[key].color();
     }
 
-    rehighlight();
+    d->rehighlightTmr.start();
 }
 
 void SyntaxHighlighter::loadSettings()
@@ -328,7 +340,7 @@ void SyntaxHighlighter::loadSettings()
                     .setRgb((col >> 24) & 0xff, (col >> 16) & 0xff, (col >> 8) & 0xff);
     }
 
-    rehighlight();
+    d->rehighlightTmr.start();
 }
 
 QColor SyntaxHighlighter::colorByType(SyntaxHighlighter::TColor type) const
@@ -342,9 +354,8 @@ QColor SyntaxHighlighter::colorByType(SyntaxHighlighter::TColor type) const
 void SyntaxHighlighter::colorChanged(const QString& type, const QColor& col)
 {
     Q_UNUSED(type); 
-    Q_UNUSED(col); 
-  // rehighlight
-    rehighlight();
+    Q_UNUSED(col);
+    d->rehighlightTmr.start();
 }
 
 int SyntaxHighlighter::maximumUserState() const

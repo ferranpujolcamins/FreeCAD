@@ -322,8 +322,8 @@ void PythonEditor::OnChange(Base::Subject<const char *> &rCaller, const char *rc
     if (strcmp(rcReason, "FontSize") == 0 || strcmp(rcReason, "Font") == 0) {
         int rowHeight = fontMetrics().height();
         d->loadIcons(rowHeight);
-    } else {
-        // probably a color change
+    } else if (strncmp(rcReason, "color_", 6) == 0) {
+        // is a color change
         syntaxHighlighter()->loadSettings();
     }
 }

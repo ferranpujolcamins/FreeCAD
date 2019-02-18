@@ -101,6 +101,9 @@ public:
         // special
         SyntaxError             = 27,
 
+        // highligh current line color
+        HighlightCurrentLine    = 28,
+
         // used as a Stopindicator in loops
         NoColorInvalid, // should be initialized by compiler to the value right after
                        // after the last Valid
@@ -151,7 +154,6 @@ protected:
 
 protected:
     QColor colorByType(TColor type) const;
-
 
 private:
     SyntaxHighlighterP* d;
