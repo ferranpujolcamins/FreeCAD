@@ -228,7 +228,7 @@ public:
  * @brief The EditorViewSingleton a singleton which owns all
  * opened editors so that they can be opened in different views.
  * For example split views, different tabs, etc
- * Creates the correct ediotr based on mimetype, filesuffix and
+ * Creates the correct editor based on mimetype, filesuffix and
  * wraps it in a EditorViewWrapper
  */
 class EditorViewSingletonP;
@@ -288,6 +288,7 @@ Q_SIGNALS:
 
 private Q_SLOTS:
     void docModifiedChanged(bool changed);
+    void connectToDebugger(void);
 
 private:
     friend class EditorViewWrapper;

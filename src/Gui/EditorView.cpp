@@ -1101,6 +1101,8 @@ QStringList &EditorViewWrapper::redos()
 EditorViewSingleton::EditorViewSingleton() :
     d(new EditorViewSingletonP)
 {
+    // delay this connect until application is properly initialized ie eventloop is running
+    QTimer::singleShot(0, this, SLOT(connectToDebugger(void)));
 }
 
 EditorViewSingleton::~EditorViewSingleton()
@@ -1254,6 +1256,14 @@ void EditorViewSingleton::docModifiedChanged(bool changed)
         if (ew->editor() == obj)
             Q_EMIT modifiedChanged(ew->fileName(), changed);
     }
+}
+
+void EditorViewSingleton::connectToDebugger(void)
+{
+    // this must be done after Application is initialized, hence this slot
+    PythonDebugger *dbg = Application::Instance->macroManager()->debugger();
+    connect(this, SIGNAL(fileOpened(QString)), dbg, SLOT(onFileOpened(QString)));
+    connect(this, SIGNAL(fileClosed(QString)), dbg, SLOT(onFileClosed(QString)));
 }
 
 // -------------------------------------------------------------------------------------

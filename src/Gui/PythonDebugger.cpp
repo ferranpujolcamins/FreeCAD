@@ -30,10 +30,10 @@
 #endif
 
 #include "PythonDebugger.h"
-#include "BitmapFactory.h"
-#include "EditorView.h"
+#include <Base/Parameter.h>
 #include <Base/Interpreter.h>
 #include <Base/Console.h>
+#include <App/Application.h>
 #include <opcode.h> // python byte codes
 
 
@@ -1095,11 +1095,6 @@ PythonDebugger::PythonDebugger()
   : d(new PythonDebuggerP(this))
 {
     globalInstance = this;
-
-    connect(EditorViewSingleton::instance(), SIGNAL(fileOpened(QString)),
-            this, SLOT(onFileOpened(QString)));
-    connect(EditorViewSingleton::instance(), SIGNAL(fileClosed(QString)),
-            this, SLOT(onFileClosed(QString)));
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(onAppQuit()));
 
     typedef void (*STATICFUNC)( );
@@ -1764,7 +1759,8 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
                 Q_EMIT dbg->exceptionOccured(exc);
 
                 // halt debugger so we can view stack?
-                ParameterGrp::handle hPrefGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");;
+                ParameterGrp::handle hPrefGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")
+                                                    ->GetGroup("Preferences")->GetGroup("Editor");
                 if (hPrefGrp->GetBool("EnableHaltDebuggerOnExceptions", true)) {
                     dbg->d->state = RunningState::HaltOnNext;
                     return PythonDebugger::tracer_callback(obj, frame, PyTrace_LINE, arg);
