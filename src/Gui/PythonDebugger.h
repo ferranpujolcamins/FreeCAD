@@ -63,6 +63,11 @@ public:
      * @param condition a python expression
      */
     void setCondition(const QString condition);
+    /**
+     * @brief condition: Gets the condition stored for this breakpoint
+     * @param noSideEffects: Replaces a single = to ==
+     *                       Prevents breakpoint from changing program state
+     */
     const QString condition() const;
     /**
      * @brief setIgnoreTo ignores hits on this line up to ignore hits

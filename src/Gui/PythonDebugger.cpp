@@ -22,12 +22,12 @@
 
 
 #include "PreCompiled.h"
-#ifndef _PreComp_
-# include <QEventLoop>
-# include <QCoreApplication>
-# include <QFileInfo>
-# include <QTimer>
-#endif
+
+#include <QEventLoop>
+#include <QCoreApplication>
+#include <QFileInfo>
+#include <QTimer>
+#include <QRegExp>
 
 #include "PythonDebugger.h"
 #include <Base/Parameter.h>
@@ -124,7 +124,8 @@ void BreakpointLine::reset()
 
 void BreakpointLine::setCondition(const QString condition)
 {
-    m_condition = condition;
+    QRegExp re(QLatin1String("([^=><!])=([^=])"));
+    m_condition =  QString(condition).replace(re, QLatin1String("\\1==\\2"));
     PythonDebugger::instance()->breakpointChanged(this);
 }
 
