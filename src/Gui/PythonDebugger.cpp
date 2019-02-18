@@ -34,6 +34,7 @@
 #include "EditorView.h"
 #include <Base/Interpreter.h>
 #include <Base/Console.h>
+#include <opcode.h> // python byte codes
 
 
 using namespace Gui;
@@ -1680,7 +1681,7 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             self->runtimeException->threadState() == PyThreadState_GET())
         {
             // if arg is set, no exception occurred
-            if (arg) {
+            if (arg && arg != Py_None) {
                 // error has been cleared
                 delete self->runtimeException;
                 self->runtimeException = nullptr;
@@ -1771,6 +1772,22 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
     case PyTrace_EXCEPTION:
         // we need to store this exception for later as it might be a recoverable exception
         if (dbg->frameRelatedToOpenedFiles(frame)) {
+            // is it within a try: block, might be in a parent frame
+            PyFrameObject *f = frame;
+            while (f) {
+                for (int i = f->f_iblock; i >= 0; --i) {
+                    if (f->f_blockstack[i].b_type == SETUP_EXCEPT
+#if PY_MAJOR_VERSION >= 3
+                        || f->f_blockstack[i].b_type == EXCEPT_HANDLER
+#endif
+                        )
+                    {
+                        return 0; // should be caught by a try .. except block
+                    }
+                }
+                f = f->f_back; // try with previous (calling) frame
+            }
+
             Base::PyExceptionInfo *exc = new Base::PyExceptionInfo(arg);
             if (exc->isValid())
                 self->runtimeException = exc;
@@ -1785,7 +1802,6 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
     case PyTrace_C_RETURN:
         return 0;
     default:
-        /* ignore PyTrace_EXCEPTION */
         break;
     }
     return 0;
