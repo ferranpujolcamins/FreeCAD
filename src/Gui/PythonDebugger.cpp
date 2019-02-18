@@ -1675,29 +1675,6 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             }
         }
 
-        // we need to check for exceptions and throw them here as
-        // PyTrace_EXCEPTION throws on all exceptions including them that are handled in user code
-        if (self->runtimeException &&
-            self->runtimeException->threadState() == PyThreadState_GET())
-        {
-            // if arg is set, no exception occurred
-            if (arg && arg != Py_None) {
-                // error has been cleared
-                delete self->runtimeException;
-                self->runtimeException = nullptr;
-
-            } else if (self->runtimeException->isValid()) {
-                Base::PyExceptionInfo exc(*self->runtimeException); // must make a copy so we dont decref twice
-                Q_EMIT dbg->exceptionOccured(self->runtimeException);
-
-                // halt debugger so we can view stack?
-                ParameterGrp::handle hPrefGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");;
-                if (hPrefGrp->GetBool("EnableHaltDebuggerOnExceptions", true)) {
-                    dbg->d->state = RunningState::HaltOnNext;
-                    return PythonDebugger::tracer_callback(obj, frame, PyTrace_LINE, arg);
-                }
-            }
-        }
         return 0;
     case PyTrace_LINE:
         {
@@ -1770,28 +1747,29 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             return 0;
         }
     case PyTrace_EXCEPTION:
-        // we need to store this exception for later as it might be a recoverable exception
         if (dbg->frameRelatedToOpenedFiles(frame)) {
             // is it within a try: block, might be in a parent frame
             PyFrameObject *f = frame;
             while (f) {
-                for (int i = f->f_iblock; i >= 0; --i) {
-                    if (f->f_blockstack[i].b_type == SETUP_EXCEPT
-#if PY_MAJOR_VERSION >= 3
-                        || f->f_blockstack[i].b_type == EXCEPT_HANDLER
-#endif
-                        )
-                    {
+                if (f->f_iblock > 0 && f->f_iblock <= CO_MAXBLOCKS) {
+                    int b_type = f->f_blockstack[f->f_iblock -1].b_type; // blockstackindex is +1 based
+                    if (b_type == SETUP_EXCEPT)
                         return 0; // should be caught by a try .. except block
-                    }
                 }
                 f = f->f_back; // try with previous (calling) frame
             }
 
             Base::PyExceptionInfo *exc = new Base::PyExceptionInfo(arg);
-            if (exc->isValid())
-                self->runtimeException = exc;
-            else
+            if (exc->isValid()) {
+                Q_EMIT dbg->exceptionOccured(exc);
+
+                // halt debugger so we can view stack?
+                ParameterGrp::handle hPrefGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");;
+                if (hPrefGrp->GetBool("EnableHaltDebuggerOnExceptions", true)) {
+                    dbg->d->state = RunningState::HaltOnNext;
+                    return PythonDebugger::tracer_callback(obj, frame, PyTrace_LINE, arg);
+                }
+            } else
                 delete exc;
         }
         return 0;
