@@ -49,6 +49,7 @@
 #include <QAction>
 #include <QComboBox>
 #include <QMetaObject>
+#include <QMetaMethod>
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 #include <QMimeDatabase>
@@ -1060,9 +1061,12 @@ void EditorViewWrapper::setFileName(const QString &fn)
     d->fileName = fn;
     // some editors need filename, for example PythonEditor
     // use Qt introspection to "textEdit->setFilename(fn)"
-    // does nothing if editor doesn't have this method
-    QMetaObject::invokeMethod(d->textEdit, "setFileName",
-                              Qt::DirectConnection, Q_ARG(QString, fn));
+
+    // this block finds and invokes that method if it exists
+    const QMetaObject *mo = d->textEdit->metaObject();
+    if (mo->indexOfMethod("setFileName(QString)"))
+        mo->invokeMethod(d->textEdit, "setFileName",
+                         Qt::DirectConnection, Q_ARG(QString, fn));
 }
 
 uint EditorViewWrapper::timestamp() const
