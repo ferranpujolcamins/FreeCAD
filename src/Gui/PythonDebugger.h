@@ -35,57 +35,6 @@ class PyException;
 class PyExceptionInfo;
 }
 
-/*
-namespace Py {
-
-class ExceptionInfo
-{
-    PyObject *m_pyType,
-             *m_pyValue,
-             *m_pyTraceback;
-    PyThreadState *m_pyState;
-    int m_tracebackLevel;
-
-    class SwapIn
-    {
-        PyThreadState *m_oldState;
-        PyGILState_STATE m_GILState;
-        static bool static_GILHeld;
-    public:
-        SwapIn(PyThreadState *newState);
-        ~SwapIn();
-    };
-
-public:
-    ExceptionInfo();
-    ExceptionInfo(PyObject *tracebackArg); // only for traceback function
-    ExceptionInfo(const ExceptionInfo &other);
-    ~ExceptionInfo();
-    int lineNr() const;
-    int offset() const;
-    QString message() const;
-    QString fileName() const;
-    QString functionName() const;
-    QString text() const;
-    QString typeString() const;
-    const PyObject *type() const;
-    const PyThreadState *threadState() const;
-    bool isValid() const;
-    int tracebackSize() const;
-    void setTracebackLevel(int level);
-    bool isWarning() const;
-    bool isSyntaxError() const;
-    bool isIndentationError() const;
-    const char *iconName() const;
-
-private:
-    PyTracebackObject *getTracebackFrame() const;
-    PyObject *getAttr(const char *attr) const;
-    PyObject *getItem(const char *attr) const;
-};
-}
-*/
-
 namespace Gui {
 
 class BreakpointFile;
