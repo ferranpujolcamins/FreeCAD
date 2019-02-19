@@ -477,12 +477,19 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             case '^': case '|':
                 if (nextCh == '=') {
                     // possibly two characters
-                    setOperator(i, 1, T_OperatorAssign);
+                    setOperator(i, 2, T_OperatorAssign);
                     break;
                 }
                 setOperator(i, 1, T_Operator);
                 break;
-            case '!': case '=':
+            case '=':
+                if (nextCh == '=') {
+                    setOperator(i, 2, T_OperatorCompare);
+                    break;
+                }
+                setOperator(i, 1, T_OperatorAssign);
+                break;
+            case '!':
                 setOperator(i, 1, T_OperatorCompare);
             // only single char
                 break;
@@ -598,6 +605,14 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                             setBoldWord(i, len, T_KeywordIn, SyntaxHighlighter::Keyword);
                             d->endStateOfLastPara = T_Undetermined;
 
+                        } else if (word == QLatin1String("yield")) {
+                            setBoldWord(i, len, T_KeywordYield, SyntaxHighlighter::Keyword);
+                            d->endStateOfLastPara = T_Undetermined;
+
+                        } else if (word == QLatin1String("return")) {
+                            setBoldWord(i, len, T_KeywordReturn, SyntaxHighlighter::Keyword);
+                            d->endStateOfLastPara = T_Undetermined;
+
                         } else {
                             setBoldWord(i, len, Tokens::T_Keyword, SyntaxHighlighter::Keyword);
                         }
@@ -681,7 +696,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
             int len = lastWordCh(i, text);
             if (d->activeBlock->indent() == 0)
-                // no intent, it can't be a method
+                // no indent, it can't be a method
                 setIdentifierBold(i, len, T_IdentifierFunction, SyntaxHighlighter::IdentifierFunction);
             else
                 setUndeterminedIdentifierBold(i, len, T_IdentifierDefUnknown, SyntaxHighlighter::IdentifierUnknown);
@@ -773,7 +788,6 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
     setCurrentBlockState(static_cast<int>(d->endStateOfLastPara));
     d->activeBlock = nullptr;
 }
-
 
 
 int PythonSyntaxHighlighter::lastWordCh(int startPos, const QString &text) const
@@ -1064,13 +1078,18 @@ char MatchingCharInfo::matchingChar() const
 
 // -------------------------------------------------------------------------------------------
 
-PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos) :
-    token(token), startPos(startPos), endPos(endPos)
+PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos,
+                         Gui::PythonTextBlockData *block) :
+    token(token), startPos(startPos), endPos(endPos),
+    txtBlock(block), srcLstNode(nullptr)
 {
 }
 
 PythonToken::~PythonToken()
 {
+    // remove from AST
+    if (srcLstNode)
+        delete srcLstNode;
 }
 
 bool PythonToken::operator==(const PythonToken &other) const
@@ -1083,6 +1102,36 @@ bool PythonToken::operator==(const PythonToken &other) const
 bool PythonToken::operator >(const PythonToken &other) const
 {
     return startPos > other.endPos;
+}
+
+PythonToken *PythonToken::next() const
+{
+    PythonTextBlockData *txt = txtBlock;
+    while (txt) {
+        const PythonTextBlockData::tokens_t tokens = txtBlock->tokens();
+        int i = tokens.indexOf(const_cast<PythonToken*>(this));
+        if (i > -1 && i +1 < tokens.size())
+            return tokens.at(i+1);
+
+        // we are the last token in this txtBlock or it was empty
+        txt = dynamic_cast<PythonTextBlockData*>(txt->block().next().userData());
+    }
+    return nullptr;
+}
+
+PythonToken *PythonToken::previous() const
+{
+    PythonTextBlockData *txt = txtBlock;
+    while (txt) {
+        const PythonTextBlockData::tokens_t tokens = txtBlock->tokens();
+        int i = tokens.indexOf(const_cast<PythonToken*>(this));
+        if (i > 0)
+            return tokens.at(i-1);
+
+        // we are the last token in this txtBlock or it was empty
+        txt = dynamic_cast<PythonTextBlockData*>(txt->block().next().userData());
+    }
+    return nullptr;
 }
 
 // -------------------------------------------------------------------------------------------
@@ -1112,7 +1161,7 @@ const QTextBlock &PythonTextBlockData::block() const
     return m_block;
 }
 
-const QVector<PythonToken *> &PythonTextBlockData::tokens() const
+const PythonTextBlockData::tokens_t &PythonTextBlockData::tokens() const
 {
     return m_tokens;
 }
@@ -1120,7 +1169,7 @@ const QVector<PythonToken *> &PythonTextBlockData::tokens() const
 void PythonTextBlockData::setDeterminedToken(PythonSyntaxHighlighter::Tokens token,
                                              int startPos, int len)
 {
-    PythonToken *tokenObj = new PythonToken(token, startPos, startPos + len);
+    PythonToken *tokenObj = new PythonToken(token, startPos, startPos + len, this);
     m_tokens.push_back(tokenObj);
 }
 
@@ -1270,6 +1319,11 @@ const PythonToken *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
 QString PythonTextBlockData::tokenAtAsString(int pos) const
 {
     const PythonToken *tok = tokenAt(pos);
+    return tokenAtAsString(tok);
+}
+
+QString PythonTextBlockData::tokenAtAsString(const PythonToken *tok) const
+{
     if (!tok)
         return QString();
 
@@ -1507,6 +1561,604 @@ setformat:
     // highlight both
     m_editor->highlightText(pos1, 1, format);
     m_editor->highlightText(pos2, 1, format);
+}
+
+
+
+// Begin Python Code AST methods (allthough no tree as we constantly keep changing src in editor)
+// ------------------------------------------------------------------------
+
+PythonSourceRoot::PythonSourceRoot() :
+    m_uniqueCustomTypeNames(-1)
+{
+}
+
+PythonSourceRoot::~PythonSourceRoot()
+{
+}
+
+// static
+PythonSourceRoot *PythonSourceRoot::instance()
+{
+    if (m_instance == nullptr)
+        m_instance = new PythonSourceRoot;
+    return m_instance;
+
+}
+PythonSourceRoot *PythonSourceRoot::m_instance = nullptr;
+
+PythonSourceRoot::DataTypes PythonSourceRoot::mapDataType(const QString typeAnnotation) const
+{
+    // try to determine type form type annotaion
+    // more info at:
+    // https://www.python.org/dev/peps/pep-0484/
+    // https://www.python.org/dev/peps/pep-0526/
+    // https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
+    if (typeAnnotation == QLatin1String("none"))
+        return NoneType;
+    else if (typeAnnotation == QLatin1String("bool"))
+        return BoolType;
+    else if (typeAnnotation == QLatin1String("int"))
+        return IntType;
+    else if (typeAnnotation == QLatin1String("float"))
+        return FloatType;
+    else if (typeAnnotation == QLatin1String("str"))
+        return StringType;
+    else if (typeAnnotation == QLatin1String("bytes"))
+        return BytesType;
+    else if (typeAnnotation == QLatin1String("List"))
+        return ListType;
+    else if (typeAnnotation == QLatin1String("Tuple"))
+        return TupleType;
+    else if (typeAnnotation == QLatin1String("Dict"))
+        return DictType;
+    else if (typeAnnotation == QLatin1String("Set"))
+        return SetType;
+    return CustomType;
+}
+
+QString PythonSourceRoot::customTypeNameFor(PythonSourceRoot::CustomNameIdx_t customIdx)
+{
+    return m_customTypeNames[customIdx];
+}
+
+PythonSourceRoot::CustomNameIdx_t PythonSourceRoot::addCustomTypeName(const QString name)
+{
+    m_customTypeNames[++m_uniqueCustomTypeNames] = name;
+    return m_uniqueCustomTypeNames;
+}
+
+PythonSourceRoot::CustomNameIdx_t PythonSourceRoot::indexOfCustomTypeName(const QString name)
+{
+    if (m_customTypeNames.values().contains(QString(name)))
+        return m_customTypeNames.key(QString(name));
+    return -1;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// this struct is contained by PythonSourceRoot
+PythonSourceRoot::TypeInfo::TypeInfo() :
+    type(PythonSourceRoot::InValidType),
+    customNameIdx(-1)
+{
+}
+
+PythonSourceRoot::TypeInfo::~TypeInfo()
+{
+}
+
+QString PythonSourceRoot::TypeInfo::typeAsStr() const
+{
+    const char *typeAsStr;
+    switch (type) {
+    case PythonSourceRoot::InValidType:  typeAsStr = "InValidType";  break;
+    case PythonSourceRoot::NoneType:     typeAsStr = "NoneType";     break;
+    case PythonSourceRoot::BoolType:     typeAsStr = "BoolType";     break;
+    case PythonSourceRoot::IntType:      typeAsStr = "IntType";      break;
+    case PythonSourceRoot::FloatType:    typeAsStr = "FloatType";    break;
+    case PythonSourceRoot::StringType:   typeAsStr = "StringType";   break;
+    case PythonSourceRoot::BytesType:    typeAsStr = "BytesType";    break;
+    case PythonSourceRoot::ListType:     typeAsStr = "ListType";     break;
+    case PythonSourceRoot::TupleType:    typeAsStr = "TupleType";    break;
+    case PythonSourceRoot::SetType:      typeAsStr = "SetType";      break;
+    case PythonSourceRoot::RangeType:    typeAsStr = "RangeType";    break;
+    case PythonSourceRoot::DictType:     typeAsStr = "DictType";     break;
+    case PythonSourceRoot::FunctionType: typeAsStr = "FunctionType"; break;
+    case PythonSourceRoot::ClassType:    typeAsStr = "ClassType";    break;
+    case PythonSourceRoot::MethodType:   typeAsStr = "MethodType";   break;
+    case PythonSourceRoot::CustomType:   typeAsStr = "CustomType";   break;
+    default:
+        typeAsStr = "InValidType";
+    }
+
+    return QLatin1String(typeAsStr);
+}
+
+QString PythonSourceRoot::TypeInfo::customName() const
+{
+    if (customNameIdx > -1) {
+
+    }
+    return QString();
+}
+
+// ------------------------------------------------------------------------
+
+
+PythonSourceListNodeBase::PythonSourceListNodeBase(PythonSourceListParentBase *owner) :
+    m_previous(nullptr), m_next(nullptr),
+    m_owner(owner), m_token(nullptr)
+{
+    assert(owner != nullptr && "Must have valid owner");
+}
+
+PythonSourceListNodeBase::~PythonSourceListNodeBase()
+{
+    if (m_token)
+        m_token->srcLstNode = nullptr;
+    if (m_owner)
+        m_owner->remove(this);
+}
+
+// this should only be called from PythonToken destructor when it gets destroyed
+void PythonSourceListNodeBase::tokenDeleted()
+{
+    m_token = nullptr;
+    if (m_owner)
+        m_owner->remove(this, true); // remove me from owner and let him delete me
+}
+
+// -------------------------------------------------------------------------
+
+
+PythonSourceListParentBase::PythonSourceListParentBase(PythonSourceListParentBase *owner) :
+    PythonSourceListNodeBase(owner),
+    m_first(nullptr), m_last(nullptr)
+{
+}
+
+PythonSourceListParentBase::~PythonSourceListParentBase()
+{
+    // delete all children
+    PythonSourceListNodeBase *n = m_first,
+                             *tmp = nullptr;
+    while(n) {
+        n->setOwner(nullptr);
+        tmp = n;
+        n = n->next();
+        delete tmp;
+    }
+}
+
+void PythonSourceListParentBase::add(PythonSourceListNodeBase *node)
+{
+    if (m_last) {
+        // look up the place for this
+        PythonSourceListNodeBase *n = m_last,
+                                 *tmp = nullptr;
+        while (n != nullptr) {
+            int res = compare(node, n);
+            if (res < 0) {
+                // n is less than node, inert after n
+                tmp = n->next();
+                n->setNext(node);
+                node->setPrevious(n);
+                if (tmp) {
+                    tmp->setPrevious(node);
+                    node->setNext(tmp);
+                } else {
+                    node->setNext(nullptr);
+                    m_last = node;
+                    break;
+                }
+            } else if (n->previous() == nullptr) {
+                // n is more than node and we are at the beginning (won't iterate further)
+                node->setNext(n);
+                n->setPrevious(node);
+                m_first = node;
+                node->setPrevious(nullptr);
+                break;
+            }
+            n = n->previous();
+        }
+    } else {
+        m_first = node;
+        m_last = node;
+    }
+}
+
+bool PythonSourceListParentBase::remove(PythonSourceListNodeBase *node, bool deleteNode)
+{
+    if (contains(node)) {
+        // remove from list
+        if (node->previous())
+            node->previous()->setNext(node->next());
+        if (node->next())
+            node->next()->setPrevious(node->previous());
+        if (m_first == node)
+            m_first = node->next();
+        if (m_last == node)
+            m_last = node->previous();
+
+        node->setNext(nullptr);
+        node->setPrevious(nullptr);
+        if (deleteNode)
+            delete node;
+
+        // if we are empty we should remove ourselfs
+        if (m_first == nullptr && m_last == nullptr) {
+            m_owner->remove(this, true);
+        }
+        return true;
+
+    }
+
+    return false;
+}
+
+bool PythonSourceListParentBase::contains(PythonSourceListNodeBase *node) const
+{
+    PythonSourceListNodeBase *f = m_first,
+                             *l = m_last;
+    // we search front and back to be 1/2 n at worst lookup time
+    while(f && l) {
+        if (f == node || l == node)
+            return true;
+        f = f->next();
+        l = l->previous();
+    }
+
+    return false;
+}
+
+bool PythonSourceListParentBase::empty() const
+{
+    return m_first == nullptr && m_last == nullptr;
+}
+
+std::size_t PythonSourceListParentBase::size() const
+{
+    PythonSourceListNodeBase *f = m_first;
+    std::size_t cnt = -1;
+    while(f) {
+        ++cnt;
+        f = f->next();
+    }
+
+    return cnt;
+}
+
+std::size_t PythonSourceListParentBase::indexOf(PythonSourceListNodeBase *node) const
+{
+    std::size_t idx = -1;
+    PythonSourceListNodeBase *f = m_first;
+    while (f) {
+        ++idx;
+        if (f == node)
+            break;
+        f = f->next();
+    }
+
+    return idx;
+}
+
+PythonSourceListNodeBase *PythonSourceListParentBase::operator [](std::size_t idx) const
+{
+    PythonSourceListNodeBase *n = m_first;
+    for (std::size_t i = 0; i < idx; ++i) {
+        if (n == nullptr)
+            return nullptr;
+        n = n->next();
+    }
+    return n;
+}
+
+int PythonSourceListParentBase::compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const
+{
+    if (!left || ! right)
+        return 0;
+    if (left->token() > right->token())
+        return -1;
+    else if (left->token() < right->token())
+        return +1;
+    return 0;
+}
+
+// ------------------------------------------------------------------------
+
+
+PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
+                                                                   PythonToken *token,
+                                                                   PythonSourceRoot::DataTypes type) :
+    PythonSourceListNodeBase(owner),
+    m_linenr(-1)
+{
+    m_type.type = type;
+    assert(token != nullptr && "Must have valid token");
+    assert(token->srcLstNode == nullptr && "token is already taken");
+    m_token = token;
+    m_token->srcLstNode = this;
+}
+
+PythonSourceIdentifierAssignment::~PythonSourceIdentifierAssignment()
+{
+}
+
+int PythonSourceIdentifierAssignment::linenr()
+{
+    if (m_linenr < 0) {
+        m_linenr = m_token->txtBlock->block().blockNumber();
+    }
+    return m_linenr;
+}
+
+// ------------------------------------------------------------------------
+
+PythonSourceIdentifier::PythonSourceIdentifier(PythonSourceListParentBase *owner, PythonSourceFrame *frame) :
+    PythonSourceListParentBase(owner),
+    m_frame(frame)
+{
+    assert(m_frame != nullptr && "Must have a valid frame");
+}
+
+PythonSourceIdentifier::~PythonSourceIdentifier()
+{
+}
+
+int PythonSourceIdentifier::compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const
+{
+    // should sort by linenr and (if same line also token startpos)
+    PythonSourceIdentifierAssignment *l = dynamic_cast<PythonSourceIdentifierAssignment*>(left),
+                                     *r = dynamic_cast<PythonSourceIdentifierAssignment*>(right);
+    assert(l != nullptr && r != nullptr && "PythonSourceIdentifier stored non compatible node");
+    if (l->linenr() > r->linenr()) {
+        return -1;
+    } else if (l->linenr() < r->linenr()) {
+        return +1;
+    } else {
+        // line nr equal
+        if (l->token()->startPos > r->token()->startPos)
+            return -1;
+        else
+            return +1; // can't be at same source position
+    }
+}
+
+PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(int line, int pos) const
+{
+    PythonSourceIdentifierAssignment *l = dynamic_cast<PythonSourceIdentifierAssignment*>(m_last);
+    while(l) {
+        if (l->linenr() == line && l->token()->endPos < pos) {
+            return l;
+        } else if (l->linenr() < line) {
+            return l;
+        }
+        l = dynamic_cast<PythonSourceIdentifierAssignment*>(l->previous());
+    }
+    // not found
+    return nullptr;
+}
+
+// -------------------------------------------------------------------------------
+
+
+PythonSourceIdentifiers::PythonSourceIdentifiers(PythonSourceListParentBase *owner, PythonSourceFrame *frame):
+    PythonSourceListParentBase(owner),
+    m_frame(frame)
+{
+    assert(frame != nullptr && "Must have a valid frame");
+}
+
+PythonSourceIdentifiers::~PythonSourceIdentifiers()
+{
+}
+
+const PythonSourceIdentifier *PythonSourceIdentifiers::getIdentifier(const QString name) const
+{
+    PythonSourceIdentifier *i = dynamic_cast<PythonSourceIdentifier*>(m_first);
+    while (i) {
+        if (i->name() == name)
+            return i;
+        i = dynamic_cast<PythonSourceIdentifier*>(i->next());
+    }
+    return nullptr;
+}
+
+int PythonSourceIdentifiers::compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const
+{
+    PythonSourceIdentifier *l = dynamic_cast<PythonSourceIdentifier*>(left),
+                           *r = dynamic_cast<PythonSourceIdentifier*>(right);
+    assert(l != nullptr && r != nullptr && "PythonSourceIdentifiers contained invalid nodes");
+    if (l->name() > r->name())
+        return -1;
+    else if (r->name() > l->name())
+        return +1;
+    return 0;
+}
+
+
+// -----------------------------------------------------------------------------
+
+PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner):
+    PythonSourceListParentBase(owner),
+    m_identifiers(nullptr),
+    m_arguments(nullptr),
+    m_returns(nullptr),
+    lastToken(nullptr)
+{
+    m_identifiers = new PythonSourceIdentifiers(this, this);
+}
+
+PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner):
+    PythonSourceListParentBase(owner),
+    m_identifiers(nullptr),
+    m_arguments(nullptr),
+    m_returns(nullptr),
+    lastToken(nullptr)
+{
+    m_identifiers = new PythonSourceIdentifiers(this, this);
+}
+
+PythonSourceFrame::~PythonSourceFrame()
+{
+    delete m_identifiers;
+    delete m_arguments;
+    delete m_returns;
+}
+
+QString PythonSourceFrame::docstring() const
+{
+    // retrive docstring for this function
+    QStringList docStrs;
+    if (m_token) {
+        PythonToken *token = endOfArgumentsList(m_token);
+        int guard = 20;
+        while(token && token->token != PythonSyntaxHighlighter::T_DelimiterSemiColon) {
+            if ((--guard) <= 0)
+                return QString();
+            token = token->next();
+        }
+
+        if (!token)
+            return QString();
+
+        // now we are at semicolon (even with typehint)
+        //  def func(arg1,arg2) -> str:
+        //                            ^
+        // find first string, before other stuff
+        while (token) {
+            if (!token->txtBlock)
+                continue;
+            switch (token->token) {
+            case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:// fallthrough
+            case PythonSyntaxHighlighter::T_LiteralBlockSglQuote: {
+                // multiline
+                QString tmp = token->txtBlock->tokenAtAsString(token);
+                docStrs << tmp.mid(3, tmp.size() - 6); // clip """
+            }   break;
+            case PythonSyntaxHighlighter::T_LiteralDblQuote: // fallthrough
+            case PythonSyntaxHighlighter::T_LiteralSglQuote: {
+                // single line
+                QString tmp = token->txtBlock->tokenAtAsString(token);
+                docStrs << tmp.mid(1, tmp.size() - 2); // clip "
+            }   break;
+            case PythonSyntaxHighlighter::T_Indent: // fallthrough
+            case PythonSyntaxHighlighter::T_Comment:
+                token = token->next();
+                break;
+            default:
+                // some other token, probably some code
+                token = nullptr; // bust out of while
+            }
+        }
+
+        // return what we have collected
+        return docStrs.join(QLatin1String("\n"));
+    }
+
+    return QString(); // no token
+}
+
+PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint() const
+{
+    PythonSourceRoot::TypeInfo tpInfo;
+    if (m_token) {
+        PythonToken *token = endOfArgumentsList(m_token),
+                    *commentToken = nullptr;
+        int guard = 10;
+        while(token && token->token != PythonSyntaxHighlighter::T_DelimiterMetaData) {
+            if ((--guard) <= 0)
+                return tpInfo;
+
+            if (token->token == PythonSyntaxHighlighter::T_DelimiterSemiColon) {
+                // no metadata
+                // we may still have type hint in a comment in row below
+                while (token && token->token == PythonSyntaxHighlighter::T_Indent) {
+                    token = token->next();
+                    if (token && token->token == PythonSyntaxHighlighter::T_Comment) {
+                        commentToken = token;
+                        token = nullptr; // bust out of loops
+                    }
+                }
+
+                if (!commentToken)
+                    return tpInfo; // have no metadata, might have commentdata
+            } else
+                token = token->next();
+        }
+
+        QString annotation;
+
+        if (token) {
+            // now we are at metadata token
+            //  def func(arg1: int, arg2: bool) -> MyType:
+            //                                  ^
+            // step one more further
+            token = token->next();
+            if (token)
+                annotation = token->txtBlock->tokenAtAsString(token);
+
+        } else if (commentToken) {
+            // extract from comment
+            // type: def func(int, bool) -> MyType
+            QRegExp re(QLatin1String("type\\s*:\\s*def\\s+[_a-zA-Z]+\\w*\\(.*\\)\\s*->\\s*(\\w+)"));
+            if (re.indexIn(token->txtBlock->tokenAtAsString(token)) > -1)
+                annotation = re.cap(1);
+        }
+
+        if (!annotation.isEmpty()) {
+            // set type and customname
+            PythonSourceRoot *sr = PythonSourceRoot::instance();
+            tpInfo.type = sr->mapDataType(annotation);
+            if (tpInfo.type == PythonSourceRoot::CustomType) {
+                tpInfo.customNameIdx = sr->indexOfCustomTypeName(annotation);
+                if (tpInfo.customNameIdx < 0)
+                    tpInfo.customNameIdx = sr->addCustomTypeName(annotation);
+            }
+        }
+    }
+
+    return tpInfo;
+}
+
+// may return nullptr on error
+PythonToken *PythonSourceFrame::endOfArgumentsList(PythonToken *token) const
+{
+    // safely goes to closingParen of arguments list
+    int parenCount = 0,
+        safeGuard = 50;
+    while(token && token->token != PythonSyntaxHighlighter::T_DelimiterMetaData)
+    {
+        if ((--safeGuard) <= 0)
+            return nullptr;
+        // first we must make sure we clear all parens
+        if (token->token == PythonSyntaxHighlighter::T_DelimiterOpenParen)
+            ++parenCount;
+        else if (token->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
+            --parenCount;
+
+        if (parenCount == 0 && token->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
+            return token;
+
+        token = token->next();
+    }
+
+    return nullptr;
+}
+
+// --------------------------------------------------------------------------
+
+PythonSourceModule::PythonSourceModule(PythonSourceRoot *root) :
+    PythonSourceListParentBase(this),
+    m_root(root),
+    m_rootFrame(nullptr)
+{
+    m_rootFrame = new PythonSourceFrame(this);
+}
+
+PythonSourceModule::~PythonSourceModule()
+{
+    delete m_rootFrame;
 }
 
 

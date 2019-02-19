@@ -41,6 +41,7 @@ class PythonSyntaxHighlighter;
 class PythonSyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
 class PythonCodeP;
+class PythonTextBlockData;
 class TextEdit;
 
 
@@ -60,7 +61,7 @@ public:
 
     QString findFromCurrentFrame(QString varName);
 
-    // get thee root of the parent identifier ie os.path.join
+    // get the root of the parent identifier ie os.path.join
     //                                                    ^
     // must traverse from os, then os.path before os.path.join
     Py::Object getDeepObject(PyObject *obj, QString key, QString &foundKey);
@@ -73,7 +74,7 @@ private:
 
 /**
  * Syntax highlighter for Python.
- * \author Werner Mayer
+ * \author Werner Mayer, Fredrik Johansson
  */
 class GuiExport PythonSyntaxHighlighter : public SyntaxHighlighter
 {
@@ -84,6 +85,8 @@ public:
     void highlightBlock (const QString & text);
 
     enum Tokens {
+        //**
+        //* Any token added or removed here must also be added or removed in PythonCodeDebugTools
         T_Undetermined     = 0,     // Parser looks tries to figure out next char also Standard text
         // python
         T_Indent           = 1,
@@ -111,6 +114,8 @@ public:
         T_KeywordFrom      = 34,
         T_KeywordAs        = 35, // not sure if needed? we arent exactly building a VM...
         T_KeywordIn        = 36, // likwise
+        T_KeywordYield     = 37,
+        T_KeywordReturn    = 38,
         // leave some room for future keywords
 
         // operators
@@ -151,10 +156,9 @@ public:
         // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
         T_MetaData                = 140,
 
-
-        T_Invalid          = 512,
-        T_PythonConsoleOutput = 1000,
-        T_PythonConsoleError  = 1001
+        T_Invalid                 = 512,
+        T_PythonConsoleOutput     = 1000,
+        T_PythonConsoleError      = 1001
     };
 
 private:
@@ -212,16 +216,27 @@ struct MatchingCharInfo
 };
 
 // ------------------------------------------------------------------------
+class PythonSourceListNodeBase;
 
 struct PythonToken
 {
-    explicit PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos);
+    explicit PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos,
+                         PythonTextBlockData *block);
     ~PythonToken();
     bool operator==(const PythonToken &other) const;
     bool operator > (const PythonToken &other) const;
+
+    /// for traversing tokens in document
+    /// returns token or nullptr if at end/begin
+    PythonToken *next() const;
+    PythonToken *previous() const;
+
+    // public properties
     PythonSyntaxHighlighter::Tokens token;
     int startPos;
     int endPos;
+    PythonTextBlockData *txtBlock;
+    PythonSourceListNodeBase *srcLstNode;
 };
 
 // -----------------------------------------------------------------------
@@ -229,13 +244,14 @@ struct PythonToken
 class PythonTextBlockData : public QTextBlockUserData
 {
 public:
+    typedef QVector<PythonToken*> tokens_t;
     PythonTextBlockData(QTextBlock block);
     ~PythonTextBlockData();
 
     static PythonTextBlockData *blockDataFromCursor(const QTextCursor &cursor);
 
     const QTextBlock &block() const;
-    const QVector<PythonToken *> &tokens() const;
+    const tokens_t &tokens() const;
     /**
      * @brief findToken searches for token in this block
      * @param token needle to search for
@@ -288,6 +304,7 @@ public:
      */
     QString tokenAtAsString(int pos) const;
 
+    QString tokenAtAsString(const PythonToken *tok) const;
 
     static QString tokenAtAsString(QTextCursor &cursor);
 
@@ -353,7 +370,7 @@ protected:
 
 
 private:
-    QVector<PythonToken *> m_tokens;
+    tokens_t m_tokens;
     QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
     QTextBlock m_block;
@@ -382,6 +399,265 @@ private:
     TextEdit *m_editor;
 };
 
+
+// Begin AST Python source code introspection
+// -------------------------------------------------------------------
+
+class PythonSourceListParentBase;
+class PythonSourceIdentifier;
+class PythonSourceFrame;
+class PythonSourceModule;
+
+/**
+ * @brief The PythonCodeTree class hold all frames, vars and other identifiers
+ * used to get info about src
+ */
+class PythonSourceRoot {
+public:
+    typedef int CustomNameIdx_t;
+    enum DataTypes {
+        // changes here must be accompanied by changing in typeAsStr and mapDataType
+        InValidType,
+        NoneType,
+        BoolType,
+        IntType,
+        FloatType,
+        StringType,
+        BytesType,
+        ListType,
+        TupleType,
+        SetType,
+        RangeType,
+        DictType,
+        FunctionType,
+        ClassType,
+        MethodType,
+        CustomType
+    };
+
+    struct TypeInfo {
+        TypeInfo();
+        ~TypeInfo();
+        PythonSourceRoot::DataTypes type;
+        CustomNameIdx_t customNameIdx;
+        QString typeAsStr() const;
+        QString customName() const;
+    };
+
+    explicit PythonSourceRoot();
+    virtual ~PythonSourceRoot();
+
+    static PythonSourceRoot *instance();
+
+    /// map typestr frommetadata Type annotation ie x: int
+    DataTypes mapDataType(const QString typeAnnotation) const;
+
+    // typename database for custom types
+    QString customTypeNameFor(CustomNameIdx_t customIdx);
+    CustomNameIdx_t addCustomTypeName(const QString name);
+    CustomNameIdx_t indexOfCustomTypeName(const QString name);
+
+private:
+    QHash<CustomNameIdx_t, QString> m_customTypeNames;
+    CustomNameIdx_t m_uniqueCustomTypeNames;
+    static PythonSourceRoot *m_instance;
+};
+
+// -------------------------------------------------------------------------
+
+/// base class, produces a double linked list
+class PythonSourceListNodeBase {
+public:
+    explicit PythonSourceListNodeBase(PythonSourceListParentBase *owner);
+    virtual ~PythonSourceListNodeBase();
+    PythonSourceListNodeBase *next() const { return m_next; }
+    PythonSourceListNodeBase *previous() const { return m_previous; }
+
+    void setNext(PythonSourceListNodeBase *next) { m_next = next; }
+    void setPrevious(PythonSourceListNodeBase *previous) { m_previous = previous; }
+    /// python token
+    PythonToken *token() const { return m_token; }
+    void setToken(PythonToken *token) { m_token = token; }
+
+    /// owner node, setOwner is essential during cleanup, or ownership swaps
+    PythonSourceListParentBase *owner() const { return m_owner; }
+    void setOwner(PythonSourceListParentBase *owner) { m_owner = owner; }
+
+    /// called by PythonToken when it gets destroyed
+    virtual void tokenDeleted();
+
+protected:
+    PythonSourceListNodeBase *m_previous;
+    PythonSourceListNodeBase *m_next;
+    PythonSourceListParentBase *m_owner;
+    PythonToken *m_token;
+};
+
+// -------------------------------------------------------------------------
+
+/// base class for collection, manages a linked list, might itself be a node i a linked list
+class PythonSourceListParentBase : public PythonSourceListNodeBase
+{
+public:
+    explicit PythonSourceListParentBase(PythonSourceListParentBase *owner);
+    ~PythonSourceListParentBase();
+    /// adds node to current collection
+    virtual void add(PythonSourceListNodeBase *node);
+    /// remove node from current collection
+    /// returns true if node was removed (was in collection)
+    /// NOTE! if deleteNode is false: caller is responsible for deleting node
+    virtual bool remove(PythonSourceListNodeBase *node, bool deleteNode = false);
+    /// true if node is contained
+    bool contains(PythonSourceListNodeBase *node) const;
+    bool empty() const;
+    /// returns size of list
+    std::size_t size() const;
+    /// returns index of node or -1 if not found
+    std::size_t indexOf(PythonSourceListNodeBase *node) const;
+    /// returns node at idx
+    PythonSourceListNodeBase *operator [](std::size_t idx) const;
+
+    /// stl iterator stuff
+    PythonSourceListNodeBase* begin() const { return m_first; }
+    PythonSourceListNodeBase* rbegin() const { return m_last; }
+    PythonSourceListNodeBase* end() const { return nullptr; }
+    PythonSourceListNodeBase* rend() const { return nullptr; }
+
+protected:
+    /// subclass may implement, used to sort insert order
+    ///     should return -1 if left is more than right
+    ///                   +1 if right is more than left
+    ///                    0 if both equal
+    virtual int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
+    PythonSourceListNodeBase *m_first;
+    PythonSourceListNodeBase *m_last;
+};
+
+// ----------------------------------------------------------------------
+
+/// a class for each assignment within frame (variable type might mutate)
+class PythonSourceIdentifierAssignment : public PythonSourceListNodeBase {
+    PythonSourceRoot::TypeInfo m_type;
+    int m_linenr; // cached result to speed up things
+public:
+    explicit PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
+                                              PythonToken *startToken,
+                                              PythonSourceRoot::DataTypes type);
+    ~PythonSourceIdentifierAssignment();
+    PythonSourceRoot::TypeInfo type() const { return m_type; }
+    int linenr();
+};
+
+// ----------------------------------------------------------------------
+
+/// identifierClass, one for each variable in each frame
+class PythonSourceIdentifier : public PythonSourceListParentBase
+{
+    QString m_name;
+    PythonSourceFrame *m_frame;
+public:
+    explicit PythonSourceIdentifier(PythonSourceListParentBase *owner, PythonSourceFrame *frame);
+    ~PythonSourceIdentifier();
+
+    /// get the last assigment up til line and pos in document
+    /// or nullptr if not found
+    PythonSourceIdentifierAssignment *getFromPos(int line, int pos) const;
+
+    /// get the name of identifier
+    QString name() const { return m_name; }
+protected:
+    // should sort by linenr and (if same line also token startpos)
+    int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
+};
+
+// ----------------------------------------------------------------------------
+/// a root container for all identifiers
+class PythonSourceIdentifiers : public PythonSourceListParentBase
+{
+    PythonSourceFrame *m_frame;
+public:
+    explicit PythonSourceIdentifiers(PythonSourceListParentBase *owner, PythonSourceFrame *frame);
+    ~PythonSourceIdentifiers();
+
+    /// get the frame contained for these collections
+    const PythonSourceFrame *frame() const { return m_frame; }
+    /// get the identifier with name or nullptr if not contained
+    const PythonSourceIdentifier *getIdentifier(const QString name) const;
+    bool hasIdentifier(const QString name) const { return getIdentifier(name) != nullptr; }
+
+protected:
+    int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
+};
+
+// ---------------------------------------------------------------------
+
+/// for function or method frames, contains all identifiers within this frame
+class PythonSourceFrame : public PythonSourceListParentBase
+{
+    PythonSourceListParentBase *m_owner;
+    /// stores all identifiers contained within each frame
+    PythonSourceIdentifiers *m_identifiers;
+    PythonSourceListParentBase *m_arguments;
+    PythonSourceListParentBase *m_returns;
+
+public:
+    explicit PythonSourceFrame(PythonSourceFrame *owner);
+    explicit PythonSourceFrame(PythonSourceModule *owner);
+    ~PythonSourceFrame();
+
+    /// get the docstring for this function/method
+    QString docstring() const;
+
+    /// get the return type hint
+    ///  def funt(arg1, arg2) -> Module.Class.Custom:
+    ///    would return:         ^
+    ///    CustomType with CustomTypeName == Module.Class.Custom
+    /// returns Typeinfo::InValidType if no typeHint given
+    PythonSourceRoot::TypeInfo returnTypeHint() const;
+
+    /// true if we have identifier
+    bool hasIdentifier(const QString name) const {
+        return m_identifiers->getIdentifier(name);
+    }
+
+    /// looks up name among identifiers (variables/constants)
+    const PythonSourceIdentifier *getIdentifier(const QString name) const {
+        return m_identifiers->getIdentifier(name);
+    }
+    /// get reference to all identifiers within this frame
+    const PythonSourceIdentifiers *identifiers() const { return m_identifiers; }
+
+    /// the token (unindent) that ends this frame
+    PythonToken *lastToken;
+
+private:
+    PythonToken *endOfArgumentsList(PythonToken *token) const;
+};
+
+// -------------------------------------------------------------------------
+
+/// for modules contains module global identifiers and methods
+class PythonSourceModule : public PythonSourceListParentBase
+{
+    PythonSourceRoot *m_root;
+    PythonSourceFrame *m_rootFrame;
+    QString m_fileName;
+    QString m_moduleName;
+public:
+    explicit PythonSourceModule(PythonSourceRoot *root);
+    ~PythonSourceModule();
+
+    /// get the root, __main__ function frame
+    PythonSourceFrame *rootFrame() const { return m_rootFrame; }
+
+    /// filename for this module
+    QString fileName() const { return m_fileName; }
+    void setFileName(QString fileName) { m_fileName = fileName; }
+
+    /// modulename, ie sys or PartDesign
+    QString moduleName() const { return m_moduleName; }
+    void setModuleName(QString moduleName) { m_moduleName = moduleName; }
+};
 
 
 // -------------------------------------------------------------------

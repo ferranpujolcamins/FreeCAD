@@ -60,6 +60,8 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
     case PythonSyntaxHighlighter::T_KeywordFrom:         return "T_KeywordFrom";
     case PythonSyntaxHighlighter::T_KeywordAs:           return "T_KeywordAs"; // not sure if needed? we arent exactly building a VM...
     case PythonSyntaxHighlighter::T_KeywordIn:           return "T_KeywordIn"; // likwise
+    case PythonSyntaxHighlighter::T_KeywordYield:        return "T_KeywordYield";
+    case PythonSyntaxHighlighter::T_KeywordReturn:       return "T_KeywordReturn";
         // leave some room for future keywords
 
         // operators
