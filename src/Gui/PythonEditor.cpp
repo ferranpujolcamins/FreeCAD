@@ -41,7 +41,6 @@
 #include "DlgEditorImp.h"
 #include "App/PropertyContainer.h"
 #include "App/PropertyContainerPy.h"
-//#include "CallTips.h"
 
 
 #include <CXX/Objects.hxx>
@@ -188,8 +187,8 @@ PythonEditor::PythonEditor(QWidget* parent)
     d->loadIcons(fontMetrics().height());
 
     PythonSyntaxHighlighter *hl = new PythonSyntaxHighlighter(this);
+    setSyntaxHighlighter(hl);
     hl->loadSettings();
-    this->setSyntaxHighlighter(hl);            
 
     // set acelerators
     QShortcut* comment = new QShortcut(this);
