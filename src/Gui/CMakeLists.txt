@@ -675,6 +675,16 @@ SET(Editor_HPP_SRCS
     SyntaxHighlighter.h
     TextEdit.h
 )
+# for debugging/dumping syntax parser and AST code
+if(BUILD_PYTHON_DEBUGTOOLS)
+    SET(Editor_CPP_SRCS
+        ${Editor_CPP_SRCS}
+        PythonCodeDebugTools.cpp)
+    SET(Editor_HPP_SRCS
+        ${Editor_HPP_SRCS}
+        PythonCodeDebugTools.h)
+    add_definitions(-DBUILD_PYTHON_DEBUGTOOLS=1)
+endif()
 SET(Editor_SRCS
     ${Editor_CPP_SRCS}
     ${Editor_HPP_SRCS}

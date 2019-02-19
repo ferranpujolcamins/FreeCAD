@@ -64,6 +64,11 @@
 #include "Macro.h"
 #include "PythonEditor.h"
 
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+# include "PythonCodeDebugTools.h"
+#endif
+
+
 #include <Base/Interpreter.h>
 #include <Base/Parameter.h>
 #include <Base/Exception.h>
@@ -629,6 +634,11 @@ void EditorView::setCurrentFileName(const QString &fileName)
 
     setWindowTitle(shownName);
     setWindowModified(d->editWrapper->editor()->document()->isModified());
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        {
+            DumpSyntaxTokens tok(d->editWrapper->editor()->document()->begin());
+        }
+#endif
 }
 
 QString EditorView::fileName() const
@@ -711,6 +721,11 @@ bool EditorView::saveFile()
 
     QFileInfo fi(d->editWrapper->fileName());
     d->editWrapper->setTimestamp(fi.lastModified().toTime_t());
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        {
+            DumpSyntaxTokens tok(editor->document()->begin());
+        }
+#endif
     return true;
 }
 
@@ -1064,9 +1079,11 @@ void EditorViewWrapper::setFileName(const QString &fn)
 
     // this block finds and invokes that method if it exists
     const QMetaObject *mo = d->textEdit->metaObject();
-    if (mo->indexOfMethod("setFileName(QString)"))
+    if (mo->indexOfMethod("setFileName(QString)")) {
         mo->invokeMethod(d->textEdit, "setFileName",
                          Qt::DirectConnection, Q_ARG(QString, fn));
+    }
+
 }
 
 uint EditorViewWrapper::timestamp() const
