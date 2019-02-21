@@ -87,22 +87,26 @@ public:
         // identifiers
         IdentifierUnknown       = 17, // variable not in current context
         IdentifierDefined       = 18, // variable is in current context
-        IdentifierModule        = 19, // its a module definition
-        IdentifierFunction      = 20, // its a function definition
-        IdentifierMethod        = 21, // its a method definition
-        IdentifierClass         = 22, // its a class definition
-        IdentifierSuperMethod   = 23, // its a method with name: __**__
-        IdentifierBuiltin       = 24, // is a built in function or property
-        IdentifierDecorator     = 25, // a @property marker
+        IdentifierDefUnknown    = 19, // variable not yet bound
+        IdentifierModule        = 20, // its a module definition
+        IdentifierFunction      = 21, // its a function definition
+        IdentifierMethod        = 22, // its a method definition
+        IdentifierClass         = 23, // its a class definition
+        IdentifierSuperMethod   = 24, // its a method with name: __**__
+        IdentifierBuiltin       = 25, // is a built in function or property
+        IdentifierDecorator     = 26, // a @property marker
+        IdentifierSelf          = 27, // self variable for classes
 
         // delimiters
-        Delimiter               = 26, // like ',' '.' '{' etc
+        Delimiter               = 28, // like ',' '.' '{' etc
 
         // special
-        SyntaxError             = 27,
+        SyntaxError             = 29,
+        MetaData                = 30, // for typehints ie a: List
+                                      // color of            ^
 
         // highligh current line color
-        HighlightCurrentLine    = 28,
+        HighlightCurrentLine    = 31,
 
         // used as a Stopindicator in loops
         NoColorInvalid, // should be initialized by compiler to the value right after

@@ -276,6 +276,11 @@ void PythonEditor::setFileName(const QString& fn)
     if (fn != d->filename) {
         d->filename = fn;
         Q_EMIT fileNameChanged(fn);
+
+        // rescan
+        PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
+        if (ps)
+            PythonSourceRoot::instance()->scanCompleteModule(fn, ps);
     }
 }
 

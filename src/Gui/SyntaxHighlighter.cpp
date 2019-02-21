@@ -63,6 +63,7 @@ public:
         // identifiers
         colorArray[SyntaxHighlighter::IdentifierClass]        .setRgb(1, 122, 153);
         colorArray[SyntaxHighlighter::IdentifierDefined]      .setRgb(0, 61, 22);
+        colorArray[SyntaxHighlighter::IdentifierDefUnknown]   .setRgb(0, 104, 37);
         colorArray[SyntaxHighlighter::IdentifierFunction]     .setRgb(16, 145, 145);
         colorArray[SyntaxHighlighter::IdentifierMethod]       .setRgb(17, 94, 145);
         colorArray[SyntaxHighlighter::IdentifierModule]       .setRgb(0, 56, 71);
@@ -70,6 +71,7 @@ public:
         colorArray[SyntaxHighlighter::IdentifierUnknown]      .setRgb(58, 9, 0);
         colorArray[SyntaxHighlighter::IdentifierBuiltin]      .setRgb(210, 43, 216);
         colorArray[SyntaxHighlighter::IdentifierDecorator]    .setRgb(66, 134, 244);
+        colorArray[SyntaxHighlighter::IdentifierSelf]         .setRgb(1, 163, 154);
 
         // delmiters
         colorArray[SyntaxHighlighter::Delimiter]              .setRgb(100, 100, 115);
@@ -84,6 +86,9 @@ public:
 
         // current line-highlight
         colorArray[SyntaxHighlighter::HighlightCurrentLine]   .setRgb(224, 224, 224);
+
+        // metadata
+        colorArray[SyntaxHighlighter::MetaData]               .setRgb(165, 224, 4);
 
         // adding a color should be accompanied by setting its key and
         // translated name in initNames()
@@ -131,6 +136,7 @@ public:
         // identifiers
         keyToIdx[QLatin1String("color_PythonUnknown")]      = SyntaxHighlighter::IdentifierUnknown;
         keyToIdx[QLatin1String("color_PythonDefined")]      = SyntaxHighlighter::IdentifierDefined;
+        keyToIdx[QLatin1String("color_PythonDefUnknown")]   = SyntaxHighlighter::IdentifierDefUnknown;
         keyToIdx[QLatin1String("color_PythonModule")]       = SyntaxHighlighter::IdentifierModule;
         keyToIdx[QLatin1String("color_PythonFunction")]     = SyntaxHighlighter::IdentifierFunction;
         keyToIdx[QLatin1String("color_PythonMethod")]       = SyntaxHighlighter::IdentifierMethod;
@@ -138,6 +144,7 @@ public:
         keyToIdx[QLatin1String("color_PythonSuperMethod")]  = SyntaxHighlighter::IdentifierSuperMethod;
         keyToIdx[QLatin1String("color_PythonBuiltin")]      = SyntaxHighlighter::IdentifierBuiltin;
         keyToIdx[QLatin1String("color_PythonDecorator")]    = SyntaxHighlighter::IdentifierDecorator;
+        keyToIdx[QLatin1String("color_PythonSelf")]         = SyntaxHighlighter::IdentifierSelf;
 
         // delimiters
         keyToIdx[QLatin1String("color_Delimiter")]          = SyntaxHighlighter::Delimiter;
@@ -152,8 +159,10 @@ public:
         keyToIdx[QLatin1String("color_Python output")]      = SyntaxHighlighter::PythonConsoleOutput;
         keyToIdx[QLatin1String("color_Python error")]       = SyntaxHighlighter::PythonConsoleError;
 
-        keyToIdx[QLatin1String("color_Currentline")]  = SyntaxHighlighter::HighlightCurrentLine;
+        keyToIdx[QLatin1String("color_Currentline")]        = SyntaxHighlighter::HighlightCurrentLine;
 
+        // typehints
+        keyToIdx[QLatin1String("color_MetaData")]           = SyntaxHighlighter::MetaData;
 
 
         //-------------------------------
@@ -193,6 +202,7 @@ public:
         // identifiers
         translateNames[QLatin1String("color_PythonUnknown")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python unknown");
         translateNames[QLatin1String("color_PythonDefined")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python defined");
+        translateNames[QLatin1String("color_PythonDefUnknown")]   = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python unbound");
         translateNames[QLatin1String("color_PythonModule")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python module");
         translateNames[QLatin1String("color_PythonFunction")]     = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python function");
         translateNames[QLatin1String("color_PythonMethod")]       = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python method");
@@ -200,6 +210,7 @@ public:
         translateNames[QLatin1String("color_PythonSuperMethod")]  = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python super (__method__)");
         translateNames[QLatin1String("color_PythonBuiltin")]      = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python builtin");
         translateNames[QLatin1String("color_PythonDecorator")]    = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python decorator (@name)");
+        translateNames[QLatin1String("color_PythonSelf")]    = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python self");
 
         // delimiters
         translateNames[QLatin1String("color_Delimiter")]          = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Python delimiter");
@@ -219,7 +230,8 @@ public:
 
         // default translation.....
         translateNames[QLatin1String("color_Unknown")]            = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Unknown");
-
+        // typehints
+        translateNames[QLatin1String("color_MetaData")]           = QT_TRANSLATE_NOOP("DlgSettingsEditorImp", "Typehints");
 
         // aliases, only show the more detailed name in editor settings
         // keys inserted here won't show up in editor settings dialog
