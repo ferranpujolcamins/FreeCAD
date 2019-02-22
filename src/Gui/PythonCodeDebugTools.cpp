@@ -131,6 +131,7 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
     case PythonSyntaxHighlighter::T_DelimiterComma:        return "T_DelimiterComma";   // ,
     case PythonSyntaxHighlighter::T_DelimiterColon:        return "T_DelimiterColon";   // :
     case PythonSyntaxHighlighter::T_DelimiterSemiColon:    return "T_DelimiterSemiColon";   // ;
+    case PythonSyntaxHighlighter::T_DelimiterEllipsis:     return "T_DelimiterEllipsis";    // ...
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
     case PythonSyntaxHighlighter::T_DelimiterMetaData:     return "T_DelimiterMetaData";   // -> might also be ':' inside arguments
@@ -140,6 +141,8 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
     case PythonSyntaxHighlighter::T_IdentifierUnknown:     return "T_IdentifierUnknown"; // name is not identified at this point
     case PythonSyntaxHighlighter::T_IdentifierDefined:     return "T_IdentifierDefined"; // variable is in current context
     case PythonSyntaxHighlighter::T_IdentifierModule:      return "T_IdentifierModule"; // its a module definition
+    case PythonSyntaxHighlighter::T_IdentifierModuleAlias: return "T_IdentifierModuleAlias"; // alias for import. ie: import Something as Alias
+    case PythonSyntaxHighlighter::T_IdentifierModulePackage: return "T_IdentifierModulePackage"; // identifier is a package, ie: root for other modules
     case PythonSyntaxHighlighter::T_IdentifierModuleGlob:  return "T_IdentifierModuleGlob"; // from mod import * <- glob
     case PythonSyntaxHighlighter::T_IdentifierFunction:    return "T_IdentifierFunction"; // its a function definition
     case PythonSyntaxHighlighter::T_IdentifierMethod:      return "T_IdentifierMethod"; // its a method definition
@@ -153,6 +156,12 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
 
         // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
     case PythonSyntaxHighlighter::T_MetaData:              return "T_MetaData";
+        // these are inserted by PythonSourceRoot
+    case PythonSyntaxHighlighter::T_BlockStart:            return "T_BlockStart"; // indicate a new block ie if (a is True):
+                                                                                  //                                       ^
+    case PythonSyntaxHighlighter::T_BlockEnd:              return "T_BlockEnd";   // indicate block end ie:    dosomething
+                                                                                  //                        dosomethingElse
+                                                                                  //                       ^
 
 
     case PythonSyntaxHighlighter::T_Invalid:               return "T_Invalid";

@@ -48,6 +48,7 @@
 #include <QDebug>
 #include <QEventLoop>
 #include <QFileInfo>
+#include <QDir>
 
 namespace Gui {
 struct PythonCodeP
@@ -445,7 +446,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
                 // These are the allowed Delimiters
                 // (       )       [       ]       {       }
-                // ,       :       .       ;       ->
+                // ,       :       .       ;       ->     ...
 
 
             // handle all with possibly 3 chrs
@@ -615,6 +616,10 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                 setDelimiter(i, 1, T_DelimiterComma);
                 break;
             case '.':
+                if (nextCh == '.' && thirdCh == '.') {
+                    setDelimiter(i, 3, T_DelimiterEllipsis);
+                    break;
+                }
                 setDelimiter(i, 1, T_DelimiterPeriod);
                 break;
             case ';':
@@ -690,7 +695,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
                         } else if (word == QLatin1String("from")) {
                             setWord(i, len, Tokens::T_KeywordFrom);
-                            d->endStateOfLastPara = T_IdentifierModule; // step out handle module name
+                            d->endStateOfLastPara = T_IdentifierModulePackage; // step out handle module name
                             isModuleLine = true;
 
                         } else if (word == QLatin1String("and")) {
@@ -700,7 +705,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                         } else if (word == QLatin1String("as")) {
                             setWord(i, len, T_KeywordAs);
                             if (isModuleLine)
-                                d->endStateOfLastPara = T_IdentifierModule;
+                                d->endStateOfLastPara = T_IdentifierModuleAlias;
                             else
                                 d->endStateOfLastPara = T_Undetermined;
                         } else if (word == QLatin1String("in")) {
@@ -833,7 +838,8 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             d->endStateOfLastPara = T_Undetermined;
 
         } break;
-        case T_IdentifierModule:
+        case T_IdentifierModuleAlias: case T_IdentifierModuleGlob:
+        case T_IdentifierModule: case T_IdentifierModulePackage:
         {
             // can import multiple modules separated  with ',' so we jump here between here and T_Undertermined
             for (; i < text.length(); ++i) {
@@ -853,7 +859,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                     break;
             }
 
-            setIdentifier(i, len, T_IdentifierModule);
+            setIdentifier(i, len, d->endStateOfLastPara);
             d->endStateOfLastPara = T_Undetermined;
 
         } break;
@@ -970,6 +976,9 @@ void PythonSyntaxHighlighter::setFormatToken(const PythonToken *token)
     // identifiers
     case T_IdentifierDefined:
         colorIdx = SyntaxHighlighter::IdentifierDefined; break;
+
+    case T_IdentifierModuleAlias:
+    case T_IdentifierModulePackage:// fallthrough
     case T_IdentifierModule:
         colorIdx = SyntaxHighlighter::IdentifierModule; break;
     case T_IdentifierModuleGlob:
@@ -1009,7 +1018,7 @@ void PythonSyntaxHighlighter::setFormatToken(const PythonToken *token)
         colorIdx = SyntaxHighlighter::MetaData; break;
     default:
         // all operators Whichh arent specialcased above
-        if (token->isKeyword()) {
+        if (token->isKeyword() || token->isOperatorCompareKeyword()) {
             colorIdx = SyntaxHighlighter::Keyword;
             format.setFontWeight(QFont::Bold);
         } else if (token->isOperator()) {
@@ -1276,7 +1285,7 @@ char MatchingCharInfo::matchingChar() const
 PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos,
                          Gui::PythonTextBlockData *block) :
     token(token), startPos(startPos), endPos(endPos),
-    txtBlock(block)
+    m_txtBlock(block)
 {
 }
 
@@ -1301,10 +1310,10 @@ bool PythonToken::operator >(const PythonToken &other) const
 
 PythonToken *PythonToken::next() const
 {
-    PythonTextBlockData *txt = txtBlock;
+    PythonTextBlockData *txt = m_txtBlock;
     while (txt) {
         const PythonTextBlockData::tokens_t tokens = txt->tokens();
-        if (txt == txtBlock) {
+        if (txt == m_txtBlock) {
             int i = tokens.indexOf(const_cast<PythonToken*>(this));
             if (i > -1 && i +1 < tokens.size())
                 return tokens.at(i+1);
@@ -1322,10 +1331,10 @@ PythonToken *PythonToken::next() const
 
 PythonToken *PythonToken::previous() const
 {
-    PythonTextBlockData *txt = txtBlock;
+    PythonTextBlockData *txt = m_txtBlock;
     while (txt) {
         const PythonTextBlockData::tokens_t tokens = txt->tokens();
-        if (txt == txtBlock) {
+        if (txt == m_txtBlock) {
             int i = tokens.indexOf(const_cast<PythonToken*>(this));
             if (i > 0)
                 return tokens.at(i-1);
@@ -1339,6 +1348,28 @@ PythonToken *PythonToken::previous() const
         txt = dynamic_cast<PythonTextBlockData*>(txt->block().next().userData());
     }
     return nullptr;
+}
+
+QString PythonToken::text() const
+{
+    return m_txtBlock->tokenAtAsString(this);
+}
+
+int PythonToken::line() const
+{
+    return m_txtBlock->block().blockNumber();
+}
+
+bool PythonToken::isCode() const
+{
+    if (token < PythonSyntaxHighlighter::T__NumbersStart)
+        return false;
+    if (token >= PythonSyntaxHighlighter::T__DelimiterTextLineStart &&
+        token <= PythonSyntaxHighlighter::T__DelimiterTextLineEnd)
+    {
+        return false;
+    }
+    return true;
 }
 
 void PythonToken::attachReference(PythonSourceListNodeBase *srcListNode)
@@ -1605,6 +1636,20 @@ bool PythonTextBlockData::isEmpty() const
 int PythonTextBlockData::indent() const
 {
     return m_indentCharCount; // note tab=8
+}
+
+void PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len)
+{
+    PythonToken *tokenObj = new PythonToken(token, pos, pos + len, this);
+    int idx = -1;
+    for (PythonToken *tok : m_tokens) {
+        if (tok->startPos > pos)
+            break;
+        ++idx;
+    }
+
+    if (idx > -1)
+        m_tokens.insert(idx, tokenObj);
 }
 
 QString PythonTextBlockData::indentString() const
@@ -1953,11 +1998,13 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
 
     // find the first token of any kind
     // firstline might be empty
-    const PythonToken *token = dynamic_cast<PythonTextBlockData*>(
+    const PythonToken *tok = dynamic_cast<PythonTextBlockData*>(
                              highlighter->document()->begin().userData())
                                     ->tokenAt(0);
-    if (token)
-        mod->rootFrame()->scanFrame(const_cast<PythonToken*>(token));
+    if (tok)
+        tok = mod->rootFrame()->scanFrame(const_cast<PythonToken*>(tok));
+
+    return mod;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1970,7 +2017,8 @@ PythonSourceRoot::TypeInfo::TypeInfo() :
 
 PythonSourceRoot::TypeInfo::TypeInfo(const PythonSourceRoot::TypeInfo &other) :
     type(other.type),
-    customNameIdx(other.customNameIdx)
+    customNameIdx(other.customNameIdx),
+    referenceName(other.referenceName)
 {
 }
 
@@ -2035,7 +2083,7 @@ PythonSourceListNodeBase::~PythonSourceListNodeBase()
 QString PythonSourceListNodeBase::text() const
 {
     if (m_token)
-        return m_token->txtBlock->tokenAtAsString(m_token);
+        return m_token->text();
     return QString();
 }
 
@@ -2072,6 +2120,8 @@ PythonSourceListParentBase::~PythonSourceListParentBase()
 
 void PythonSourceListParentBase::insert(PythonSourceListNodeBase *node)
 {
+    assert(node->next() == nullptr && "Node already owned");
+    assert(node->previous() == nullptr && "Node already owned");
     if (m_last) {
         // look up the place for this
         PythonSourceListNodeBase *n = m_last,
@@ -2228,7 +2278,7 @@ PythonSourceIdentifierAssignment::~PythonSourceIdentifierAssignment()
 int PythonSourceIdentifierAssignment::linenr()
 {
     if (m_linenr < 0) {
-        m_linenr = m_token->txtBlock->block().blockNumber();
+        m_linenr = m_token->line();
     }
     return m_linenr;
 }
@@ -2280,6 +2330,11 @@ PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(int line, i
     return nullptr;
 }
 
+PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(const PythonToken *tok) const
+{
+    return getFromPos(tok->line(), tok->startPos);
+}
+
 QString PythonSourceIdentifier::name() const
 {
     if (m_first)
@@ -2318,7 +2373,7 @@ PythonSourceIdentifier *PythonSourceIdentifierList::setIdentifier(const PythonTo
                                                                   PythonSourceRoot::TypeInfo typeInfo)
 {
     assert(tok && "Expected a valid pointer");
-    QString name = tok->txtBlock->tokenAtAsString(tok);
+    QString name = tok->text();
 
     PythonSourceIdentifier *identifier = nullptr;
     PythonSourceIdentifierAssignment *assign = nullptr;
@@ -2358,6 +2413,7 @@ PythonSourceIdentifier *PythonSourceIdentifierList::setIdentifier(const PythonTo
     // create new assigment
     assign = new PythonSourceIdentifierAssignment(identifier, tok, typeInfo);
     identifier->insert(assign);
+    return identifier;
 }
 
 int PythonSourceIdentifierList::compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const
@@ -2432,7 +2488,7 @@ PythonSourceParameter *PythonSourceParameterList::setParameter(const PythonToken
                                                                 PythonSourceParameter::ParameterType paramType)
 {
     assert(tok && "Expected a valid pointer");
-    QString name = tok->txtBlock->tokenAtAsString(tok);
+    QString name = tok->text();
 
     PythonSourceParameter *parameter = nullptr;
 
@@ -2472,6 +2528,339 @@ int PythonSourceParameterList::compare(PythonSourceListNodeBase *left, PythonSou
     return -1; // r must be bigger
 }
 
+// ----------------------------------------------------------------------------
+
+
+PythonSourceImportModule::PythonSourceImportModule(PythonSourceImportPackage *parent,
+                                                   PythonSourceFrame *frame,
+                                                   QString alias) :
+    PythonSourceListNodeBase(parent),
+    m_frame(frame), m_aliasName(alias)
+{
+}
+
+PythonSourceImportModule::~PythonSourceImportModule()
+{
+}
+
+QString PythonSourceImportModule::name() const
+{
+    if (!m_aliasName.isEmpty())
+        return m_aliasName;
+
+    QFileInfo fi(m_modulePath);
+    return fi.baseName();
+}
+
+void PythonSourceImportModule::load()
+{
+    // FIXME implement this in PythonSourceRoot as many opened files might require the same module
+}
+
+bool PythonSourceImportModule::isBuiltIn() const
+{
+    // FIXME implement this in PythonSourceRoot as many opened files might require the same module
+    return false;
+}
+
+// -----------------------------------------------------------------------------
+
+PythonSourceImportPackage::PythonSourceImportPackage(PythonSourceImportPackage *parent,
+                                                     QString name,
+                                                     PythonSourceModule *ownerModule) :
+    PythonSourceListParentBase(parent),
+    m_name(name),
+    m_ownerModule(ownerModule)
+{
+    // FIXME resolve path in PythonSourceRoot
+    m_packagePath = name;
+}
+
+PythonSourceImportPackage::~PythonSourceImportPackage()
+{
+}
+
+PythonSourceImportPackage *PythonSourceImportPackage::getImportPackagePath(QString filePath)
+{
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        if (pkg && pkg->path() == filePath)
+            return pkg;
+    }
+
+    return nullptr;
+}
+
+PythonSourceImportPackage *PythonSourceImportPackage::getImportPackage(QString name)
+{
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        if (pkg && pkg->name() == name)
+            return pkg;
+    }
+
+    return nullptr;
+}
+
+PythonSourceImportModule *PythonSourceImportPackage::getImportModulePath(QString filePath)
+{
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        PythonSourceImportModule *mod = dynamic_cast<PythonSourceImportModule*>(itm);
+        if (mod && mod->path() == filePath)
+            return mod;
+    }
+
+    return nullptr;
+}
+
+PythonSourceImportModule *PythonSourceImportPackage::getImportModule(QString name)
+{
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        PythonSourceImportModule *mod = dynamic_cast<PythonSourceImportModule*>(itm);
+        if (mod && mod->name() == name)
+            return mod;
+    }
+
+    return nullptr;
+}
+
+PythonSourceImportModule *PythonSourceImportPackage::setModule(QString name,
+                                                               QString alias,
+                                                               PythonSourceFrame *frame)
+{
+    QString importName = alias.isEmpty() ? name : alias;
+    PythonSourceImportModule *mod = getImportModule(importName);
+
+    if (mod)
+        return mod;
+
+    // not yet in list
+    mod = new PythonSourceImportModule(this, frame, alias);
+    insert(mod);
+    return mod;
+}
+
+PythonSourceImportPackage *PythonSourceImportPackage::setPackage(QString name)
+{
+    PythonSourceImportPackage *pkg = getImportPackage(name);
+    if (pkg)
+        return pkg;
+
+    pkg = new PythonSourceImportPackage(this, name, m_ownerModule);
+    insert(pkg);
+    return pkg;
+}
+
+int PythonSourceImportPackage::compare(PythonSourceListNodeBase *left,
+                                       PythonSourceListNodeBase *right) const
+{
+    QString lName, rName;
+    PythonSourceImportModule *lm = dynamic_cast<PythonSourceImportModule*>(left),
+                             *rm = dynamic_cast<PythonSourceImportModule*>(right);
+
+    PythonSourceImportPackage *lp = dynamic_cast<PythonSourceImportPackage*>(left),
+                              *rp = dynamic_cast<PythonSourceImportPackage*>(right);
+    if (lm)
+        lName = lm->name();
+    else if(lp)
+        lName = lp->name();
+    else
+        assert("Invalid state, non module or package stored (left)" == nullptr);
+
+    if (rm)
+        rName = rm->name();
+    else if (rp)
+        rName = rp->name();
+    else
+        assert("Invalid state, non module or package stored (right)" == nullptr);
+
+    if (lName < rName)
+        return +1;
+    else if (lName > rName)
+        return -1;
+    return 0;
+
+}
+
+// ----------------------------------------------------------------------------
+
+
+PythonSourceImportList::PythonSourceImportList(PythonSourceFrame *owner,
+                                               PythonSourceModule *ownerModule) :
+    PythonSourceImportPackage(this, QLatin1String(""), ownerModule),
+    m_frame(owner)
+{
+    m_preventAutoRemoveMe = true;
+}
+
+PythonSourceImportList::~PythonSourceImportList()
+{
+}
+
+PythonSourceImportModule *PythonSourceImportList::getImportModulePath(QString filePath)
+{
+    QFileInfo fi(filePath);
+    QDir dir = fi.dir();
+    dir.cdUp();
+    return getImportModule(dir.dirName(), fi.baseName());
+}
+
+PythonSourceImportModule *PythonSourceImportList::getImportModule(QString rootPackage, QString name)
+{
+    PythonSourceImportPackage *pkg = getImportPackage(QString(), rootPackage);
+    if (pkg)
+        return pkg->getImportModule(name);
+
+    return nullptr;
+}
+
+PythonSourceImportModule *PythonSourceImportList::getImportModule(QStringList modInheritance)
+{
+    if (empty() || modInheritance.size() < 1)
+        return nullptr;
+
+    QString modName = modInheritance[modInheritance.size() -1];
+
+    if (modInheritance.size() < 2)
+        return getImportModule(QString(), modName);
+
+    // get root package by slicing QStringList
+    PythonSourceImportPackage *pkg = getImportPackage(QString(), modInheritance.last());
+    if (pkg)
+        return pkg->getImportModule(modName);
+
+    return nullptr;
+}
+
+PythonSourceImportPackage *PythonSourceImportList::getImportPackagePath(QString filePath)
+{
+    QFileInfo fi(filePath);
+    QDir dir = fi.dir();
+    dir.cdUp();
+    return getImportPackage(dir.dirName(), fi.baseName());
+}
+
+PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QString rootPackage, QString name)
+{
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        // lookup among packages, all modules are stored in packages
+        if (pkg) {
+            if (!rootPackage.isEmpty()) {
+                if (rootPackage == pkg->name())
+                    return pkg->getImportPackage(name);
+            } else {
+                return pkg;
+            }
+
+        }
+    }
+
+    return nullptr;
+}
+
+PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QStringList modInheritance)
+{
+    if (empty() || modInheritance.size() < 1)
+        return nullptr;
+
+    // single name like import sys
+    if (modInheritance.size() == 1)
+        return getImportPackage(QString(), modInheritance[0]);
+
+    // package.module.... like import sys.path.join
+    PythonSourceImportPackage *pkg = nullptr;
+    QString curName = modInheritance.takeLast();
+
+    // first find our root package
+    for (PythonSourceListNodeBase *itm = begin();
+         itm != end();
+         itm = itm->next())
+    {
+        pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        if (pkg && pkg->name() == curName) {
+            // found our root package
+            while(pkg &&
+                  !(curName = modInheritance.takeLast()).isEmpty() && // note! action here
+                  !curName.isEmpty())
+            {
+                if (modInheritance.size() == 0)
+                    return pkg->getImportPackage(curName);
+                pkg = pkg->getImportPackage(curName);
+            }
+
+        }
+    }
+
+    return nullptr;
+
+}
+
+PythonSourceImportModule *PythonSourceImportList::setModule(QStringList rootPackage,
+                                                            QString module, QString alias)
+{
+    PythonSourceImportModule *mod = nullptr;
+    PythonSourceImportPackage *rootPkg = getImportPackage(rootPackage);
+
+    if (!rootPkg)
+        rootPkg = setPackage(rootPackage);
+
+    if (rootPkg) {
+        mod = rootPkg->getImportModule(alias.isEmpty() ? module : alias);
+        if (mod)
+            return mod;
+
+        // we have package but not module
+        return rootPkg->setModule(module, alias, m_frame);
+    }
+
+    // an error occured
+    return nullptr;
+}
+
+PythonSourceImportPackage *PythonSourceImportList::setPackage(QStringList rootPackage)
+{
+    PythonSourceImportPackage *rootPkg = nullptr;
+
+    // no rootPackages
+    if (rootPackage.size() < 1) {
+       rootPkg = PythonSourceImportPackage::setPackage(QLatin1String(""));
+       return rootPkg;
+    }
+
+    // lookup package
+    rootPkg = getImportPackage(rootPackage);
+
+    if (!rootPkg) {
+        // we doesn't have rootPackage yet, recurse until we find it
+        rootPkg = setPackage(rootPackage.mid(0, rootPackage.size() -1));
+        return rootPkg;
+    }
+
+    return nullptr;
+}
+
+PythonSourceModule *PythonSourceImportList::setModuleGlob(QStringList rootPackage)
+{
+    // FIXME implement
+    Q_UNUSED(rootPackage);
+    return nullptr;
+}
 
 // -----------------------------------------------------------------------------
 
@@ -2482,6 +2871,7 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner,
     PythonSourceListParentBase(owner),
     m_identifiers(this),
     m_parameters(this),
+    m_imports(this, module),
     m_returns(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
@@ -2497,6 +2887,7 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner,
     PythonSourceListParentBase(owner),
     m_identifiers(this),
     m_parameters(this),
+    m_imports(this, module),
     m_returns(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
@@ -2531,19 +2922,19 @@ QString PythonSourceFrame::docstring()
         //                            ^
         // find first string, before other stuff
         while (token) {
-            if (!token->txtBlock)
+            if (!token->txtBlock())
                 continue;
             switch (token->token) {
             case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:// fallthrough
             case PythonSyntaxHighlighter::T_LiteralBlockSglQuote: {
                 // multiline
-                QString tmp = token->txtBlock->tokenAtAsString(token);
+                QString tmp = token->text();
                 docStrs << tmp.mid(3, tmp.size() - 6); // clip """
             }   break;
             case PythonSyntaxHighlighter::T_LiteralDblQuote: // fallthrough
             case PythonSyntaxHighlighter::T_LiteralSglQuote: {
                 // single line
-                QString tmp = token->txtBlock->tokenAtAsString(token);
+                QString tmp = token->text();
                 docStrs << tmp.mid(1, tmp.size() - 2); // clip "
             }   break;
             case PythonSyntaxHighlighter::T_Indent: // fallthrough
@@ -2600,13 +2991,13 @@ PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint()
             // step one more further
             token = token->next();
             if (token)
-                annotation = token->txtBlock->tokenAtAsString(token);
+                annotation = token->text();
 
         } else if (commentToken) {
             // extract from comment
             // type: def func(int, bool) -> MyType
             QRegExp re(QLatin1String("type\\s*:\\s*def\\s+[_a-zA-Z]+\\w*\\(.*\\)\\s*->\\s*(\\w+)"));
-            if (re.indexIn(token->txtBlock->tokenAtAsString(token)) > -1)
+            if (re.indexIn(token->text()) > -1)
                 annotation = re.cap(1);
         }
 
@@ -2635,67 +3026,398 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken)
     // set initial start token
     setToken(startToken);
 
-    if (m_parentFrame) {
+    //int rootIndentChrs = tok->txtBlock()->indent();
+
+    int firstRowIndent = 0,
+        currentBlockIndent = 0,
+        previousBlockIndent = 0;
+
+    // scan parameterLists
+    if (m_parentFrame && !isClass()) {
         // not rootFrame, parse argumentslist
         tok = const_cast<PythonToken*>(scanParameter(tok));
+        // get indent of first line after newline
+        int newLines = 0;
+        while(tok && newLines < 2) {
+            switch (tok->token){
+            case PythonSyntaxHighlighter::T_DelimiterLineContinue: break; // don't count newline
+            case PythonSyntaxHighlighter::T_DelimiterColon:
+                tok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockStart, tok->startPos, 0);
+                break;
+            case PythonSyntaxHighlighter::T_DelimiterNewLine:
+                ++newLines;
+                break;
+            case PythonSyntaxHighlighter::T_Indent:
+            case PythonSyntaxHighlighter::T_Comment:
+                break; // bail these tokens
+            default:
+                if (newLines > 0) {
+                    firstRowIndent = tok->txtBlock()->indent();
+                    previousBlockIndent = currentBlockIndent = firstRowIndent;
+                    ++newLines; // exit while
+                }
+            }
+        }
     }
 
+    int guard = 1000000; // max number or tokens, unhang locked loop
     // scan document
-    while (tok) {
-        if (tok->token == PythonSyntaxHighlighter::T_IdentifierClass) {
+    while (tok && (guard--)) {
+        switch(tok->token) {
+        case PythonSyntaxHighlighter::T_IdentifierDefUnknown: {
+            // a function that can be function or method
+            // determine what it is
+            if (m_isClass && firstRowIndent == tok->txtBlock()->indent()) {
+                tok->token = PythonSyntaxHighlighter::T_IdentifierMethod;
+                m_module->highlighter()->setFormatToken(tok);
+                goto doFunction;
+            }
+            tok->token = PythonSyntaxHighlighter::T_IdentifierFunction;
+            m_module->highlighter()->setFormatToken(tok);
+            goto doMethod;
+        } break;
+        case PythonSyntaxHighlighter::T_IdentifierClass: {
+            // store this as a class identifier
+            PythonSourceRoot::TypeInfo typeInfo;
+            typeInfo.type = PythonSourceRoot::DataTypes::ClassType;
+            m_identifiers.setIdentifier(tok, typeInfo);
+
             // add class frame
             PythonSourceFrame *clsFrm = new PythonSourceFrame(this, m_module, this, true);
             tok = clsFrm->scanFrame(tok);
             insert(clsFrm);
-        } else if (tok->token == PythonSyntaxHighlighter::T_IdentifierFunction){
+        } break;
+        case PythonSyntaxHighlighter::T_IdentifierFunction: {
+            // store this as a function identifier
+doFunction:
+            PythonSourceRoot::TypeInfo typeInfo;
+            typeInfo.type = PythonSourceRoot::DataTypes::ClassType;
+            m_identifiers.setIdentifier(tok, typeInfo);
+
             // add function frame
             PythonSourceFrame *funcFrm = new PythonSourceFrame(this, m_module, this, false);
             tok = funcFrm->scanFrame(tok);
             insert(funcFrm);
+        } break;
+        case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
+            if (isClass() &&
+                tok->token == PythonSyntaxHighlighter::T_IdentifierSuperMethod &&
+                tok->text() == QLatin1String("__init__"))
+            {
+                // parameters for this class
+                scanParameter(tok->next());
+            }
+            // fallthrough
+        case PythonSyntaxHighlighter::T_IdentifierMethod: {
+doMethod:
+            if (!isClass())
+                setSyntaxError(tok, QLatin1String("Method without class"));
+
+            // add method frame
+            PythonSourceFrame *frm = new PythonSourceFrame(this, m_module, this, true);
+            tok = frm->scanFrame(tok);
+            insert(frm);
+
+        } break;
+        case PythonSyntaxHighlighter::T_Indent: {
+            int indent = tok->txtBlock()->indent();
+            if (indent < currentBlockIndent) {
+                // dedent
+                tok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockEnd, tok->startPos, 0);
+                if (indent > previousBlockIndent) {
+                    tok->token = PythonSyntaxHighlighter::T_IndentError;
+                    m_module->highlighter()->setFormatToken(tok);
+                } else {
+                    currentBlockIndent = indent;
+                    // leave frame ?
+                    if (currentBlockIndent < firstRowIndent)
+                        goto leaveFrame;
+                }
+            } else if (indent > currentBlockIndent) {
+                // indent
+                // find previous ':'
+                PythonToken *prev = tok->previous();
+                int guard = 20;
+                while(prev && (guard--)) {
+                    switch (prev->token) {
+                    case PythonSyntaxHighlighter::T_DelimiterLineContinue:
+                    case PythonSyntaxHighlighter::T_DelimiterNewLine:
+                    case PythonSyntaxHighlighter::T_Indent:
+                    case PythonSyntaxHighlighter::T_IndentError:
+                    case PythonSyntaxHighlighter::T_Comment:
+                        prev = prev->previous();
+                        break;
+                    case PythonSyntaxHighlighter::T_DelimiterColon:
+                        prev->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockStart, tok->startPos, 0);
+                        prev = nullptr; // break for loop
+                        break;
+                    default:
+                        // syntax error
+                        setSyntaxError(tok, QLatin1String("Blockstart without ':'"));
+                        prev = nullptr; // break for loop
+                    }
+                }
+            }
+        } break;
+        default:
+            if (tok->isIdentifier()) {
+                tok = scanIdentifier(tok);
+            }
         }
 
         if (!tok)
             break;
 
-        // FIXME do stuff in frame
         tok = tok->next();
     }
 
-
+leaveFrame:
     // set end token
     lastToken = tok;
     return lastToken ? lastToken->next() : nullptr;
 }
 
+// scans a for aditional TypeHint and scans rvalue
+PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
+{
+    int guard = 20;
+    PythonSourceIdentifier *ident = nullptr;
+    PythonSourceRoot::TypeInfo typeInfo;
+
+    while (tok && (guard--)) {
+        // TODO figure out how to do tuple assignment
+        switch (tok->token) {
+        case PythonSyntaxHighlighter::T_OperatorEqual:
+            tok = scanRValue(tok, typeInfo, false);
+            ident = m_identifiers.setIdentifier(tok, typeInfo);
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterColon:
+            // type hint
+            tok = scanRValue(tok, typeInfo, true);
+            break;
+        case PythonSyntaxHighlighter::T_IdentifierModule:
+            tok = scanImports(tok);
+            break;
+        case PythonSyntaxHighlighter::T_IdentifierModuleGlob:
+        default:
+            break;
+        }
+        tok = tok->next();
+    }
+
+    return tok;
+}
+
+PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
+                                           PythonSourceRoot::TypeInfo &typeInfo,
+                                           bool isTypeHint)
+{
+    typeInfo = PythonSourceRoot::TypeInfo(); // init with clean type
+
+    int guard = 20;
+    int parenCnt = 0,
+        bracketCnt = 0,
+        braceCnt = 0;
+
+    const PythonSourceIdentifier *ident = nullptr;
+
+    while (tok && (guard--)) {
+        switch(tok->token) {
+        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+            ++parenCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+            --parenCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+            ++bracketCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+            --bracketCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+            ++braceCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseBrace:
+            --braceCnt; break;
+        case PythonSyntaxHighlighter::T_DelimiterPeriod:
+            // might have obj.sub1.sub2
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterColon:
+            if (!isTypeHint) {
+                setSyntaxError(tok, QString::fromLatin1("Unexpected '%1'").arg(tok->text()));
+                return tok;
+            } // else do next token
+            break;
+        case PythonSyntaxHighlighter::T_OperatorEqual:
+            if (!isTypeHint) {
+                // might have chained assignments ie: vlu1 = valu2 = vlu3 = 0
+                tok = scanRValue(tok->next(), typeInfo, isTypeHint);
+            }
+
+            if (ident && tok)
+                typeInfo = ident->getFromPos(tok)->type();
+            return tok;
+        default:
+            if (parenCnt == 0 && braceCnt == 0 && braceCnt == 0) {
+                QString text = tok->text();// one roundtrip to document
+                if (!isTypeHint) {
+                    // ordinary RValue
+                    if (tok->isInt())
+                        typeInfo.type = PythonSourceRoot::IntType;
+                    else if (tok->isFloat())
+                        typeInfo.type = PythonSourceRoot::FloatType;
+                    else if (tok->isString())
+                        typeInfo.type = PythonSourceRoot::StringType;
+                    else if (tok->isKeyword()) {
+                        if (text == QLatin1String("None"))
+                            typeInfo.type = PythonSourceRoot::NoneType;
+                        else if (text == QLatin1String("False") ||
+                                 text == QLatin1String("True"))
+                        {
+                            typeInfo.type = PythonSourceRoot::BoolType;
+                        }
+                    }
+                }
+
+                if (tok->isIdentifierVarable()){
+                    if (tok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
+                        typeInfo.type = PythonSourceRoot::ReferenceBuiltinType;
+                    } else {
+                        // TODO figure out how to lookup Identifier
+                        ident = m_identifiers.getIdentifier(text);
+                        if (ident) {
+                            typeInfo.type = PythonSourceRoot::ReferenceType;
+                            typeInfo.referenceName = text;
+                        } else if (isTypeHint)
+                            setSyntaxError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
+
+                    }
+                    return tok;
+
+                } else if (tok->isCode()) {
+                    setSyntaxError(tok, QString::fromLatin1("Unexpected code (%1)").arg(text));
+                    return tok;
+                }
+            }
+        }
+        tok = tok->next();
+    }
+
+    return tok;
+}
+
+PythonToken *PythonSourceFrame::scanImports(PythonToken *tok)
+{
+    int guard = 20;
+    QStringList fromPackages, importPackages, modules;
+    QString alias;
+    bool isAlias = false;
+    bool isImports = tok->previous()->token == PythonSyntaxHighlighter::T_KeywordImport;
+
+    while (tok && (guard--)) {
+        QString text = tok->text();
+        switch(tok->token) {
+        case PythonSyntaxHighlighter::T_KeywordImport:
+            isImports = true;
+            break;
+        case PythonSyntaxHighlighter::T_KeywordFrom:
+            if (isImports)
+                setSyntaxError(tok, QString::fromLatin1("Unexpected token '%1'").arg(text));
+            break;
+        case PythonSyntaxHighlighter::T_KeywordAs:
+            isAlias = true;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterNewLine:
+            if (tok->previous()->token != PythonSyntaxHighlighter::T_DelimiterLineContinue) {
+                guard = 0; // we are finished, bail out
+                if (modules.size() > 0)
+                    goto store_module;
+            }
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterComma:
+            if (!modules.isEmpty())
+                goto store_module;
+            break;
+        case PythonSyntaxHighlighter::T_IdentifierModuleGlob:
+            m_imports.setModuleGlob(fromPackages + importPackages);
+            modules.clear();
+            importPackages.clear();
+            break;
+        case PythonSyntaxHighlighter::T_IdentifierModulePackage:
+            if (!isImports) {
+                fromPackages << text;
+                break;
+            }
+            goto set_identifier;
+        case PythonSyntaxHighlighter::T_IdentifierModule:
+            goto set_identifier;
+        case PythonSyntaxHighlighter::T_IdentifierModuleAlias:
+            if (!isAlias)
+                setSyntaxError(tok, QString::fromLatin1("Parsed as Alias but analyzer disagrees. '%1'").arg(text));
+            goto set_identifier;
+        default:
+            if (tok->isCode())
+                setSyntaxError(tok, QString::fromLatin1("Unexpected token '%1'").arg(text));
+            break;
+        }
+
+next_token:
+        tok = tok->next();
+        continue;
+
+        // we should only get here by explicit goto statements
+set_identifier:
+            if (!isAlias) {
+                // previous text was a package
+                if (modules.size())
+                    importPackages << modules.takeLast();
+                modules << text;
+                goto next_token;
+            } else {
+                alias = text;
+            }
+
+// same code used from multiple places, keeps loop running
+store_module:
+        assert(modules.size() > 0 && "Modules set called by no modules in container");
+        if (alias.size() > 0)
+            m_imports.setModule(fromPackages + importPackages, modules[0], alias);
+        else
+            m_imports.setModule(fromPackages + importPackages, modules[0]);
+        alias.clear();
+        importPackages.clear();
+        modules.clear();
+        isAlias = false;
+        goto next_token;
+    }
+    return tok;
+}
+
 // may return nullptr on error
-const PythonToken *PythonSourceFrame::endOfParametersList(const PythonToken *token, bool storeParameters)
+const PythonToken *PythonSourceFrame::endOfParametersList(const PythonToken *tok, bool storeParameters)
 {
     // safely goes to closingParen of arguments list
     int parenCount = 0,
         safeGuard = 50;
-    while(token && token->token != PythonSyntaxHighlighter::T_DelimiterMetaData)
+    while(tok && tok->token != PythonSyntaxHighlighter::T_DelimiterMetaData)
     {
         if ((--safeGuard) <= 0)
             return nullptr;
         // first we must make sure we clear all parens
-        if (token->token == PythonSyntaxHighlighter::T_DelimiterOpenParen)
+        if (tok->token == PythonSyntaxHighlighter::T_DelimiterOpenParen)
             ++parenCount;
-        else if (token->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
+        else if (tok->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
             --parenCount;
 
-        if (parenCount == 0 && token->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
-            return token;
+        if (parenCount == 0 && tok->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
+            return tok;
 
         // advance one token
-        token = token->next();
+        tok = tok->next();
 
         // scan parameters
         if (storeParameters && parenCount > 0) {
-            if (token->token == PythonSyntaxHighlighter::T_DelimiterColon)
-                token = scanParameter(token);
-            else if (token->token == PythonSyntaxHighlighter::T_DelimiterOpenParen) {
+            if (tok->token == PythonSyntaxHighlighter::T_DelimiterColon)
+                tok = scanParameter(tok);
+            else if (tok->token == PythonSyntaxHighlighter::T_DelimiterOpenParen) {
                 ++parenCount;
-                token = scanParameter(token);
+                tok = scanParameter(tok);
             }
         }
     }
@@ -2735,7 +3457,7 @@ const PythonToken *PythonSourceFrame::scanParameter(const PythonToken *paramToke
             else if (paramToken->isIdentifier()) {
                 const PythonToken *nextTok = paramToken->next();
                 if (nextTok && nextTok->token == PythonSyntaxHighlighter::T_OperatorEqual)
-                    paramType == PythonSourceParameter::PositionalDefault; // have default value
+                    paramType = PythonSourceParameter::PositionalDefault; // have default value
                 else
                     paramType = PythonSourceParameter::Positional;
 
@@ -2776,7 +3498,7 @@ const PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const Py
     if (token && (token = token->next())) {
         if (token->token == PythonSyntaxHighlighter::T_DelimiterColon) {
             // type hint like foo : None = Nothing
-            QString explicitType = token->txtBlock->tokenAtAsString(token->next());
+            QString explicitType = token->next()->text();
             PythonSourceRoot *root = PythonSourceRoot::instance();
             typeInfo.type = root->mapDataType(explicitType);
             if (typeInfo.type == PythonSourceRoot::CustomType) {
@@ -2790,6 +3512,13 @@ const PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const Py
         }
     }
     return typeInfo;
+}
+
+void PythonSourceFrame::setSyntaxError(const PythonToken *tok, QString parseMessage)
+{
+    m_module->setParseMessage(tok, parseMessage);
+    const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_SyntaxError;
+    m_module->highlighter()->setFormatToken(tok);
 }
 
 
@@ -2806,6 +3535,56 @@ PythonSourceModule::PythonSourceModule(PythonSourceRoot *root,
 
 PythonSourceModule::~PythonSourceModule()
 {
+}
+
+void PythonSourceModule::setParseMessage(const PythonToken *tok, QString message)
+{
+    setParseMessage(tok->line(), tok->startPos, tok->endPos, message);
+}
+
+void PythonSourceModule::setParseMessage(int line, int startPos, int endPos, QString message)
+{
+    ParseMsg msg(message, line, startPos, endPos);
+    m_parseMessages.push_back(msg);
+}
+
+QString PythonSourceModule::parseMessage(const PythonToken *tok) const
+{
+    return parseMessage(tok->line(), tok->startPos);
+}
+
+QString PythonSourceModule::parseMessage(int line, int col) const
+{
+    for (const ParseMsg &msg : m_parseMessages) {
+        if (msg.line == line && msg.startPos <= col && msg.endPos >= col)
+            return msg.message;
+    }
+    return QString();
+}
+
+void PythonSourceModule::clearParseMessage(const PythonToken *tok)
+{
+    clearParseMessage(tok->line(), tok->startPos);
+}
+
+void PythonSourceModule::clearParseMessage(int line, int col)
+{
+    int idx = -1;
+    for (ParseMsg &msg : m_parseMessages) {
+        ++idx;
+        if (msg.line == line && msg.startPos <= col && msg.endPos >= col)
+            m_parseMessages.removeAt(idx);
+    }
+}
+
+void PythonSourceModule::clearParseMessagesLine(int line)
+{
+    int idx = -1;
+    for (ParseMsg &msg : m_parseMessages) {
+        ++idx;
+        if (msg.line == line)
+            m_parseMessages.removeAt(idx);
+    }
 }
 
 int PythonSourceModule::compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const

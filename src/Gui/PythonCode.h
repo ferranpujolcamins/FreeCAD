@@ -99,24 +99,26 @@ public:
 
         // numbers
         T__NumbersStart,
-        T_NumberDecimal = T__NumbersStart,     // Normal number
+        T__NumbersIntStart = T__NumbersStart,
         T_NumberHex,
         T_NumberBinary,
-        T_NumberOctal,    // starting with 0 ie 011 = 9, different color to let it stand out
+        T_NumberOctal,     // starting with 0 ie 011 = 9, different color to let it stand out
+        T_NumberDecimal,   // Normal number
+        T__NumbersIntEnd,
         T_NumberFloat,
         T__NumbersEnd,
 
         // strings
         T__LiteralsStart = T__NumbersEnd,
-        T_LiteralDblQuote = T__LiteralsStart,     // String literal beginning with "
-        T_LiteralSglQuote,     // Other string literal beginning with '
-        T_LiteralBlockDblQuote,     // Block comments beginning and ending with """
-        T_LiteralBlockSglQuote,     // Other block comments beginning and ending with '''
+        T_LiteralDblQuote,           // String literal beginning with "
+        T_LiteralSglQuote,           // Other string literal beginning with '
+        T_LiteralBlockDblQuote,      // Block comments beginning and ending with """
+        T_LiteralBlockSglQuote,      // Other block comments beginning and ending with '''
         T__LiteralsEnd,
 
         // Keywords
         T__KeywordsStart = T__LiteralsEnd,
-        T_Keyword          = T__KeywordsStart,
+        T_Keyword,
         T_KeywordClass,
         T_KeywordDef,
         T_KeywordImport,
@@ -133,8 +135,7 @@ public:
         // artihmetic operators
         T__OperatorStart            = T__KeywordsEnd,   // operators start
         T__OperatorArithmeticStart = T__OperatorStart,
-        T_OperatorPlus = T__OperatorArithmeticStart,
-                                     // +,
+        T_OperatorPlus,              // +,
         T_OperatorMinus,             // -,
         T_OperatorMul,               // *,
         T_OperatorExponential,       // **,
@@ -146,8 +147,7 @@ public:
 
         // bitwise operators
         T__OperatorBitwiseStart = T__OperatorArithmeticEnd,
-        T_OperatorBitShiftLeft  = T__OperatorBitwiseStart,
-                                      // <<,
+        T_OperatorBitShiftLeft,       // <<,
         T_OperatorBitShiftRight,      // >>,
         T_OperatorBitAnd,             // &,
         T_OperatorBitOr,              // |,
@@ -157,8 +157,7 @@ public:
 
         // assignment operators
         T__OperatorAssignmentStart   = T__OperatorBitwiseEnd,
-        T_OperatorEqual = T__OperatorAssignmentStart,
-                                      // =,
+        T_OperatorEqual,              // =,
         T_OperatorPlusEqual,          // +=,
         T_OperatorMinusEqual,         // -=,
         T_OperatorMulEqual,           // *=,
@@ -169,7 +168,7 @@ public:
         T_OperatorMatrixMulEqual,     // @= introduced in py 3.5
 
         // assignment bitwise
-        T__OperatorAssignBitwiseStart = T_OperatorMatrixMulEqual,
+        T__OperatorAssignBitwiseStart,
         T_OperatorBitAndEqual,           // &=
         T_OperatorBitOrEqual,            // |=
         T_OperatorBitXorEqual,           // ^=
@@ -181,31 +180,31 @@ public:
 
         // compare operators
         T__OperatorCompareStart  = T__OperatorAssignmentEnd,
-        T_OperatorCompareEqual = T__OperatorCompareStart,
-                                       // ==,
+        T_OperatorCompareEqual,        // ==,
         T_OperatorNotEqual,            // !=,
         T_OperatorLessEqual,           // <=,
         T_OperatorMoreEqual,           // >=,
         T_OperatorLess,                // <,
         T_OperatorMore,                // >,
+        T__OperatorCompareKeywordStart,
         T_OperatorAnd,                 // 'and'
         T_OperatorOr,                  // 'or'
         T_OperatorNot,                 // ! or 'not'
         T_OperatorIs,                  // 'is'
         T_OperatorIn,                  // 'in'
-        T__OperatorCompareEnd,
+        T__OperatorCompareKeywordEnd,
+        T__OperatorCompareEnd = T__OperatorCompareKeywordEnd,
 
         // special meaning
         T__OperatorParamStart = T__OperatorCompareEnd,
-        T_OperatorVariableParam = T__OperatorParamStart,
-                                      // * for function parameters ie (*arg1)
-        T_OperatorKeyWordParam,       // ** for function parameters ir (**arg1)
+        T_OperatorVariableParam,       // * for function parameters ie (*arg1)
+        T_OperatorKeyWordParam,        // ** for function parameters ir (**arg1)
         T__OperatorParamEnd,
         T__OperatorEnd = T__OperatorParamEnd,
 
         // delimiters
         T__DelimiterStart = T__OperatorEnd,
-        T_Delimiter = T__DelimiterStart,   // all other non specified
+        T_Delimiter,                       // all other non specified
         T_DelimiterOpenParen,              // (
         T_DelimiterCloseParen,             // )
         T_DelimiterOpenBracket,            // [
@@ -216,35 +215,52 @@ public:
         T_DelimiterComma,                  // ,
         T_DelimiterColon,                  // :
         T_DelimiterSemiColon,              // ;
+        T_DelimiterEllipsis,               // ...
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
         T_DelimiterMetaData,               // -> might also be ':' inside arguments
 
         // Text line specific
-        T_DelimiterLineContinue,           // when end of line is escaped like so '\'
+        T__DelimiterTextLineStart,
+        T_DelimiterLineContinue = T__DelimiterTextLineStart,
+                                           // when end of line is escaped like so '\'
         T_DelimiterNewLine,                // each new line
-        T__DelimiterEnd,
+        T__DelimiterTextLineEnd,
+        T__DelimiterEnd = T__DelimiterTextLineEnd,
 
         // identifiers
         T__IdentifierStart = T__DelimiterEnd,
-        T_IdentifierUnknown = T__IdentifierStart, // name is not identified at this point
+        T__IdentifierVariableStart = T__IdentifierStart,
+        T_IdentifierUnknown,                 // name is not identified at this point
         T_IdentifierDefined,                 // variable is in current context
+        T_IdentifierSelf,                    // specialcase self
+        T_IdentifierBuiltin,                 // its builtin in class methods
+        T__IdentifierVariableEnd,
+
+        T__IdentifierDeclarationStart = T__IdentifierVariableEnd,
         T_IdentifierModule,                  // its a module definition
+        T_IdentifierModulePackage,           // identifier is a package, ie: root for other modules
+        T_IdentifierModuleAlias,             // alias for import. ie: import Something as Alias
         T_IdentifierModuleGlob,              // from mod import * <- glob
         T_IdentifierFunction,                // its a function definition
         T_IdentifierMethod,                  // its a method definition
         T_IdentifierClass,                   // its a class definition
         T_IdentifierSuperMethod,             // its a method with name: __**__
-        T_IdentifierBuiltin,                 // its builtin
         T_IdentifierDecorator,               // member decorator like: @property
         T_IdentifierDefUnknown,              // before system has determined if its a
                                              // method or function yet
-        T_IdentifierSelf,                    // specialcase self in class methods
-        T__IdentifierEnd,
+        T__IdentifierDeclarationEnd,
+        T__IdentifierEnd = T__IdentifierDeclarationEnd,
 
         // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
         T_MetaData = T__IdentifierEnd,
 
+        // these are inserted by PythonSourceRoot
+        T_BlockStart, // indicate a new block ie if (a is True):
+                      //                                       ^
+        T_BlockEnd,   // indicate block end ie:    dosomething
+                      //                        dosomethingElse
+                      //                       ^
         T_Invalid, // let compiler decide last +1
 
         // console specific
@@ -331,12 +347,23 @@ struct PythonToken
     PythonSyntaxHighlighter::Tokens token;
     int startPos;
     int endPos;
-    PythonTextBlockData *txtBlock;
+
+    /// pointer to our father textBlockData
+    PythonTextBlockData *txtBlock() const { return m_txtBlock; }
+    QString text() const;
+    int line() const;
 
     // tests
     bool isNumber() const { // is a number in src file
         return token >= PythonSyntaxHighlighter::T__NumbersStart &&
                token <  PythonSyntaxHighlighter::T__NumbersEnd;
+    }
+    bool isInt() const { // is a integer (dec) in src file
+        return token >= PythonSyntaxHighlighter::T__NumbersIntStart &&
+               token <  PythonSyntaxHighlighter::T__NumbersIntEnd;
+    }
+    bool isFloat() const {
+        return token == PythonSyntaxHighlighter::T_NumberFloat;
     }
     bool isString() const {
         return token >= PythonSyntaxHighlighter::T__LiteralsStart &&
@@ -370,6 +397,10 @@ struct PythonToken
         return token >= PythonSyntaxHighlighter::T__OperatorAssignBitwiseStart &&
                token <  PythonSyntaxHighlighter::T__OperatorAssignBitwiseEnd;
     }
+    bool isOperatorCompareKeyword() const {
+        return token >= PythonSyntaxHighlighter::T__OperatorCompareKeywordStart &&
+               token <= PythonSyntaxHighlighter::T__OperatorCompareKeywordEnd;
+    }
     bool isOperatorParam() const {
         return token >= PythonSyntaxHighlighter::T__OperatorParamStart &&
                token <  PythonSyntaxHighlighter::T__OperatorParamEnd;
@@ -382,8 +413,19 @@ struct PythonToken
         return token >= PythonSyntaxHighlighter::T__IdentifierStart &&
                token <  PythonSyntaxHighlighter::T__IdentifierEnd;
     }
+    bool isIdentifierVarable() const {
+        return token >= PythonSyntaxHighlighter::T__IdentifierVariableStart &&
+               token <= PythonSyntaxHighlighter::T__IdentifierVariableEnd;
+    }
+    bool isIdentifierDeclaration() const {
+        return token >= PythonSyntaxHighlighter::T__IdentifierDeclarationStart &&
+               token <= PythonSyntaxHighlighter::T__IdentifierDeclarationEnd;
+    }
     bool isInValid() const  { return token == PythonSyntaxHighlighter::T_Invalid; }
     bool isUndetermined() const { return token == PythonSyntaxHighlighter::T_Undetermined; }
+
+    // returns true if token represents code (not just T_Indent, T_NewLine etc)
+    bool isCode() const;
 
 
     // all references get a call to PythonSourceListNode::tokenDeleted
@@ -392,6 +434,7 @@ struct PythonToken
 
 private:
     QList<PythonSourceListNodeBase*> m_srcLstNodes;
+    PythonTextBlockData *m_txtBlock;
 };
 
 // -----------------------------------------------------------------------
@@ -504,9 +547,16 @@ public:
      */
     int indent() const;
 
+    /**
+     * @brief insertToken inserts a token at position
+     * @param token: Type of token
+     * @param pos: where in textducument
+     * @param len: token length in document
+     */
+    void insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len);
+
 
 protected:
-
     /**
      * @brief insert should only be used by PythonSyntaxHighlighter
      */
@@ -516,6 +566,7 @@ protected:
      *  signifies that parse tree lookup is needed
      */
     const PythonToken *setUndeterminedToken(PythonSyntaxHighlighter::Tokens token, int startPos, int len);
+
 
     /**
      * @brief setIndentCount should be considered private, is
@@ -565,6 +616,9 @@ class PythonSourceModule;
 class PythonSourceModuleList;
 class PythonSourceParameter;
 class PythonSourceParameterList;
+class PythonSourceImportPackage;
+class PythonSourceImportModule;
+class PythonSourceImportList;
 
 /**
  * @brief The PythonCodeTree class hold all frames, vars and other identifiers
@@ -581,6 +635,7 @@ public:
         InValidType,
         UnknownType,
         ReferenceType, // references another variable
+        ReferenceBuiltinType, // references a builtin identifier
         NoneType,
         BoolType,
         IntType,
@@ -604,19 +659,21 @@ public:
         ~TypeInfo();
         PythonSourceRoot::DataTypes type;
         CustomNameIdx_t customNameIdx;
+        QString referenceName;
         QString typeAsStr() const;
         QString customName() const;
         bool operator ==(const TypeInfo &other) const {
             return type == other.type &&
-                   customNameIdx == other.customNameIdx;
+                   customNameIdx == other.customNameIdx &&
+                   referenceName == other.referenceName;
         }
         bool operator !=(const TypeInfo &other) const {
-            return type != other.type &&
-                   customNameIdx != other.customNameIdx;
+            return false == (*this == other);
         }
         TypeInfo operator =(const TypeInfo &other) {
             type = other.type;
             customNameIdx = other.customNameIdx;
+            referenceName = other.referenceName;
             return *this;
         }
     };
@@ -771,6 +828,7 @@ public:
     /// get the last assigment up til line and pos in document
     /// or nullptr if not found
     PythonSourceIdentifierAssignment *getFromPos(int line, int pos) const;
+    PythonSourceIdentifierAssignment *getFromPos(const PythonToken *tok) const;
 
     /// get the name of identifier
     QString name() const;
@@ -858,6 +916,118 @@ protected:
     int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
 };
 
+// --------------------------------------------------------------------
+
+// a single import module, not a package
+class PythonSourceImportModule : public PythonSourceListNodeBase
+{
+    PythonSourceFrame *m_frame;
+    QString m_modulePath; // filepath to python file
+    QString m_aliasName; // alias name in: import something as other <- other is alias
+
+public:
+    explicit PythonSourceImportModule(PythonSourceImportPackage *parent,
+                                      PythonSourceFrame *frame,
+                                      QString alias);
+    ~PythonSourceImportModule();
+
+    /// returns the name as used when lookup, ie baseName or alias if present
+    QString name() const;
+    QString alias() const { return m_aliasName; }
+    QString path() const { return m_modulePath; }
+    void setPath(QString path) { m_modulePath = path; }
+    /// we use defered load, this function explicitly loads module
+    void load();
+    bool isLoaded() const;
+
+    /// true when its a C module
+    bool isBuiltIn() const;
+    /// false when import couldn't find file
+    bool isValid() const;
+
+    const PythonSourceFrame *frame() const { return m_frame; }
+};
+
+// ---------------------------------------------------------------------
+
+class PythonSourceImportPackage : public PythonSourceListParentBase
+{
+    QString m_packagePath; // filepath to folder for this package
+    QString m_name;
+    PythonSourceModule *m_ownerModule;
+public:
+    explicit PythonSourceImportPackage(PythonSourceImportPackage *parent,
+                                       QString name, PythonSourceModule *ownerModule);
+    ~PythonSourceImportPackage();
+
+    /// get import package from filePath
+    virtual PythonSourceImportPackage *getImportPackagePath(QString filePath);
+    /// get import instance from name (basename of filepath or alias)
+    virtual PythonSourceImportPackage *getImportPackage(QString name);
+
+    /// get import module instance from filePath
+    virtual PythonSourceImportModule *getImportModulePath(QString filePath);
+    /// get import module instance from name (basename of filepath or alias)
+    virtual PythonSourceImportModule *getImportModule(QString name);
+
+
+    /// lookup module and return it
+    /// if not stored in list it creates it
+    virtual PythonSourceImportModule *setModule(QString name, QString alias,
+                                        PythonSourceFrame *frame);
+
+    virtual PythonSourceImportPackage *setPackage(QString name);
+
+    QString name() const { return m_name; }
+    QString path() const { return m_packagePath;}
+
+protected:
+    int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
+};
+
+// ---------------------------------------------------------------------
+
+class PythonSourceImportList : public PythonSourceImportPackage
+{
+    PythonSourceFrame *m_frame;
+public:
+    explicit PythonSourceImportList(PythonSourceFrame *owner,
+                                    PythonSourceModule *ownerModule);
+    ~PythonSourceImportList();
+
+    /// returns package instance stored in 'filePath' from list
+    PythonSourceImportModule *getImportModulePath(QString filePath);
+    /// returns module instance from list with 'name' in 'rootPackage'
+    /// rootPackage might be empty, ie: 'import file2' <- here rootPackage is empty
+    PythonSourceImportModule *getImportModule(QString rootPackage, QString name);
+    /// returns module instance form list with module paths as QStingList
+    ///  ie: import sys.path.sub
+    PythonSourceImportModule *getImportModule(QStringList modInheritance);
+
+    /// returns package instance stored in 'filePath' from list
+    PythonSourceImportPackage *getImportPackagePath(QString filePath);
+    /// returns package instance from list with 'name' in rootPackage
+    /// rootPackage might be empty, ie: import sys <- here rootPackage is empty
+    PythonSourceImportPackage *getImportPackage(QString rootPackage, QString name);
+    /// returns package instance form list with module paths as QStringList
+    ///  ie: import sys.path.sub
+    PythonSourceImportPackage *getImportPackage(QStringList modInheritance);
+
+    /// set import inserts module at packages path
+    /// If already inserted we just return the module
+    /// returns Module instance
+    PythonSourceImportModule *setModule(QStringList rootPackage,
+                                        QString module,
+                                        QString alias = QString());
+
+    PythonSourceImportPackage *setPackage(QStringList rootPackage);
+
+    /// set import inserts module at packages path
+    /// If already inserted we just return the module
+    /// returns Module instance
+    PythonSourceModule *setModuleGlob(QStringList rootPackage);
+};
+
 // ---------------------------------------------------------------------
 
 /// for function or method frames, contains all identifiers within this frame
@@ -867,6 +1037,7 @@ class PythonSourceFrame : public PythonSourceListParentBase
     /// stores all identifiers contained within each frame
     PythonSourceIdentifierList m_identifiers;
     PythonSourceParameterList m_parameters;
+    PythonSourceImportList    m_imports;
     PythonSourceListParentBase *m_returns;
     PythonSourceFrame *m_parentFrame;
     PythonSourceModule *m_module;
@@ -883,6 +1054,8 @@ public:
     /// get the parent function frame
     PythonSourceFrame *parentFrame() const { return m_parentFrame; }
     void setParentFrame(PythonSourceFrame *frame) { m_parentFrame = frame; }
+
+    PythonSourceModule *module() const { return m_module; }
 
     /// get the docstring for this function/method
     QString docstring();
@@ -918,13 +1091,25 @@ public:
     void scanRow(PythonTextBlockData *row, PythonSyntaxHighlighter *highlighter) const;
 
 private:
-    // use to traverse to semicolon after argumentslist for typehint
+    // set identifier and sets up reference to RValue
+    PythonToken *scanIdentifier(PythonToken *tok);
+    // scans the RValue ie after '='
+    // or scans type hint ie after :
+    PythonToken *scanRValue(PythonToken *tok,
+                            PythonSourceRoot::TypeInfo &typeInfo,
+                            bool isTypeHint);
+    PythonToken *scanImports(PythonToken *tok);
+
+
+    // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList
     const PythonToken *endOfParametersList(const PythonToken *token, bool storeParameters = false);
     // sets a parameter
     const PythonToken *scanParameter(const PythonToken *paramToken);
     // guess type for identifier
     const PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
+
+    void setSyntaxError(const PythonToken *tok, QString parseMessage);
 };
 
 // -------------------------------------------------------------------------
@@ -938,6 +1123,17 @@ class PythonSourceModule : public PythonSourceListParentBase
     QString m_moduleName;
     PythonSyntaxHighlighter *m_highlighter;
 public:
+    struct ParseMsg {
+        explicit ParseMsg(QString message, int line, int start, int end) :
+                    message(message), line(line), startPos(start), endPos(end) {}
+        ~ParseMsg() {}
+        QString message;
+        int line;
+        int startPos;
+        int endPos;
+    };
+    typedef QList<ParseMsg> parsemsgs_t;
+
     explicit PythonSourceModule(PythonSourceRoot *root,
                                 PythonSyntaxHighlighter *highlighter);
     ~PythonSourceModule();
@@ -954,8 +1150,29 @@ public:
 
     PythonSyntaxHighlighter *highlighter() const { return m_highlighter; }
 
+    /// set message for token
+    void setParseMessage(const PythonToken *tok, QString message);
+    /// set message at line with startPos - endPos boundaries
+    void setParseMessage(int line, int startPos, int endPos, QString message);
+    /// get parseMessage for token
+    QString parseMessage(const PythonToken *tok) const;
+    /// get parseMessage for line contained by col
+    QString parseMessage(int line, int col) const;
+    /// clear message
+    void clearParseMessage(const PythonToken *tok);
+    /// clears message that is contained by col
+    void clearParseMessage(int line, int col);
+    /// clears all messages on this line
+    void clearParseMessagesLine(int line);
+
+    /// get all parseMessages for this module
+    const parsemsgs_t allMessages() const { return m_parseMessages; }
+
 protected:
     int compare(PythonSourceListNodeBase *left, PythonSourceListNodeBase *right) const;
+
+private:
+    parsemsgs_t m_parseMessages;
 };
 
 // --------------------------------------------------------------------------
