@@ -683,7 +683,7 @@ bool TextEditor::event(QEvent *event)
             endPos = pos;
             cursor.setPosition(startPos);
             cursor.setPosition(endPos, QTextCursor::KeepAnchor);
-            return editorToolTipEvent(helpEvent->globalPos(), cursor.selectedText());
+            return editorToolTipEvent(helpEvent->pos(), cursor.selectedText());
 
         } else {
             return editorToolTipEvent(helpEvent->globalPos(), QString());

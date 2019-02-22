@@ -665,22 +665,40 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 {
     if (textUnderPos.isEmpty()) {
         QToolTip::hideText();
-    } else if (d->debugger->isHalted()) {
-        QTextCursor cursor = cursorForPosition(pos);
-        PythonTextBlockData *textData = PythonTextBlockData::blockDataFromCursor(cursor);
-        if (!textData || !textData->isCodeLine())
+        return false;
+    }
+
+    QTextCursor cursor = cursorForPosition(pos);
+    PythonTextBlockData *textData = PythonTextBlockData::blockDataFromCursor(cursor);
+    if (!textData)
+        return false;
+
+    const PythonToken *tok = textData->tokenAt(cursor);
+    if (!tok)
+        return false;
+
+    if (d->debugger->isHalted()) {
+        // debugging state
+        if (!tok->isCode())
             return false;
 
-        QString name = textData->tokenAtAsString(cursor);
-        if (name.isEmpty())
-            return false;
 
         // TODO figure out how to extract attribute / item chain for objects, dicts and lists
         // using tokens from syntaxhighlighter
 
         QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
         QToolTip::showText(pos, str, this);
+    } else {
+        // coding state
+        PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
+        if (!scanInfo)
+            return false;
+
+
+        // TODO Specialize according to MsgType
+        QToolTip::showText(pos, scanInfo->parseMessage(tok->startPos));
     }
+
     return true;
 }
 
