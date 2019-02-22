@@ -22,7 +22,7 @@
 #ifndef PYTHONCODEDEBUGTOOLS_H
 #define PYTHONCODEDEBUGTOOLS_H
 
-#include "PythonCode.h"
+#include "PythonSyntaxHighlighter.h"
 #include <stdio.h>
 
 namespace Gui {

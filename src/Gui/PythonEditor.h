@@ -27,7 +27,8 @@
 #include "Window.h"
 #include "TextEdit.h"
 #include "SyntaxHighlighter.h"
-#include "PythonCode.h"
+#include "PythonSyntaxHighlighter.h"
+#include "PythonJedi.h"
 #include <QDialog>
 #include <QAbstractListModel>
 #include <QLabel>

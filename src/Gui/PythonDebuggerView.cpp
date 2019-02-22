@@ -37,7 +37,6 @@
 #include "Window.h"
 #include "MainWindow.h"
 #include "PythonEditor.h"
-#include "PythonCode.h"
 #include "Macro.h"
 
 

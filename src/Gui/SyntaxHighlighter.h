@@ -25,10 +25,10 @@
 #define GUI_SYNTAXHIGHLIGHTER_H
 
 #include <QSyntaxHighlighter>
+#include <Base/Parameter.h>
 
 namespace Gui {
 class SyntaxHighlighterP;
-class TextEditor;
 
 /**
  * Abstract Syntax highlighter.
@@ -153,11 +153,11 @@ public:
     // for example when retranslateing ui or on startup of a editor
     void loadSettings();
 
-protected:
-    virtual void colorChanged(const QString& type, const QColor& col);
+    /// returns the color assosiated with type
+    QColor colorByType(TColor type) const;
 
 protected:
-    QColor colorByType(TColor type) const;
+    virtual void colorChanged(const QString& type, const QColor& col);
 
 private:
     SyntaxHighlighterP* d;
