@@ -279,8 +279,10 @@ void PythonEditor::setFileName(const QString& fn)
 
         // rescan
         PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
-        if (ps)
+        if (ps) {
+            ps->setFilePath(fn);
             PythonSourceRoot::instance()->scanCompleteModule(fn, ps);
+        }
     }
 }
 
@@ -688,15 +690,39 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 
         QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
         QToolTip::showText(pos, str, this);
+        return true;
     } else {
         // coding state
         PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
-        if (!scanInfo)
+        if (scanInfo) {
+            // TODO Specialize according to MsgType
+            QToolTip::showText(pos, scanInfo->parseMessage(tok->startPos));
+            return true;
+        }
+
+        PythonSourceModule *mod = PythonSourceRoot::instance()->
+                                            moduleFromPath(d->filename);
+        if (!mod)
             return false;
 
+        const PythonSourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
+        if (!frm)
+            return false;
 
-        // TODO Specialize according to MsgType
-        QToolTip::showText(pos, scanInfo->parseMessage(tok->startPos));
+        const PythonSourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
+        if (!ident)
+            return false;
+
+        const  PythonSourceIdentifierAssignment *assign = ident->getFromPos(tok);
+        if (!assign)
+            return false;
+
+        QString displayStr = QString(QLatin1String("%1 set at line: %2 col: %3"))
+                                                   .arg(assign->typeInfo().typeAsStr())
+                                                   .arg(assign->linenr())
+                                                   .arg(assign->position());
+        QToolTip::showText(pos, displayStr);
+
     }
 
     return true;
