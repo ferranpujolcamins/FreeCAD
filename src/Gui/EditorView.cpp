@@ -634,11 +634,6 @@ void EditorView::setCurrentFileName(const QString &fileName)
 
     setWindowTitle(shownName);
     setWindowModified(d->editWrapper->editor()->document()->isModified());
-#ifdef BUILD_PYTHON_DEBUGTOOLS
-        {
-            DumpSyntaxTokens tok(d->editWrapper->editor()->document()->begin());
-        }
-#endif
 }
 
 QString EditorView::fileName() const

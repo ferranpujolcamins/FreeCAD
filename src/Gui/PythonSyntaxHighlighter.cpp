@@ -934,6 +934,13 @@ void PythonSyntaxHighlighter::sourceScanTmrCallback() {
 void PythonSyntaxHighlighter::setFilePath(QString filePath)
 {
     d->filePath = filePath;
+
+    PythonSourceRoot::instance()->scanCompleteModule(filePath, ps);
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        {
+            DumpSyntaxTokens tok(d->editWrapper->editor()->document()->begin());
+        }
+#endif
 }
 
 QString PythonSyntaxHighlighter::filePath() const

@@ -32,8 +32,10 @@
 
 // convinience macros, sets a global variable TOKEN_TEXT and TOKEN_NAME
 // usefull when debugging, you cant inspect in your variable window
+#ifdef BUILD_PYTHON_DEBUGTOOLS
 #ifndef DEBUG_TOKENS
 #define DEBUG_TOKENS 1
+#endif
 #endif
 
 #if DEBUG_TOKENS == 1

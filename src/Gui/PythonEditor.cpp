@@ -279,10 +279,8 @@ void PythonEditor::setFileName(const QString& fn)
 
         // rescan
         PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
-        if (ps) {
+        if (ps)
             ps->setFilePath(fn);
-            PythonSourceRoot::instance()->scanCompleteModule(fn, ps);
-        }
     }
 }
 
