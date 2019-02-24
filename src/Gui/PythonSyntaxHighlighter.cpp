@@ -2,30 +2,33 @@
 #include "PythonSyntaxHighlighter.h"
 
 #include "PreCompiled.h"
-#if 0 //ndef _PreComp_
-# include <QContextMenuEvent>
-# include <QMenu>
-# include <QPainter>
-# include <QShortcut>
-# include <QTextCursor>
-#endif
 
 #include <CXX/Objects.hxx>
 #include <Base/Interpreter.h>
 #include <QDebug>
+#include <QTimer>
 #include "PythonCode.h"
 #include "PythonEditor.h"
 
 using namespace Gui;
 
 
+static const int ParamLineShiftPos = 17,
+                 ParenCntShiftPos  = 28;
+static const int TokensMASK      = 0x0000FFFF,
+                 ParamLineMASK   = 0x00010000, // when we are whithin a function parameter line
+                 ParenCntMASK    = 0xF0000000, // how many parens we have open from previous block
+                 PreventTokenize = 0x00020000; // prevents this call from running tokenize, used to repaint this block
+
+
 namespace Gui {
 class PythonSyntaxHighlighterP
 {
 public:
-    PythonSyntaxHighlighterP():
+    explicit PythonSyntaxHighlighterP():
         endStateOfLastPara(PythonSyntaxHighlighter::T_Undetermined),
-        activeBlock(nullptr)
+        activeBlock(nullptr),
+        srcScanBlock(nullptr)
     {
 
         { // GIL lock code block
@@ -79,12 +82,16 @@ public:
         if (!builtins.contains(QLatin1String("print")))
             keywords << QLatin1String("print"); // python 2.7 and below
     }
+    ~PythonSyntaxHighlighterP() {}
 
     QStringList keywords;
     QStringList builtins;
     PythonSyntaxHighlighter::Tokens endStateOfLastPara;
-    PythonTextBlockData *activeBlock;
+    PythonTextBlockData *activeBlock,
+                        *srcScanBlock;
     QString filePath;
+    QTimer sourceScanTmr;
+
 
 };
 } // namespace Gui
@@ -98,7 +105,11 @@ public:
 PythonSyntaxHighlighter::PythonSyntaxHighlighter(QObject* parent)
     : SyntaxHighlighter(parent)
 {
-    d = new PythonSyntaxHighlighterP;
+    d = new PythonSyntaxHighlighterP();
+    d->sourceScanTmr.setInterval(50); // wait before running PythonSourceRoot rescan
+                                      // dont scan on every row during complete rescan
+    d->sourceScanTmr.setSingleShot(true);
+    connect(&d->sourceScanTmr, SIGNAL(timeout()), this, SLOT(sourceScanTmrCallback()));
 }
 
 /** Destroys this object. */
@@ -112,26 +123,80 @@ PythonSyntaxHighlighter::~PythonSyntaxHighlighter()
  */
 void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 {
-    int i = 0, lastI = 0;
-    QChar prev, ch;
-
-    d->activeBlock = new PythonTextBlockData(currentBlock());
-    setCurrentBlockUserData(d->activeBlock);
-
-    static const int TokensMASK    = 0x0000FFFF,
-                     ParamLineMASK = 0x00010000, // when we are whithin a function parameter line
-                     ParenCntMASK  = 0xF0000000; // how many parens we have open from previous block
-    static const int ParamLineShiftPos = 17,
-                     ParenCntShiftPos  = 28;
-    int prevState = previousBlockState() != -1 ? previousBlockState() : 0;
+    int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
     d->endStateOfLastPara = static_cast<PythonSyntaxHighlighter::Tokens>(prevState & TokensMASK);
     if (d->endStateOfLastPara < T_Undetermined)
         d->endStateOfLastPara = T_Undetermined;
 
+    int curState = currentBlockState();
+    if (curState != -1 &&  curState & PreventTokenize) {
+        // only paint this block, already tokenized
+        QTextBlockUserData *userBlock = currentBlockUserData();
+        if (userBlock) {
+            d->activeBlock = dynamic_cast<PythonTextBlockData*>(userBlock);
+            if (!d->activeBlock)
+                return;
+            // clear prevent flag
+            curState &= ~PreventTokenize;
+            setCurrentBlockState(curState);
+
+            // iterate through all formats
+            auto formats = d->activeBlock->allReformats();
+            for (const PythonToken *tok : formats.keys()) {
+                if (tok->txtBlock()->scanInfo())
+                    qDebug() << tok->line() << QLatin1String(" ") <<
+                            &formats[tok] <<
+                            QLatin1String(" ") << tok->txtBlock()->scanInfo()->parseMessage(tok) <<  endl;
+                QTextCharFormat format;
+                format.setUnderlineColor(QColor(3,45,240));
+                format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+                format.setFontUnderline(true);
+                setFormat(tok->startPos, tok->endPos - tok->startPos, formats[tok]);
+            }
+            formats.clear();
+        }
+    } else {
+        // Normally we end up here
+
+        d->sourceScanTmr.stop(); // schedule source scanner for this row
+
+        // create new userData
+        d->activeBlock = new PythonTextBlockData(currentBlock());
+        setCurrentBlockUserData(d->activeBlock);
+
+        int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
+        bool isParamLine  = prevState & ParamLineMASK;
+
+        // scans this line
+        int i = tokenize(text);
+
+        // Insert new line token
+        if (d->activeBlock->block().next().isValid())
+            d->activeBlock->setDeterminedToken(T_DelimiterNewLine, i, 0);
+
+
+        prevState = static_cast<int>(d->endStateOfLastPara);
+        prevState |= parenCnt << ParenCntShiftPos;
+        prevState |= (int)isParamLine << ParamLineShiftPos;
+        setCurrentBlockState(prevState);
+        d->srcScanBlock = d->activeBlock;
+        d->activeBlock = nullptr;
+
+        d->sourceScanTmr.start();
+    }
+
+}
+
+int PythonSyntaxHighlighter::tokenize(const QString &text)
+{
+    int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
     bool isModuleLine = false;
     bool isParamLine  = prevState & ParamLineMASK;
     int prefixLen = 0;
     int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
+
+    int i = 0, lastI = 0;
+    QChar prev, ch;
 
     while ( i < text.length() )
     {
@@ -395,6 +460,16 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                 if (isParamLine)
                     ++parenCnt;
                 break;
+            case '\r':
+                if (nextCh == '\n') {
+                    setDelimiter(i, 2, T_DelimiterNewLine);
+                    break;
+                }
+                setDelimiter(i, 1, T_DelimiterNewLine);
+                break;
+            case '\n':
+                setDelimiter(i, 1, T_DelimiterNewLine);
+                break;
             case '[':
                 setDelimiter(i, 1, T_DelimiterOpenBracket);
                 break;
@@ -535,7 +610,19 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                             setWord(i, len, T_KeywordReturn);
                             d->endStateOfLastPara = T_Undetermined;
 
-                        } else {
+                        } else if (word == QLatin1String("True")) {
+                            setIdentifier(i, len, T_IdentifierTrue);
+                            d->endStateOfLastPara = T_Undetermined;
+
+                        } else if (word == QLatin1String("False")) {
+                            setIdentifier(i, len, T_IdentifierFalse);
+                            d->endStateOfLastPara = T_Undetermined;
+
+                        } else if (word == QLatin1String("None")) {
+                            setIdentifier(i, len, T_IdentifierNone);
+                            d->endStateOfLastPara = T_Undetermined;
+
+                        }  else {
                             setWord(i, len, Tokens::T_Keyword);
                         }
 
@@ -700,10 +787,6 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
     } // end loop
 
-    // Insert new line token
-    if (d->activeBlock->block().next().isValid())
-        d->activeBlock->setDeterminedToken(T_DelimiterNewLine, i, 0);
-
 
     // only block comments can have several lines
     if ( d->endStateOfLastPara != T_LiteralBlockDblQuote &&
@@ -712,14 +795,11 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         d->endStateOfLastPara = T_Undetermined ;
     }
 
-    prevState = static_cast<int>(d->endStateOfLastPara);
-    prevState |= parenCnt << ParenCntShiftPos;
-    prevState |= (int)isParamLine << ParamLineShiftPos;
-    setCurrentBlockState(prevState);
-    d->activeBlock = nullptr;
+    return i;
 }
 
-void PythonSyntaxHighlighter::setFormatToken(const PythonToken *token)
+
+QTextCharFormat PythonSyntaxHighlighter::getFormatToken(const PythonToken *token) const
 {
     assert(token != nullptr && "Need a valid pointer");
 
@@ -835,16 +915,20 @@ void PythonSyntaxHighlighter::setFormatToken(const PythonToken *token)
     }
 
     format.setForeground(this->colorByType(colorIdx));
-    int pos = token->startPos;
-    int len = token->endPos - pos;
-    setFormat(pos, len, format);
+
+    return format;
 }
 
-void PythonSyntaxHighlighter::setTextFormat(QTextBlock txtBlock, int startPos,
-                                            int endPos, QTextCharFormat &format)
+void PythonSyntaxHighlighter::setFormatToken(const PythonToken *tok)
 {
-    //setCurrentBlock(txtBlock);
-    setFormat(startPos, endPos, format);
+    int pos = tok->startPos;
+    int len = tok->endPos - pos;
+    setFormat(pos, len, getFormatToken(tok));
+}
+
+void PythonSyntaxHighlighter::sourceScanTmrCallback() {
+    if (d->srcScanBlock)
+        PythonSourceRoot::instance()->scanSingleRowModule(d->filePath, d->srcScanBlock, this);
 }
 
 void PythonSyntaxHighlighter::setFilePath(QString filePath)
@@ -1121,7 +1205,7 @@ PythonToken *PythonToken::next() const
         }
 
         // we are the last token in this txtBlock or it was empty
-        txt = dynamic_cast<PythonTextBlockData*>(txt->block().next().userData());
+        txt = txt->next();
     }
     return nullptr;
 }
@@ -1142,7 +1226,7 @@ PythonToken *PythonToken::previous() const
         }
 
         // we are the last token in this txtBlock or it was empty
-        txt = dynamic_cast<PythonTextBlockData*>(txt->block().next().userData());
+        txt = txt->previous();
     }
     return nullptr;
 }
@@ -1158,13 +1242,13 @@ int PythonToken::line() const
 }
 
 bool PythonToken::isNumber() const { // is a number in src file
-    return token >= PythonSyntaxHighlighter::T__NumbersStart &&
-            token <  PythonSyntaxHighlighter::T__NumbersEnd;
+    return token > PythonSyntaxHighlighter::T__NumbersStart &&
+           token < PythonSyntaxHighlighter::T__NumbersEnd;
 }
 
 bool PythonToken::isInt() const { // is a integer (dec) in src file
-    return token >= PythonSyntaxHighlighter::T__NumbersIntStart &&
-            token <  PythonSyntaxHighlighter::T__NumbersIntEnd;
+    return token > PythonSyntaxHighlighter::T__NumbersIntStart &&
+           token <  PythonSyntaxHighlighter::T__NumbersIntEnd;
 }
 
 bool PythonToken::isFloat() const {
@@ -1172,85 +1256,113 @@ bool PythonToken::isFloat() const {
 }
 
 bool PythonToken::isString() const {
-    return token >= PythonSyntaxHighlighter::T__LiteralsStart &&
-            token <  PythonSyntaxHighlighter::T__LiteralsEnd;
+    return token > PythonSyntaxHighlighter::T__LiteralsStart &&
+           token < PythonSyntaxHighlighter::T__LiteralsEnd;
 }
 
 bool PythonToken::isKeyword() const {
-    return token >= PythonSyntaxHighlighter::T__KeywordsStart &&
-            token <  PythonSyntaxHighlighter::T__KeywordsEnd;
+    return token > PythonSyntaxHighlighter::T__KeywordsStart &&
+           token <  PythonSyntaxHighlighter::T__KeywordsEnd;
 }
 
 bool PythonToken::isOperator() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorStart &&
+           token <  PythonSyntaxHighlighter::T__OperatorEnd;
 }
 
 bool PythonToken::isOperatorArithmetic() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorArithmeticStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorArithmeticEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorArithmeticStart &&
+           token < PythonSyntaxHighlighter::T__OperatorArithmeticEnd;
 }
 
 bool PythonToken::isOperatorBitwise() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorBitwiseStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorBitwiseEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorBitwiseStart &&
+           token < PythonSyntaxHighlighter::T__OperatorBitwiseEnd;
 }
 
 bool PythonToken::isOperatorAssignment() const { // modifies lvalue
-    return token >= PythonSyntaxHighlighter::T__OperatorAssignmentStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorAssignmentEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorAssignmentStart &&
+           token < PythonSyntaxHighlighter::T__OperatorAssignmentEnd;
 }
 
 bool PythonToken::isOperatorAssignmentBitwise() const { // modifies through bit twiddling
-    return token >= PythonSyntaxHighlighter::T__OperatorBitwiseStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorBitwiseEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorBitwiseStart &&
+           token < PythonSyntaxHighlighter::T__OperatorBitwiseEnd;
 }
 
 bool PythonToken::isOperatorCompare() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorAssignBitwiseStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorAssignBitwiseEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorAssignBitwiseStart &&
+           token < PythonSyntaxHighlighter::T__OperatorAssignBitwiseEnd;
 }
 
 bool PythonToken::isOperatorCompareKeyword() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorCompareKeywordStart &&
-            token <= PythonSyntaxHighlighter::T__OperatorCompareKeywordEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorCompareKeywordStart &&
+           token < PythonSyntaxHighlighter::T__OperatorCompareKeywordEnd;
 }
 
 bool PythonToken::isOperatorParam() const {
-    return token >= PythonSyntaxHighlighter::T__OperatorParamStart &&
-            token <  PythonSyntaxHighlighter::T__OperatorParamEnd;
+    return token > PythonSyntaxHighlighter::T__OperatorParamStart &&
+           token <  PythonSyntaxHighlighter::T__OperatorParamEnd;
 }
 
 bool PythonToken::isDelimiter() const {
-    return token >= PythonSyntaxHighlighter::T__DelimiterStart &&
-            token <  PythonSyntaxHighlighter::T__DelimiterEnd;
+    return token > PythonSyntaxHighlighter::T__DelimiterStart &&
+           token < PythonSyntaxHighlighter::T__DelimiterEnd;
 }
 
 bool PythonToken::isIdentifier() const {
-    return token >= PythonSyntaxHighlighter::T__IdentifierStart &&
-            token <  PythonSyntaxHighlighter::T__IdentifierEnd;
+    return token > PythonSyntaxHighlighter::T__IdentifierStart &&
+           token < PythonSyntaxHighlighter::T__IdentifierEnd;
 }
 
 bool PythonToken::isIdentifierVarable() const {
-    return token >= PythonSyntaxHighlighter::T__IdentifierVariableStart &&
-            token <= PythonSyntaxHighlighter::T__IdentifierVariableEnd;
+    return token > PythonSyntaxHighlighter::T__IdentifierVariableStart &&
+           token < PythonSyntaxHighlighter::T__IdentifierVariableEnd;
 }
 
 bool PythonToken::isIdentifierDeclaration() const {
-    return token >= PythonSyntaxHighlighter::T__IdentifierDeclarationStart &&
-            token <= PythonSyntaxHighlighter::T__IdentifierDeclarationEnd;
+    return token > PythonSyntaxHighlighter::T__IdentifierDeclarationStart &&
+           token < PythonSyntaxHighlighter::T__IdentifierDeclarationEnd;
+}
+
+bool PythonToken::isNewLine() const
+{
+    if (token != PythonSyntaxHighlighter::T_DelimiterNewLine)
+        return false;
+
+    // else check for escape char
+    const PythonToken *prev = previous();
+    return prev && prev->token != PythonSyntaxHighlighter::T_DelimiterLineContinue;
+}
+
+bool PythonToken::isInValid() const  {
+    return token == PythonSyntaxHighlighter::T_Invalid;
+}
+
+bool PythonToken::isUndetermined() const {
+    return token == PythonSyntaxHighlighter::T_Undetermined;
 }
 
 bool PythonToken::isCode() const
 {
     if (token < PythonSyntaxHighlighter::T__NumbersStart)
         return false;
-    if (token >= PythonSyntaxHighlighter::T__DelimiterTextLineStart &&
-            token <= PythonSyntaxHighlighter::T__DelimiterTextLineEnd)
+    if (token > PythonSyntaxHighlighter::T__DelimiterTextLineStart &&
+        token < PythonSyntaxHighlighter::T__DelimiterTextLineEnd)
     {
         return false;
     }
     return true;
+}
+
+bool PythonToken::isImport() const
+{
+    return token > PythonSyntaxHighlighter::T__IdentifierImportStart &&
+           token < PythonSyntaxHighlighter::T__IdentifierImportEnd;
+}
+bool PythonToken::isText() const
+{
+    return token == PythonSyntaxHighlighter::T_Comment || isCode();
 }
 
 void PythonToken::attachReference(PythonSourceListNodeBase *srcListNode)
@@ -1298,6 +1410,22 @@ const PythonTextBlockData::tokens_t &PythonTextBlockData::tokens() const
     return m_tokens;
 }
 
+PythonTextBlockData *PythonTextBlockData::next() const
+{
+    QTextBlock nextBlock = block().next();
+    if (!nextBlock.isValid())
+        return nullptr;
+    return dynamic_cast<PythonTextBlockData*>(nextBlock.userData());
+}
+
+PythonTextBlockData *PythonTextBlockData::previous() const
+{
+    QTextBlock nextBlock = block().previous();
+    if (!nextBlock.isValid())
+        return nullptr;
+    return dynamic_cast<PythonTextBlockData*>(nextBlock.userData());
+}
+
 const PythonToken *PythonTextBlockData::setDeterminedToken(PythonSyntaxHighlighter::Tokens token,
                                              int startPos, int len)
 {
@@ -1319,6 +1447,17 @@ const PythonToken *PythonTextBlockData::setUndeterminedToken(PythonSyntaxHighlig
 void PythonTextBlockData::setIndentCount(int count)
 {
     m_indentCharCount = count;
+}
+
+bool PythonTextBlockData::setReformat(const PythonToken *tok, QTextCharFormat format)
+{
+    if (!m_tokens.contains(const_cast<PythonToken*>(tok)))
+        return false;
+    int state = m_block.userState();
+    state |= PreventTokenize;
+    m_block.setUserState(state);
+    m_reformats.insertMulti(tok, format);
+    return true;
 }
 
 const PythonToken *PythonTextBlockData::findToken(PythonSyntaxHighlighter::Tokens token,
@@ -1503,7 +1642,7 @@ bool PythonTextBlockData::isMatchAt(int pos, const QList<PythonSyntaxHighlighter
 bool PythonTextBlockData::isCodeLine() const
 {
     for (const PythonToken *tok : m_tokens) {
-        if (tok->token != PythonSyntaxHighlighter::T_Comment)
+        if (tok->isCode())
             return true;
     }
     return false;

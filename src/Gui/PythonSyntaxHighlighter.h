@@ -19,7 +19,6 @@ class TextEdit;
 
 /**
  * Syntax highlighter for Python.
- * \author Werner Mayer, Fredrik Johansson
  */
 class GuiExport PythonSyntaxHighlighter : public SyntaxHighlighter
 {
@@ -166,7 +165,7 @@ public:
 
         // Text line specific
         T__DelimiterTextLineStart,
-        T_DelimiterLineContinue = T__DelimiterTextLineStart,
+        T_DelimiterLineContinue,
                                            // when end of line is escaped like so '\'
         T_DelimiterNewLine,                // each new line
         T__DelimiterTextLineEnd,
@@ -181,11 +180,14 @@ public:
         T_IdentifierBuiltin,                 // its builtin in class methods
         T__IdentifierVariableEnd,
 
-        T__IdentifierDeclarationStart = T__IdentifierVariableEnd,
+        T__IdentifierImportStart = T__IdentifierVariableEnd,
         T_IdentifierModule,                  // its a module definition
         T_IdentifierModulePackage,           // identifier is a package, ie: root for other modules
         T_IdentifierModuleAlias,             // alias for import. ie: import Something as Alias
         T_IdentifierModuleGlob,              // from mod import * <- glob
+        T__IdentifierImportEnd,
+
+        T__IdentifierDeclarationStart = T__IdentifierImportEnd,
         T_IdentifierFunction,                // its a function definition
         T_IdentifierMethod,                  // its a method definition
         T_IdentifierClass,                   // its a class definition
@@ -193,6 +195,9 @@ public:
         T_IdentifierDecorator,               // member decorator like: @property
         T_IdentifierDefUnknown,              // before system has determined if its a
                                              // method or function yet
+        T_IdentifierNone,                    // The None keyword
+        T_IdentifierTrue,                    // The bool True
+        T_IdentifierFalse,                   // The bool False
         T__IdentifierDeclarationEnd,
         T__IdentifierEnd = T__IdentifierDeclarationEnd,
 
@@ -212,15 +217,8 @@ public:
         T_PythonConsoleError      = 1001
     };
 
-    /// sets (re-colors) txt contained from token
-    void setFormatToken(const PythonToken *token);
-
-    /// setUnderLine for text or notation for text
-    /// posStart is pos in txtBlock
-    /// use style and color
-    void setTextFormat(QTextBlock txtBlock, int startPos, int endPos,
-                      QTextCharFormat &format);
-
+    /// returns the format to color this token
+    QTextCharFormat getFormatToken(const PythonToken *token) const;
 
     // used by code analyzer, set by editor
     void setFilePath(QString filePath);
@@ -228,7 +226,13 @@ public:
 
 protected:
     // tokenizes block, called by highlightBlock when text have changed
-    //void tokenize(const block);
+    int tokenize(const QString &text);
+
+    /// sets (re-colors) txt contained from token
+    void setFormatToken(const PythonToken *tok);
+
+private Q_SLOTS:
+    void sourceScanTmrCallback();
 
 private:
     PythonSyntaxHighlighterP* d;
@@ -345,11 +349,16 @@ struct PythonToken
     bool isIdentifier() const;
     bool isIdentifierVarable() const;
     bool isIdentifierDeclaration() const;
-    bool isInValid() const  { return token == PythonSyntaxHighlighter::T_Invalid; }
-    bool isUndetermined() const { return token == PythonSyntaxHighlighter::T_Undetermined; }
+    bool isNewLine() const; // might be escaped this checks for that
+    bool isInValid() const;
+    bool isUndetermined() const;
+    bool isImport() const;
 
     // returns true if token represents code (not just T_Indent, T_NewLine etc)
+    // comment is also ignored
     bool isCode() const;
+    // like isCode but returns true if it is a comment
+    bool isText() const;
 
 
     // all references get a call to PythonSourceListNode::tokenDeleted
@@ -375,6 +384,9 @@ public:
 
     const QTextBlock &block() const;
     const tokens_t &tokens() const;
+
+    PythonTextBlockData *next() const;
+    PythonTextBlockData *previous() const;
     /**
      * @brief findToken searches for token in this block
      * @param token needle to search for
@@ -491,6 +503,19 @@ public:
      * @param scanInfo instance of PythonTextBlockScanInfo
      */
     void setScanInfo(PythonTextBlockScanInfo *scanInfo) { m_scanInfo = scanInfo; }
+
+
+    /**
+     * @brief setReformat sets up token to be repainted by format
+     *        We must later call PythonSyntaxHiglighter::rehighlight(this.block())
+     * @param tok PythonToken to be reformated, must be stored in this instance
+     * @param format QTextCharFormat to use
+     * @return true if token was stored in here
+     */
+    bool setReformat(const PythonToken *tok, QTextCharFormat format);
+
+    QHash<const PythonToken*, QTextCharFormat> &allReformats() { return m_reformats; }
+
 protected:
     /**
      * @brief insert should only be used by PythonSyntaxHighlighter
@@ -514,6 +539,7 @@ private:
     tokens_t m_tokens;
     QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
+    QHash<const PythonToken*, QTextCharFormat> m_reformats;
     QTextBlock m_block;
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
     PythonTextBlockScanInfo *m_scanInfo;

@@ -152,6 +152,9 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
     case PythonSyntaxHighlighter::T_IdentifierDecorator:   return "T_IdentifierDecorator"; // member decorator like: @property
     case PythonSyntaxHighlighter::T_IdentifierDefUnknown:  return "T_IdentifierDefUnknown"; // before system has determined if its a
                                                                                             // method or function yet
+    case PythonSyntaxHighlighter::T_IdentifierNone:        return "T_IdentifierNone";  // The None keyword
+    case PythonSyntaxHighlighter::T_IdentifierTrue:        return "T_IdentifierTrue";  // The bool True
+    case PythonSyntaxHighlighter::T_IdentifierFalse:       return "T_IdentifierFalse"; // The bool False
     case PythonSyntaxHighlighter::T_IdentifierSelf:        return "T_IdentifierSelf";
 
         // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
