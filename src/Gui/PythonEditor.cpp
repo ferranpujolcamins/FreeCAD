@@ -748,7 +748,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
                     tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
                     break;
                 case PythonTextBlockScanInfo::Message:
-                    tooltipTxt << QLatin1String() + msg.message;
+                    tooltipTxt << QLatin1String("") + msg.message;
                     break;
                 default:
                     tooltipTxt << QLatin1String("?: ") + msg.message;
@@ -832,7 +832,7 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
                         tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
                         break;
                     case PythonTextBlockScanInfo::Message:
-                        tooltipTxt << QLatin1String() + msg.message;
+                        tooltipTxt << QLatin1String("") + msg.message;
                         break;
                     case PythonTextBlockScanInfo::LookupError:
                         tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
