@@ -136,10 +136,48 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             d->activeBlock = dynamic_cast<PythonTextBlockData*>(userBlock);
             if (!d->activeBlock)
                 return;
-            // clear prevent flag
+            // clear prevent tokenize flag
             curState &= ~PreventTokenize;
             setCurrentBlockState(curState);
 
+            // set reformats again
+            for ( const PythonToken *tok : d->activeBlock->tokens()) {
+                QTextCharFormat format;
+                if (d->activeBlock->allReformats().keys().contains(tok)) {
+                    format = d->activeBlock->allReformats()[tok];
+                } else {
+                    format = getFormatToken(tok);
+                }
+
+                PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+                if (scanInfo) {
+                    const PythonTextBlockScanInfo::ParseMsg *parseMsg = scanInfo->getParseMessage(tok);
+                    if (parseMsg) {
+                        switch (parseMsg->type) {
+                        case PythonTextBlockScanInfo::IndentError:
+                            format.setUnderlineColor(QColor(244, 143, 66));
+                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+                            break;
+                        case PythonTextBlockScanInfo::SyntaxError:
+                            format.setUnderlineColor(colorByType(SyntaxError));
+                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+                            break;
+                        case PythonTextBlockScanInfo::Message:
+                            format.setUnderlineColor(QColor(210, 247, 64));
+                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+                            break;
+                        default: break; // nothing
+                        }
+                    }
+                }
+
+                // set the format
+                setFormat(tok->startPos, tok->endPos - tok->startPos, format);
+            }
+
+            d->activeBlock->allReformats().clear();
+
+            /*
             // iterate through all formats
             auto formats = d->activeBlock->allReformats();
             for (const PythonToken *tok : formats.keys()) {
@@ -151,9 +189,12 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
                 format.setUnderlineColor(QColor(3,45,240));
                 format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
                 format.setFontUnderline(true);
-                setFormat(tok->startPos, tok->endPos - tok->startPos, formats[tok]);
+                setFormat(tok->startPos, tok->endPos -tok->startPos, format);
+                //setFormatToken(tok);
+                //setFormat(tok->startPos, tok->endPos - tok->startPos, formats[tok]);
             }
             formats.clear();
+            */
         }
     } else {
         // Normally we end up here
@@ -1716,6 +1757,29 @@ void PythonTextBlockScanInfo::setParseMessage(int startPos, int endPos, QString 
     m_parseMessages.push_back(msg);
 }
 
+const PythonTextBlockScanInfo::ParseMsg
+*PythonTextBlockScanInfo::getParseMessage(const PythonToken *tok,
+                                          PythonTextBlockScanInfo::MsgType type) const
+{
+    return getParseMessage(tok->startPos, tok->endPos, type);
+}
+
+const PythonTextBlockScanInfo::ParseMsg
+*PythonTextBlockScanInfo::getParseMessage(int startPos, int endPos,
+                                          PythonTextBlockScanInfo::MsgType type) const
+{
+    for (const ParseMsg &msg : m_parseMessages) {
+        if (msg.startPos <= startPos && msg.endPos >= endPos) {
+            if (type == AllMsgTypes)
+                return &msg;
+            else if (msg.type == type)
+                return &msg;
+            break;
+        }
+    }
+    return nullptr;
+}
+
 QString PythonTextBlockScanInfo::parseMessage(const PythonToken *tok, MsgType type) const
 {
     return parseMessage(tok->startPos, type);
@@ -1723,15 +1787,9 @@ QString PythonTextBlockScanInfo::parseMessage(const PythonToken *tok, MsgType ty
 
 QString PythonTextBlockScanInfo::parseMessage(int col, MsgType type) const
 {
-    for (const ParseMsg &msg : m_parseMessages) {
-        if (msg.startPos <= col && msg.endPos >= col) {
-            if (type == AllMsgTypes)
-                return msg.message;
-            else if (msg.type == type)
-                return msg.message;
-            break;
-        }
-    }
+    const ParseMsg *parseMsg = getParseMessage(col, col, type);
+    if (parseMsg)
+        return parseMsg->message;
     return QString();
 }
 
