@@ -381,6 +381,38 @@ void PythonEditor::hideDebugMarker()
 
 void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
 {
+    // parsers messages
+    QTextBlock block = document()->findBlockByNumber(line-1);
+    if (block.isValid()) {
+        // we are at the correct line
+        PythonTextBlockData *blockData = dynamic_cast<PythonTextBlockData*>(block.userData());
+        if (blockData) {
+            PythonTextBlockScanInfo *scanInfo = blockData->scanInfo();
+            if (scanInfo) {
+                // we have scaninfo on this line (parsemessages)
+                for (const PythonTextBlockScanInfo::ParseMsg msg : scanInfo->allMessages()) {
+                    const char *iconFile = nullptr;
+                    switch (msg.type) {
+                    case PythonTextBlockScanInfo::LookupError: // fallthrough
+                    case PythonTextBlockScanInfo::IndentError:
+                        iconFile = "parse_info_warning"; break;
+                    case PythonTextBlockScanInfo::Message:
+                        iconFile = "parse_info_message"; break;
+                    case PythonTextBlockScanInfo::SyntaxError:
+                        iconFile = "parse_info_error";  break;
+                    default:
+                        continue; /* next for loop */ break;
+                    }
+                    if (iconFile) {
+                        QIcon icon = BitmapFactory().iconFromTheme(iconFile);
+                        p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
+                    }
+                }
+            }
+        }
+
+    }
+    // breakpoints
     App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     bool hadBreakpoint = false;
     if (bpl != nullptr) {
@@ -390,6 +422,7 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
             p->drawPixmap(x, y, d->breakpoint);
         hadBreakpoint = true;
     }
+    // exceptions from Python interpreter
     if (d->exceptions.contains(line)) {
         Base::PyExceptionInfo *exc = &d->exceptions[line];
         PyExceptionInfoGui excGui(exc);
@@ -399,6 +432,7 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
             excX += d->breakpoint.width();
         p->drawPixmap(excX, y, icon.pixmap(d->breakpoint.height()));
     }
+    // debugger marker
     if (d->debugLine == line) {
         p->drawPixmap(x, y, d->debugMarker);
         d->debugRect = QRect(x, y, d->debugMarker.width(), d->debugMarker.height());
@@ -668,6 +702,9 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         return false;
     }
 
+    QPoint tooltipPos = mapToGlobal(pos);
+    tooltipPos.rx() += lineNumberAreaWidth();
+
     QTextCursor cursor = cursorForPosition(pos);
     PythonTextBlockData *textData = PythonTextBlockData::blockDataFromCursor(cursor);
     if (!textData)
@@ -687,15 +724,41 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         // using tokens from syntaxhighlighter
 
         QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
-        QToolTip::showText(pos, str, this);
+        QToolTip::showText(tooltipPos, str, this);
         return true;
     } else {
+
         // coding state
         PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
         if (scanInfo) {
-            // TODO Specialize according to MsgType
-            QToolTip::showText(pos, scanInfo->parseMessage(tok->startPos));
-            return true;
+            QStringList tooltipTxt;
+            const PythonTextBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
+            for (const PythonTextBlockScanInfo::ParseMsg msg : msgTypes) {
+                if (msg.startPos > tok->startPos || msg.endPos < tok->endPos)
+                    continue; // not for this token
+
+                switch (msg.type) {
+                case PythonTextBlockScanInfo::LookupError:
+                    tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
+                    break;
+                case PythonTextBlockScanInfo::IndentError:
+                    tooltipTxt << QLatin1String("indenterr: ") + msg.message;
+                    break;
+                case PythonTextBlockScanInfo::SyntaxError:
+                    tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
+                    break;
+                case PythonTextBlockScanInfo::Message:
+                    tooltipTxt << QLatin1String() + msg.message;
+                    break;
+                default:
+                    tooltipTxt << QLatin1String("?: ") + msg.message;
+                    break;
+                }
+            }
+            if (tooltipTxt.size()) {
+                QToolTip::showText(tooltipPos, tooltipTxt.join(QLatin1String("\n")));
+                return true;
+            }
         }
 
         PythonSourceModule *mod = PythonSourceRoot::instance()->
@@ -716,10 +779,10 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
             return false;
 
         QString displayStr = QString(QLatin1String("%1 set at line: %2 col: %3"))
-                                                   .arg(assign->typeInfo().typeAsStr())
-                                                   .arg(assign->linenr())
-                                                   .arg(assign->position());
-        QToolTip::showText(pos, displayStr);
+                .arg(assign->typeInfo().typeAsStr())
+                .arg(assign->linenr())
+                .arg(assign->position());
+        QToolTip::showText(tooltipPos, displayStr);
 
     }
 
@@ -728,6 +791,10 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 
 bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 {
+    if (!document())
+        return false;
+
+    // exceptions
     if (d->exceptions.contains(line)) {
         QString srcText = QString::fromStdWString(d->exceptions[line].text());
         int offset = d->exceptions[line].getOffset();
@@ -741,15 +808,52 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
         }
 
         QString txt = QString((tr("%1 on line %2\nreason: '%4'\n\n%5")))
-                                .arg(QString::fromStdString(d->exceptions[line].getErrorType(true)))
-                                .arg(QString::number(d->exceptions[line].getLine()))
-                                .arg(QString::fromStdString(d->exceptions[line].getMessage()))
-                                .arg(srcText);
+                .arg(QString::fromStdString(d->exceptions[line].getErrorType(true)))
+                .arg(QString::number(d->exceptions[line].getLine()))
+                .arg(QString::fromStdString(d->exceptions[line].getMessage()))
+                .arg(srcText);
         QToolTip::showText(pos, txt, this);
+        return true;
     } else {
-        QToolTip::hideText();
+
+        // parse errors
+        PythonTextBlockData *textData = dynamic_cast<PythonTextBlockData*>(document()->findBlockByNumber(line-1).userData());
+        if (textData) {
+            PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
+            if (scanInfo) {
+                QStringList tooltipTxt;
+                const PythonTextBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
+                for (const PythonTextBlockScanInfo::ParseMsg msg : msgTypes) {
+                    switch (msg.type) {
+                    case PythonTextBlockScanInfo::IndentError:
+                        tooltipTxt << QLatin1String("indenterr: ") + msg.message;
+                        break;
+                    case PythonTextBlockScanInfo::SyntaxError:
+                        tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
+                        break;
+                    case PythonTextBlockScanInfo::Message:
+                        tooltipTxt << QLatin1String() + msg.message;
+                        break;
+                    case PythonTextBlockScanInfo::LookupError:
+                        tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
+                        break;
+                    default:
+                        tooltipTxt << QLatin1String("?: ") + msg.message;
+                        break;
+                    }
+                }
+                if (tooltipTxt.size()) {
+                    QToolTip::showText(pos, tooltipTxt.join(QLatin1String("\n")));
+                    return true;
+                }
+            }
+        } else {
+            QToolTip::hideText();
+            return true;
+        }
     }
-    return true;
+
+    return false;
 }
 
 void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)

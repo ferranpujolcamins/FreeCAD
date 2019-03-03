@@ -140,6 +140,9 @@
         <file>user.svg</file>
         <file>CoordinateSystem.svg</file>
         <file>MacroEditor.svg</file>
+        <file>parse_info_error.svg</file>
+        <file>parse_info_message.svg</file>
+        <file>parse_info_warning.svg</file>
         <file>Param_Bool.svg</file>
         <file>Param_Float.svg</file>
         <file>Param_Int.svg</file>
