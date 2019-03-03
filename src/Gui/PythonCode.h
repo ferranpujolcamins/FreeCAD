@@ -675,8 +675,11 @@ public:
         Variable,
         Keyword
     };
-    explicit PythonSourceParameter(PythonSourceParameterList *parent);
+    explicit PythonSourceParameter(PythonSourceParameterList *parent, PythonToken *tok);
     ~PythonSourceParameter();
+
+    /// get the frame of this parameter
+    const PythonSourceFrame *frame() const;
 
     /// get the identifierAssignment of this argument
     PythonSourceIdentifierAssignment *identifierAssignment() const;
@@ -710,7 +713,7 @@ public:
     const PythonSourceParameter *getParameter(const QString name) const;
     bool hasParameter(const QString name) const { return getParameter(name) != nullptr; }
     /// updates param type and or creates parameter if not exists
-    PythonSourceParameter *setParameter(const PythonToken *tok,
+    PythonSourceParameter *setParameter(PythonToken *tok,
                                          PythonSourceRoot::TypeInfo typeInfo,
                                          PythonSourceParameter::ParameterType paramType);
 
@@ -913,6 +916,8 @@ public:
     const PythonSourceModule *module() const { return m_module; }
     PythonSourceRoot::TypeInfo type() const { return m_type; }
 
+    QString name() const;
+
     /// true if frame is itself a module, ie: rootframe
     bool isModule() const { return m_parentFrame == nullptr; }
 
@@ -942,6 +947,9 @@ public:
     }
     /// get reference to all identifiers within this frame
     const PythonSourceIdentifierList &identifiers() const { return m_identifiers; }
+
+    // get reference to all parameters for this frame
+    const PythonSourceParameterList &parameters() const { return m_parameters; }
 
     /// returns a list with all the types for this frame
     ///   returnType Might differ

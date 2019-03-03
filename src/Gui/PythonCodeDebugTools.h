@@ -26,21 +26,48 @@
 #include <stdio.h>
 
 namespace Gui {
+class PythonSourceModule;
+class PythonSourceFrame;
+
 namespace Syntax {
 
 const char* tokenToCStr(PythonSyntaxHighlighter::Tokens tok);
 
 } // namespace Syntax
 
-
-// dumps all
-class DumpSyntaxTokens
+class DumpToFileBaseClass
 {
 public:
-    DumpSyntaxTokens(QTextBlock firstBlock, FILE *out = stdout);
-    ~DumpSyntaxTokens();
-private:
+    explicit DumpToFileBaseClass(const char *outfile = "stdout");
+    virtual ~DumpToFileBaseClass();
+
+    const char *datetimeStr();
+protected:
     FILE *m_file;
+};
+
+// -----------------------------------------------------------------
+
+// dumps all tokens from pythonsyntaxhighlighter
+class DumpSyntaxTokens : public DumpToFileBaseClass
+{
+public:
+    explicit DumpSyntaxTokens(QTextBlock firstBlock, const char *outfile = "stdout");
+    ~DumpSyntaxTokens();
+};
+
+// -----------------------------------------------------------------
+
+// dump identifiers etc from a module and frame
+class DumpModule : public DumpToFileBaseClass
+{
+public:
+    explicit DumpModule(PythonSourceModule *module, const char *outfile = "stdout");
+    ~DumpModule();
+
+    void dumpFrame(const PythonSourceFrame *frm, int indent);
+private:
+    PythonSourceModule *m_module;
 };
 
 

@@ -980,6 +980,7 @@ void PythonSyntaxHighlighter::setFilePath(QString filePath)
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             DumpSyntaxTokens dump(document()->begin());
+            DumpModule dMod(PythonSourceRoot::instance()->moduleFromPath(d->filePath));
         }
 #endif
 }

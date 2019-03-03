@@ -1638,25 +1638,42 @@ int PythonSourceIdentifierList::compare(const PythonSourceListNodeBase *left,
 // ----------------------------------------------------------------------------
 
 
-PythonSourceParameter::PythonSourceParameter(PythonSourceParameterList *parent) :
+PythonSourceParameter::PythonSourceParameter(PythonSourceParameterList *parent, PythonToken *tok) :
     PythonSourceListNodeBase(parent),
     m_paramType(InValid)
 {
+    m_token = tok;
 }
 
 PythonSourceParameter::~PythonSourceParameter()
 {
 }
 
+const PythonSourceFrame *PythonSourceParameter::frame() const
+{
+    PythonSourceParameterList *parentList = dynamic_cast<PythonSourceParameterList*>(m_owner);
+    if (!parentList)
+        return nullptr;
+    return parentList->frame();
+}
+
 PythonSourceIdentifierAssignment *PythonSourceParameter::identifierAssignment() const
 {
     // lookup with same token
-    PythonSourceFrame *frm = dynamic_cast<PythonSourceFrame*>(m_owner);
-    assert(frm != nullptr && "Expected a PythonSourceFrame stored in PythonSourceParameter");
+    const PythonSourceFrame *frm = frame();
+    assert(frm != nullptr && "Expected a PythonSourceFrame as parent to PythonSourceParameterList");
+    assert(m_token != nullptr && "A non valid token stored to PythonSourceParameter");
 
-    PythonSourceListNodeBase *itm = frm->identifiers().findFirst(m_token->token);
-    if (itm)
-        return dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
+    PythonSourceListNodeBase *itm = nullptr;
+    for (itm = frm->identifiers().begin();
+         itm != frm->identifiers().end();
+         itm = itm->next())
+    {
+        PythonSourceIdentifier *ident = dynamic_cast<PythonSourceIdentifier*>(itm);
+        if (ident && ident->name() == m_token->text()) {
+            return dynamic_cast<PythonSourceIdentifierAssignment*>(ident->findExact(m_token));
+        }
+    }
 
     return nullptr;
 }
@@ -1687,7 +1704,7 @@ const PythonSourceParameter *PythonSourceParameterList::getParameter(const QStri
     return nullptr;
 }
 
-PythonSourceParameter *PythonSourceParameterList::setParameter(const PythonToken *tok,
+PythonSourceParameter *PythonSourceParameterList::setParameter(PythonToken *tok,
                                                                 PythonSourceRoot::TypeInfo typeInfo,
                                                                 PythonSourceParameter::ParameterType paramType)
 {
@@ -1710,7 +1727,7 @@ PythonSourceParameter *PythonSourceParameterList::setParameter(const PythonToken
 
     // create new parameter
     if (!parameter) {
-        parameter = new PythonSourceParameter(this);
+        parameter = new PythonSourceParameter(this, tok);
         insert(parameter);
     }
 
@@ -2193,6 +2210,18 @@ PythonSourceFrame::~PythonSourceFrame()
 {
     if (m_typeHint)
         delete m_typeHint;
+}
+
+QString PythonSourceFrame::name() const
+{
+    if (isModule())
+        return QString::fromLatin1("<%1>").arg(m_module->moduleName());
+    const PythonSourceIdentifier *ident = parentFrame()->identifiers()
+                                        .getIdentifier(token()->text());
+    if (ident)
+        return ident->name();
+
+    return QLatin1String("<unbound>") + m_token->text();
 }
 
 QString PythonSourceFrame::docstring()

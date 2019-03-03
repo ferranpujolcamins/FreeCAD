@@ -66,6 +66,7 @@
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 # include "PythonCodeDebugTools.h"
+# include "PythonCode.h"
 #endif
 
 
@@ -719,6 +720,7 @@ bool EditorView::saveFile()
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             DumpSyntaxTokens tok(editor->document()->begin());
+            DumpModule dMod(PythonSourceRoot::instance()->moduleFromPath(d->editWrapper->fileName()));
         }
 #endif
     return true;

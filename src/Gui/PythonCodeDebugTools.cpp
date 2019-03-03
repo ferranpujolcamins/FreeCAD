@@ -24,8 +24,11 @@
 #include "PreCompiled.h"
 
 #include "PythonCodeDebugTools.h"
+#include "PythonCode.h"
 #include <QTextBlock>
 #include <QTextBlockUserData>
+#include <QFileInfo>
+#include <time.h>
 
 using namespace Gui;
 using namespace Syntax;
@@ -182,9 +185,42 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
 
 // ---------------------------------------------------------------------------------------
 
-DumpSyntaxTokens::DumpSyntaxTokens(QTextBlock firstBlock, FILE *out):
-    m_file(out)
+
+DumpToFileBaseClass::DumpToFileBaseClass(const char *outfile)
 {
+    if (strcmp(outfile, "stdout") == 0)
+        m_file = stdout;
+    else if (strcmp(outfile, "stderr"))
+        m_file = stderr;
+    else {
+        QFileInfo fi(QString::fromLatin1(outfile));
+        m_file = fopen(fi.absoluteFilePath().toLatin1(), "w");
+    }
+}
+
+DumpToFileBaseClass::~DumpToFileBaseClass()
+{
+    if (m_file && m_file != stdout && m_file != stderr)
+        fclose(m_file);
+}
+
+const char *DumpToFileBaseClass::datetimeStr()
+{
+    static char dateStr[30];
+    struct tm tmNow;
+    time_t now = time(nullptr);
+    tmNow = *(localtime(&now));
+    strftime(dateStr, 30, "%Y-%m-%d %H:%M:%S", &tmNow);
+    return dateStr;
+}
+
+// ---------------------------------------------------------------------------------------
+
+DumpSyntaxTokens::DumpSyntaxTokens(QTextBlock firstBlock, const char *outfile):
+    DumpToFileBaseClass(outfile)
+{
+    fprintf(m_file, "dump tokens at %s\n", datetimeStr());
+
     QTextBlock txtBlock = firstBlock;
     while(txtBlock.isValid()) {
         // first print the complete srctext as is
@@ -204,4 +240,86 @@ DumpSyntaxTokens::~DumpSyntaxTokens()
 {
 }
 
+// ----------------------------------------------------------------------------------------
+
+DumpModule::DumpModule(PythonSourceModule *module, const char *outfile) :
+    DumpToFileBaseClass(outfile),
+    m_module(module)
+{
+    fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
+
+    const PythonSourceFrame *rootFrm =  m_module->rootFrame();
+    fprintf(m_file, "Startframe->isModule:%d\n", rootFrm->isModule());
+
+    dumpFrame(rootFrm, 0);
+}
+
+DumpModule::~DumpModule()
+{
+}
+
+void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
+{
+    // build up indent string
+    char indentStr[200];
+    int i = 0;
+    for (i = 0; i < indent; ++i)
+        indentStr[i] = ' ';
+    indentStr[i] = 0;
+
+    if (!frm->token()) {
+        fprintf(m_file, "%s ***** tried a new frame but it hadnt any startToken, bailing....\n",  indentStr);
+        return;
+    }
+
+    fprintf(m_file, "%s---------------------------------------------------\n", indentStr);
+    fprintf(m_file, "%sStarting new frame, startToken:%s, endToken:%s\n", indentStr,
+            tokenToCStr(frm->token()->token),
+            frm->lastToken ? tokenToCStr(frm->lastToken->token) : "-1");
+
+    fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
+                                                    frm->isClass());
+    fprintf(m_file, "%ssubframes count:%lu\n", indentStr, frm->size());
+
+    // parameters
+    fprintf(m_file, "%sFrame parameters:\n", indentStr);
+    if (!frm->isModule()) {
+        for (PythonSourceParameter *itm = dynamic_cast<PythonSourceParameter*>(frm->parameters().begin());
+             itm != frm->parameters().end();
+             itm = dynamic_cast<PythonSourceParameter*>(itm->next()))
+        {
+            const char *paramType = nullptr;
+            switch(itm->parameterType()){
+            case PythonSourceParameter::Positional:
+                paramType = "Positional"; break;
+            case PythonSourceParameter::PositionalDefault:
+                paramType = "PositionalDefault"; break;
+            case PythonSourceParameter::Keyword:
+                paramType = "KeyWord"; break;
+            case PythonSourceParameter::Variable:
+                paramType = "Variable"; break;
+            case PythonSourceParameter::InValid:
+                paramType = "InValid"; break;
+            default:
+                paramType = "Unknown"; break;
+            }
+            fprintf(m_file, "%s %s(%s)", indentStr, itm->identifierAssignment()->text().toLatin1().data(), paramType);
+
+            PythonSourceIdentifierAssignment *assign = itm->identifierAssignment();
+            fprintf(m_file, " : %s\n", assign->typeInfo().typeAsStr().toLatin1().data());
+        }
+    }
+
+    // iterate through subFrames, recursive
+    for(PythonSourceFrame *subFrm = dynamic_cast<PythonSourceFrame*>(frm->begin());
+        subFrm != frm->end();
+        subFrm = dynamic_cast<PythonSourceFrame*>(subFrm->next()))
+    {
+        dumpFrame(subFrm, indent + 4);
+    }
+
+
+    // finished print newline
+    fprintf(m_file, "\n");
+}
 
