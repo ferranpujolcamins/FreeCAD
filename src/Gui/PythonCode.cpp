@@ -1516,11 +1516,13 @@ const PythonSourceFrame *PythonSourceIdentifierList::frame() const {
 
 const PythonSourceIdentifier *PythonSourceIdentifierList::getIdentifier(const QString name) const
 {
-    PythonSourceIdentifier *i = dynamic_cast<PythonSourceIdentifier*>(m_first);
-    while (i) {
-        if (i->name() == name)
-            return i;
-        i = dynamic_cast<PythonSourceIdentifier*>(i->next());
+    for (PythonSourceIdentifier *itm = dynamic_cast<PythonSourceIdentifier*>(m_first);
+         itm != end();
+         itm = dynamic_cast<PythonSourceIdentifier*>(itm->next()))
+    {
+        QString itmName = itm->name();
+        if (itmName == name)
+            return itm;
     }
     return nullptr;
 }
@@ -1529,6 +1531,9 @@ PythonSourceIdentifier
 *PythonSourceIdentifierList::setIdentifier(PythonToken *tok,
                                            PythonSourceRoot::TypeInfo typeInfo)
 {
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
     assert(tok && "Expected a valid pointer");
     QString name = tok->text();
 
@@ -2388,6 +2393,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
 
     if (startToken->token == PythonSyntaxHighlighter::T_IdentifierFunction ||
         startToken->token == PythonSyntaxHighlighter::T_IdentifierMethod ||
+        startToken->token == PythonSyntaxHighlighter::T_IdentifierClass ||
         isFrameStarter)
     {
         isFrameStarter = true;
@@ -2395,9 +2401,15 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         setToken(startToken);
 
         // scan parameterLists
-        if (m_parentFrame && !isClass()) {
-            // not rootFrame, parse argumentslist
-            tok = scanAllParameters(tok, true);
+        if (m_parentFrame){
+            if (!isClass()) {
+                // not rootFrame, parse argumentslist
+                tok = scanAllParameters(tok, true);
+            } else {
+                // FIXME implement inheritance
+                //tok = scanInheritance(tok);
+                tok = tok->next(); // TDOD remove when inheritance is implemented
+            }
             DBG_TOKEN(tok)
         }
     }
@@ -2619,6 +2631,7 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
 
     int guard = 20;
     PythonSourceIdentifier *ident = nullptr;
+    PythonToken *identifierTok = nullptr; // the identifier that gets assigned
     PythonSourceRoot::TypeInfo typeInfo;
 
     while (tok && (guard--)) {
@@ -2638,16 +2651,22 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             break;
         case PythonSyntaxHighlighter::T_OperatorEqual:
             // assigment
-            tok = scanRValue(tok, typeInfo, false);
-            ident = m_identifiers.setIdentifier(tok->previous(), typeInfo);
+            if (!identifierTok) {
+                m_module->setSyntaxError(tok, QLatin1String("Unexpected ="));
+            } else {
+                tok = scanRValue(tok, typeInfo, false);
+                ident = m_identifiers.setIdentifier(identifierTok, typeInfo);
+            }
             break;
         case PythonSyntaxHighlighter::T_DelimiterColon:
             // type hint
             if (ident) {
                 m_module->setSyntaxError(tok, QLatin1String("Unexpected ':'"));
                 return tok;
+            } else if (!identifierTok) {
+                m_module->setSyntaxError(tok, QLatin1String("Unexpected ="));
             } else {
-                ident = m_identifiers.setIdentifier(tok->previous(), typeInfo);
+                ident = m_identifiers.setIdentifier(identifierTok, typeInfo);
                 tok = scanRValue(tok, typeInfo, true);
                 DBG_TOKEN(tok)
                 if (tok)
@@ -2666,6 +2685,8 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
 //            // TODO!
         default:
             assert(!tok->isImport() && "Should never get a import in scanIdentifier");
+            if (tok->isIdentifierVariable())
+                identifierTok = tok;
             break;
         }
 
@@ -2768,10 +2789,10 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                             typeInfo.referenceName = text;
                         } else if (isTypeHint)
-                            m_module->setSyntaxError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
+                            m_module->setLookupError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
                         else {
                             // new identifier
-                            m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected variable i RValue context '%1'").arg(tok->text()));
+                            m_module->setLookupError(tok, QString::fromLatin1("Unexpected variable i RValue context '%1'").arg(tok->text()));
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                         }
                     }
@@ -3145,7 +3166,17 @@ PythonSourceRoot::Indent PythonSourceModule::currentBlockIndent(const PythonToke
         ind.frameIndent = _currentBlockIndent(beginTok);
 
     beginTok = tok;
-    DBG_TOKEN(beginTok)
+    //DBG_TOKEN(beginTok)
+
+    if (beginTok){
+       strcpy(TOKEN_NAME_BUF, Syntax::tokenToCStr(beginTok->token));
+       strcpy(TOKEN_INFO_BUF, (QString::fromLatin1("line:%1,start:%2,end:%3")
+                       .arg(beginTok->txtBlock()->block().blockNumber())
+                       .arg(beginTok->startPos)
+                       .arg(beginTok->endPos)).toLatin1());
+       strcpy(TOKEN_SRC_LINE_BUF, beginTok->txtBlock()->block().text().toLatin1());
+       strcpy(TOKEN_TEXT_BUF, beginTok->text().toLatin1());
+   }
 
     PythonTextBlockData *txtData = tok->txtBlock();
     int indent = txtData->indent();
@@ -3160,13 +3191,15 @@ PythonSourceRoot::Indent PythonSourceModule::currentBlockIndent(const PythonToke
                     // make sure isn't a comment line
                     if (!beginTok || beginTok->token == PythonSyntaxHighlighter::T_Comment)
                         break; //goto parent loop, do previous line
+                    else if (beginTok->isCode())
+                        guard = -1;
                     else if(beginTok->token == PythonSyntaxHighlighter::T_DelimiterNewLine) {
-                        guard = -1; // exit parent loop
+                        guard = -2; // exit parent loop
                         break;
                     }
                 }
 
-                if (guard < 0)
+                if (guard < -1)
                     setSyntaxError(beginTok, QString::fromLatin1("Blockstart without ':'"));
             }
 
@@ -3357,6 +3390,23 @@ void PythonSourceModule::setIndentError(const PythonToken *tok) const
     format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
     format.setUnderlineColor(lineColor);
     const_cast<PythonSourceModule*>(this)->setFormatToken(tok, format);
+}
+
+void PythonSourceModule::setLookupError(const PythonToken *tok, QString parseMessage) const
+{
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
+    PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    if (!scanInfo) {
+        scanInfo = new PythonTextBlockScanInfo();
+        tok->txtBlock()->setScanInfo(scanInfo);
+    }
+
+    if (parseMessage.isEmpty())
+        parseMessage = QString::fromLatin1("Can't lookup identifier '%1'").arg(tok->text());
+
+    scanInfo->setParseMessage(tok, parseMessage, PythonTextBlockScanInfo::LookupError);
 }
 
 void PythonSourceModule::setMessage(const PythonToken *tok, QString parseMessage) const

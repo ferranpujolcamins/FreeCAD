@@ -133,7 +133,7 @@ private:
 class PythonTextBlockScanInfo
 {
 public:
-    enum MsgType { Message, SyntaxError, IndentError, AllMsgTypes };
+    enum MsgType { Message, LookupError, SyntaxError, IndentError, AllMsgTypes };
     struct ParseMsg {
         explicit ParseMsg(QString message, int start, int end, MsgType type) :
                     message(message), startPos(start),
@@ -153,6 +153,12 @@ public:
     void setParseMessage(const PythonToken *tok, QString message, MsgType type = Message);
     /// set message at line with startPos - endPos boundaries
     void setParseMessage(int startPos, int endPos, QString message, MsgType type = Message);
+    /// get the ParseMsg for tok, filter by type
+    /// nullptr if not found
+    const ParseMsg *getParseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
+    /// get the ParseMsg that is contained within startPos, endPos,, filter by type
+    /// nullptr if not found
+    const ParseMsg *getParseMessage(int startPos, int endPos, MsgType type = AllMsgTypes) const;
     /// get parseMessage for token, filter by type
     QString parseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
     /// get parseMessage for line contained by col, filter by type
@@ -1027,6 +1033,9 @@ public:
 
     /// sets a indenterror (sets token to indentError and sets up for style document)
     void setIndentError(const PythonToken *tok) const;
+
+    /// sets a lookup error (variable not found) with message, or default message
+    void setLookupError(const PythonToken *tok, QString parseMessage = QString()) const;
 
     /// stores a message at tok
     void setMessage(const PythonToken *tok, QString parseMessage) const;
