@@ -321,7 +321,7 @@ PythonSourceModule *PythonSourceRoot::moduleFromPath(QString filePath) const
 
 PythonSourceRoot *PythonSourceRoot::m_instance = nullptr;
 
-PythonSourceRoot::DataTypes PythonSourceRoot::mapDataType(const QString typeAnnotation) const
+PythonSourceRoot::DataTypes PythonSourceRoot::mapMetaDataType(const QString typeAnnotation) const
 {
     // try to determine type form type annotaion
     // more info at:
@@ -350,7 +350,254 @@ PythonSourceRoot::DataTypes PythonSourceRoot::mapDataType(const QString typeAnno
         return DictType;
     else if (typeAnnotation == QLatin1String("Set"))
         return SetType;
+    else if (typeAnnotation == QLatin1String("Range"))
+        return RangeType;
     return CustomType;
+}
+
+PythonSourceRoot::TypeInfoPair PythonSourceRoot::identifierType(const PythonToken *tok,
+                                                                const PythonSourceFrame *frame) const
+{
+    TypeInfoPair tp;
+    if (tok || !tok->isIdentifier())
+        return tp;
+
+    switch (tok->token) {
+    case PythonSyntaxHighlighter::T_IdentifierBuiltin:
+        return builtinType(tok, frame);
+    case PythonSyntaxHighlighter::T_IdentifierClass:
+        tp.thisType.type = ClassType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierDecorator:
+        tp.thisType.type = MethodDescriptorType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierDefined: // fallthrough
+    case PythonSyntaxHighlighter::T_IdentifierDefUnknown:
+        tp.thisType.type = FunctionType; // method or function not known yet
+        tp.returnType.type = UnknownType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierTrue: // fallthrough
+    case PythonSyntaxHighlighter::T_IdentifierFalse:
+        tp.thisType.type = BoolType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierFunction:
+        // figure out how to lookp function return statments
+    case PythonSyntaxHighlighter::T_IdentifierMethod:
+        // figure out how to lookp function return statments
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierModule:
+    case PythonSyntaxHighlighter::T_IdentifierModuleAlias:
+    case PythonSyntaxHighlighter::T_IdentifierModuleGlob:
+    case PythonSyntaxHighlighter::T_IdentifierModulePackage:
+        //tp.thisType.type = ; // how do we lookup modules?
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierNone:
+        tp.thisType.type = NoneType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierSelf:
+        tp.thisType.type = ReferenceArgumentType;
+        return tp;
+    case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
+    case PythonSyntaxHighlighter::T_IdentifierUnknown:
+        tp.thisType.type = UnknownType;
+        return tp;
+    default:
+        // invalid?
+        qDebug() << QString::fromLatin1("Invalid token: id:%1 with text:%2")
+                            .arg(QString::number(tok->token)).arg(tok->text()) << endl;
+#ifdef DEBUG_TOKENS
+        assert(tp.thisType.type != PythonSourceRoot::InValidType && "Invalid Token!");
+#endif
+        break;
+    }
+
+    return tp;
+}
+
+PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *tok, const PythonSourceFrame *frame) const
+{
+    Q_UNUSED(frame);
+    TypeInfoPair tp;
+
+    if (tok && tok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
+        QString text = tok->text();
+        // handle built in functions
+
+        tp.thisType.type = BuiltinFunctionType;
+        // https://docs.python.org/3/library/functions.html
+        if (text == QLatin1String("abs")) {
+            tp.returnType.type = FloatType;
+        } else if (text == QLatin1String("all")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("any")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("ascii")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("bin")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("bool")) {
+            tp.returnType.type = BoolType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("breakpoint")) {
+            tp.returnType.type = VoidType;
+        } else if (text == QLatin1String("bytesarray")) {
+            tp.returnType.type = BytesType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("bytes")) {
+            tp.returnType.type = BytesType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("callable")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("chr")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("compile")) {
+            tp.returnType.type = CodeType;
+        } else if (text == QLatin1String("complex")) {
+            tp.returnType.type = ComplexType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("delattr")) {
+            tp.returnType.type = VoidType;
+        } else if (text == QLatin1String("dict")) {
+            tp.returnType.type = DictType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("dir")) {
+            tp.returnType.type = ListType;
+        } else if (text == QLatin1String("divmod")) {
+            tp.returnType.type = IntType;
+        } else if (text == QLatin1String("enumerate")) {
+            tp.returnType.type = EnumerateType;
+        } else if (text == QLatin1String("eval")) {
+            tp.returnType.type = ObjectType;
+            // we dont know what type is returned,
+            // might be str, int or anything realy
+        } else if (text == QLatin1String("exec")) {
+            tp.returnType.type = NoneType;
+        } else if (text == QLatin1String("filter")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("float")) {
+            tp.returnType.type = FloatType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("format")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("frozenset")) {
+            tp.returnType.type = FrozenSetType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("getattr")) {
+            tp.returnType.type = ObjectType;
+            // we dont know what value is returned
+        } else if (text == QLatin1String("Globals")) {
+            tp.returnType.type = DictType;
+        } else if (text == QLatin1String("hasattr")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("hash")) {
+            tp.returnType.type = IntType;
+        } else if (text == QLatin1String("help")) {
+            tp.returnType.type = VoidType;
+        } else if (text == QLatin1String("hex")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("id")) {
+            tp.returnType.type = IntType;
+        } else if (text == QLatin1String("input")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("int")) {
+            tp.returnType.type = IntType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("isinstance")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("issubclass")) {
+            tp.returnType.type = BoolType;
+        } else if (text == QLatin1String("iter")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("len")) {
+            tp.returnType.type = IntType;
+        } else if (text == QLatin1String("list")) {
+            tp.returnType.type = ListType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("locals")) {
+            tp.returnType.type = DictType;
+        } else if (text == QLatin1String("map")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("max")) {
+            tp.returnType.type = ObjectType;
+        } else if (text == QLatin1String("memoryiew")) {
+            tp.returnType.type = ClassType;
+        } else if (text == QLatin1String("min")) {
+            tp.returnType.type = ObjectType;
+        } else if (text == QLatin1String("next")) {
+            tp.returnType.type = ObjectType;
+        } else if (text == QLatin1String("object")) {
+            tp.returnType.type = ObjectType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("oct")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("open")) {
+            tp.returnType.type = FileType;
+        } else if (text == QLatin1String("ord")) {
+            tp.returnType.type = IntType;
+        } else if (text == QLatin1String("pow")) {
+            tp.returnType.type = FloatType;
+            // might also return int, but default to float
+        } else if (text == QLatin1String("print")) {
+            tp.returnType.type = VoidType;
+        } else if (text == QLatin1String("property")) {
+            tp.returnType.type = ClassType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("range")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("repr")) {
+            tp.returnType.type = StringType;
+        } else if (text == QLatin1String("reversed")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("round")) {
+            tp.returnType.type = FloatType;
+        } else if (text == QLatin1String("set")) {
+            tp.returnType.type = SetType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("setattr")) {
+            tp.returnType.type = VoidType;
+        } else if (text == QLatin1String("slice")) {
+            tp.returnType.type = IterableType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("sorted")) {
+            tp.returnType.type = ListType;
+        } else if (text == QLatin1String("str")) {
+            tp.returnType.type = StringType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("sum")) {
+            tp.returnType.type = FloatType;
+        } else if (text == QLatin1String("super")) {
+            tp.returnType.type = ClassType;
+        } else if (text == QLatin1String("tuple")) {
+            tp.returnType.type = TupleType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("type")) {
+            tp.returnType.type = TypeObjectType;
+        } else if (text == QLatin1String("unicode")) {
+            tp.returnType.type = StringType;
+            tp.thisType.type = BuiltinMethodType;
+        } else if (text == QLatin1String("vars")) {
+            tp.returnType.type = DictType;
+        } else if (text == QLatin1String("zip")) {
+            tp.returnType.type = IterableType;
+        } else if (text == QLatin1String("__import__")) {
+            tp.returnType.type = ReferenceImportBuiltInType;
+
+        // handle @methods
+        } else if (tok->token == PythonSyntaxHighlighter::T_IdentifierDecorator) {
+            if (text == QLatin1String("@classmethod")) {
+                tp.returnType.type = ClassMethodDescriptorType;
+            }
+        }
+    }
+    return tp;
+}
+
+bool PythonSourceRoot::isLineEscaped(const PythonToken *tok) const {
+    DEFINE_DBG_VARS
+    PREV_TOKEN(tok)
+    if (tok)
+        return tok->token != PythonSyntaxHighlighter::T_DelimiterLineContinue;
+    return false;
 }
 
 QString PythonSourceRoot::customTypeNameFor(PythonSourceRoot::CustomNameIdx_t customIdx)
@@ -395,7 +642,7 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
     const PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(
                                             highlighter->document()->begin().userData());
     if (txtData) {
-        PythonToken *tok = const_cast<PythonToken*>(txtData->tokenAt(0));
+        PythonToken *tok = txtData->tokenAt(0);
         DBG_TOKEN(tok)
         if (tok)
             mod->scanFrame(tok);
@@ -419,10 +666,245 @@ PythonSourceModule *PythonSourceRoot::scanSingleRowModule(const QString filePath
     }
 
     if (!row->isEmpty()) {
-        mod->scanLine(const_cast<PythonToken*>(row->tokenAt(0)));
+        mod->scanLine(row->tokenAt(0));
     }
 
     return mod;
+}
+
+
+// we try to find out if statement is a compare statement or normal assigment
+// if it contains a compare operator result is Bool
+// otherwise its a type from Indentifier on the right
+// 1 and 2     <- Bool
+// var1 < var2 <- Bool
+// var2 + var 3 & (intvar4) <- int due to bitwise operator
+// 0.3 + 1 * intVar         <- float due to 0.3
+// var1[2]     <- unknown due to we don't know what type is in list
+// var2[var4]  <- unknown same as above
+// var1.attr   <- lookup identifiers 'var1' and 'attr' to determine this type, limit in lookup chain
+// var3 += 2   <- int due to '2'
+PythonSourceRoot::TypeInfo
+PythonSourceRoot::statementResultType(const PythonToken *startToken,
+                                      const PythonSourceFrame *frame) const
+{
+    DEFINE_DBG_VARS
+
+    TypeInfo typeInfo;
+    if (!startToken)
+        return typeInfo;
+
+    int parenOpenCnt = 0,
+        parenCloseCnt = 0,
+        braceOpenCnt = 0,
+        braceCloseCnt = 0,
+        bracketOpenCnt = 0,
+        bracketCloseCnt = 0;
+
+
+    const PythonToken *tok = startToken;
+    DBG_TOKEN(tok)
+
+    // first we scan to end of statement
+    // then operate on that list
+    QList<const PythonToken*> allTokens;
+    QList<int> parenPos;
+
+
+    static const int maxStatements = 50;
+    int pos = 0; // use as guard for max tokens and parenPos
+    do {
+        switch (tok->token) {
+        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+            if (parenOpenCnt != parenCloseCnt) {
+                frame->module()->setSyntaxError(tok, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+                return typeInfo;
+            }
+            parenPos.push_front(pos);
+            parenOpenCnt++;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+            parenPos.push_front(pos);
+            parenCloseCnt++;
+            if (parenOpenCnt != parenCloseCnt) {
+                frame->module()->setSyntaxError(tok, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+                return typeInfo;
+            }
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+            if (braceOpenCnt != braceCloseCnt) {
+                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
+                return typeInfo;
+            }
+            braceOpenCnt++;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseBrace:
+            braceCloseCnt++;
+            if (braceOpenCnt != braceCloseCnt) {
+                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
+                return typeInfo;
+            }
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+            if (bracketOpenCnt != bracketCloseCnt) {
+                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
+                return typeInfo;
+            }
+            bracketOpenCnt++;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+            bracketCloseCnt++;
+            if (bracketOpenCnt != bracketCloseCnt) {
+                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
+                return typeInfo;
+            }
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterSemiColon:
+            pos = 0;  break; // break do while loop
+        default:
+            allTokens.push_back(tok);
+            break;
+        }
+        if (!tok->isText())
+            break;
+        NEXT_TOKEN(tok)
+    } while (tok && (pos++) > maxStatements);
+
+    // track a dangling ( at end
+    if (parenPos.size() % 2) {
+        frame->module()->setSyntaxError(startToken, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+        return typeInfo;
+    }
+
+    // we have already type determined
+    if (typeInfo.isValid())
+        return typeInfo;
+
+    // split on paren sub statements ie var1 * (var2 +1)
+    QList<QList<const PythonToken*> > subStatements;
+    int endPos = 0;
+    for (int pos : parenPos) {
+        // close paren is stored first ie even pos
+        if (endPos % 2) {
+            // opening paren
+            subStatements.push_back(allTokens.mid(pos+1, pos+1 - endPos-1));
+        } else {
+            // closing paren
+            endPos = pos;
+        }
+    }
+
+    TypeInfo tpNext;
+    tok = computeStatementResultType(frame, tok, tpNext);
+    DBG_TOKEN(tok)
+    if (!tpNext.isValid())
+        return typeInfo; // got to something we couldn't handle
+
+    return tpNext;
+}
+
+const PythonToken
+*PythonSourceRoot::computeStatementResultType(const PythonSourceFrame *frame,
+                                              const PythonToken *startTok,
+                                              TypeInfo &typeInfo) const
+{
+    DEFINE_DBG_VARS
+    // first look for encapsulating brackets and parens ie '[..]' or '(..)'
+    // a '{..}' is a dict and retuned as that, advances startToken
+
+    const PythonToken *tok = startTok;
+
+    int guard = 10;
+
+//next_loop:
+    DBG_TOKEN(tok)
+
+    while(tok && (guard--)) {
+        switch (tok->token) {
+        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+ //           ++parenCnt;
+            // recurse into this '(..)'
+            return computeStatementResultType(frame, tok, typeInfo);
+//            goto next_loop;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+//            --parenCnt;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+            // recurese into '[..]'
+//            ++bracketCnt;
+            return computeStatementResultType(frame, tok, typeInfo);
+//            goto next_loop;
+        case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+//            --bracketCnt;
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+            typeInfo.type = DictType;
+            // TODO go to end of dict
+            break;
+        case PythonSyntaxHighlighter::T_DelimiterSemiColon:
+            // end of statement
+            return tok;
+        case PythonSyntaxHighlighter::T_DelimiterNewLine:
+            if (!isLineEscaped(tok))
+                return tok;
+            break;
+        default: {
+            const PythonSourceIdentifier *ident = nullptr;
+            PythonSourceIdentifierAssignment *assign = nullptr;
+            if (tok->isIdentifierVariable()) {
+                ident = frame->getIdentifier(tok->text());
+                if (ident) {
+                    assign = ident->getTypeHintAssignment(tok);
+                    if (assign) {
+                        // has typehint
+                        typeInfo = assign->typeInfo();
+                        return tok;
+                    } else {
+                        // traverse lookup chain to find identifier declaration
+                        ident = frame->identifiers().getIdentifierReferencedBy(tok);
+                    }
+                }
+
+                if (ident) {
+                    // get the last assignment to this variable
+                    assign = ident->getFromPos(tok); //ident->token());
+                    if (assign->typeInfo().isValid()) {
+                        if (assign->typeInfo().isCallable()) {
+                            // maybe this frame has a return typehint
+                            typeInfo = ident->frame()->returnTypeHint();
+                            if (typeInfo.isValid())
+                                return tok;
+                            // if this callable has muliple return types we can't determine which
+                            // so we bail out
+                            PythonSourceFrameReturnType *frmType = dynamic_cast<PythonSourceFrameReturnType*>(ident->frame()->returnTypes().begin());
+                            if (frmType)
+                                typeInfo.type = frmType->typeInfo().type;
+
+                            return tok;
+                        }
+                        // not callable,
+                        TypeInfoPair typePair = identifierType(assign->token(),
+                                                               ident->frame());
+                        typeInfo = typePair.thisType;
+                    }
+                }
+
+                // not found set type to unknown
+                typeInfo.type = UnknownType;
+
+
+            } else if (tok->isIdentifierDeclaration()) {
+                // is known at parse time, such as a "str" or a number '123'
+                TypeInfoPair typePair = this->identifierType(tok, frame);
+                typeInfo = typePair.thisType;
+            }
+            break;
+        } // end default
+        } // end switch
+        NEXT_TOKEN(tok)
+    }
+    return tok;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -459,10 +941,12 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
     switch (type) {
     case PythonSourceRoot::InValidType:         typeAsStr = "InValidType"; break;
     case PythonSourceRoot::UnknownType:         typeAsStr = "UnknownType"; break;
+    // when no return value
+    case PythonSourceRoot::VoidType:            typeAsStr = "VoidType"; break;
 
     case PythonSourceRoot::ReferenceType:       typeAsStr = "ReferenceType"; break;
-    case PythonSourceRoot::ReferenceArgumentType: typeAsStr = "ReferenceArgumentType"; break;
-    case PythonSourceRoot::ReferenceBuiltInType: typeAsStr = "ReferenceBuiltInType"; break;
+    case PythonSourceRoot::ReferenceArgumentType:typeAsStr = "ReferenceArgumentType"; break;
+    case PythonSourceRoot::ReferenceBuiltInType:typeAsStr = "ReferenceBuiltInType"; break;
 
     case PythonSourceRoot::ReferenceImportUndeterminedType:
                                                 typeAsStr = "ReferenceImportUndeterminedType"; break;
@@ -473,6 +957,27 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
     case PythonSourceRoot::ReferenceImportBuiltInType:
                                                 typeAsStr = "ReferenceImportBuiltInType"; break;
 
+
+    case PythonSourceRoot::FunctionType:        typeAsStr = "FunctionType"; break;
+    case PythonSourceRoot::LambdaType:          typeAsStr = "LambdaType";   break;
+    case PythonSourceRoot::GeneratorType:       typeAsStr = "GeneratorType";break;
+    case PythonSourceRoot::CoroutineType:       typeAsStr = "CoroutineType";break;
+    case PythonSourceRoot::CodeType:            typeAsStr = "CodeType";     break;
+    case PythonSourceRoot::MethodType:          typeAsStr = "MethodType";   break;
+    case PythonSourceRoot::BuiltinFunctionType: typeAsStr = "BuiltinFunctionType"; break;
+    case PythonSourceRoot::BuiltinMethodType:   typeAsStr = "BuiltinMethodType"; break;
+    case PythonSourceRoot::WrapperDescriptorType: typeAsStr = "WrapperDescriptorType"; break;
+    case PythonSourceRoot::MethodWrapperType:   typeAsStr = "MethodWrapperType"; break;
+    case PythonSourceRoot::MethodDescriptorType:typeAsStr = "MethodDescriptorType"; break;
+    case PythonSourceRoot::ClassMethodDescriptorType: typeAsStr = "ClassMethodDescriptorType"; break;
+    case PythonSourceRoot::ModuleType:          typeAsStr = "ModuleType"; break;// is root frame for file
+    case PythonSourceRoot::TracebackType:       typeAsStr = "TracebackType"; break;
+    case PythonSourceRoot::FrameType:           typeAsStr = "FrameType";   break;
+    case PythonSourceRoot::GetSetDescriptorType:typeAsStr = "GetSetDescriptorType"; break;
+    case PythonSourceRoot::MemberDescriptorType:typeAsStr = "MemberDescriptorType"; break;
+    case PythonSourceRoot::MappingProxyType:    typeAsStr = "MappingProxyType";   break;
+
+    case PythonSourceRoot::TypeObjectType:      typeAsStr = "TypeObjectType"; break;
     case PythonSourceRoot::ObjectType:          typeAsStr = "ObjectType";   break;
     case PythonSourceRoot::NoneType:            typeAsStr = "NoneType";     break;
     case PythonSourceRoot::BoolType:            typeAsStr = "BoolType";     break;
@@ -483,12 +988,14 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
     case PythonSourceRoot::ListType:            typeAsStr = "ListType";     break;
     case PythonSourceRoot::TupleType:           typeAsStr = "TupleType";    break;
     case PythonSourceRoot::SetType:             typeAsStr = "SetType";      break;
+    case PythonSourceRoot::FrozenSetType:       typeAsStr = "FrozensetType";break;
     case PythonSourceRoot::RangeType:           typeAsStr = "RangeType";    break;
     case PythonSourceRoot::DictType:            typeAsStr = "DictType";     break;
-    case PythonSourceRoot::FunctionType:        typeAsStr = "FunctionType"; break;
     case PythonSourceRoot::ClassType:           typeAsStr = "ClassType";    break;
-    case PythonSourceRoot::MethodType:          typeAsStr = "MethodType";   break;
-    case PythonSourceRoot::GeneratorType:       typeAsStr = "GeneratorType";   break;
+    case PythonSourceRoot::ComplexType:         typeAsStr = "ComplexType";  break;
+    case PythonSourceRoot::EnumerateType:       typeAsStr = "EnumerateType";break;
+    case PythonSourceRoot::IterableType:        typeAsStr = "IterableType"; break;
+    case PythonSourceRoot::FileType:            typeAsStr = "FileType";     break;
     case PythonSourceRoot::CustomType:
         if (customNameIdx > -1) {
             return customName();
@@ -707,6 +1214,61 @@ PythonSourceListNodeBase *PythonSourceListParentBase::operator [](std::size_t id
     return n;
 }
 
+PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToken *tok) const
+{
+    for (PythonSourceListNodeBase *node = m_first;
+         node != nullptr;
+         node = node->next())
+    {
+        if (node->token() == tok)
+            return node;
+    }
+
+    return nullptr;
+}
+
+PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHighlighter::Tokens token) const
+{
+    if (!token)
+        return nullptr;
+
+    for (PythonSourceListNodeBase *node = m_first;
+         node != nullptr;
+         node = node->next())
+    {
+        if (node->token() && node->token()->token == token)
+            return node;
+    }
+
+    return nullptr;
+}
+
+PythonSourceListNodeBase *PythonSourceListParentBase::findLast(PythonSyntaxHighlighter::Tokens token) const
+{
+    for (PythonSourceListNodeBase *node = m_last;
+         node != nullptr;
+         node = node->previous())
+    {
+        if (node->token() && node->token()->token == token)
+            return node;
+    }
+
+    return nullptr;
+}
+
+bool PythonSourceListParentBase::hasOtherTokens(PythonSyntaxHighlighter::Tokens token) const
+{
+    for (PythonSourceListNodeBase *node = m_last;
+         node != nullptr;
+         node = node->previous())
+    {
+        if (node->token() && node->token()->token != token)
+            return true;
+    }
+
+    return false;
+}
+
 int PythonSourceListParentBase::compare(const PythonSourceListNodeBase *left,
                                         const PythonSourceListNodeBase *right) const
 {
@@ -723,25 +1285,25 @@ int PythonSourceListParentBase::compare(const PythonSourceListNodeBase *left,
 
 
 PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
-                                                                   const PythonToken *startToken,
+                                                                   PythonToken *startToken,
                                                                    PythonSourceRoot::TypeInfo typeInfo) :
     PythonSourceListNodeBase(owner)
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
     m_token = startToken;
-    const_cast<PythonToken*>(m_token)->attachReference(this);
+    m_token->attachReference(this);
 }
 
 PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceTypeHint *owner,
-                                                                   const PythonToken *startToken,
+                                                                   PythonToken *startToken,
                                                                    PythonSourceRoot::TypeInfo typeInfo) :
         PythonSourceListNodeBase(owner)
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
     m_token = startToken;
-    const_cast<PythonToken*>(m_token)->attachReference(this);
+    m_token->attachReference(this);
 }
 
 PythonSourceIdentifierAssignment::~PythonSourceIdentifierAssignment()
@@ -873,7 +1435,7 @@ QString PythonSourceIdentifier::name() const
     return QLatin1String("<lookup error>");
 }
 
-PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(PythonToken *tok) const
+PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(const PythonToken *tok) const
 {
     return getTypeHintAssignment(tok->line());
 }
@@ -896,7 +1458,7 @@ bool PythonSourceIdentifier::hasTypeHint(int line) const {
 }
 
 
-PythonSourceTypeHintAssignment *PythonSourceIdentifier::setTypeHint(const PythonToken *tok,
+PythonSourceTypeHintAssignment *PythonSourceIdentifier::setTypeHint(PythonToken *tok,
                                                                     PythonSourceRoot::TypeInfo typeInfo)
 {
     PythonSourceTypeHintAssignment *typeHint = getTypeHintAssignment(tok->line());
@@ -964,7 +1526,7 @@ const PythonSourceIdentifier *PythonSourceIdentifierList::getIdentifier(const QS
 }
 
 PythonSourceIdentifier
-*PythonSourceIdentifierList::setIdentifier(const PythonToken *tok,
+*PythonSourceIdentifierList::setIdentifier(PythonToken *tok,
                                            PythonSourceRoot::TypeInfo typeInfo)
 {
     assert(tok && "Expected a valid pointer");
@@ -991,17 +1553,14 @@ PythonSourceIdentifier
         insert(identifier);
     } else {
         // check so we don't double insert
-        for (PythonSourceListNodeBase *itm = identifier->begin();
-             itm != nullptr;
-             itm = itm->next())
-        {
-            if (itm->token() == tok) {
-                assign = dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
-                if (assign->typeInfo() != typeInfo)
-                    assign->setType(typeInfo); // type differ
-                else
-                    return identifier; // already have this one and it is equal
-            }
+        PythonSourceListNodeBase *itm = identifier->findExact(tok);
+        if (itm) {
+            assign = dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
+            assert(assign != nullptr && "Stored value was not a assignment");
+            if (assign->typeInfo() != typeInfo)
+                assign->setType(typeInfo); // type differ
+            else
+                return identifier; // already have this one and it is equal
         }
     }
 
@@ -1089,13 +1648,10 @@ PythonSourceIdentifierAssignment *PythonSourceParameter::identifierAssignment() 
     // lookup with same token
     PythonSourceFrame *frm = dynamic_cast<PythonSourceFrame*>(m_owner);
     assert(frm != nullptr && "Expected a PythonSourceFrame stored in PythonSourceParameter");
-    for (PythonSourceListNodeBase *ident = frm->identifiers().begin();
-         ident != nullptr;
-         ident = ident->next())
-    {
-        if (ident->token() == m_token)
-            return dynamic_cast<PythonSourceIdentifierAssignment*>(ident);
-    }
+
+    PythonSourceListNodeBase *itm = frm->identifiers().findFirst(m_token->token);
+    if (itm)
+        return dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
 
     return nullptr;
 }
@@ -1171,6 +1727,92 @@ int PythonSourceParameterList::compare(const PythonSourceListNodeBase *left,
         return +1;
     return -1; // r must be bigger
 }
+
+// ----------------------------------------------------------------------------
+
+
+
+PythonSourceFrameReturnType::PythonSourceFrameReturnType(PythonSourceListParentBase *owner,
+                                       const PythonSourceModule *module,
+                                       PythonToken *tok) :
+    PythonSourceListNodeBase(owner),
+    m_module(module)
+{
+    assert(module != nullptr && "Must get a valid owner");
+    assert(module != nullptr && "Must get a vaild module");
+    m_token = tok;
+}
+
+PythonSourceFrameReturnType::~PythonSourceFrameReturnType()
+{
+}
+
+void PythonSourceFrameReturnType::setTypeInfo(PythonSourceRoot::TypeInfo typeInfo)
+{
+    m_typeInfo = typeInfo;
+}
+
+PythonSourceRoot::TypeInfo PythonSourceFrameReturnType::returnType() const
+{
+    if (isYield()) {
+        PythonSourceRoot::TypeInfo typeInfo;
+        typeInfo.type = PythonSourceRoot::GeneratorType;
+        return typeInfo;
+    }
+
+    // compute return type of statement
+    return m_module->root()->statementResultType(m_token,
+                                                 m_module->getFrameForToken(
+                                                     m_token, m_module->rootFrame()));
+}
+
+bool PythonSourceFrameReturnType::isYield() const
+{
+    return m_token->token == PythonSyntaxHighlighter::T_KeywordYield;
+}
+
+PythonSourceRoot::TypeInfo PythonSourceFrameReturnType::yieldType() const
+{
+    PythonSourceRoot::TypeInfo typeInfo;
+    if (isYield())
+        return m_module->root()->statementResultType(m_token,
+                                                     m_module->getFrameForToken(
+                                                         m_token, m_module->rootFrame()));
+
+    return typeInfo;
+}
+
+// ----------------------------------------------------------------------------
+
+
+PythonSourceFrameReturnTypeList::PythonSourceFrameReturnTypeList(PythonSourceListParentBase *owner,
+                                                                const PythonSourceModule *module) :
+    PythonSourceListParentBase(owner),
+    m_module(module)
+{
+    m_preventAutoRemoveMe = true;
+}
+
+PythonSourceFrameReturnTypeList::PythonSourceFrameReturnTypeList(const PythonSourceFrameReturnTypeList &other) :
+    PythonSourceListParentBase(other),
+    m_module(other.m_module)
+{
+}
+
+PythonSourceFrameReturnTypeList::~PythonSourceFrameReturnTypeList()
+{
+}
+
+int PythonSourceFrameReturnTypeList::compare(const PythonSourceListNodeBase *left, const PythonSourceListNodeBase *right) const
+{
+    const PythonSourceFrameReturnType *l = dynamic_cast<const PythonSourceFrameReturnType*>(left),
+                             *r = dynamic_cast<const PythonSourceFrameReturnType*>(right);
+    assert(l != nullptr && r != nullptr && "Non PythonSourceReturnList items in returnList");
+    if (l->token() < r->token())
+        return +1;
+    return -1; // r must be bigger
+}
+
 
 // ----------------------------------------------------------------------------
 
@@ -1516,7 +2158,8 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner,
     m_identifiers(module),
     m_parameters(this),
     m_imports(this, module),
-    m_returns(nullptr),
+    m_returnTypes(this, module),
+    m_typeHint(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
     m_isClass(isClass),
@@ -1532,7 +2175,8 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner,
     m_identifiers(module),
     m_parameters(this),
     m_imports(this, module),
-    m_returns(nullptr),
+    m_returnTypes(this, module),
+    m_typeHint(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
     m_isClass(isClass),
@@ -1542,8 +2186,8 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner,
 
 PythonSourceFrame::~PythonSourceFrame()
 {
-    if (m_returns)
-        delete m_returns;
+    if (m_typeHint)
+        delete m_typeHint;
 }
 
 QString PythonSourceFrame::docstring()
@@ -1553,7 +2197,7 @@ QString PythonSourceFrame::docstring()
     // retrive docstring for this function
     QStringList docStrs;
     if (m_token) {
-        PythonToken *token = scanAllParameters(const_cast<PythonToken*>(m_token));
+        const PythonToken *token = scanAllParameters(const_cast<PythonToken*>(m_token));
         DBG_TOKEN(token)
         int guard = 20;
         while(token && token->token != PythonSyntaxHighlighter::T_DelimiterSemiColon) {
@@ -1603,13 +2247,29 @@ QString PythonSourceFrame::docstring()
     return QString(); // no token
 }
 
-PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint()
+PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint() const
 {
+    PythonSourceRoot::TypeInfo typeInfo;
+    if (parentFrame()) {
+        // get typehint from parentframe identifier for this frame
+        const PythonSourceIdentifier *ident = parentFrame()->getIdentifier(m_token->text());
+        if (ident) {
+            PythonSourceTypeHintAssignment *assign = ident->getTypeHintAssignment(m_token->line());
+            if (assign)
+                typeInfo = assign->typeInfo();
+        }
+    }
+
+    return typeInfo;
+
+
+    // FIXME Move this into scanParameters
+/*
     DEFINE_DBG_VARS
 
     PythonSourceRoot::TypeInfo tpInfo;
     if (m_token) {
-        const PythonToken *token = scanAllParameters(const_cast<PythonToken*>(m_token)),
+        PythonToken *token = scanAllParameters(m_token),
                           *commentToken = nullptr;
         DBG_TOKEN(token)
         int guard = 10;
@@ -1648,7 +2308,7 @@ PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint()
 
         } else if (commentToken) {
             // extract from comment
-            // type: def func(int, bool) -> MyType
+            // # type: def func(int, bool) -> MyType
             QRegExp re(QLatin1String("type\\s*:\\s*def\\s+[_a-zA-Z]+\\w*\\(.*\\)\\s*->\\s*(\\w+)"));
             if (re.indexIn(token->text()) > -1)
                 annotation = re.cap(1);
@@ -1657,7 +2317,7 @@ PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint()
         if (!annotation.isEmpty()) {
             // set type and customname
             PythonSourceRoot *sr = PythonSourceRoot::instance();
-            tpInfo.type = sr->mapDataType(annotation);
+            tpInfo.type = sr->mapMetaDataType(annotation);
             if (tpInfo.type == PythonSourceRoot::CustomType) {
                 tpInfo.customNameIdx = sr->indexOfCustomTypeName(annotation);
                 if (tpInfo.customNameIdx < 0)
@@ -1667,6 +2327,7 @@ PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint()
     }
 
     return tpInfo;
+    */
 }
 
 PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken)
@@ -1699,7 +2360,7 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken)
 
 
 PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
-                                         PythonSourceRoot::Indent &indent)
+                                               PythonSourceRoot::Indent &indent)
 {
     DEFINE_DBG_VARS
 
@@ -1719,8 +2380,12 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         NEXT_TOKEN(tok)
     }
 
+    if (isModule())
+        m_type.type = PythonSourceRoot::ModuleType;
+
     // do framestart if it is first row in document
     bool isFrameStarter = tok->txtBlock()->block().blockNumber() == 0;
+
     if (startToken->token == PythonSyntaxHighlighter::T_IdentifierFunction ||
         startToken->token == PythonSyntaxHighlighter::T_IdentifierMethod ||
         isFrameStarter)
@@ -1749,7 +2414,14 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
     // scan document
     while (tok && (guard--)) {
         switch(tok->token) {
+        case PythonSyntaxHighlighter::T_KeywordReturn:
+            tok = scanReturnStmt(tok);
+            break;
+        case PythonSyntaxHighlighter::T_KeywordYield:
+            tok = scanReturnStmt(tok);
+            break;
         case PythonSyntaxHighlighter::T_DelimiterMetaData: {
+            // return typehint -> 'Type'
             // make sure previous char was a ')'
             PythonToken *tmpTok = tok->previous();
             int guardTmp = 20;
@@ -1760,23 +2432,33 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
                 m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected '%1' before '->'")
                                                     .arg(tmpTok->text()));
             else {
+                // its a valid typehint
+
                 PythonSourceRoot::TypeInfo typeInfo;
-                tok = scanRValue(tok->next(), typeInfo, true);
-                // TODO need to store this metadata in returns
-                //ident = m_returns.setIdentifier(tok->previous(), typeInfo);
+                const PythonSourceIdentifier *ident;
+                PythonToken *typeHintTok = tok->next();
+                // store this typehint
+                tok = scanRValue(typeHintTok, typeInfo, true);
+                if (typeInfo.isValid() && typeHintTok && parentFrame()) {
+                    // we don't store typehint in this frame, rather we lookup
+                    // our parentframe identifier for this function and stes typehint on that
+                    ident = parentFrame()->getIdentifier(m_token->text());
+                    if (ident)
+                        const_cast<PythonSourceIdentifier*>(ident)->setTypeHint(typeHintTok, typeInfo);
+                }
                 DBG_TOKEN(tok)
             }
 
         } break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
-            if (!isLineEscaped(tok))
+            if (!m_module->root()->isLineEscaped(tok))
                 return tok;
             break;
         case PythonSyntaxHighlighter::T_IdentifierDefUnknown: {
             // a function that can be function or method
             // determine what it is
             if (m_isClass && indent.frameIndent == tok->txtBlock()->indent()) {
-                tok->token = PythonSyntaxHighlighter::T_IdentifierMethod;
+                const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierMethod;
                 noConstModule->setFormatToken(tok);
                 goto doFunction;
             }
@@ -1854,7 +2536,7 @@ doMethod:
             } else if (ind > indent.currentBlockIndent) {
                 // indent
                 // find previous ':'
-                PythonToken *prev = tok->previous();
+                const PythonToken *prev = tok->previous();
                 DBG_TOKEN(prev)
                 int guard = 20;
                 while(prev && (guard--)) {
@@ -1891,9 +2573,6 @@ doMethod:
             }
 
         } // end switch
-
-        if (!tok)
-            break;
 
         NEXT_TOKEN(tok)
         continue; // next loop
@@ -2079,7 +2758,7 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                     }
                 }
 
-                if (tok->isIdentifierVarable()){
+                if (tok->isIdentifierVariable()){
                     if (tok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
                         typeInfo.type = PythonSourceRoot::ReferenceBuiltInType;
                     } else {
@@ -2090,13 +2769,17 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                             typeInfo.referenceName = text;
                         } else if (isTypeHint)
                             m_module->setSyntaxError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
-
+                        else {
+                            // new identifier
+                            m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected variable i RValue context '%1'").arg(tok->text()));
+                            typeInfo.type = PythonSourceRoot::ReferenceType;
+                        }
                     }
                     return tok;
 
                 } else if (tok->isCode()) {
                     if (isTypeHint)
-                        typeInfo.type = PythonSourceRoot::instance()->mapDataType(tok->text());
+                        typeInfo.type = PythonSourceRoot::instance()->mapMetaDataType(tok->text());
                     else
                         m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected code (%1)").arg(text));
                     return tok;
@@ -2135,7 +2818,7 @@ PythonToken *PythonSourceFrame::scanImports(PythonToken *tok)
             isAlias = true;
             break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
-            if (!isLineEscaped(tok)) {
+            if (!m_module->root()->isLineEscaped(tok)) {
                 guard = 0; // we are finished, bail out
                 PREV_TOKEN(tok) // needed becase it is advanced in parent loop in scanline before check
                 if (modules.size() > 0) {
@@ -2215,6 +2898,32 @@ store_module:
     return tok;
 }
 
+// scans a single statement
+PythonToken *PythonSourceFrame::scanReturnStmt(PythonToken *tok)
+{
+    PythonSourceRoot::TypeInfo typeInfo = m_module->root()->statementResultType(tok, this);
+    // store it
+    PythonSourceFrameReturnType *frmType = new PythonSourceFrameReturnType(&m_returnTypes, m_module, tok);
+    frmType->setTypeInfo(typeInfo);
+    insert(frmType);
+
+    // advance token til next statement
+    return gotoNextLine(tok);
+}
+
+PythonToken *PythonSourceFrame::scanYieldStmt(PythonToken *tok)
+{
+    assert(tok && tok->token == PythonSyntaxHighlighter::T_KeywordYield && "Expected a yield token");
+
+    if (!m_returnTypes.empty() && hasOtherTokens(PythonSyntaxHighlighter::T_KeywordYield)) {
+        // we have other tokens !
+        QString msg = QLatin1String("Setting yield in a function '%1' with a return\n");
+        m_module->setSyntaxError(tok, msg);
+    }
+
+    return gotoNextLine(tok);
+}
+
 // may return nullptr on error
 PythonToken *PythonSourceFrame::scanAllParameters(PythonToken *tok, bool storeParameters)
 {
@@ -2287,7 +2996,7 @@ PythonToken *PythonSourceFrame::scanParameter(PythonToken *paramToken, int &pare
                     paramType = PythonSourceParameter::Keyword;
             break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
-            if (!isLineEscaped(paramToken))
+            if (!m_module->root()->isLineEscaped(paramToken))
                 return paramToken->previous(); // caller must know where newline is at
             break;
         default:
@@ -2307,18 +3016,19 @@ PythonToken *PythonSourceFrame::scanParameter(PythonToken *paramToken, int &pare
                     if (!typeInfo.isValid())
                         typeInfo.type = PythonSourceRoot::ReferenceArgumentType;
 
-                    PythonSourceIdentifier *ident = m_identifiers.setIdentifier(paramToken, typeInfo);
+                    m_identifiers.setIdentifier(paramToken, typeInfo);
+
                     // set parameter
                     param = m_parameters.setParameter(paramToken, typeInfo, paramType);
 
                     // Change tokenValue
                     if (paramToken->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
 
-                        PythonToken *tok = const_cast<PythonToken*>(paramToken);
+                        const PythonToken *tok = const_cast<PythonToken*>(paramToken);
                         if (m_parentFrame->isClass() && m_parameters.indexOf(param) == 0)
-                            tok->token = PythonSyntaxHighlighter::T_IdentifierSelf;
+                            const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierSelf;
                         else
-                            tok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
+                            const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierDefined;
                     }
 
                     // repaint in highligher
@@ -2338,7 +3048,7 @@ PythonToken *PythonSourceFrame::scanParameter(PythonToken *paramToken, int &pare
 
 }
 
-const PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const PythonToken *token)
+PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const PythonToken *token)
 {
     DEFINE_DBG_VARS
 
@@ -2349,7 +3059,7 @@ const PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const Py
             // type hint like foo : None = Nothing
             QString explicitType = token->next()->text();
             PythonSourceRoot *root = PythonSourceRoot::instance();
-            typeInfo.type = root->mapDataType(explicitType);
+            typeInfo.type = root->mapMetaDataType(explicitType);
             if (typeInfo.type == PythonSourceRoot::CustomType) {
                 typeInfo.customNameIdx = root->indexOfCustomTypeName(explicitType);
                 if (typeInfo.customNameIdx < 0)
@@ -2363,12 +3073,26 @@ const PythonSourceRoot::TypeInfo PythonSourceFrame::guessIdentifierType(const Py
     return typeInfo;
 }
 
-bool PythonSourceFrame::isLineEscaped(PythonToken *tok) const {
+const PythonSourceFrameReturnTypeList PythonSourceFrame::returnTypes() const
+{
+    return m_returnTypes;
+}
+
+PythonToken *PythonSourceFrame::gotoNextLine(PythonToken *tok)
+{
     DEFINE_DBG_VARS
-    PREV_TOKEN(tok)
-    if (tok)
-        return tok->token != PythonSyntaxHighlighter::T_DelimiterLineContinue;
-    return false;
+
+    int guard = 200;
+    PythonTextBlockData *txtBlock = tok->txtBlock();
+    while(txtBlock && (guard--)) {
+        if (txtBlock->isCodeLine()) {
+            tok = txtBlock->tokenAt(0);
+            DBG_TOKEN(tok)
+            break;
+        }
+        txtBlock = txtBlock->next();
+    }
+    return tok;
 }
 
 

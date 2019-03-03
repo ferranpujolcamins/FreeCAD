@@ -40,11 +40,12 @@
 
 #if DEBUG_TOKENS == 1
 #include "PythonCodeDebugTools.h"
+// include at top of cpp file
 #define DBG_TOKEN_FILE \
 char TOKEN_TEXT_BUF[350]; \
 char TOKEN_NAME_BUF[50]; \
 char TOKEN_INFO_BUF[40];  \
-char TOKEN_SRC_LINE_BUF[350]; \
+char TOKEN_SRC_LINE_BUF[350];
 
 // insert in start of each method that you want to dbg in
 #define DEFINE_DBG_VARS \
@@ -58,7 +59,7 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
     (void)TOKEN_NAME; \
     (void)TOKEN_INFO; \
     (void)TOKEN_SRC_LINE;
-#define DBG_TOKEN(TOKEN) {\
+#define DBG_TOKEN(TOKEN) if (TOKEN){\
     strcpy(TOKEN_NAME_BUF, Syntax::tokenToCStr(TOKEN->token)); \
     strcpy(TOKEN_INFO_BUF, (QString::fromLatin1("line:%1,start:%2,end:%3") \
                     .arg(TOKEN->txtBlock()->block().blockNumber()) \
@@ -67,18 +68,18 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
     strcpy(TOKEN_TEXT_BUF, TOKEN->text().toLatin1()); \
 }
 #define NEXT_TOKEN(TOKEN) {\
-    TOKEN = TOKEN->next(); \
+    if (TOKEN) TOKEN = TOKEN->next(); \
     DBG_TOKEN(TOKEN);}
-#define PREV_TOKEN(TOKEN){ \
-    TOKEN = TOKEN->previous(); \
+#define PREV_TOKEN(TOKEN) {\
+    if (TOKEN) TOKEN = TOKEN->previous(); \
     DBG_TOKEN(TOKEN);}
 
 #else
 // No debug, squelsh warnings
 #define DEFINE_DBG_VARS ;
 #define DBG_TOKEN(TOKEN) ;
-#define NEXT_TOKEN(TOKEN) TOKEN = TOKEN->next();
-#define PREV_TOKEN(TOKEN) TOKEN = TOKEN->previous();
+#define NEXT_TOKEN(TOKEN) if (TOKEN) TOKEN = TOKEN->next();
+#define PREV_TOKEN(TOKEN) if (TOKEN) TOKEN = TOKEN->previous();
 #endif
 
 
@@ -207,6 +208,7 @@ public:
         // and in is* functions
         InValidType,
         UnknownType,
+        VoidType,
 
         // reference types
         ReferenceType, // references another variable
@@ -219,7 +221,28 @@ public:
         ReferenceImportPythonType, // identifier is imported into current frame, is a Py module
         ReferenceImportBuiltInType, // identifier is imported into current frame, is C module
 
-        // common types
+        // standard builtin types
+        // https://docs.python.org/3/library/types.html
+        FunctionType,
+        LambdaType,
+        GeneratorType,
+        CoroutineType, // no support for this yet
+        CodeType,
+        MethodType,
+        BuiltinFunctionType,
+        BuiltinMethodType,
+        WrapperDescriptorType,
+        MethodWrapperType,
+        MethodDescriptorType,
+        ClassMethodDescriptorType,
+        ModuleType, // is root frame, for imports use: ReferenceImport*
+        TracebackType,
+        FrameType,
+        GetSetDescriptorType,
+        MemberDescriptorType,
+        MappingProxyType,
+
+        TypeObjectType,
         ObjectType,
         NoneType,
         BoolType,
@@ -230,17 +253,20 @@ public:
         ListType,
         TupleType,
         SetType,
+        FrozenSetType,
         RangeType,
         DictType,
-        FunctionType,
         ClassType,
-        MethodType,
-        GeneratorType,
+        ComplexType,
+        EnumerateType,
+        IterableType,
+        FileType,
 
         // a special Custom Type
         CustomType
     };
 
+    /// for a identifier type
     struct TypeInfo {
         explicit TypeInfo();
         explicit TypeInfo(PythonSourceRoot::DataTypes type);
@@ -265,14 +291,34 @@ public:
             referenceName = other.referenceName;
             return *this;
         }
+        /// refernces another variable
         bool isReference() const {
             return type >= ReferenceType && type <= ReferenceImportBuiltInType;
         }
+        /// imported as into current frame
         bool isReferenceImported() const {
             return type >= ReferenceImportUndeterminedType &&
                    type <= ReferenceImportBuiltInType;
         }
+        /// if you can call this type
+        bool isCallable() const {
+            switch (type) {
+            case FunctionType: case LambdaType: case CoroutineType:
+            case MethodType: case BuiltinFunctionType: case BuiltinMethodType:
+            case MethodDescriptorType: case ClassMethodDescriptorType:
+                return true;
+            default:
+                return false;
+            }
+        }
         bool isValid() const { return type != InValidType; }
+    };
+    /// return type from functions/methods/properties
+    struct TypeInfoPair {
+        TypeInfo returnType;
+        TypeInfo thisType;
+        bool isReturnType() const { return !returnType.isValid(); }
+        bool isValid() const { return thisType.isValid(); }
     };
 
     // used as a message parsing between functions
@@ -321,7 +367,18 @@ public:
     const PythonSourceModuleList *modules() const { return m_modules; }
 
     /// map typestr from metadata Type annotation, ie x: int
-    DataTypes mapDataType(const QString typeAnnotation) const;
+    DataTypes mapMetaDataType(const QString typeAnnotation) const;
+
+    /// get the type for this token, token must be a Identifier
+    /// else it returns a inValid TypeInfo
+    TypeInfoPair identifierType(const PythonToken *tok,
+                                const PythonSourceFrame *frame) const;
+    TypeInfoPair builtinType(const PythonToken *tok,
+                             const PythonSourceFrame *frame) const;
+
+
+    /// true if tok is a newline and previous token was a escape char
+    bool isLineEscaped(const PythonToken *tok) const;
 
     // typename database for custom types
     QString customTypeNameFor(CustomNameIdx_t customIdx);
@@ -336,11 +393,23 @@ public:
                                             PythonTextBlockData *row,
                                             PythonSyntaxHighlighter *highlighter);
 
+    /// computes the return type of statement pointed to by startToken
+    /// NOTE it has limitations, it isn' a fullblown interpreter
+    TypeInfo statementResultType(const PythonToken *startToken, const PythonSourceFrame *frame) const;
+
+
 private:
     QHash<CustomNameIdx_t, QString> m_customTypeNames;
     CustomNameIdx_t m_uniqueCustomTypeNames;
     PythonSourceModuleList *m_modules;
     static PythonSourceRoot *m_instance;
+
+    const PythonToken *computeStatementResultType(const PythonSourceFrame *frame,
+                                                  const PythonToken *startTok,
+                                                  TypeInfo &typeInfo) const;
+
+    //PythonToken *splitStmtParts(PythonToken, );
+
 };
 
 // -------------------------------------------------------------------------
@@ -362,7 +431,7 @@ public:
     void setPrevious(PythonSourceListNodeBase *previous) { m_previous = previous; }
     /// python token
     const PythonToken *token() const { return m_token; }
-    void setToken(const PythonToken *token) { m_token = token; }
+    void setToken(PythonToken *token) { m_token = token; }
 
     /// gets text for token (gets from document)
     QString text() const;
@@ -378,7 +447,7 @@ protected:
     PythonSourceListNodeBase *m_previous;
     PythonSourceListNodeBase *m_next;
     PythonSourceListParentBase *m_owner;
-    const PythonToken *m_token;
+    PythonToken *m_token;
 };
 
 // -------------------------------------------------------------------------
@@ -410,6 +479,16 @@ public:
     /// returns node at idx
     PythonSourceListNodeBase *operator [](std::size_t idx) const;
 
+    /// finds the node that has token this exact token
+    PythonSourceListNodeBase *findExact(const PythonToken *tok) const;
+    /// finds the first token of this type
+    PythonSourceListNodeBase *findFirst(PythonSyntaxHighlighter::Tokens token) const;
+    /// finds the last token of this type (reverse lookup)
+    PythonSourceListNodeBase *findLast(PythonSyntaxHighlighter::Tokens token) const;
+    /// returns true if all elements are of token type false otherwise
+    /// if list is empty it returns false
+    bool hasOtherTokens(PythonSyntaxHighlighter::Tokens token) const;
+
     /// stl iterator stuff
     PythonSourceListNodeBase* begin() const { return m_first; }
     PythonSourceListNodeBase* rbegin() const { return m_last; }
@@ -440,13 +519,13 @@ class PythonSourceIdentifierAssignment : public PythonSourceListNodeBase {
     PythonSourceRoot::TypeInfo m_type;
 public:
     explicit PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
-                                              const PythonToken *startToken,
+                                              PythonToken *startToken,
                                               PythonSourceRoot::TypeInfo typeInfo);
     explicit PythonSourceIdentifierAssignment(PythonSourceTypeHint *owner,
-                                              const PythonToken *startToken,
+                                              PythonToken *startToken,
                                               PythonSourceRoot::TypeInfo typeInfo);
     ~PythonSourceIdentifierAssignment();
-    const PythonSourceRoot::TypeInfo typeInfo() const { return m_type; }
+    PythonSourceRoot::TypeInfo typeInfo() const { return m_type; }
     void setType(PythonSourceRoot::TypeInfo &type) { m_type = type; } // type is implicitly copied
     int linenr() const;
     int position() const; // as in pos in document line
@@ -470,7 +549,7 @@ public:
 
     const PythonSourceModule *module() const { return m_module; }
     const PythonSourceFrame *frame() const;
-    const PythonSourceIdentifier *identifier() const {return m_identifer; }
+    const PythonSourceIdentifier *identifier() const { return m_identifer; }
 
     /// gets last typehint assignment up til line and pos in document
     /// or nullptr if not found
@@ -514,12 +593,12 @@ public:
     QString name() const;
 
     /// get last inserted TypeHint for identifier up to including line
-    PythonSourceTypeHintAssignment *getTypeHintAssignment(PythonToken *tok) const;
+    PythonSourceTypeHintAssignment *getTypeHintAssignment(const PythonToken *tok) const;
     PythonSourceTypeHintAssignment *getTypeHintAssignment(int line) const;
     /// returns true if identifier has a typehint up to including line
     bool hasTypeHint(int line) const;
     /// set typeHint
-    PythonSourceTypeHintAssignment *setTypeHint(const PythonToken *tok,
+    PythonSourceTypeHintAssignment *setTypeHint(PythonToken *tok,
                                                 PythonSourceRoot::TypeInfo typeInfo);
 
 protected:
@@ -545,7 +624,7 @@ public:
     const PythonSourceIdentifier *getIdentifier(const QString name) const;
     bool hasIdentifier(const QString name) const { return getIdentifier(name) != nullptr; }
     /// sets a new assignment, creates identifier if not exists
-    PythonSourceIdentifier *setIdentifier(const PythonToken *tok,
+    PythonSourceIdentifier *setIdentifier(PythonToken *tok,
                                           PythonSourceRoot::TypeInfo typeInfo);
 
     /// get the identifier that is pointed to by token
@@ -576,7 +655,8 @@ public:
 
 
 // ---------------------------------------------------------------------
-// class for function/method parameters
+// class for function/method parameters ie: def func(arg1, arg2=None, *arg3, **arg4)
+//                                                   ^     ^           ^       ^
 class PythonSourceParameter : public PythonSourceListNodeBase
 {
 public:
@@ -628,6 +708,48 @@ public:
                                          PythonSourceRoot::TypeInfo typeInfo,
                                          PythonSourceParameter::ParameterType paramType);
 
+protected:
+    int compare(const PythonSourceListNodeBase *left,
+                const PythonSourceListNodeBase *right) const;
+};
+
+// -------------------------------------------------------------------
+/// a return can be built up by several Identifiers and operators
+///  ie: return (var1 + var3) * 4 or 5
+///              ^    ^ ^       ^    ^
+/// we store pos of return, and compute type when we need it
+class PythonSourceFrameReturnType : public PythonSourceListNodeBase
+{
+    const PythonSourceModule *m_module;
+    PythonSourceRoot::TypeInfo m_typeInfo;
+public:
+    explicit PythonSourceFrameReturnType(PythonSourceListParentBase *owner,
+                                         const PythonSourceModule *module,
+                                         PythonToken *tok);
+    virtual ~PythonSourceFrameReturnType();
+
+    // getter/setters for typeInfo
+    void setTypeInfo(PythonSourceRoot::TypeInfo typeInfo);
+    PythonSourceRoot::TypeInfo typeInfo() const { return m_typeInfo; }
+
+    /// return this type
+    PythonSourceRoot::TypeInfo returnType() const;
+    /// true if it is a yield
+    bool isYield() const;
+    /// yields this type
+    PythonSourceRoot::TypeInfo yieldType() const;
+};
+
+// --------------------------------------------------------------------
+
+class PythonSourceFrameReturnTypeList : public PythonSourceListParentBase
+{
+    const PythonSourceModule *m_module;
+public:
+    explicit PythonSourceFrameReturnTypeList(PythonSourceListParentBase *owner,
+                                    const PythonSourceModule *module);
+    PythonSourceFrameReturnTypeList(const PythonSourceFrameReturnTypeList &other);
+    virtual ~PythonSourceFrameReturnTypeList();
 protected:
     int compare(const PythonSourceListNodeBase *left,
                 const PythonSourceListNodeBase *right) const;
@@ -763,7 +885,9 @@ class PythonSourceFrame : public PythonSourceListParentBase
     PythonSourceIdentifierList m_identifiers;
     PythonSourceParameterList m_parameters;
     PythonSourceImportList    m_imports;
-    PythonSourceListParentBase *m_returns;
+    PythonSourceFrameReturnTypeList m_returnTypes; // as in return types
+    PythonSourceRoot::TypeInfo m_type;
+    PythonSourceTypeHint *m_typeHint;
     PythonSourceFrame *m_parentFrame;
     const PythonSourceModule *m_module;
     bool m_isClass;
@@ -781,6 +905,10 @@ public:
     void setParentFrame(PythonSourceFrame *frame) { m_parentFrame = frame; }
 
     const PythonSourceModule *module() const { return m_module; }
+    PythonSourceRoot::TypeInfo type() const { return m_type; }
+
+    /// true if frame is itself a module, ie: rootframe
+    bool isModule() const { return m_parentFrame == nullptr; }
 
     /// get the docstring for this function/method
     QString docstring();
@@ -790,12 +918,14 @@ public:
     ///    would return:         ^
     ///    CustomType with CustomTypeName == Module.Class.Custom
     /// returns Typeinfo::InValidType if no typeHint given
-    PythonSourceRoot::TypeInfo returnTypeHint();
+    PythonSourceRoot::TypeInfo returnTypeHint() const;
 
     /// true if we have identifier
     bool hasIdentifier(const QString name) const {
         return m_identifiers.getIdentifier(name);
     }
+
+    const PythonSourceTypeHint *typeHint() const { return m_typeHint; }
 
     /// is root frame for class
     bool isClass() const { return m_isClass; }
@@ -807,16 +937,25 @@ public:
     /// get reference to all identifiers within this frame
     const PythonSourceIdentifierList &identifiers() const { return m_identifiers; }
 
-    /// the token (unindent) that ends this frame
-    PythonToken *lastToken;
+    /// returns a list with all the types for this frame
+    ///   returnType Might differ
+    const PythonSourceFrameReturnTypeList returnTypes() const;
 
+    /// the token (unindent) that ends this frame
+    const PythonToken *lastToken;
+
+    // scan* functions might mutate PythonToken, ie change from Undetermined -> determined etc.
     /// on complete rescan, returns lastToken->next()
     PythonToken *scanFrame(PythonToken *startToken);
 
     /// on single row rescan
     PythonToken *scanLine(PythonToken *startToken, PythonSourceRoot::Indent &indent);
 
+
 private:
+    // moves token til next line with tokens
+    PythonToken *gotoNextLine(PythonToken *tok);
+
     // set identifier and sets up reference to RValue
     PythonToken *scanIdentifier(PythonToken *tok);
     // scans the RValue ie after '='
@@ -826,6 +965,10 @@ private:
                             bool isTypeHint);
     PythonToken *scanImports(PythonToken *tok);
 
+    // scan return statement
+    PythonToken *scanReturnStmt(PythonToken *tok);
+    // scan yield statement
+    PythonToken *scanYieldStmt(PythonToken *tok);
 
     // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList
@@ -833,9 +976,8 @@ private:
     // sets a parameter
     PythonToken *scanParameter(PythonToken *paramToken, int &parenCount);
     // guess type for identifier
-    const PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
+    PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
 
-    bool isLineEscaped(PythonToken *tok) const;
 };
 
 // -------------------------------------------------------------------------
@@ -856,6 +998,7 @@ public:
                                 PythonSyntaxHighlighter *highlighter);
     ~PythonSourceModule();
 
+    PythonSourceRoot *root() const { return m_root; }
     const PythonSourceFrame *rootFrame() const { return &m_rootFrame; }
 
     /// filepath for this module
