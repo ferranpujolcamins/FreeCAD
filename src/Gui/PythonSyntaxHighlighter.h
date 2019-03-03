@@ -347,7 +347,7 @@ struct PythonToken
     bool isOperatorParam() const;
     bool isDelimiter() const;
     bool isIdentifier() const;
-    bool isIdentifierVarable() const;
+    bool isIdentifierVariable() const;
     bool isIdentifierDeclaration() const;
     bool isNewLine() const; // might be escaped this checks for that
     bool isInValid() const;
@@ -428,9 +428,9 @@ public:
      * @param pos from start of line
      * @return pointer to token or nullptr
      */
-    const PythonToken* tokenAt(int pos) const;
+    PythonToken *tokenAt(int pos) const;
 
-    static const PythonToken* tokenAt(const QTextCursor &cursor);
+    static PythonToken* tokenAt(const QTextCursor &cursor);
 
     /**
      * @brief tokenAtAsString returns the token under pos (in block)

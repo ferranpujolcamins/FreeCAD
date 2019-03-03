@@ -935,10 +935,10 @@ void PythonSyntaxHighlighter::setFilePath(QString filePath)
 {
     d->filePath = filePath;
 
-    PythonSourceRoot::instance()->scanCompleteModule(filePath, ps);
+    PythonSourceRoot::instance()->scanCompleteModule(filePath, this);
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
-            DumpSyntaxTokens tok(d->editWrapper->editor()->document()->begin());
+            DumpSyntaxTokens dump(document()->begin());
         }
 #endif
 }
@@ -1322,7 +1322,7 @@ bool PythonToken::isIdentifier() const {
            token < PythonSyntaxHighlighter::T__IdentifierEnd;
 }
 
-bool PythonToken::isIdentifierVarable() const {
+bool PythonToken::isIdentifierVariable() const {
     return token > PythonSyntaxHighlighter::T__IdentifierVariableStart &&
            token < PythonSyntaxHighlighter::T__IdentifierVariableEnd;
 }
@@ -1575,9 +1575,9 @@ PythonToken *PythonTextBlockData::lastInserted(bool lookInPreviousRows) const
     return m_tokens[m_tokens.size() -1];
 }
 
-const PythonToken *PythonTextBlockData::tokenAt(int pos) const
+PythonToken *PythonTextBlockData::tokenAt(int pos) const
 {
-    for (const PythonToken *tok : m_tokens) {
+    for (PythonToken *tok : m_tokens) {
         if (tok->startPos <= pos && tok->endPos > pos)
             return tok;
     }
@@ -1586,7 +1586,7 @@ const PythonToken *PythonTextBlockData::tokenAt(int pos) const
 }
 
 // static
-const PythonToken *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
+PythonToken *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
 {
     PythonTextBlockData *textData = blockDataFromCursor(cursor);
     if (!textData)
