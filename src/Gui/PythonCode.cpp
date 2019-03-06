@@ -595,9 +595,18 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *
 bool PythonSourceRoot::isLineEscaped(const PythonToken *tok) const {
     DEFINE_DBG_VARS
     PREV_TOKEN(tok)
-    if (tok)
-        return tok->token != PythonSyntaxHighlighter::T_DelimiterLineContinue;
-    return false;
+    int guard = 40;
+    bool escaped = false;
+    while (tok && (guard--)) {
+        if (tok->token == PythonSyntaxHighlighter::T_DelimiterLineContinue)
+            escaped = true;
+        else
+            escaped = false;
+        if (tok->token == PythonSyntaxHighlighter::T_DelimiterNewLine)
+            break;
+        NEXT_TOKEN(tok)
+    }
+    return escaped;
 }
 
 QString PythonSourceRoot::customTypeNameFor(PythonSourceRoot::CustomNameIdx_t customIdx)
@@ -824,7 +833,7 @@ const PythonToken
         case PythonSyntaxHighlighter::T_DelimiterOpenParen:
  //           ++parenCnt;
             // recurse into this '(..)'
-            return computeStatementResultType(frame, tok, typeInfo);
+            return computeStatementResultType(frame, tok->next(), typeInfo);
 //            goto next_loop;
             break;
         case PythonSyntaxHighlighter::T_DelimiterCloseParen:
@@ -833,7 +842,7 @@ const PythonToken
         case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
             // recurese into '[..]'
 //            ++bracketCnt;
-            return computeStatementResultType(frame, tok, typeInfo);
+            return computeStatementResultType(frame, tok->next(), typeInfo);
 //            goto next_loop;
         case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
 //            --bracketCnt;
@@ -2409,7 +2418,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
     while(tok && (guard--)) {
         if (tok->isNewLine())
             return tok->next(); // empty row
-        if (startToken->isText())
+        if (tok->isText())
             break;
         NEXT_TOKEN(tok)
     }
@@ -2499,7 +2508,13 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             // a function that can be function or method
             // determine what it is
             if (m_isClass && indent.frameIndent == tok->txtBlock()->indent()) {
-                const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierMethod;
+                if (tok->text().left(2) == QLatin1String("__") &&
+                    tok->text().right(2) == QLatin1String("__"))
+                {
+                    const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierSuperMethod;
+                } else {
+                    const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierMethod;
+                }
                 noConstModule->setFormatToken(tok);
                 goto doFunction;
             }
@@ -2583,6 +2598,8 @@ doMethod:
                 while(prev && (guard--)) {
                     switch (prev->token) {
                     case PythonSyntaxHighlighter::T_DelimiterColon:
+                        indent.previousBlockIndent = prev->txtBlock()->indent();
+                        indent.currentBlockIndent = ind;
                         prev->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockStart, tok->startPos, 0);
                         prev = nullptr; // break for loop
                         break;
@@ -2632,7 +2649,7 @@ frame_indent_increased:
             const PythonToken *tmpTok = nullptr;
             while (block && (guard--)) {
                 if (block->isCodeLine()) {
-                    tmpTok = block->tokenAt(-2);
+                    tmpTok = block->tokens()[block->tokens().size() -2]; // ->tokenAt(-2);
                     if (tmpTok->token == PythonSyntaxHighlighter::T_DelimiterSemiColon)
                          break; // not yet a valid function block
                                 // might be a freshly typed function above other block starter lines
@@ -2665,6 +2682,8 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
 
     while (tok && (guard--)) {
         // TODO figure out how to do tuple assignment
+        if (!tok->isCode())
+            return tok;
         switch (tok->token) {
         case PythonSyntaxHighlighter::T_IdentifierFalse:
             typeInfo.type = PythonSourceRoot::BoolType;
@@ -2688,8 +2707,11 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             }
             break;
         case PythonSyntaxHighlighter::T_DelimiterColon:
-            // type hint
-            if (ident) {
+            // type hint or blockstart
+            if (tok->next() && !tok->next()->isCode()) {
+                // its not a typehint, its probably a blockstart
+                return tok;
+            } else if (ident) {
                 m_module->setSyntaxError(tok, QLatin1String("Unexpected ':'"));
                 return tok;
             } else if (!identifierTok) {
@@ -2731,6 +2753,7 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                                            bool isTypeHint)
 {
     DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
 
     typeInfo = PythonSourceRoot::TypeInfo(); // init with clean type
 
@@ -2742,6 +2765,8 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
     const PythonSourceIdentifier *ident = nullptr;
 
     while (tok && (guard--)) {
+        if (!tok->isCode())
+            return tok;
         switch(tok->token) {
         case PythonSyntaxHighlighter::T_DelimiterOpenParen:
             if (!isTypeHint)
@@ -2774,7 +2799,8 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
             if (!isTypeHint) {
                 m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected '%1'").arg(tok->text()));
                 return tok;
-            } // else do next token
+            }
+            // else do next token
             break;
         case PythonSyntaxHighlighter::T_OperatorEqual:
             if (!isTypeHint) {

@@ -1271,7 +1271,7 @@ PythonToken *PythonToken::previous() const
         } else {
             if (tokens.isEmpty())
                 return nullptr;
-            return tokens[0];
+            return tokens[tokens.size() -1];
         }
 
         // we are the last token in this txtBlock or it was empty
