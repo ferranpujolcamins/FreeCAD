@@ -1226,37 +1226,14 @@ PythonToken::~PythonToken()
         n->tokenDeleted();
 }
 
-bool PythonToken::operator==(const PythonToken &other) const
+/*
+friend
+bool PythonToken::operator >=(const PythonToken &lhs, const PythonToken &rhs)
 {
-    return line() == other.line() &&
-           token == other.token &&
-           startPos == other.startPos &&
-           endPos == other.endPos;
+    return lhs.line() >= rhs.line() &&
+           lhs.startPos >= rhs.startPos;
 }
-
-bool PythonToken::operator >(const PythonToken &other) const
-{
-    return line() >= other.line() &&
-           startPos > other.startPos;
-}
-
-bool PythonToken::operator >=(const PythonToken &other) const
-{
-    return line() >= other.line() &&
-            startPos >= other.startPos;
-}
-
-bool PythonToken::operator <(const PythonToken &other) const
-{
-    return line() <= other.line() &&
-            startPos < other.startPos;
-}
-
-bool PythonToken::operator <=(const PythonToken &other) const
-{
-    return line() <= other.line() &&
-            startPos <= other.startPos;
-}
+*/
 
 PythonToken *PythonToken::next() const
 {

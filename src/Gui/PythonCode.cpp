@@ -1237,7 +1237,7 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToke
          node != nullptr;
          node = node->next())
     {
-        if (node->token() == tok)
+        if (*node->token() == *tok)
             return node;
     }
 
@@ -1289,11 +1289,11 @@ bool PythonSourceListParentBase::hasOtherTokens(PythonSyntaxHighlighter::Tokens 
 int PythonSourceListParentBase::compare(const PythonSourceListNodeBase *left,
                                         const PythonSourceListNodeBase *right) const
 {
-    if (!left || ! right)
+    if (!left || ! right || !left->token() || !right->token())
         return 0;
-    if (left->token() > right->token())
+    if (*left->token() > *right->token())
         return -1;
-    else if (left->token() < right->token())
+    else if (*left->token() < *right->token())
         return +1;
     return 0;
 }
@@ -1762,7 +1762,7 @@ int PythonSourceParameterList::compare(const PythonSourceListNodeBase *left,
     const PythonSourceParameter *l = dynamic_cast<const PythonSourceParameter*>(left),
                                 *r = dynamic_cast<const PythonSourceParameter*>(right);
     assert(l != nullptr && r != nullptr && "Non PythonSourceArgument items in agrmumentslist");
-    if (l->token() < r->token())
+    if (*l->token() < *r->token())
         return +1;
     return -1; // r must be bigger
 }
@@ -1847,7 +1847,7 @@ int PythonSourceFrameReturnTypeList::compare(const PythonSourceListNodeBase *lef
     const PythonSourceFrameReturnType *l = dynamic_cast<const PythonSourceFrameReturnType*>(left),
                              *r = dynamic_cast<const PythonSourceFrameReturnType*>(right);
     assert(l != nullptr && r != nullptr && "Non PythonSourceReturnList items in returnList");
-    if (l->token() < r->token())
+    if (*l->token() < *r->token())
         return +1;
     return -1; // r must be bigger
 }
@@ -2519,7 +2519,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         } break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
             if (!m_module->root()->isLineEscaped(tok)){
-                if (lastToken < tok)
+                if (*lastToken < *tok)
                     lastToken = tok;
                 return tok;
             }
@@ -3425,7 +3425,7 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     {
         childFrm = dynamic_cast<const PythonSourceFrame*>(itm);
         assert(childFrm != nullptr && "Wrong datatype stored in PythonSourceFrame");
-        if (tok >= childFrm->token() && tok <= childFrm->lastToken)
+        if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken)
         {
             // find recursivly
             if (!childFrm->empty())

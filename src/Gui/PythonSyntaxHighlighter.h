@@ -315,11 +315,19 @@ struct PythonToken
     explicit PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, int endPos,
                          PythonTextBlockData *block);
     ~PythonToken();
-    bool operator==(const PythonToken &other) const;
-    bool operator > (const PythonToken &other) const;
-    bool operator >= (const PythonToken &other) const;
-    bool operator < (const PythonToken &other) const;
-    bool operator <= (const PythonToken &other) const;
+    bool operator==(const PythonToken &rhs) const
+    {
+        return line() == rhs.line() && token == rhs.token &&
+               startPos == rhs.startPos && endPos == rhs.endPos;
+    }
+    bool operator > (const PythonToken &rhs) const
+    {
+        return line() >= rhs.line() &&
+               startPos > rhs.startPos;
+    }
+    bool operator < (const PythonToken &rhs) const { return rhs > *this; }
+    bool operator <= (const PythonToken &rhs) const { return !(rhs > *this); }
+    bool operator >= (const PythonToken &rhs) const { return !(*this > rhs); }
 
     /// for traversing tokens in document
     /// returns token or nullptr if at end/begin
