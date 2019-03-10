@@ -328,31 +328,6 @@ public:
         bool isValid() const { return thisType.isValid(); }
     };
 
-    // used as a message parsing between functions
-    struct Indent {
-        explicit Indent() : frameIndent(-1), currentBlockIndent(-1), previousBlockIndent(-1){}
-        ~Indent() {}
-        Indent operator =(const Indent &other) {
-            frameIndent = other.frameIndent;
-            currentBlockIndent = other.currentBlockIndent;
-            previousBlockIndent = other.previousBlockIndent;
-            return *this;
-        }
-        bool operator == (const Indent &other) {
-            return frameIndent == other.frameIndent &&
-                   previousBlockIndent == other.previousBlockIndent &&
-                   currentBlockIndent == other.previousBlockIndent;
-        }
-        bool isValid() const {
-            return frameIndent > -1 || currentBlockIndent > -1 || previousBlockIndent > -1;
-        }
-        void setAsInValid() { frameIndent = currentBlockIndent = previousBlockIndent = -1; }
-
-        int frameIndent,
-            currentBlockIndent,
-            previousBlockIndent;
-    };
-
     // please not that it must be a singleton!
     explicit PythonSourceRoot();
     virtual ~PythonSourceRoot();
@@ -417,6 +392,55 @@ private:
 
     //PythonToken *splitStmtParts(PythonToken, );
 
+};
+
+// -------------------------------------------------------------------------
+// used as a message parsing between functions
+class PythonSourceIndent {
+    struct Indent {
+        int frameIndent,
+            currentBlockIndent;
+        explicit Indent(int frmInd = -1, int curInd = -1):
+            frameIndent(frmInd), currentBlockIndent(curInd)
+        {}
+        Indent(const Indent &other):
+            frameIndent(other.frameIndent),
+            currentBlockIndent(other.currentBlockIndent)
+        {}
+        ~Indent() {}
+    };
+public:
+    explicit PythonSourceIndent();
+    ~PythonSourceIndent();
+    PythonSourceIndent operator =(const PythonSourceIndent &other);
+    bool operator == (const PythonSourceIndent &other);
+    /// returns the number of pushed block -1, invalid == -1
+    int atIndentBlock() const { return m_indentStack.size() -1; }
+
+    int frameIndent() const;
+    int currentBlockIndent() const;
+    int previousBlockIndent() const;
+
+    /// true if we have a valid indentBlock stored
+    bool isValid() const;
+
+    /// inserts a new frameBlock (ie def func(arg1):)
+    /// returns current indentBlock
+    void pushFrameBlock(int frmIndent, int currentIndent);
+    /// inserts a new block, get frameblock form previous block (indent ie if (arg1):)
+    /// returns current indentblock
+    void pushBlock(int currentIndent);
+    /// pop a indentblock (de-indent)
+    void popBlock();
+    /// framePopCnt is a counter that stores the number of frames that have popped
+    int framePopCnt() const { return m_framePopCnt; }
+    int framePopCntDecr();
+
+
+private:
+    QList<Indent> m_indentStack;
+    Indent _current() const;
+    int m_framePopCnt;
 };
 
 // -------------------------------------------------------------------------
@@ -961,15 +985,18 @@ public:
 
     // scan* functions might mutate PythonToken, ie change from Undetermined -> determined etc.
     /// on complete rescan, returns lastToken->next()
-    PythonToken *scanFrame(PythonToken *startToken);
+    PythonToken *scanFrame(PythonToken *startToken, PythonSourceIndent &indent);
 
     /// on single row rescan
-    PythonToken *scanLine(PythonToken *startToken, PythonSourceRoot::Indent &indent);
+    PythonToken *scanLine(PythonToken *startToken, PythonSourceIndent &indent);
 
 
 private:
     // moves token til next line with tokens
     PythonToken *gotoNextLine(PythonToken *tok);
+
+    PythonToken *handleIndent(PythonToken *tok,
+                              PythonSourceIndent &indent);
 
     // set identifier and sets up reference to RValue
     PythonToken *scanIdentifier(PythonToken *tok);
@@ -987,9 +1014,9 @@ private:
 
     // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList
-    PythonToken *scanAllParameters(PythonToken *token, bool storeParameters = false);
+    PythonToken *scanAllParameters(PythonToken *token, bool storeParameters, bool isInitFunc);
     // sets a parameter
-    PythonToken *scanParameter(PythonToken *paramToken, int &parenCount);
+    PythonToken *scanParameter(PythonToken *paramToken, int &parenCount, bool isInitFunc);
     // guess type for identifier
     PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
     // goto end of line
@@ -1033,7 +1060,7 @@ public:
     bool shouldRehighlight() const { return m_rehighlight; }
 
     /// returns indent info for block where tok is
-    PythonSourceRoot::Indent currentBlockIndent(const PythonToken *tok) const;
+    PythonSourceIndent currentBlockIndent(const PythonToken *tok) const;
 
     // syntax highlighter stuff
     PythonSyntaxHighlighter *highlighter() const { return m_highlighter; }
@@ -1055,6 +1082,12 @@ public:
     /// returns the frame for given token
     const PythonSourceFrame *getFrameForToken(const PythonToken *tok,
                                               const PythonSourceFrame *parentFrame) const;
+
+
+    /// inserts a blockStartTok after colonTok
+    void insertBlockStart(const PythonToken *colonTok) const;
+    /// inserts a blockEnd token before newLineTok
+    void insertBlockEnd(const PythonToken *newLineTok) const;
 
 
 protected:

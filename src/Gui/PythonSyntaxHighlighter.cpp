@@ -1404,6 +1404,11 @@ bool PythonToken::isCode() const
     {
         return false;
     }
+    if (token >= PythonSyntaxHighlighter::T_BlockStart &&
+        token <= PythonSyntaxHighlighter::T_BlockEnd)
+    {
+        return false;
+    }
     return true;
 }
 

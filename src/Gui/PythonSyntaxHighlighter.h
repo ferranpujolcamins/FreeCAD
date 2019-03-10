@@ -322,10 +322,13 @@ struct PythonToken
     }
     bool operator > (const PythonToken &rhs) const
     {
-        return line() >= rhs.line() &&
-               startPos > rhs.startPos;
+        if (line() > rhs.line())
+            return true;
+        if (line() < rhs.line())
+            return false;
+        return startPos > rhs.startPos;
     }
-    bool operator < (const PythonToken &rhs) const { return rhs > *this; }
+    bool operator < (const PythonToken &rhs) const { return (rhs > *this); }
     bool operator <= (const PythonToken &rhs) const { return !(rhs > *this); }
     bool operator >= (const PythonToken &rhs) const { return !(*this > rhs); }
 
