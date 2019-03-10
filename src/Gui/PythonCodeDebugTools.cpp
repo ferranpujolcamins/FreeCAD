@@ -30,6 +30,12 @@
 #include <QFileInfo>
 #include <time.h>
 
+// for DBG_TOKEN_FILE
+char TOKEN_TEXT_BUF[350];
+char TOKEN_NAME_BUF[50];
+char TOKEN_INFO_BUF[40];
+char TOKEN_SRC_LINE_BUF[350];
+
 using namespace Gui;
 using namespace Syntax;
 
@@ -260,6 +266,8 @@ DumpModule::~DumpModule()
 
 void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
 {
+    DEFINE_DBG_VARS
+
     // build up indent string
     char indentStr[200];
     int i = 0;
@@ -271,11 +279,16 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
         fprintf(m_file, "%s ***** tried a new frame but it hadnt any startToken, bailing....\n",  indentStr);
         return;
     }
+    DBG_TOKEN(frm->token())
+
 
     fprintf(m_file, "%s---------------------------------------------------\n", indentStr);
-    fprintf(m_file, "%sStarting new frame, startToken:%s, endToken:%s\n", indentStr,
-            tokenToCStr(frm->token()->token),
-            frm->lastToken ? tokenToCStr(frm->lastToken->token) : "-1");
+    fprintf(m_file, "%sStarting new frame, startToken:%s(line:%d), endToken:%s(line:%d)\n", indentStr,
+            tokenToCStr(frm->token()->token), frm->token()->line() +1,
+            frm->lastToken ? tokenToCStr(frm->lastToken->token) : "-1",
+            frm->lastToken ? frm->lastToken->line() +1 : -1);
+
+    DBG_TOKEN(frm->lastToken);
 
     fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
                                                     frm->isClass());

@@ -42,10 +42,10 @@
 #include "PythonCodeDebugTools.h"
 // include at top of cpp file
 #define DBG_TOKEN_FILE \
-char TOKEN_TEXT_BUF[350]; \
-char TOKEN_NAME_BUF[50]; \
-char TOKEN_INFO_BUF[40];  \
-char TOKEN_SRC_LINE_BUF[350];
+extern char TOKEN_TEXT_BUF[350]; \
+extern char TOKEN_NAME_BUF[50]; \
+extern char TOKEN_INFO_BUF[40];  \
+extern char TOKEN_SRC_LINE_BUF[350];
 
 // insert in start of each method that you want to dbg in
 #define DEFINE_DBG_VARS \
@@ -76,6 +76,7 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
 
 #else
 // No debug, squelsh warnings
+#define DBG_TOKEN_FILE ;
 #define DEFINE_DBG_VARS ;
 #define DBG_TOKEN(TOKEN) ;
 #define NEXT_TOKEN(TOKEN) if (TOKEN) TOKEN = TOKEN->next();
@@ -991,7 +992,8 @@ private:
     PythonToken *scanParameter(PythonToken *paramToken, int &parenCount);
     // guess type for identifier
     PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
-
+    // goto end of line
+    PythonToken *gotoEndOfLine(PythonToken *tok);
 };
 
 // -------------------------------------------------------------------------
@@ -1027,6 +1029,8 @@ public:
     void scanFrame(PythonToken *tok);
     /// rescans a single row
     void scanLine(PythonToken *tok);
+
+    bool shouldRehighlight() const { return m_rehighlight; }
 
     /// returns indent info for block where tok is
     PythonSourceRoot::Indent currentBlockIndent(const PythonToken *tok) const;

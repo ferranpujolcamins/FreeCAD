@@ -1228,14 +1228,34 @@ PythonToken::~PythonToken()
 
 bool PythonToken::operator==(const PythonToken &other) const
 {
-    return token == other.token &&
+    return line() == other.line() &&
+           token == other.token &&
            startPos == other.startPos &&
-            endPos == other.endPos;
+           endPos == other.endPos;
 }
 
 bool PythonToken::operator >(const PythonToken &other) const
 {
-    return startPos > other.endPos;
+    return line() >= other.line() &&
+           startPos > other.startPos;
+}
+
+bool PythonToken::operator >=(const PythonToken &other) const
+{
+    return line() >= other.line() &&
+            startPos >= other.startPos;
+}
+
+bool PythonToken::operator <(const PythonToken &other) const
+{
+    return line() <= other.line() &&
+            startPos < other.startPos;
+}
+
+bool PythonToken::operator <=(const PythonToken &other) const
+{
+    return line() <= other.line() &&
+            startPos <= other.startPos;
 }
 
 PythonToken *PythonToken::next() const
@@ -1306,7 +1326,13 @@ bool PythonToken::isFloat() const {
 
 bool PythonToken::isString() const {
     return token > PythonSyntaxHighlighter::T__LiteralsStart &&
-           token < PythonSyntaxHighlighter::T__LiteralsEnd;
+            token < PythonSyntaxHighlighter::T__LiteralsEnd;
+}
+
+bool PythonToken::isMultilineString() const
+{
+    return token > PythonSyntaxHighlighter::T__LiteralsMultilineStart &&
+           token < PythonSyntaxHighlighter::T__LiteralsMultilineEnd;
 }
 
 bool PythonToken::isKeyword() const {
@@ -1712,9 +1738,9 @@ void PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int
     PythonToken *tokenObj = new PythonToken(token, pos, pos + len, this);
     int idx = -1;
     for (PythonToken *tok : m_tokens) {
+        ++idx;
         if (tok->startPos > pos)
             break;
-        ++idx;
     }
 
     if (idx > -1)

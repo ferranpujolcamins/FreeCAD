@@ -55,8 +55,10 @@ public:
         T__LiteralsStart = T__NumbersEnd,
         T_LiteralDblQuote,           // String literal beginning with "
         T_LiteralSglQuote,           // Other string literal beginning with '
+        T__LiteralsMultilineStart,
         T_LiteralBlockDblQuote,      // Block comments beginning and ending with """
         T_LiteralBlockSglQuote,      // Other block comments beginning and ending with '''
+        T__LiteralsMultilineEnd,
         T__LiteralsEnd,
 
         // Keywords
@@ -315,6 +317,9 @@ struct PythonToken
     ~PythonToken();
     bool operator==(const PythonToken &other) const;
     bool operator > (const PythonToken &other) const;
+    bool operator >= (const PythonToken &other) const;
+    bool operator < (const PythonToken &other) const;
+    bool operator <= (const PythonToken &other) const;
 
     /// for traversing tokens in document
     /// returns token or nullptr if at end/begin
@@ -336,6 +341,7 @@ struct PythonToken
     bool isInt() const;
     bool isFloat() const;
     bool isString() const;
+    bool isMultilineString() const;
     bool isKeyword() const;
     bool isOperator() const;
     bool isOperatorArithmetic() const;
