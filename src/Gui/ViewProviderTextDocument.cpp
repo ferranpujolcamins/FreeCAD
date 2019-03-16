@@ -31,7 +31,7 @@
 
 #include <Base/Type.h>
 #include <Gui/ViewProviderDocumentObject.h>
-#include <Gui/TextDocumentEditorView.h>
+#include <Gui/TextEditor/TextDocumentEditorView.h>
 #include <Gui/MainWindow.h>
 #include <Gui/Document.h>
 #include <Gui/ActionFunction.h>

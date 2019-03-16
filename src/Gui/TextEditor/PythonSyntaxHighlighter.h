@@ -5,6 +5,10 @@
 #include "SyntaxHighlighter.h"
 #include <Base/Parameter.h>
 
+QT_BEGIN_NAMESPACE
+class QPlainTextEdit;
+QT_END_NAMESPACE
+
 namespace Base {
 class PyException;
 class PyExceptionInfo;
@@ -12,10 +16,11 @@ class PyExceptionInfo;
 
 namespace Gui {
 class PythonToken;
+class PythonEditor;
+class PythonConsoleTextEdit;
 class PythonTextBlockData;
 class PythonTextBlockScanInfo;
 class PythonSyntaxHighlighterP;
-class TextEdit;
 
 /**
  * Syntax highlighter for Python.
@@ -297,14 +302,15 @@ class PythonMatchingChars : public QObject
     Q_OBJECT
 
 public:
-    PythonMatchingChars(TextEdit *parent);
+    PythonMatchingChars(PythonEditor *parent);
+    PythonMatchingChars(PythonConsoleTextEdit *parent);
     ~PythonMatchingChars();
 
 private Q_SLOTS:
     void cursorPositionChange();
 
 private:
-    TextEdit *m_editor;
+    QPlainTextEdit *m_editor;
 };
 
 // ------------------------------------------------------------------------

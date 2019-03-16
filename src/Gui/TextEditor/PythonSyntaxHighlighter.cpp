@@ -9,6 +9,7 @@
 #include <QTimer>
 #include "PythonCode.h"
 #include "PythonEditor.h"
+#include <Gui/PythonConsole.h>
 
 using namespace Gui;
 
@@ -1824,7 +1825,16 @@ void PythonTextBlockScanInfo::clearParseMessages()
 
 // -------------------------------------------------------------------------------------
 
-PythonMatchingChars::PythonMatchingChars(TextEdit *parent):
+PythonMatchingChars::PythonMatchingChars(PythonEditor *parent):
+    QObject(parent),
+    m_editor(parent)
+{
+    // for matching chars such as (, [, { etc.
+    connect(parent, SIGNAL(cursorPositionChanged()),
+            this, SLOT(cursorPositionChange()));
+}
+
+PythonMatchingChars::PythonMatchingChars(PythonConsoleTextEdit *parent):
     QObject(parent),
     m_editor(parent)
 {
@@ -1985,9 +1995,21 @@ void PythonMatchingChars::cursorPositionChange()
     }
 
 setformat:
+
     // highlight both
-    m_editor->highlightText(pos1, 1, format);
-    m_editor->highlightText(pos2, 1, format);
+    PythonEditor *pyEdit = qobject_cast<PythonEditor*>(m_editor);
+    if (pyEdit) {
+        pyEdit->highlightText(pos1, 1, format);
+        pyEdit->highlightText(pos2, 1, format);
+        return;
+    }
+
+    // its a console
+    PythonConsoleTextEdit *consoleEdit = qobject_cast<PythonConsoleTextEdit*>(m_editor);
+    if (consoleEdit) {
+        consoleEdit->highlightText(pos1, 1, format);
+        consoleEdit->highlightText(pos2, 1, format);
+    }
 }
 
 // ------------------------------------------------------------------------

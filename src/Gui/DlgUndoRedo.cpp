@@ -27,7 +27,7 @@
 #include "Application.h"
 #include "MainWindow.h"
 #include "Document.h"
-#include "EditorView.h"
+#include "TextEditor/EditorView.h"
 
 using namespace Gui::Dialog;
 

@@ -1,5 +1,6 @@
 #add_subdirectory(Icons)
 add_subdirectory(Stylesheets)
+add_subdirectory(TextEditor)
 
 if(WIN32)
 add_definitions(-DFCGui -DQIIS_MAKEDLL -DQSINT_MAKEDLL -DOVR_OS_WIN32 -DQUARTER_INTERNAL -DQUARTER_MAKE_DLL -DCOIN_DLL)
@@ -75,6 +76,9 @@ else(MSVC)
         ${3DCONNEXION_LINKFLAGS}
     )
 endif(MSVC)
+
+# add dependency to textEditor lib
+list(APPEND FreeCADGui_LIBS TextEditor)
 
 if (BUILD_QT5)
     include_directories(
@@ -260,7 +264,6 @@ set(Gui_MOC_HDRS
     DockWindow.h
     DockWindowManager.h
     DocumentRecovery.h
-    EditorView.h
     TextDocumentEditorView.h
     ExpressionCompleter.h
     DlgExpressionInput.h
@@ -283,12 +286,8 @@ set(Gui_MOC_HDRS
     ProgressBar.h
     PropertyPage.h
     PropertyView.h
-    PythonCode.h
     PythonConsole.h
     PythonDebuggerView.h
-    PythonEditor.h
-    PythonJedi.h
-    PythonSyntaxHighlighter.h
     QuantitySpinBox.h
     QListWidgetCustom.h
     QuantitySpinBox_p.h
@@ -297,7 +296,6 @@ set(Gui_MOC_HDRS
     SelectionView.h
     SpinBox.h
     Splashscreen.h
-    TextEdit.h
     TextureMapping.h
     ToolBox.h
     Transform.h
@@ -654,48 +652,23 @@ SET(Dock_Windows_SRCS
 )
 SOURCE_GROUP("Dock Windows" FILES ${Dock_Windows_SRCS})
 
-# The editor sources
-SET(Editor_CPP_SRCS
+# the python console, depends on TextEditor.lib
+SET(PyConsole_CPP_SRCS
     CallTips.cpp
-    EditorView.cpp
-    TextDocumentEditorView.cpp
-    PythonCode.cpp
     PythonConsole.cpp
     PythonConsolePy.cpp
-    PythonEditor.cpp
-    PythonJedi.cpp
-    PythonSyntaxHighlighter.cpp
-    SyntaxHighlighter.cpp
-    TextEdit.cpp
+
 )
-SET(Editor_HPP_SRCS
+SET(PyConsole_HPP_SRCS
     CallTips.h
-    EditorView.h
-    TextDocumentEditorView.h
-    PythonCode.h
     PythonConsole.h
     PythonConsolePy.h
-    PythonEditor.h
-    PythonJedi.h
-    PythonSyntaxHighlighter.h
-    SyntaxHighlighter.h
-    TextEdit.h
 )
-# for debugging/dumping syntax parser and AST code
-if(BUILD_PYTHON_DEBUGTOOLS)
-    SET(Editor_CPP_SRCS
-        ${Editor_CPP_SRCS}
-        PythonCodeDebugTools.cpp)
-    SET(Editor_HPP_SRCS
-        ${Editor_HPP_SRCS}
-        PythonCodeDebugTools.h)
-    add_definitions(-DBUILD_PYTHON_DEBUGTOOLS=1)
-endif()
-SET(Editor_SRCS
-    ${Editor_CPP_SRCS}
-    ${Editor_HPP_SRCS}
+SET(PyConsole_SRCS
+    ${PyConsole_CPP_SRCS}
+    ${PyConsole_HPP_SRCS}
 )
-SOURCE_GROUP("Editor" FILES ${Editor_SRCS})
+SOURCE_GROUP("PyConsole" FILES ${PyConsole_SRCS})
 
 # The help system
 SET(Help_CPP_SRCS
@@ -1195,7 +1168,7 @@ SET(FreeCADGui_SRCS
     ${Dialog_Customize_SRCS}
     ${Dialog_Settings_SRCS}
     ${Dock_Windows_SRCS}
-    ${Editor_SRCS}
+    ${PyConsole_SRCS}
     ${Help_SRCS}
     ${Inventor_SRCS}
     ${Language_SRCS}
@@ -1230,7 +1203,7 @@ if(MSVC)
         ${Dialog_Customize_CPP_SRCS}
         ${Dialog_Settings_CPP_SRCS}
         ${Dock_Windows_CPP_SRCS}
-        ${Editor_CPP_SRCS}
+        ${PyConsole_CPP_SRCS}
         ${Help_CPP_SRCS}
         ${Inventor_CPP_SRCS}
         ${View3D_CPP_SRCS}

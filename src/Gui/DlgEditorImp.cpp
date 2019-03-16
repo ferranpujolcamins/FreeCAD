@@ -30,7 +30,7 @@
 
 #include "DlgEditorImp.h"
 #include "PrefWidgets.h"
-#include "PythonEditor.h"
+#include "TextEditor/PythonEditor.h"
 
 #include <QAbstractListModel>
 

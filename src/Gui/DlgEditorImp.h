@@ -26,7 +26,7 @@
 
 #include "ui_DlgEditor.h"
 #include "PropertyPage.h"
-#include "SyntaxHighlighter.h"
+#include "TextEditor/SyntaxHighlighter.h"
 
 namespace Gui {
 class PythonSyntaxHighlighter;

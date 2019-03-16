@@ -33,10 +33,10 @@
 
 #include "PythonDebuggerView.h"
 #include "BitmapFactory.h"
-#include "EditorView.h"
+#include "TextEditor/EditorView.h"
 #include "Window.h"
 #include "MainWindow.h"
-#include "PythonEditor.h"
+#include "TextEditor/PythonEditor.h"
 #include "Macro.h"
 
 

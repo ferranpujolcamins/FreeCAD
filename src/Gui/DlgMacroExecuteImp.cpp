@@ -36,8 +36,8 @@
 #include "FileDialog.h"
 #include "Macro.h"
 #include "Document.h"
-#include "EditorView.h"
-#include "PythonEditor.h"
+#include "TextEditor/EditorView.h"
+#include "TextEditor/PythonEditor.h"
 
 #include <App/Application.h>
 #include <App/Document.h>

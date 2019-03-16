@@ -24,11 +24,15 @@
 #ifndef GUI_PYTHONCONSOLE_H
 #define GUI_PYTHONCONSOLE_H
 
-#include "PythonEditor.h"
+
+#include <QListWidget>
+#include <QPlainTextEdit>
+#include <TextEditor/PythonSyntaxHighlighter.h>
+#include "View.h"
+#include "Window.h"
 
 #include <Base/PyObjectBase.h>
 
-class QPlainTextEdit;
 class QPushButton;
 
 namespace Gui {
@@ -60,6 +64,8 @@ private:
     struct InteractiveInterpreterP* d;
 };
 
+// ----------------------------------------------------------------------------------
+
 /**
  * This class implements the history for the Python console.
  * @author Werner Mayer
@@ -89,12 +95,87 @@ private:
     QString                    _prefix;
 };
 
+// -----------------------------------------------------------------------------------
+
+/**
+ * Completion is a means by which an editor automatically completes words that the user is typing.
+ * For example, in a code editor, a programmer might type "sur", then Tab, and the editor will complete
+ * the word the programmer was typing so that "sur" is replaced by "surnameLineEdit". This is very
+ * useful for text that contains long words or variable names. The completion mechanism usually works
+ * by looking at the existing text to see if any words begin with what the user has typed, and in most
+ * editors completion is invoked by a special key sequence.
+ *
+ * PythonConsoleTextEdit can detect a special key sequence to invoke the completion mechanism, and can handle three
+ * different situations:
+ * \li There are no possible completions.
+ * \li There is a single possible completion.
+ * \li There are two or more possible completions.
+ *
+ * \remark The original sources are taken from Qt Quarterly (Customizing for Completion).
+ * @author Werner Mayer
+ */
+class CompletionList;
+class GuiExport PythonConsoleTextEdit : public QPlainTextEdit
+{
+    Q_OBJECT
+
+public:
+    PythonConsoleTextEdit(QWidget *parent = 0);
+    virtual ~PythonConsoleTextEdit();
+    virtual void highlightText(int pos, int len, const QTextCharFormat format);
+
+private Q_SLOTS:
+    void complete();
+
+protected:
+    void keyPressEvent(QKeyEvent *);
+
+private:
+    void createListBox();
+
+private:
+    QString wordPrefix;
+    int cursorPosition;
+    CompletionList *listBox;
+};
+
+// ---------------------------------------------------------------------------------
+
+/**
+ * The CompletionList class provides a list box that pops up in a text edit if the user has pressed
+ * an accelerator to complete the current word he is typing in.
+ * @author Werner Mayer
+ */
+class CompletionList : public QListWidget
+{
+    Q_OBJECT
+
+public:
+    /// Construction
+    CompletionList(QPlainTextEdit* parent);
+    /// Destruction
+    ~CompletionList();
+
+    void findCurrentWord(const QString&);
+
+protected:
+    bool eventFilter(QObject *, QEvent *);
+
+private Q_SLOTS:
+    void completionItem(QListWidgetItem *item);
+
+private:
+    QPlainTextEdit* textEdit;
+};
+
+// -----------------------------------------------------------------------------------
+
 /**
  * Python text console with syntax highlighting.
  * @author Werner Mayer
  */
 class PythonConsoleHighlighter;
-class GuiExport PythonConsole : public TextEdit, public WindowParameter
+class GuiExport PythonConsole : public PythonConsoleTextEdit, public WindowParameter
 {
     Q_OBJECT
 

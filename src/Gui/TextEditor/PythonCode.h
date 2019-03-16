@@ -24,6 +24,8 @@
 #ifndef PYTHONCODE_H
 #define PYTHONCODE_H
 
+
+#include <FCConfig.h>
 #include "Base/Interpreter.h"
 
 #include "Window.h"
