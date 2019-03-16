@@ -1,4 +1,4 @@
-SET(LibName TextEditor)
+SET(EditorLibName TextEditor)
 INCLUDE_DIRECTORIES(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
@@ -6,6 +6,8 @@ INCLUDE_DIRECTORIES(
     ${PYTHON_INCLUDE_DIRS}
 )
 FILE(GLOB CMakeCache RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/CMakeCache.txt)
+
+
 
 IF(CMAKE_BUILD_TYPE)
     add_definitions(-DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}")
@@ -15,6 +17,7 @@ if(WIN32)
     add_definitions(-DFCGui) # For GUIExport to work
 endif(WIN32)
 
+# qt specific
 if (BUILD_QT5)
     include_directories(
         ${Qt5Core_INCLUDE_DIRS}
@@ -22,8 +25,7 @@ if (BUILD_QT5)
         ${Qt5PrintSupport_INCLUDE_DIRS}
         ${Qt5UiTools_INCLUDE_DIRS}
     )
-    list(APPEND TextEditor_LIBS
-        FreeCADBase
+    list(APPEND Common_LIBS
         ${Qt5Core_LIBRARIES}
         ${Qt5Widgets_LIBRARIES}
         ${Qt5PrintSupport_LIBRARIES}
@@ -33,12 +35,15 @@ else()
     include_directories(
         ${QT_INCLUDE_DIR}
     )
-    list(APPEND TextEditor_LIBS
-        FreeCADBase
+    list(APPEND Common_LIBS
         ${QT_LIBRARIES}
         ${QT_QTUITOOLS_LIBRARY}
     )
 endif()
+
+# dependencies
+list(APPEND Common_LIBS
+    FreeCADBase FreeCADApp)
 
 # The editor sources
 SET(TextEditor_CPP_SRCS
@@ -71,41 +76,81 @@ SET(TextEditor_MOC_HDRS
     SyntaxHighlighter.h
     TextEditor.h
 )
-
-# for debugging/dumping syntax parser and AST code
-if(BUILD_PYTHON_DEBUGTOOLS)
-    SET(TextEditor_CPP_SRCS
-        ${TextEditor_CPP_SRCS}
-        PythonCodeDebugTools.cpp)
-    SET(TextEditor_HPP_SRCS
-        ${TextEditor_HPP_SRCS}
-        PythonCodeDebugTools.h)
-    add_definitions(-DBUILD_PYTHON_DEBUGTOOLS=1)
-endif()
-SET(TextEditor_SRCS
-    ${TextEditor_CPP_SRCS}
-    ${TextEditor_HPP_SRCS}
-)
-SOURCE_GROUP("TextEditor" FILES ${TextEditor_SRCS})
-
 # run moc
 fc_wrap_cpp(TextEditor_MOC_SRCS ${TextEditor_MOC_HDRS})
 
-SET(TextEditorAll_SRCS ${TextEditor_SRCS} ${TextEditor_MOC_SRCS})
+SET(TextEditor_SRCS
+    ${TextEditor_CPP_SRCS}
+    ${TextEditor_HPP_SRCS}
+    ${TextEditor_MOC_HDRS}
+)
+
+# the settings dialog sources
+SET(TextEditor_Dlg_CPP_SRCS DlgEditorImp.cpp)
+SET(TextEditor_Dlg_HPP_SRCS DlgEditorImp.h)
+SET(TextEditor_Dlg_UIC_SRCS DlgEditor.ui)
+fc_wrap_cpp(TextEditor_Dlg_MOC_SRCS ${TextEditor_Dlg_HPP_SRCS})
+
+
+# for debugging/dumping syntax parser and AST code
+if(BUILD_PYTHON_DEBUGTOOLS)
+    SET(TextEditor_DbgTools_CPP_SRCS
+        PythonCodeDebugTools.cpp)
+    SET(TextEditor_DbgTools_HPP_SRCS
+        PythonCodeDebugTools.h)
+    add_definitions(-DBUILD_PYTHON_DEBUGTOOLS=1)
+    SET(TextEditor_DbgTools_SRCS
+        ${TextEditor_DbgTools_CPP_SRCS}
+        ${TextEditor_DbgTools_HPP_SRCS})
+endif()
+SOURCE_GROUP("TextEditor" FILES ${TextEditor_SRCS})
+
+# resources
+SET(TextEditor_RES_SRCS
+    #Icons/resource.qrc
+    #Language/translation.qrc
+)
+if (BUILD_QT5)
+    QT5_ADD_RESOURCES(TextEditor_QRC_SRCS ${TextEditor_RES_SRCS})
+    QT5_WRAP_UI(TextEditor_UIC_HDRS ${TextEditor_Dlg_UIC_SRCS})
+else(BUILD_QT5)
+    QT4_ADD_RESOURCES(TextEditor_QRC_SRCS ${TextEditor_RES_SRCS})
+    QT4_WRAP_UI(TextEditor_UIC_HDRS ${TextEditor_Dlg_UIC_SRCS})
+endif(BUILD_QT5)
+SET(TextEditor_Dlg_SRCS
+    ${TextEditor_Dlg_CPP_SRCS}
+    ${TextEditor_Dlg_HPP_SRCS}
+    ${TextEditor_Dlg_MOC_SRCS}
+)
+
+
+# wrap it all up for lib TextEditor
+SET(TextEditorAll_SRCS ${TextEditor_SRCS}
+                       ${TextEditor_Dlg_SRCS}
+                       ${TextEditor_QRC_SRCS}
+                       ${TextEditor_UIC_HDRS}
+                       ${TextEditor_DbgTools_SRCS}
+)
+SOURCE_GROUP("Editor" FILES ${TextEditorAll_SRCS})
+
 
 # precompiled?
 if (BUILD_USE_PCH)
     add_definitions(-D_PreComp_)
-    ADD_MSVC_PRECOMPILED_HEADER(FreeCADGui PreCompiled.h PreCompiled.cpp FreeCADGui_CPP_SRCS)
+    ADD_MSVC_PRECOMPILED_HEADER(${EditorLibName} PreCompiled.h PreCompiled.cpp TextEditor_CPP_SRCS)
 endif(BUILD_USE_PCH)
 
 #create library
-ADD_LIBRARY(${LibName} STATIC ${TextEditorAll_SRCS})
-TARGET_LINK_LIBRARIES(${LibName} ${TextEditor_LIBS})
+ADD_LIBRARY(${EditorLibName} STATIC ${TextEditorAll_SRCS})
+TARGET_LINK_LIBRARIES(${EditorLibName} ${Common_LIBS})
 
 # install to default target defined by
-INSTALL(TARGETS ${LibName}
+INSTALL(TARGETS ${EditorLibName}
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
+
+# -------------------------------------------------------------------------------
+
+
