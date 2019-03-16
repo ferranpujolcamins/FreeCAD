@@ -2512,6 +2512,7 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
             break; // we have finished this frame
         } else if (indent.framePopCnt() > 0) {
             indent.framePopCntDecr();
+            // store a blockend here
             break;
         }
     }
