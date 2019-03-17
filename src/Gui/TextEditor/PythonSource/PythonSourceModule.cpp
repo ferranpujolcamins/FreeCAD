@@ -218,6 +218,7 @@ void PythonSourceModule::insertBlockStart(const PythonToken *colonTok) const
     if (colonTok->next() && colonTok->next()->token != PythonSyntaxHighlighter::T_BlockStart) {
         colonTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockStart,
                                           colonTok->startPos, 0);
+        colonTok->txtBlock()->incBlockState();
     }
 }
 
@@ -228,6 +229,7 @@ void PythonSourceModule::insertBlockEnd(const PythonToken *newLineTok) const
     {
         newLineTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockEnd,
                                             newLineTok->previous()->startPos, 0);
+        newLineTok->txtBlock()->decBlockState();
     }
 }
 

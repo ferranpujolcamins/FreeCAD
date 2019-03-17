@@ -151,6 +151,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent * event);
     void wheelEvent(QWheelEvent * event);
     void contextMenuEvent(QContextMenuEvent * event);
+    virtual void foldingClicked(int line);
 
 private:
     LineMarkerAreaP *d;
@@ -173,6 +174,15 @@ public:
      */
     bool bookmark() const { return m_bookmarkSet; }
     void setBookmark(bool active) { m_bookmarkSet = active; }
+
+    /**
+     * @brief blockState tells if this block starts a new block,
+     *         such as '{' in C like languages or ':' in python
+     *         +1 = blockstart, -1 = blockend, -2 = 2 blockends ie '}}'
+     */
+    int blockState() const { return m_blockStateCnt; }
+    int incBlockState() { return ++m_blockStateCnt; }
+    int decBlockState() { return --m_blockStateCnt; }
 
     static TextEditBlockData *blockDataFromCursor(const QTextCursor &cursor);
 
@@ -198,6 +208,7 @@ protected:
     QTextBlock m_block;
     TextEditBlockScanInfo *m_scanInfo;
     bool m_bookmarkSet;
+    int m_blockStateCnt; // +1 = new Block, -1 pop a block
 };
 
 // --------------------------------------------------------------------------------

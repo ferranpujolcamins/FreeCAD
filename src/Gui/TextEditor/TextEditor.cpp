@@ -655,7 +655,7 @@ QSize LineMarkerArea::sizeHint() const
     int fill;
     if (d->lineNumberActive) {
         QString w = QString::number(d->textEditor->document()->blockCount());
-        fill = qMax(w.size(), 4);
+        fill = qMax(w.size(), 5);
     } else
         fill = 1; // at least allow for breakpoints to be shown
 
@@ -681,9 +681,11 @@ void LineMarkerArea::setLineNumbersVisible(bool active)
 
 void LineMarkerArea::paintEvent(QPaintEvent* event)
 {
-    //textEditor->lineNumberAreaPaintEvent(e);
     QPainter painter(this);
-    //painter.fillRect(event->rect(), Qt::lightGray);
+    const int foldingWidth = fontMetrics().height() +2;
+    const int textWidth = width() - foldingWidth;
+    const int fontHeight = fontMetrics().height();
+    const int halfHeight = fontHeight / 2;
 
     QTextBlock block = d->textEditor->firstVisibleBlock();
     int curBlockNr = d->textEditor->textCursor().block().blockNumber();
@@ -693,36 +695,70 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     int bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
-        if (block.isVisible() && bottom >= event->rect().top()) {
-            if (d->lineNumberActive) {
+        if (bottom >= event->rect().top()) {
+            if (d->lineNumberActive && block.isVisible()) {
                 // we should point linenumbers
                 QString number = QString::number(blockNumber + 1);
-                QPalette pal = palette();
                 QFont font = d->textEditor->font();
-                QColor color = pal.buttonText().color();
+                QColor color = palette().buttonText().color();
                 if (blockNumber == curBlockNr) {
-                    color = pal.text().color();
+                    color = palette().text().color();
                     font.setWeight(QFont::Bold);
                 }
                 painter.setFont(font);
                 painter.setPen(color);
-                painter.drawText(0, top, width(), fontMetrics().height(),
+                painter.drawText(0, top, textWidth, fontHeight,
                                  Qt::AlignRight, number);
             }
 
+            // draw folding and bookmark
             if (block.userData()) {
                 TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
-                if (userData && userData->bookmark()) {
-                    painter.drawPixmap(1, top, d->bookmarkIcon);
+                if (userData) {
+                    // draw block arrow if row is visible
+                    if (userData->blockState() > 0 && block.isVisible()) {
+                        QColor color = QColor(114, 116, 117);
+                        painter.setPen(color);
+                        painter.setBrush(color);
+                        //painter.setRenderHint(QPainter::Antialiasing, true);
+
+                        if (block.next().isVisible()) {
+                            const QPointF unfoldedArrow[] = {
+                                QPointF(textWidth + 3, top + 2),
+                                QPointF(textWidth + 3 + fontHeight -4, top + 2),
+                                QPointF(textWidth + 3 + ((fontHeight-4) / 2), top + (fontHeight / 2))
+                            };
+                            painter.drawPolygon(unfoldedArrow, 3, Qt::WindingFill);
+                        } else {
+                            const QPointF foldedArrow[] = {
+                                QPointF(textWidth + 3, top + 2),
+                                QPointF(textWidth + 3 + ((fontHeight-4) / 2), top + halfHeight),
+                                QPointF(textWidth + 3, top + fontHeight -2),
+                            };
+                            painter.drawPolygon(foldedArrow, 3, Qt::WindingFill);
+                        }
+                    }
+
+                    // draw bookmark
+                    if (userData->bookmark() && block.isVisible()) {
+                        painter.drawPixmap(1, top, d->bookmarkIcon);
+                    }
                 }
             }
 
-            d->textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
+            if (block.isVisible()) {
+                // let special things in editor render it's stuff, ie. debugmarker breakpoints etc.
+                d->textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
+            }
+        }
+
+        // advance  top-bottom visible boundaries for next row
+        if (block.isVisible() || block.next().isVisible()) {
+            top = bottom;
+            bottom = top + (int) d->textEditor->blockBoundingRect(block.next()).height();
         }
 
         block = block.next();
-        top = bottom;
-        bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
         ++blockNumber;
     }
 }
@@ -732,8 +768,24 @@ void LineMarkerArea::mouseReleaseEvent(QMouseEvent *event)
     QTextBlock block = d->textEditor->firstVisibleBlock();
     QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
     if (rowSize.height() > 0) {
+        // a line might be folded, in so must iterate the real line
         int line = ((event->y()) / rowSize.height()) + block.blockNumber() + 1;
-        Q_EMIT clickedOnLine(line, event);
+        int estLine = line - block.blockNumber();
+        do {
+            if (block.isVisible())
+                --estLine;
+            else
+                ++line;
+            block = block.next();
+        } while(block.isValid() && estLine > 0);
+
+        // determine if we clicked on folding area or linenr?
+        const int foldingWidth = fontMetrics().height() + 2;
+        const int textWidth = width() - foldingWidth;
+        if (event->pos().x() <= textWidth)
+            Q_EMIT clickedOnLine(line, event);
+        else
+            foldingClicked(line);
     }
 }
 
@@ -754,19 +806,49 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 
 }
 
+void LineMarkerArea::foldingClicked(int line)
+{
+    QTextBlock block = d->textEditor->document()->findBlockByLineNumber(line -1);
+    if (block.isValid() && block.isVisible()) {
+        TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
+        if (userData && userData->blockState() > 0) {
+            // we have a blockstarter line!
+            bool show = !block.next().isVisible();
+
+            block = block.next();
+            int blockCnt = userData->blockState();
+
+            while(blockCnt > 0 && block.isValid()) {
+                userData = dynamic_cast<TextEditBlockData*>(block.userData());
+                if (userData)
+                    blockCnt += userData->blockState();
+                block.setVisible(show);
+                block = block.next();
+            }
+
+            // re-render
+            d->textEditor->viewport()->update();
+            repaint();
+        }
+    }
+
+}
+
 // ----------------------------------------------------------------------------
 
 TextEditBlockData::TextEditBlockData(QTextBlock block) :
     m_block(block),
     m_scanInfo(nullptr),
-    m_bookmarkSet(false)
+    m_bookmarkSet(false),
+    m_blockStateCnt(0)
 {
 }
 
 TextEditBlockData::TextEditBlockData(const TextEditBlockData &other):
     m_block(other.m_block),
     m_scanInfo(other.m_scanInfo),
-    m_bookmarkSet(other.m_bookmarkSet)
+    m_bookmarkSet(other.m_bookmarkSet),
+    m_blockStateCnt(other.m_blockStateCnt)
 {
 }
 

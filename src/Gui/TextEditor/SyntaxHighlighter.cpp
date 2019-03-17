@@ -278,7 +278,8 @@ SyntaxHighlighter::SyntaxHighlighter(QObject* parent)
     d = new SyntaxHighlighterP;
     d->rehighlightTmr.setInterval(50);
     d->rehighlightTmr.setSingleShot(true);
-    connect(&d->rehighlightTmr, SIGNAL(timeout()), this, SLOT(rehighlight()));
+    // FIXME, diable for debug, should be activated again when scanner works
+    //connect(&d->rehighlightTmr, SIGNAL(timeout()), this, SLOT(rehighlight()));
 }
 
 /** Destroys this object. */
