@@ -1520,7 +1520,10 @@ class recycler:
             return c
 
     def createIfcSurfaceStyle(self,name,r,g,b):
-        key = name+str((r,g,b))
+        if name:
+            key = name + str((r,g,b))
+        else:
+            key = str((r,g,b))
         if self.compress and key in self.sstyles:
             self.spared += 1
             return self.sstyles[key]
@@ -1533,7 +1536,10 @@ class recycler:
             return c
 
     def createIfcPresentationStyleAssignment(self,name,r,g,b):
-        key = name+str((r,g,b))
+        if name:
+            key = name+str((r,g,b))
+        else:
+            key = str((r,g,b))
         if self.compress and key in self.psas:
             self.spared += 1
             return self.psas[key]
@@ -1801,7 +1807,7 @@ def export(exportList,filename):
                     "PredefinedType": internal,
                     "ElevationWithFlooring": obj.Shape.BoundBox.ZMin/1000.0})
         elif ifctype == "IfcBuildingElementProxy":
-            if ifcopenshell.schema_identifier == "IFC4":
+            if schema == "IFC4":
                 kwargs.update({"PredefinedType": "ELEMENT"})
             else:
                 kwargs.update({"CompositionType": "ELEMENT"})

@@ -48,7 +48,6 @@ struct DlgSettingsEditorP
             delete pythonSyntax;
     }
 
-    //QVector<QPair<QString, unsigned long> > colormap; // Color map
     Gui::PythonSyntaxHighlighter* pythonSyntax;
     DlgSettingsColorModel colormodel;
 };
@@ -69,6 +68,8 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
   : PreferencePage( parent )
 {
     this->setupUi(this);
+    this->EnableFolding->hide(); // Switch off until we have an editor with folding
+
     d = new DlgSettingsEditorP();
 
 
