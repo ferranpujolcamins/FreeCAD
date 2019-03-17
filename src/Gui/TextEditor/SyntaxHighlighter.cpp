@@ -471,3 +471,5 @@ unsigned long SyntaxHighlighter::ColorData::colorAsULong() const
 {
     return d->rgbAsULong;
 }
+
+#include "moc_SyntaxHighlighter.cpp"

@@ -36,6 +36,7 @@ class SyntaxHighlighterP;
  */
 class GuiExport SyntaxHighlighter : public QSyntaxHighlighter
 {
+    Q_OBJECT
 public:
     SyntaxHighlighter(QObject* parent);
     virtual ~SyntaxHighlighter();
