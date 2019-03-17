@@ -26,14 +26,14 @@ public:
     void setPrevious(PythonSourceListNodeBase *previous) { m_previous = previous; }
     /// python token
     const PythonToken *token() const { return m_token; }
-    void setToken(PythonToken *token) { m_token = token; }
+    void setToken(PythonToken *token);
 
     /// gets text for token (gets from document)
     QString text() const;
 
     /// owner node, setOwner is essential during cleanup, or ownership swaps
     PythonSourceListParentBase *owner() const { return m_owner; }
-    void setOwner(PythonSourceListParentBase *owner) { m_owner = owner; }
+    void setOwner(PythonSourceListParentBase *owner);
 
     /// called by PythonToken when it gets destroyed
     virtual void tokenDeleted();

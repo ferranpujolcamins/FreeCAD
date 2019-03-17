@@ -32,6 +32,9 @@ void PythonSourceModule::scanFrame(PythonToken *tok)
 
 void PythonSourceModule::scanLine(PythonToken *tok)
 {
+    if (!tok)
+        return;
+
     PythonSourceIndent indent = currentBlockIndent(tok);
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanLine(tok, indent);
@@ -200,7 +203,7 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     {
         childFrm = dynamic_cast<const PythonSourceFrame*>(itm);
         assert(childFrm != nullptr && "Wrong datatype stored in PythonSourceFrame");
-        if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken)
+        if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken())
         {
             // find recursivly
             if (!childFrm->empty())
@@ -261,6 +264,8 @@ void PythonSourceModule::setSyntaxError(const PythonToken *tok, QString parseMes
         bool hasCode = false;
         while (guard--) {
             NEXT_TOKEN(startTok)
+            if (!startTok)
+                break;
             if (hasCode) {
                 if (!startTok->isCode())
                     break;

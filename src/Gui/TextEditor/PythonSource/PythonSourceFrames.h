@@ -69,6 +69,8 @@ class PythonSourceFrame : public PythonSourceListParentBase
     PythonSourceTypeHint *m_typeHint;
     PythonSourceFrame *m_parentFrame;
     const PythonSourceModule *m_module;
+    PythonSourceListNodeBase m_lastToken; // we need to use ListNodeBase as a wrapper
+                                          // handle gracefully when Pythontoken gets deleted in document
     bool m_isClass;
 
 public:
@@ -126,7 +128,7 @@ public:
     const PythonSourceFrameReturnTypeList returnTypes() const;
 
     /// the token (unindent) that ends this frame
-    const PythonToken *lastToken;
+    const PythonToken *lastToken() const { return m_lastToken.token(); }
 
     // scan* functions might mutate PythonToken, ie change from Undetermined -> determined etc.
     /// on complete rescan, returns lastToken->next()

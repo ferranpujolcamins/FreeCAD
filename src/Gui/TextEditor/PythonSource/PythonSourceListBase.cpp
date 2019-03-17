@@ -10,6 +10,7 @@ PythonSourceListNodeBase::PythonSourceListNodeBase(PythonSourceListParentBase *o
     m_owner(owner), m_token(nullptr)
 {
     assert(owner != nullptr && "Must have valid owner");
+    //assert(owner != this && "Can't own myself");
 }
 
 PythonSourceListNodeBase::PythonSourceListNodeBase(const PythonSourceListNodeBase &other) :
@@ -17,14 +18,22 @@ PythonSourceListNodeBase::PythonSourceListNodeBase(const PythonSourceListNodeBas
     m_owner(other.m_owner), m_token(other.m_token)
 {
     assert(other.m_owner != nullptr && "Trying to copy PythonSourceListNodeBase with null as owner");
+    //assert(other.m_owner != this && "Can't own myself");
 }
 
 PythonSourceListNodeBase::~PythonSourceListNodeBase()
 {
     if (m_token)
         const_cast<PythonToken*>(m_token)->detachReference(this);
-    if (m_owner)
+    if (m_owner && m_owner != this)
         m_owner->remove(this);
+}
+
+void PythonSourceListNodeBase::setToken(PythonToken *token) {
+    if (m_token)
+        const_cast<PythonToken*>(m_token)->detachReference(this);
+    token->attachReference(this);
+    m_token = token;
 }
 
 QString PythonSourceListNodeBase::text() const
@@ -34,11 +43,17 @@ QString PythonSourceListNodeBase::text() const
     return QString();
 }
 
+void PythonSourceListNodeBase::setOwner(PythonSourceListParentBase *owner)
+{
+    //assert(owner != this && "Can't own myself");
+    m_owner = owner;
+}
+
 // this should only be called from PythonToken destructor when it gets destroyed
 void PythonSourceListNodeBase::tokenDeleted()
 {
     m_token = nullptr;
-    if (m_owner)
+    if (m_owner && m_owner != this)
         m_owner->remove(this, true); // remove me from owner and let him delete me
 }
 

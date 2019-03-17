@@ -105,8 +105,8 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner,
     m_typeHint(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
-    m_isClass(isClass),
-    lastToken(nullptr)
+    m_lastToken(this),
+    m_isClass(isClass)
 {
 }
 
@@ -122,8 +122,8 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner,
     m_typeHint(nullptr),
     m_parentFrame(parentFrame),
     m_module(module),
-    m_isClass(isClass),
-    lastToken(nullptr)
+    m_lastToken(this),
+    m_isClass(isClass)
 {
 }
 
@@ -296,8 +296,8 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
     // freshly created frame?
     if (!m_token)
         m_token = startToken;
-    if (!lastToken)
-        lastToken = startToken;
+    if (!m_lastToken.token())
+        m_lastToken.setToken(startToken);
 
     PythonToken *tok = startToken;
     DBG_TOKEN(tok)
@@ -315,7 +315,8 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
              tok->txtBlock()->indent() < indent.frameIndent()))
         {
             // store a blockend here
-            const PythonToken *newLineTok = lastToken->txtBlock()->findToken(PythonSyntaxHighlighter::T_DelimiterNewLine, -1);
+            const PythonToken *newLineTok = m_lastToken.token()->txtBlock()->
+                                                  findToken(PythonSyntaxHighlighter::T_DelimiterNewLine, -1);
             if (newLineTok)
                 m_module->insertBlockEnd(newLineTok);
 
@@ -352,6 +353,9 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             break;
         NEXT_TOKEN(tok)
     }
+
+    if (!tok)
+        return tok;
 
     if (isModule())
         m_type.type = PythonSourceRoot::ModuleType;
@@ -441,8 +445,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         } break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
             if (!m_module->root()->isLineEscaped(tok)){
-                if (lastToken && (*lastToken < *tok))
-                    lastToken = tok;
+                if (m_lastToken.token() && (*m_lastToken.token() < *tok))
+                    m_lastToken.setToken(tok);
                 return tok;
             }
             break;
@@ -485,8 +489,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             insert(clsFrm);
             tok = clsFrm->scanFrame(tok, indent);
             DBG_TOKEN(tok)
-            if (tok && lastToken && (*lastToken < *tok))
-                lastToken = tok;
+            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
+                m_lastToken.setToken(tok);
             continue;
         } break;
         case PythonSyntaxHighlighter::T_IdentifierFunction: {
@@ -505,8 +509,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             insert(funcFrm);
             tok = funcFrm->scanFrame(tok, indent);
             DBG_TOKEN(tok)
-            if (tok && lastToken && (*lastToken < *tok))
-                lastToken = tok;
+            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
+                m_lastToken.setToken(tok);
             continue;
         } break;
         case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
@@ -539,8 +543,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             DBG_TOKEN(tok)
 
             // should we exit this frame also?
-            if (tok && lastToken && (*lastToken < *tok))
-                lastToken = tok;
+            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
+                m_lastToken.setToken(tok);
             continue;
         } break;
 //        case PythonSyntaxHighlighter::T_Indent: {
@@ -711,7 +715,7 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
             // else do next token
             break;
         case PythonSyntaxHighlighter::T_OperatorEqual:
-            if (!isTypeHint) {
+            if (!isTypeHint && tok->next()) {
                 // might have chained assignments ie: vlu1 = valu2 = vlu3 = 0
                 tok = scanRValue(tok->next(), typeInfo, isTypeHint);
                 DBG_TOKEN(tok)
@@ -1144,7 +1148,7 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
                 // save end token for this frame
                 PythonTextBlockData *txtBlock = tok->txtBlock()->previous();
                 if (txtBlock)
-                    lastToken = txtBlock->tokens().last();
+                    m_lastToken.setToken(txtBlock->tokens().last());
                 return tok;
             }
         }

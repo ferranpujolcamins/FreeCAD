@@ -48,10 +48,10 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
     fprintf(m_file, "%s---------------------------------------------------\n", indentStr);
     fprintf(m_file, "%sStarting new frame, startToken:%s(line:%d), endToken:%s(line:%d)\n", indentStr,
             Syntax::tokenToCStr(frm->token()->token), frm->token()->line() +1,
-            frm->lastToken ? Syntax::tokenToCStr(frm->lastToken->token) : "-1",
-            frm->lastToken ? frm->lastToken->line() +1 : -1);
+            frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->token) : "-1",
+            frm->lastToken() ? frm->lastToken()->line() +1 : -1);
 
-    DBG_TOKEN(frm->lastToken);
+    DBG_TOKEN(frm->lastToken());
 
     fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
                                                     frm->isClass());
