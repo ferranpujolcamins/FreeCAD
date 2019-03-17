@@ -34,6 +34,7 @@
 #include <QPlainTextEdit>
 #include <QScrollBar>
 #include <QTextBlockUserData>
+#include <QMenu>
 
 QT_BEGIN_NAMESPACE
 class QCompleter;
@@ -80,6 +81,7 @@ private Q_SLOTS:
     void updateLineNumberAreaWidth(int newBlockCount);
     void updateLineNumberArea(const QRect &, int);
     void highlightSelections();
+    void markerAreaContextMenu(int line, QContextMenuEvent *event);
 
 protected:
     void keyPressEvent (QKeyEvent * e);
@@ -92,6 +94,25 @@ protected:
     bool event(QEvent *event);
     virtual bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
     virtual bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
+    /// creates a Menu to use when a contextMenu event occurs
+    virtual void setUpMarkerAreaContextMenu(int line);
+    virtual void handleMarkerAreaContextMenu(QAction *res, int line);
+
+    /// these types are valid contextMenu types
+    enum ContextEvtType {
+        // linemarerarea specific
+        InValid, Bookmark,
+        BreakpointAdd, BreakpointDelete, BreakpointEdit,
+        BreakpointEnable, BreakpointDisable,
+        ExceptionClear,
+        // editor specific
+        Undo, Redo,
+        Comment, UnComment,
+        AutoIndent
+    };
+    QMenu m_markerAreaContextMenu;
+    QMenu m_contextMenu;
+
 
 private:
     SyntaxHighlighter* highlighter;
@@ -117,9 +138,13 @@ public:
     void setLineNumbersVisible(bool active);
     bool lineNumbersVisible() const;
 
+    /// called when editor has changed font size
+    void fontSizeChanged();
+
 Q_SIGNALS:
     void clickedOnLine(int line, QMouseEvent *event);
     void contextMenuOnLine(int line, QContextMenuEvent * event);
+
 
 protected:
     void paintEvent (QPaintEvent *event);
@@ -138,8 +163,16 @@ class TextEditBlockData : public QTextBlockUserData
 {
     // QTextBlockUserData does not inherit QObject
 public:
-    TextEditBlockData(QTextBlock block);
+    explicit TextEditBlockData(QTextBlock block);
+    TextEditBlockData(const TextEditBlockData &other);
     virtual ~TextEditBlockData();
+
+    /**
+     * @brief bookmark sets if this row has a bookmark
+     *         (shows in scrollbar and linemarkerArea)
+     */
+    bool bookmark() const { return m_bookmarkSet; }
+    void setBookmark(bool active) { m_bookmarkSet = active; }
 
     static TextEditBlockData *blockDataFromCursor(const QTextCursor &cursor);
 
@@ -164,6 +197,7 @@ public:
 protected:
     QTextBlock m_block;
     TextEditBlockScanInfo *m_scanInfo;
+    bool m_bookmarkSet;
 };
 
 // --------------------------------------------------------------------------------

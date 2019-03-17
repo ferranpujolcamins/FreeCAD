@@ -1453,6 +1453,17 @@ PythonTextBlockData::PythonTextBlockData(QTextBlock block) :
 {
 }
 
+PythonTextBlockData::PythonTextBlockData(const PythonTextBlockData &other) :
+    TextEditBlockData(other),
+    m_tokens(other.m_tokens),
+    m_undeterminedIndexes(other.m_undeterminedIndexes),
+    m_reformats(other.m_reformats),
+    m_indentCharCount(other.m_indentCharCount)
+{
+    // FIXME ! handle tokens cpoying mer gracefully
+    // Should probably make a deep copy here
+}
+
 PythonTextBlockData::~PythonTextBlockData()
 {
     qDeleteAll(m_tokens);

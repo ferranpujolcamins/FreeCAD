@@ -186,6 +186,7 @@
         <file>Geofeaturegroup.svg</file>
         <file>Std_Axis.svg</file>
         <file>Std_Plane.svg</file>
+        <file>bookmark.svg</file>
     </qresource>
     <!-- Alternative directory names for icons that should be loaded from a theme -->
     <!-- See also http://permalink.gmane.org/gmane.comp.lib.qt.general/26374 -->
@@ -276,5 +277,6 @@
         <file>ClassBrowser/variable.svg</file>
         <file>ClassBrowser/imported_marker.svg</file>
         <file>ClassBrowser/builtin_marker.svg</file>
+        <file>bookmark.svg</file>
     </qresource>
 </RCC>

@@ -401,7 +401,8 @@ class PythonTextBlockData : public TextEditBlockData
 {
 public:
     typedef QVector<PythonToken*> tokens_t;
-    PythonTextBlockData(QTextBlock block);
+    explicit PythonTextBlockData(QTextBlock block);
+    PythonTextBlockData(const PythonTextBlockData &other);
     ~PythonTextBlockData();
 
     static PythonTextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
@@ -565,7 +566,6 @@ private:
     QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
     QHash<const PythonToken*, QTextCharFormat> m_reformats;
-    QTextBlock m_block;
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
 

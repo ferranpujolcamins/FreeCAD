@@ -110,12 +110,13 @@ protected:
     void keyPressEvent(QKeyEvent * e);
     bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
     bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
+    void setUpMarkerAreaContextMenu(int line);
+    void handleMarkerAreaContextMenu(QAction *res, int line);
 
 Q_SIGNALS:
     void fileNameChanged(const QString &fn);
 
 private Q_SLOTS:
-    void markerAreaContextMenu(int line, QContextMenuEvent *event);
     void breakpointAdded(const App::BreakpointLine *bpl);
     void breakpointChanged(const App::BreakpointLine *bpl);
     void breakpointRemoved(int idx, const App::BreakpointLine *bpl);

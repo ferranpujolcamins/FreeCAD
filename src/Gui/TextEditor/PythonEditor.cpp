@@ -213,9 +213,6 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(autoIndent, SIGNAL(activated()),
             this, SLOT(onAutoIndent()));
 
-    connect(lineMarkerArea(), SIGNAL(contextMenuOnLine(int,QContextMenuEvent*)),
-            this, SLOT(markerAreaContextMenu(int,QContextMenuEvent*)));
-
     App::PythonDebugger *dbg = App::PythonDebugger::instance();
     connect(dbg, SIGNAL(stopped()), this, SLOT(hideDebugMarker()));
     connect(dbg, SIGNAL(breakpointAdded(const App::BreakpointLine*)),
@@ -862,67 +859,85 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
     return false;
 }
 
-void PythonEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
+void PythonEditor::handleMarkerAreaContextMenu(QAction *res, int line)
 {
-    QMenu menu;
-    QAction *clearException = nullptr;
+    if (res->data().canConvert(QMetaType::Int)) {
+        App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
+
+        ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
+        switch (type) {
+        case BreakpointAdd:
+            d->debugger->setBreakpoint(d->filename, line);
+            break;
+        case BreakpointEdit: {
+            PythonEditorBreakpointDlg dlg(this, bpl);
+            dlg.exec();
+        }   break;
+        case BreakpointDelete:
+            d->debugger->deleteBreakpoint(d->filename, line);
+            break;
+        case BreakpointDisable:
+            bpl->setDisabled(true);
+            break;
+        case BreakpointEnable:
+            bpl->setDisabled(false);
+            break;
+        case ExceptionClear:
+            App::PythonDebugger::instance()->sendClearException(d->filename, line);
+            break;
+        default:
+            // let baseclass handle this
+            TextEditor::handleMarkerAreaContextMenu(res, line);
+            return;
+        }
+    }
+}
+
+void PythonEditor::setUpMarkerAreaContextMenu(int line)
+{
+    // set default inherited context menu
+    TextEditor::setUpMarkerAreaContextMenu(line);
+    m_markerAreaContextMenu.addSeparator();
 
     if (d->exceptions.contains(line)) {
         Base::PyExceptionInfo exc(d->exceptions[line]);
         PyExceptionInfoGui excGui(&exc);
-        clearException = new QAction(BitmapFactory().iconFromTheme(excGui.iconName()),
-                               tr("Clear exception"), &menu);
-        menu.addAction(clearException);
-        menu.addSeparator();
+        QAction *clearException = new QAction(BitmapFactory().iconFromTheme(excGui.iconName()),
+                                              tr("Clear exception"), &m_markerAreaContextMenu);
+        m_markerAreaContextMenu.addAction(clearException);
+        m_markerAreaContextMenu.addSeparator();
     }
 
     App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
     if (bpl != nullptr) {
-        QAction disable(BitmapFactory().iconFromTheme("breakpoint-disabled"),
-                        tr("Disable breakpoint"), &menu);
-        QAction enable(BitmapFactory().iconFromTheme("breakpoint"),
-                       tr("Enable breakpoint"), &menu);
-        QAction edit(BitmapFactory().iconFromTheme("preferences-general"),
-                        tr("Edit breakpoint"), &menu);
-        QAction del(BitmapFactory().iconFromTheme("delete"),
-                       tr("Delete breakpoint"), &menu);
-
-        if (bpl->disabled())
-            menu.addAction(&enable);
-        else
-            menu.addAction(&disable);
-        menu.addAction(&edit);
-        menu.addAction(&del);
-
-        QAction *res = menu.exec(event->globalPos());
-        if (res == &disable) {
-            bpl->setDisabled(true);
-        } else if(res == &enable) {
-            bpl->setDisabled(false);
-        } else if (res == &edit) {
-            PythonEditorBreakpointDlg dlg(this, bpl);
-            dlg.exec();
-        } else if (res == &del) {
-            d->debugger->deleteBreakpoint(d->filename, line);
-        } else if (res == clearException) {
-            App::PythonDebugger::instance()->sendClearException(d->filename, line);
+        if (!bpl->disabled()) {
+            QAction *disable = new QAction(BitmapFactory().iconFromTheme("breakpoint-disabled"),
+                                          tr("Disable breakpoint"), &m_markerAreaContextMenu);
+            disable->setData(BreakpointDisable);
+            m_markerAreaContextMenu.addAction(disable);
+        } else {
+            QAction *enable = new QAction(BitmapFactory().iconFromTheme("breakpoint"),
+                                         tr("Enable breakpoint"), &m_markerAreaContextMenu);
+            enable->setData(BreakpointEnable);
+            m_markerAreaContextMenu.addAction(enable);
         }
 
+        QAction *edit = new QAction(BitmapFactory().iconFromTheme("preferences-general"),
+                                   tr("Edit breakpoint"), &m_markerAreaContextMenu);
+        edit->setData(BreakpointEdit);
+        m_markerAreaContextMenu.addAction(edit);
+
+        QAction *del = new QAction(BitmapFactory().iconFromTheme("delete"),
+                                  tr("Delete breakpoint"), &m_markerAreaContextMenu);
+        del->setData(BreakpointDelete);
+        m_markerAreaContextMenu.addAction(del);
+
     } else {
-        QAction create(BitmapFactory().iconFromTheme("breakpoint"),
-                       tr("Add breakpoint"), this);
-        menu.addAction(&create);
-        QAction *res = menu.exec(event->globalPos());
-        if (res == &create)
-            d->debugger->setBreakpoint(d->filename, line);
-        else if (res == clearException)
-            App::PythonDebugger::instance()->sendClearException(d->filename, line);
+        QAction *create = new QAction(BitmapFactory().iconFromTheme("breakpoint"),
+                                      tr("Add breakpoint"), &m_markerAreaContextMenu);
+        create->setData(BreakpointAdd);
+        m_markerAreaContextMenu.addAction(create);
     }
-
-    if (clearException)
-        delete clearException;
-
-    event->accept();
 }
 
 void PythonEditor::breakpointAdded(const App::BreakpointLine *bpl)

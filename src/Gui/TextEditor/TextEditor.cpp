@@ -33,10 +33,13 @@
 
 #include "TextEditor.h"
 #include "SyntaxHighlighter.h"
+#include "BitmapFactory.h"
+
 #include <QScrollBar>
 #include <QStyleOptionSlider>
 #include <QCompleter>
 
+using namespace Gui;
 
 namespace Gui {
 class LineMarkerAreaP
@@ -47,7 +50,12 @@ public:
     { }
     ~LineMarkerAreaP() {}
     TextEditor *textEditor;
+    QPixmap bookmarkIcon;
     bool lineNumberActive;
+    void loadIcons(int rowHeight)
+    {
+        bookmarkIcon = BitmapFactory().iconFromTheme("bookmark").pixmap(rowHeight, rowHeight);
+    }
 };
 
 class AnnotatedScrollBarP
@@ -61,38 +69,16 @@ public:
     TextEditor *editor;
 };
 
-}
-
-using namespace Gui;
-
-
-
-namespace Gui {
 struct TextEditorP
 {
     //QMap<QString, QColor> colormap; // Color map
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
+    const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
     TextEditorP() :
         completer(nullptr)
     {
-        /*
-        colormap[QLatin1String("Text")] = Qt::black;
-        colormap[QLatin1String("Bookmark")] = Qt::cyan;
-        colormap[QLatin1String("Breakpoint")] = Qt::red;
-        colormap[QLatin1String("Keyword")] = Qt::blue;
-        colormap[QLatin1String("Comment")] = QColor(0, 170, 0);
-        colormap[QLatin1String("Block comment")] = QColor(160, 160, 164);
-        colormap[QLatin1String("Number")] = Qt::blue;
-        colormap[QLatin1String("String")] = Qt::red;
-        colormap[QLatin1String("Character")] = Qt::red;
-        colormap[QLatin1String("Class name")] = QColor(255, 170, 0);
-        colormap[QLatin1String("Define name")] = QColor(255, 170, 0);
-        colormap[QLatin1String("Operator")] = QColor(160, 160, 164);
-        colormap[QLatin1String("Python output")] = QColor(170, 170, 127);
-        colormap[QLatin1String("Python error")] = Qt::red;
-        colormap[QLatin1String("Current line highlight")] = QColor(224,224,224);
-        */
+
     }
     ~TextEditorP()
     { }
@@ -115,6 +101,7 @@ TextEditor::TextEditor(QWidget* parent)
     QFont serifFont(QLatin1String("Courier"), 10, QFont::Normal);
     setFont(serifFont);
     lineNumberArea->setFont(serifFont);
+    lineNumberArea->fontSizeChanged();
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     // set default to 4 characters
@@ -130,6 +117,10 @@ TextEditor::TextEditor(QWidget* parent)
             this, SLOT(updateLineNumberAreaWidth(int)));
     connect(this, SIGNAL(updateRequest(const QRect &, int)),
             this, SLOT(updateLineNumberArea(const QRect &, int)));
+
+
+    connect(lineMarkerArea(), SIGNAL(contextMenuOnLine(int, QContextMenuEvent*)),
+            this, SLOT(markerAreaContextMenu(int, QContextMenuEvent*)));
 
     updateLineNumberAreaWidth(0);
     highlightSelections();
@@ -279,6 +270,14 @@ void TextEditor::highlightSelections()
     }
 
     setTextMarkers(QLatin1String("highlightCurrentLine"), extraSelections);
+}
+
+void TextEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
+{
+    setUpMarkerAreaContextMenu(line);
+    QAction *res = m_markerAreaContextMenu.exec(event->globalPos());
+    handleMarkerAreaContextMenu(res, line);
+    event->accept();
 }
 
 void TextEditor::drawMarker(int line, int x, int y, QPainter* p)
@@ -456,6 +455,10 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         QFont font(fontFamily, fontSize);
         setFont(font);
         lineNumberArea->setFont(font);
+
+        // resize linemarker icons
+        lineNumberArea->fontSizeChanged();
+
     } else if (strncmp(sReason, "color_", 6) == 0) {
         if (this->highlighter)
             this->highlighter->loadSettings();
@@ -573,6 +576,65 @@ bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
     return false;
 }
 
+void TextEditor::setUpMarkerAreaContextMenu(int line)
+{
+    m_markerAreaContextMenu.clear();
+    QString bookmarkTxt = tr("Set bookmark");
+
+    QTextBlock block = document()->findBlockByLineNumber(line -1);
+    if (block.isValid()) {
+        TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
+        if (userData && userData->bookmark())
+            bookmarkTxt = tr("Clear bookmark");
+    }
+
+    QAction *bookmark = new QAction(BitmapFactory().iconFromTheme("bookmark"), bookmarkTxt, &m_markerAreaContextMenu);
+    bookmark->setData(Bookmark);
+    m_markerAreaContextMenu.addAction(bookmark);
+}
+
+void TextEditor::handleMarkerAreaContextMenu(QAction *res, int line)
+{
+    if (res->data().canConvert(QMetaType::Int)) {
+        ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
+        switch (type) {
+        case Bookmark: {
+            QTextBlock block = document()->findBlockByLineNumber(line -1);
+            if (block.isValid()) {
+                TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
+                if (!userData) {
+                    // insert new userData if not yet here
+                    userData = new TextEditBlockData(block);
+                    block.setUserData(userData);
+                }
+
+                // toggle bookmark
+                userData->setBookmark(!userData->bookmark());
+
+                // paint marker at our scrollbar
+                AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
+                if (vBar) {
+                    if (userData->bookmark()) {
+                        vBar->setMarker(line, d->bookmarkScrollBarMarkerColor);
+                    } else {
+                        vBar->clearMarker(line, d->bookmarkScrollBarMarkerColor);
+                    }
+                }
+
+            }
+        }   break;
+        default:
+            return;
+        }
+    } else {
+        // custom data
+        //QSting actionStr = res->data().toString();
+        //if (actionStr == QLatin1String("special")) {
+        //    // do something
+        //}
+    }
+}
+
 // ------------------------------------------------------------------------------
 
 LineMarkerArea::LineMarkerArea(TextEditor* editor) :
@@ -607,6 +669,11 @@ bool LineMarkerArea::lineNumbersVisible() const
     return d->lineNumberActive;
 }
 
+void LineMarkerArea::fontSizeChanged()
+{
+    d->loadIcons(d->textEditor->fontMetrics().height());
+}
+
 void LineMarkerArea::setLineNumbersVisible(bool active)
 {
     d->lineNumberActive = active;
@@ -628,6 +695,7 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
             if (d->lineNumberActive) {
+                // we should point linenumbers
                 QString number = QString::number(blockNumber + 1);
                 QPalette pal = palette();
                 QFont font = d->textEditor->font();
@@ -640,6 +708,13 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
                 painter.setPen(color);
                 painter.drawText(0, top, width(), fontMetrics().height(),
                                  Qt::AlignRight, number);
+            }
+
+            if (block.userData()) {
+                TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
+                if (userData && userData->bookmark()) {
+                    painter.drawPixmap(1, top, d->bookmarkIcon);
+                }
             }
 
             d->textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
@@ -682,7 +757,16 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 // ----------------------------------------------------------------------------
 
 TextEditBlockData::TextEditBlockData(QTextBlock block) :
-    m_block(block), m_scanInfo(nullptr)
+    m_block(block),
+    m_scanInfo(nullptr),
+    m_bookmarkSet(false)
+{
+}
+
+TextEditBlockData::TextEditBlockData(const TextEditBlockData &other):
+    m_block(other.m_block),
+    m_scanInfo(other.m_scanInfo),
+    m_bookmarkSet(other.m_bookmarkSet)
 {
 }
 
