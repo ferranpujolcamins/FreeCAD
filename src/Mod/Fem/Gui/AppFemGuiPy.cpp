@@ -36,8 +36,8 @@
 #include <Gui/Document.h>
 #include <Gui/ViewProviderDocumentObject.h>
 #include <Gui/MainWindow.h>
-#include <Gui/TextEdit.h>
-#include <Gui/EditorView.h>
+#include <Gui/TextEditor/TextEditor.h>
+#include <Gui/TextEditor/EditorView.h>
 
 #include <Mod/Fem/App/FemAnalysis.h>
 #include "ActiveAnalysisObserver.h"

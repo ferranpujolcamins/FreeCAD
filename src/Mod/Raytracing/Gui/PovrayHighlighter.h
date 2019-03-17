@@ -24,7 +24,7 @@
 #ifndef RAY_POVRAYHIGHLIGHTER_H
 #define RAY_POVRAYHIGHLIGHTER_H
 
-#include <Gui/SyntaxHighlighter.h>
+#include <Gui/TextEditor/SyntaxHighlighter.h>
 
 namespace RaytracingGui {
 class PovrayHighlighterP;

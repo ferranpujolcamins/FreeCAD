@@ -39,8 +39,8 @@
 #include <Base/Interpreter.h>
 #include <Gui/Application.h>
 #include <Gui/Document.h>
-#include <Gui/EditorView.h>
-#include <Gui/TextEdit.h>
+#include <Gui/TextEditor/EditorView.h>
+#include <Gui/TextEditor/TextEditor.h>
 #include <Gui/MainWindow.h>
 #include <Gui/View.h>
 

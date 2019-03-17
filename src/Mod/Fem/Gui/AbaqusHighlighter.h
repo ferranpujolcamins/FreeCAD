@@ -24,7 +24,7 @@
 #ifndef FEMGUI_ABAQUSHIGHLIGHTER_H
 #define FEMGUI_ABAQUSHIGHLIGHTER_H
 
-#include <Gui/SyntaxHighlighter.h>
+#include <Gui/TextEditor/SyntaxHighlighter.h>
 
 namespace FemGui {
 
