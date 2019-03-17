@@ -96,8 +96,8 @@ void PythonSourceListParentBase::insert(PythonSourceListNodeBase *node)
                 } else {
                     node->setNext(nullptr);
                     m_last = node;
-                    break;
                 }
+                break;
             } else if (n->previous() == nullptr) {
                 // n is more than node and we are at the beginning (won't iterate further)
                 node->setNext(n);
@@ -209,10 +209,12 @@ PythonSourceListNodeBase *PythonSourceListParentBase::operator [](std::size_t id
 
 PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToken *tok) const
 {
+    DEFINE_DBG_VARS
     for (PythonSourceListNodeBase *node = m_first;
          node != nullptr;
          node = node->next())
     {
+        DBG_TOKEN(node->token())
         if (*node->token() == *tok)
             return node;
     }
@@ -222,6 +224,8 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToke
 
 PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHighlighter::Tokens token) const
 {
+    DEFINE_DBG_VARS
+
     if (!token)
         return nullptr;
 
@@ -229,6 +233,7 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHigh
          node != nullptr;
          node = node->next())
     {
+        DBG_TOKEN(node->token())
         if (node->token() && node->token()->token == token)
             return node;
     }
@@ -238,10 +243,13 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHigh
 
 PythonSourceListNodeBase *PythonSourceListParentBase::findLast(PythonSyntaxHighlighter::Tokens token) const
 {
+    DEFINE_DBG_VARS
+
     for (PythonSourceListNodeBase *node = m_last;
          node != nullptr;
          node = node->previous())
     {
+        DBG_TOKEN(node->token())
         if (node->token() && node->token()->token == token)
             return node;
     }

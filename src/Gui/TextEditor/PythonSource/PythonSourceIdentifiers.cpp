@@ -220,10 +220,10 @@ PythonSourceIdentifier
         if (itm) {
             assign = dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
             assert(assign != nullptr && "Stored value was not a assignment");
-            if (assign->typeInfo() != typeInfo)
-                assign->setType(typeInfo); // type differ
-            else
+            if (assign->typeInfo() == typeInfo)
                 return identifier; // already have this one and it is equal
+            //else
+            //  type differ, create new assignment
         }
     }
 

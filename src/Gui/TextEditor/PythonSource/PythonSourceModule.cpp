@@ -242,7 +242,7 @@ void PythonSourceModule::setSyntaxError(const PythonToken *tok, QString parseMes
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
-    scanInfo->setParseMessage(tok, parseMessage, PythonTextBlockScanInfo::SyntaxError);
+    scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::SyntaxError);
 
     // create format with default format for syntax error
     const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_SyntaxError;
@@ -291,7 +291,7 @@ void PythonSourceModule::setIndentError(const PythonToken *tok) const
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
-    scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), PythonTextBlockScanInfo::IndentError);
+    scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), TextEditBlockScanInfo::IndentError);
 
     // create format with default format for syntax error
     const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_SyntaxError;
@@ -317,7 +317,7 @@ void PythonSourceModule::setLookupError(const PythonToken *tok, QString parseMes
     if (parseMessage.isEmpty())
         parseMessage = QString::fromLatin1("Can't lookup identifier '%1'").arg(tok->text());
 
-    scanInfo->setParseMessage(tok, parseMessage, PythonTextBlockScanInfo::LookupError);
+    scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::LookupError);
 }
 
 void PythonSourceModule::setMessage(const PythonToken *tok, QString parseMessage) const
