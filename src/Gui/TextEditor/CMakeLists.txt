@@ -45,13 +45,34 @@ endif()
 list(APPEND Common_LIBS
     FreeCADBase FreeCADApp)
 
+# -------------------------------------------------------------------------------------
+# FIXME!!
+# should be removed or selectable via a cmake option
+SET(BUILD_JEDI 1)
+if(BUILD_JEDI)
+    SET(JediLibName JediLib)
+    SET(Jedi_CPP_SRCS PythonJedi.cpp)
+    SET(Jedi_HPP_SRCS PythonJedi.h)
+    fc_wrap_cpp(Jedi_MOC_SRCS ${Jedi_HPP_SRCS})
+    SET(Jedi_SRCS ${Jedi_CPP_SRCS} ${Jedi_HPP_SRCS} ${Jedi_MOC_SRCS})
+
+    #create Jedi C++ wrapper library
+    ADD_LIBRARY(${JediLibName} STATIC ${Jedi_SRCS})
+    TARGET_LINK_LIBRARIES(${JediLibName} ${Common_LIBS})
+    add_definitions(-DBUILD_JEDI)
+endif(BUILD_JEDI)
+
+# -------------------------------------------------------------------------------------
+
+
+# -------------------------------------------------------------------------------------
+
 # The editor sources
 SET(TextEditor_CPP_SRCS
     EditorView.cpp
     TextDocumentEditorView.cpp
     PythonCode.cpp
     PythonEditor.cpp
-    PythonJedi.cpp
     PythonSyntaxHighlighter.cpp
     SyntaxHighlighter.cpp
     TextEditor.cpp
@@ -61,7 +82,6 @@ SET(TextEditor_HPP_SRCS
     TextDocumentEditorView.h
     PythonCode.h
     PythonEditor.h
-    PythonJedi.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
     TextEditor.h
@@ -71,7 +91,6 @@ SET(TextEditor_MOC_HDRS
     TextDocumentEditorView.h
     PythonCode.h
     PythonEditor.h
-    PythonJedi.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
     TextEditor.h
@@ -142,7 +161,7 @@ endif(BUILD_USE_PCH)
 
 #create library
 ADD_LIBRARY(${EditorLibName} STATIC ${TextEditorAll_SRCS})
-TARGET_LINK_LIBRARIES(${EditorLibName} ${Common_LIBS})
+TARGET_LINK_LIBRARIES(${EditorLibName} ${Common_LIBS} ${JediLibName} PythonSource)
 
 # install to default target defined by
 INSTALL(TARGETS ${EditorLibName}
