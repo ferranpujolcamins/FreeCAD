@@ -1,3 +1,5 @@
+add_subdirectory(PythonSource)
+
 SET(EditorLibName TextEditor)
 INCLUDE_DIRECTORIES(
     ${CMAKE_CURRENT_BINARY_DIR}

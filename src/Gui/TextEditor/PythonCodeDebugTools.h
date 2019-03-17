@@ -26,8 +26,6 @@
 #include <stdio.h>
 
 namespace Gui {
-class PythonSourceModule;
-class PythonSourceFrame;
 
 namespace Syntax {
 
@@ -58,17 +56,6 @@ public:
 
 // -----------------------------------------------------------------
 
-// dump identifiers etc from a module and frame
-class DumpModule : public DumpToFileBaseClass
-{
-public:
-    explicit DumpModule(PythonSourceModule *module, const char *outfile = "stdout");
-    ~DumpModule();
-
-    void dumpFrame(const PythonSourceFrame *frm, int indent);
-private:
-    PythonSourceModule *m_module;
-};
 
 
 } // namespace Gui

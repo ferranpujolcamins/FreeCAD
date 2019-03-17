@@ -8,6 +8,13 @@
 #include <QDebug>
 #include <QTimer>
 #include "PythonCode.h"
+#include <PythonSource/PythonSourceRoot.h>
+#include <PythonSource/PythonSourceListBase.h>
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+#include <PythonSource/PythonSourceDebugTools.h>
+#endif
+
 #include "PythonEditor.h"
 #include <Gui/PythonConsole.h>
 

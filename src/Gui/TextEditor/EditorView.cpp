@@ -65,8 +65,8 @@
 #include "PythonEditor.h"
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-# include "PythonCodeDebugTools.h"
-# include "PythonCode.h"
+# include <PythonSource/PythonSourceDebugTools.h>
+# include <PythonSource/PythonSourceRoot.h>
 #endif
 
 

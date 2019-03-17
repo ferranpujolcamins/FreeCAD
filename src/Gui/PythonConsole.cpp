@@ -48,7 +48,6 @@
 #include "Application.h"
 #include "Action.h"
 #include "Command.h"
-#include "DlgEditorImp.h"
 #include "FileDialog.h"
 #include "MainWindow.h"
 

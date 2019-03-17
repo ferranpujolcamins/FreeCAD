@@ -44,8 +44,6 @@
 #include "Document.h"
 #include "MainWindow.h"
 #include "Macro.h"
-#include "TextEditor/EditorView.h"
-#include "TextEditor/PythonEditor.h"
 #include "SoFCDB.h"
 #include "View3DInventor.h"
 #include "SplitView3DInventor.h"
@@ -65,6 +63,8 @@
 #include <Base/Console.h>
 #include <CXX/Objects.hxx>
 #include <Inventor/MarkerBitmaps.h>
+#include <TextEditor/EditorView.h>
+#include <TextEditor/PythonEditor.h>
 
 using namespace Gui;
 

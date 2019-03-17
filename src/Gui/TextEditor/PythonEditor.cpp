@@ -48,6 +48,11 @@
 #include <Base/Exception.h>
 #include <Base/Parameter.h>
 #include <App/PythonDebugger.h>
+#include <PythonSource/PythonSourceModule.h>
+#include <PythonSource/PythonSourceRoot.h>
+#include <PythonSource/PythonSourceFrames.h>
+#include <PythonSource/PythonSourceIdentifiers.h>
+
 #include <QRegExp>
 #include <QDebug>
 #include <QLabel>

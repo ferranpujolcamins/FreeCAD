@@ -33,7 +33,6 @@
 #include "DlgSettings3DViewImp.h"
 #include "DlgSettingsViewColor.h"
 #include "DlgGeneralImp.h"
-#include "DlgEditorImp.h"
 #include "DlgSettingsMacroImp.h"
 #include "DlgSettingsUnitsImp.h"
 #include "DlgSettingsDocumentImp.h"
@@ -49,6 +48,9 @@
 #include "DlgCustomizeSpNavSettings.h"
 #include "InputField.h"
 #include "QuantitySpinBox.h"
+
+
+#include <TextEditor/DlgEditorImp.h>
 
 using namespace Gui;
 using namespace Gui::Dialog;

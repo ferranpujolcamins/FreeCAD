@@ -33,18 +33,19 @@
 
 #include "PythonDebuggerView.h"
 #include "BitmapFactory.h"
-#include "TextEditor/EditorView.h"
 #include "Window.h"
 #include "MainWindow.h"
-#include "TextEditor/PythonEditor.h"
 #include "Macro.h"
 
 
 #include <App/PythonDebugger.h>
+#include <TextEditor/EditorView.h>
+#include <TextEditor/PythonEditor.h>
 #include <CXX/Extensions.hxx>
 #include <frameobject.h>
 #include <Base/Interpreter.h>
 #include <Application.h>
+
 #include <QVariant>
 #include <QVBoxLayout>
 #include <QHBoxLayout>

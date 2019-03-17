@@ -27,8 +27,8 @@
 
 #include <FCConfig.h>
 
-#include "View.h"
-#include "Window.h"
+#include <Gui/View.h>
+#include <Gui/Window.h>
 
 #include <QListWidget>
 #include <QPlainTextEdit>
