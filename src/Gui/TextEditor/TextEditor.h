@@ -33,6 +33,7 @@
 #include <QListWidget>
 #include <QPlainTextEdit>
 #include <QScrollBar>
+#include <QTextBlockUserData>
 
 QT_BEGIN_NAMESPACE
 class QCompleter;
@@ -101,6 +102,7 @@ private:
     friend class LineMarkerArea;
 };
 
+// ---------------------------------------------------------------------------------
 
 class LineMarkerAreaP;
 class LineMarkerArea : public QWidget
@@ -128,6 +130,87 @@ protected:
 private:
     LineMarkerAreaP *d;
 };
+
+// --------------------------------------------------------------------------------
+class TextEditBlockScanInfo;
+
+class TextEditBlockData : public QTextBlockUserData
+{
+    // QTextBlockUserData does not inherit QObject
+public:
+    TextEditBlockData(QTextBlock block);
+    virtual ~TextEditBlockData();
+
+    static TextEditBlockData *blockDataFromCursor(const QTextCursor &cursor);
+
+    const QTextBlock &block() const;
+
+    virtual TextEditBlockData *next() const;
+    virtual TextEditBlockData *previous() const;
+
+
+    /**
+     * @brief scanInfo contains messages for a specific code line/col
+     * @return nullptr if no parsemsgs  or PythonTextBlockScanInfo*
+     */
+    TextEditBlockScanInfo *scanInfo() const { return m_scanInfo; }
+
+    /**
+     * @brief setScanInfo set class with parsemessages
+     * @param scanInfo instance of PythonTextBlockScanInfo
+     */
+    void setScanInfo(TextEditBlockScanInfo *scanInfo) { m_scanInfo = scanInfo; }
+
+protected:
+    QTextBlock m_block;
+    TextEditBlockScanInfo *m_scanInfo;
+};
+
+// --------------------------------------------------------------------------------
+
+/**
+ * @brief The TextEditBlockScanInfo class stores scaninfo for this row
+ *          Such as SyntaxError annotations
+ */
+class TextEditBlockScanInfo
+{
+public:
+    enum MsgType { Message, LookupError, SyntaxError, IndentError, Warning, AllMsgTypes };
+    struct ParseMsg {
+        explicit ParseMsg(QString message, int start, int end, MsgType type) :
+                    message(message), startPos(start),
+                    endPos(end), type(type)
+        {}
+        ~ParseMsg() {}
+        QString message;
+        int startPos;
+        int endPos;
+        MsgType type;
+    };
+    typedef QList<ParseMsg> parsemsgs_t;
+    explicit TextEditBlockScanInfo();
+    virtual ~TextEditBlockScanInfo();
+
+    /// set message at line with startPos - endPos boundaries
+    void setParseMessage(int startPos, int endPos, QString message, MsgType type = Message);
+    /// get the ParseMsg that is contained within startPos, endPos,, filter by type
+    /// nullptr if not found
+    const ParseMsg *getParseMessage(int startPos, int endPos, MsgType type = AllMsgTypes) const;
+    /// get parseMessage for line contained by col, filter by type
+    QString parseMessage(int col, MsgType type = AllMsgTypes) const;
+    /// clears message that is contained by col
+    void clearParseMessage(int col);
+    /// clears all messages on this line
+    void clearParseMessages();
+
+    /// get all parseMessages for this module
+    const parsemsgs_t allMessages() const { return m_parseMessages; }
+
+private:
+    parsemsgs_t m_parseMessages;
+};
+
+// ---------------------------------------------------------------------------------
 
 class AnnotatedScrollBarP;
 /**

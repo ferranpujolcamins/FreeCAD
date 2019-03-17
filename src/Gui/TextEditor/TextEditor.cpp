@@ -679,6 +679,104 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 
 }
 
+// ----------------------------------------------------------------------------
+
+TextEditBlockData::TextEditBlockData(QTextBlock block) :
+    m_block(block), m_scanInfo(nullptr)
+{
+}
+
+TextEditBlockData::~TextEditBlockData()
+{
+}
+
+TextEditBlockData *TextEditBlockData::blockDataFromCursor(const QTextCursor &cursor)
+{
+    QTextBlock block = cursor.block();
+    if (!block.isValid())
+        return nullptr;
+
+    return dynamic_cast<TextEditBlockData*>(block.userData());
+}
+
+const QTextBlock &TextEditBlockData::block() const
+{
+    return m_block;
+}
+
+TextEditBlockData *TextEditBlockData::next() const
+{
+    QTextBlock nextBlock = block().next();
+    if (!nextBlock.isValid())
+        return nullptr;
+    return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
+}
+
+TextEditBlockData *TextEditBlockData::previous() const
+{
+    QTextBlock nextBlock = block().previous();
+    if (!nextBlock.isValid())
+        return nullptr;
+    return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
+}
+
+// ------------------------------------------------------------------------------------
+
+
+TextEditBlockScanInfo::TextEditBlockScanInfo()
+{
+}
+
+TextEditBlockScanInfo::~TextEditBlockScanInfo()
+{
+}
+
+void TextEditBlockScanInfo::setParseMessage(int startPos, int endPos, QString message,
+                                              MsgType type)
+{
+    ParseMsg msg(message, startPos, endPos, type);
+    m_parseMessages.push_back(msg);
+}
+
+const TextEditBlockScanInfo::ParseMsg
+*TextEditBlockScanInfo::getParseMessage(int startPos, int endPos,
+                                          TextEditBlockScanInfo::MsgType type) const
+{
+    for (const ParseMsg &msg : m_parseMessages) {
+        if (msg.startPos <= startPos && msg.endPos >= endPos) {
+            if (type == AllMsgTypes)
+                return &msg;
+            else if (msg.type == type)
+                return &msg;
+            break;
+        }
+    }
+    return nullptr;
+}
+
+QString TextEditBlockScanInfo::parseMessage(int col, MsgType type) const
+{
+    const ParseMsg *parseMsg = getParseMessage(col, col, type);
+    if (parseMsg)
+        return parseMsg->message;
+    return QString();
+}
+
+void TextEditBlockScanInfo::clearParseMessage(int col)
+{
+    int idx = -1;
+    for (ParseMsg &msg : m_parseMessages) {
+        ++idx;
+        if (msg.startPos <= col && msg.endPos >= col)
+            m_parseMessages.removeAt(idx);
+    }
+}
+
+void TextEditBlockScanInfo::clearParseMessages()
+{
+    m_parseMessages.clear();
+}
+
 // -----------------------------------------------------------------------------
 
 AnnotatedScrollBar::AnnotatedScrollBar(TextEditor *parent):

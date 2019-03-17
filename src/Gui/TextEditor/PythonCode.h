@@ -75,56 +75,6 @@ private:
 
 // ----------------------------------------------------------------------
 
-/**
- * @brief The PythonTextBlockScanInfo class stores scaninfo for this row
- *          Such as SyntaxError annotations
- */
-class PythonTextBlockScanInfo
-{
-public:
-    enum MsgType { Message, LookupError, SyntaxError, IndentError, AllMsgTypes };
-    struct ParseMsg {
-        explicit ParseMsg(QString message, int start, int end, MsgType type) :
-                    message(message), startPos(start),
-                    endPos(end), type(type)
-        {}
-        ~ParseMsg() {}
-        QString message;
-        int startPos;
-        int endPos;
-        MsgType type;
-    };
-    typedef QList<ParseMsg> parsemsgs_t;
-    explicit PythonTextBlockScanInfo();
-    ~PythonTextBlockScanInfo();
-
-    /// set message for token
-    void setParseMessage(const PythonToken *tok, QString message, MsgType type = Message);
-    /// set message at line with startPos - endPos boundaries
-    void setParseMessage(int startPos, int endPos, QString message, MsgType type = Message);
-    /// get the ParseMsg for tok, filter by type
-    /// nullptr if not found
-    const ParseMsg *getParseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
-    /// get the ParseMsg that is contained within startPos, endPos,, filter by type
-    /// nullptr if not found
-    const ParseMsg *getParseMessage(int startPos, int endPos, MsgType type = AllMsgTypes) const;
-    /// get parseMessage for token, filter by type
-    QString parseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
-    /// get parseMessage for line contained by col, filter by type
-    QString parseMessage(int col, MsgType type = AllMsgTypes) const;
-    /// clear message
-    void clearParseMessage(const PythonToken *tok);
-    /// clears message that is contained by col
-    void clearParseMessage(int col);
-    /// clears all messages on this line
-    void clearParseMessages();
-
-    /// get all parseMessages for this module
-    const parsemsgs_t allMessages() const { return m_parseMessages; }
-
-private:
-    parsemsgs_t m_parseMessages;
-};
 
 } // namespace Gui
 

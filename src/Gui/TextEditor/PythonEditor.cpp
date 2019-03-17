@@ -393,18 +393,18 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
         // we are at the correct line
         PythonTextBlockData *blockData = dynamic_cast<PythonTextBlockData*>(block.userData());
         if (blockData) {
-            PythonTextBlockScanInfo *scanInfo = blockData->scanInfo();
+            TextEditBlockScanInfo *scanInfo = blockData->scanInfo();
             if (scanInfo) {
                 // we have scaninfo on this line (parsemessages)
-                for (const PythonTextBlockScanInfo::ParseMsg msg : scanInfo->allMessages()) {
+                for (const TextEditBlockScanInfo::ParseMsg msg : scanInfo->allMessages()) {
                     const char *iconFile = nullptr;
                     switch (msg.type) {
-                    case PythonTextBlockScanInfo::LookupError: // fallthrough
-                    case PythonTextBlockScanInfo::IndentError:
+                    case TextEditBlockScanInfo::LookupError: // fallthrough
+                    case TextEditBlockScanInfo::IndentError:
                         iconFile = "parse_info_warning"; break;
-                    case PythonTextBlockScanInfo::Message:
+                    case TextEditBlockScanInfo::Message:
                         iconFile = "parse_info_message"; break;
-                    case PythonTextBlockScanInfo::SyntaxError:
+                    case TextEditBlockScanInfo::SyntaxError:
                         iconFile = "parse_info_error";  break;
                     default:
                         continue; /* next for loop */ break;
@@ -712,7 +712,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     tooltipPos.rx() += lineNumberAreaWidth();
 
     QTextCursor cursor = cursorForPosition(pos);
-    PythonTextBlockData *textData = PythonTextBlockData::blockDataFromCursor(cursor);
+    PythonTextBlockData *textData = PythonTextBlockData::pyBlockDataFromCursor(cursor);
     if (!textData)
         return false;
 
@@ -735,25 +735,25 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     } else {
 
         // coding state
-        PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
+        TextEditBlockScanInfo *scanInfo = textData->scanInfo();
         if (scanInfo) {
             QStringList tooltipTxt;
-            const PythonTextBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-            for (const PythonTextBlockScanInfo::ParseMsg msg : msgTypes) {
+            const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
+            for (const TextEditBlockScanInfo::ParseMsg msg : msgTypes) {
                 if (msg.startPos > tok->startPos || msg.endPos < tok->endPos)
                     continue; // not for this token
 
                 switch (msg.type) {
-                case PythonTextBlockScanInfo::LookupError:
+                case TextEditBlockScanInfo::LookupError:
                     tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
                     break;
-                case PythonTextBlockScanInfo::IndentError:
+                case TextEditBlockScanInfo::IndentError:
                     tooltipTxt << QLatin1String("indenterr: ") + msg.message;
                     break;
-                case PythonTextBlockScanInfo::SyntaxError:
+                case TextEditBlockScanInfo::SyntaxError:
                     tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
                     break;
-                case PythonTextBlockScanInfo::Message:
+                case TextEditBlockScanInfo::Message:
                     tooltipTxt << QLatin1String("") + msg.message;
                     break;
                 default:
@@ -825,22 +825,22 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
         // parse errors
         PythonTextBlockData *textData = dynamic_cast<PythonTextBlockData*>(document()->findBlockByNumber(line-1).userData());
         if (textData) {
-            PythonTextBlockScanInfo *scanInfo = textData->scanInfo();
+            TextEditBlockScanInfo *scanInfo = textData->scanInfo();
             if (scanInfo) {
                 QStringList tooltipTxt;
-                const PythonTextBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-                for (const PythonTextBlockScanInfo::ParseMsg msg : msgTypes) {
+                const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
+                for (const TextEditBlockScanInfo::ParseMsg msg : msgTypes) {
                     switch (msg.type) {
-                    case PythonTextBlockScanInfo::IndentError:
+                    case TextEditBlockScanInfo::IndentError:
                         tooltipTxt << QLatin1String("indenterr: ") + msg.message;
                         break;
-                    case PythonTextBlockScanInfo::SyntaxError:
+                    case TextEditBlockScanInfo::SyntaxError:
                         tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
                         break;
-                    case PythonTextBlockScanInfo::Message:
+                    case TextEditBlockScanInfo::Message:
                         tooltipTxt << QLatin1String("") + msg.message;
                         break;
-                    case PythonTextBlockScanInfo::LookupError:
+                    case TextEditBlockScanInfo::LookupError:
                         tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
                         break;
                     default:

@@ -102,6 +102,8 @@ public:
 
 
 };
+
+
 } // namespace Gui
 
 
@@ -1446,7 +1448,8 @@ void PythonToken::detachReference(PythonSourceListNodeBase *srcListNode)
 // -------------------------------------------------------------------------------------------
 
 PythonTextBlockData::PythonTextBlockData(QTextBlock block) :
-    m_block(block), m_indentCharCount(0), m_scanInfo(nullptr)
+    TextEditBlockData(block),
+    m_indentCharCount(0)
 {
 }
 
@@ -1455,19 +1458,9 @@ PythonTextBlockData::~PythonTextBlockData()
     qDeleteAll(m_tokens);
 }
 
-PythonTextBlockData *PythonTextBlockData::blockDataFromCursor(const QTextCursor &cursor)
+PythonTextBlockData *PythonTextBlockData::pyBlockDataFromCursor(const QTextCursor &cursor)
 {
-
-    QTextBlock block = cursor.block();
-    if (!block.isValid())
-        return nullptr;
-
-    return reinterpret_cast<PythonTextBlockData*>(block.userData());
-}
-
-const QTextBlock &PythonTextBlockData::block() const
-{
-    return m_block;
+    return dynamic_cast<PythonTextBlockData*>(blockDataFromCursor(cursor));
 }
 
 const PythonTextBlockData::tokens_t &PythonTextBlockData::tokens() const
@@ -1477,18 +1470,12 @@ const PythonTextBlockData::tokens_t &PythonTextBlockData::tokens() const
 
 PythonTextBlockData *PythonTextBlockData::next() const
 {
-    QTextBlock nextBlock = block().next();
-    if (!nextBlock.isValid())
-        return nullptr;
-    return dynamic_cast<PythonTextBlockData*>(nextBlock.userData());
+    return dynamic_cast<PythonTextBlockData*>(TextEditBlockData::next());
 }
 
 PythonTextBlockData *PythonTextBlockData::previous() const
 {
-    QTextBlock nextBlock = block().previous();
-    if (!nextBlock.isValid())
-        return nullptr;
-    return dynamic_cast<PythonTextBlockData*>(nextBlock.userData());
+    return dynamic_cast<PythonTextBlockData*>(TextEditBlockData::previous());
 }
 
 const PythonToken *PythonTextBlockData::setDeterminedToken(PythonSyntaxHighlighter::Tokens token,
@@ -1646,7 +1633,7 @@ PythonToken *PythonTextBlockData::tokenAt(int pos) const
 // static
 PythonToken *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
 {
-    PythonTextBlockData *textData = blockDataFromCursor(cursor);
+    PythonTextBlockData *textData = pyBlockDataFromCursor(cursor);
     if (!textData)
         return nullptr;
 
@@ -1680,7 +1667,7 @@ QString PythonTextBlockData::tokenAtAsString(const PythonToken *tok) const
 // static
 QString PythonTextBlockData::tokenAtAsString(QTextCursor &cursor)
 {
-    PythonTextBlockData *textData = blockDataFromCursor(cursor);
+    PythonTextBlockData *textData = pyBlockDataFromCursor(cursor);
     if (!textData)
         return QString();
 
@@ -1737,6 +1724,16 @@ void PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int
         m_tokens.insert(idx, tokenObj);
 }
 
+PythonTextBlockScanInfo *PythonTextBlockData::scanInfo() const
+{
+    return dynamic_cast<PythonTextBlockScanInfo*>(TextEditBlockData::scanInfo());
+}
+
+void PythonTextBlockData::setScanInfo(PythonTextBlockScanInfo *scanInfo)
+{
+    m_scanInfo = scanInfo;
+}
+
 QString PythonTextBlockData::indentString() const
 {
     if (m_tokens.size() > 0) {
@@ -1750,10 +1747,11 @@ QString PythonTextBlockData::indentString() const
     return QString();
 }
 
-// ------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
 
 
-PythonTextBlockScanInfo::PythonTextBlockScanInfo()
+PythonTextBlockScanInfo::PythonTextBlockScanInfo() :
+    TextEditBlockScanInfo()
 {
 }
 
@@ -1764,70 +1762,25 @@ PythonTextBlockScanInfo::~PythonTextBlockScanInfo()
 void PythonTextBlockScanInfo::setParseMessage(const PythonToken *tok, QString message,
                                               MsgType type)
 {
-    setParseMessage(tok->startPos, tok->endPos, message, type);
-}
-
-void PythonTextBlockScanInfo::setParseMessage(int startPos, int endPos, QString message,
-                                              MsgType type)
-{
-    ParseMsg msg(message, startPos, endPos, type);
-    m_parseMessages.push_back(msg);
+    TextEditBlockScanInfo::setParseMessage(tok->startPos, tok->endPos, message, type);
 }
 
 const PythonTextBlockScanInfo::ParseMsg
 *PythonTextBlockScanInfo::getParseMessage(const PythonToken *tok,
                                           PythonTextBlockScanInfo::MsgType type) const
 {
-    return getParseMessage(tok->startPos, tok->endPos, type);
-}
-
-const PythonTextBlockScanInfo::ParseMsg
-*PythonTextBlockScanInfo::getParseMessage(int startPos, int endPos,
-                                          PythonTextBlockScanInfo::MsgType type) const
-{
-    for (const ParseMsg &msg : m_parseMessages) {
-        if (msg.startPos <= startPos && msg.endPos >= endPos) {
-            if (type == AllMsgTypes)
-                return &msg;
-            else if (msg.type == type)
-                return &msg;
-            break;
-        }
-    }
-    return nullptr;
+    return TextEditBlockScanInfo::getParseMessage(tok->startPos, tok->endPos, type);
 }
 
 QString PythonTextBlockScanInfo::parseMessage(const PythonToken *tok, MsgType type) const
 {
-    return parseMessage(tok->startPos, type);
+    return TextEditBlockScanInfo::parseMessage(tok->startPos, type);
 }
 
-QString PythonTextBlockScanInfo::parseMessage(int col, MsgType type) const
-{
-    const ParseMsg *parseMsg = getParseMessage(col, col, type);
-    if (parseMsg)
-        return parseMsg->message;
-    return QString();
-}
 
 void PythonTextBlockScanInfo::clearParseMessage(const PythonToken *tok)
 {
-    clearParseMessage(tok->startPos);
-}
-
-void PythonTextBlockScanInfo::clearParseMessage(int col)
-{
-    int idx = -1;
-    for (ParseMsg &msg : m_parseMessages) {
-        ++idx;
-        if (msg.startPos <= col && msg.endPos >= col)
-            m_parseMessages.removeAt(idx);
-    }
-}
-
-void PythonTextBlockScanInfo::clearParseMessages()
-{
-    m_parseMessages.clear();
+    TextEditBlockScanInfo::clearParseMessage(tok->startPos);
 }
 
 // -------------------------------------------------------------------------------------

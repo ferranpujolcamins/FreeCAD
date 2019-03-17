@@ -3,6 +3,7 @@
 
 #include "PreCompiled.h"
 #include "SyntaxHighlighter.h"
+#include "TextEditor.h"
 #include <Base/Parameter.h>
 
 QT_BEGIN_NAMESPACE
@@ -19,7 +20,7 @@ class PythonToken;
 class PythonEditor;
 class PythonConsoleTextEdit;
 class PythonTextBlockData;
-class PythonTextBlockScanInfo;
+class TextEditBlockScanInfo;
 class PythonSyntaxHighlighterP;
 
 /**
@@ -396,16 +397,17 @@ private:
 // -----------------------------------------------------------------------
 class PythonTextBlockScanInfo;
 
-class PythonTextBlockData : public QTextBlockUserData
+class PythonTextBlockData : public TextEditBlockData
 {
 public:
     typedef QVector<PythonToken*> tokens_t;
     PythonTextBlockData(QTextBlock block);
     ~PythonTextBlockData();
 
-    static PythonTextBlockData *blockDataFromCursor(const QTextCursor &cursor);
-
-    const QTextBlock &block() const;
+    static PythonTextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
+    /**
+     * @brief tokens all PythonTokens for this row
+     */
     const tokens_t &tokens() const;
 
     PythonTextBlockData *next() const;
@@ -517,15 +519,15 @@ public:
 
     /**
      * @brief scanInfo contains parse messages set by code analyzer
-     * @return nullptr if no parsemasgs  or PythonTextBlockScanInfo*
+     * @return nullptr if no parsemessages  or PythonTextBlockScanInfo*
      */
-    PythonTextBlockScanInfo *scanInfo() const { return m_scanInfo; }
+    PythonTextBlockScanInfo *scanInfo() const;
 
     /**
      * @brief setScanInfo set class with parsemessages
      * @param scanInfo instance of PythonTextBlockScanInfo
      */
-    void setScanInfo(PythonTextBlockScanInfo *scanInfo) { m_scanInfo = scanInfo; }
+    void setScanInfo(PythonTextBlockScanInfo *scanInfo);
 
 
     /**
@@ -565,9 +567,32 @@ private:
     QHash<const PythonToken*, QTextCharFormat> m_reformats;
     QTextBlock m_block;
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
-    PythonTextBlockScanInfo *m_scanInfo;
+
 
     friend class PythonSyntaxHighlighter; // in order to hide some api
+};
+
+// -------------------------------------------------------------------
+
+class PythonTextBlockScanInfo : public TextEditBlockScanInfo
+{
+public:
+    explicit PythonTextBlockScanInfo();
+    virtual ~PythonTextBlockScanInfo();
+
+
+    /// set message for token
+    void setParseMessage(const PythonToken *tok, QString message, MsgType type = Message);
+
+    /// get the ParseMsg for tok, filter by type
+    /// nullptr if not found
+    const ParseMsg *getParseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
+
+    /// get parseMessage for token, filter by type
+    QString parseMessage(const PythonToken *tok, MsgType type = AllMsgTypes) const;
+
+    /// clear message
+    void clearParseMessage(const PythonToken *tok);
 };
 
 // -------------------------------------------------------------------
