@@ -1561,6 +1561,24 @@ const PythonToken *PythonTextBlockData::findToken(PythonSyntaxHighlighter::Token
     return nullptr;
 }
 
+const PythonToken *PythonTextBlockData::firstTextToken() const
+{
+    for (PythonToken *tok : m_tokens) {
+        if (tok->isText())
+            return tok;
+    }
+    return nullptr;
+}
+
+const PythonToken *PythonTextBlockData::firstCodeToken() const
+{
+    for (PythonToken *tok : m_tokens) {
+        if (tok->isCode())
+            return tok;
+    }
+    return nullptr;
+}
+
 int PythonTextBlockData::tokensBetweenOfType(int startPos, int endPos,
                                              PythonSyntaxHighlighter::Tokens match) const
 {

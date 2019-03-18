@@ -296,7 +296,7 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
 
     // freshly created frame?
     if (!m_token)
-        m_token = startToken;
+        setToken(startToken);
     if (!m_lastToken.token())
         m_lastToken.setToken(startToken);
 
@@ -382,10 +382,10 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             // not rootFrame, parse argumentslist
             if (!isClass()) {
                 // not __init__ as that is scanned in parentframe
-                if (m_parentFrame->isClass() && tok->text() != QLatin1String("__init__"))
-                    tok = scanAllParameters(tok, true, false);
-                else
+                if (m_parentFrame->isClass() && tok->text() == QLatin1String("__init__"))
                     tok = tok->next();
+                else
+                    tok = scanAllParameters(tok, true, false);
             } else {
                 // FIXME implement inheritance
                 //tok = scanInheritance(tok);
@@ -449,6 +449,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         } break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
             if (!m_module->root()->isLineEscaped(tok)){
+                if (tok->previous() && tok->previous()->token == PythonSyntaxHighlighter::T_DelimiterColon)
+                    m_module->insertBlockStart(tok);
                 if (m_lastToken.token() && (*m_lastToken.token() < *tok))
                     m_lastToken.setToken(tok);
                 return tok;
@@ -929,16 +931,18 @@ PythonToken *PythonSourceFrame::scanYieldStmt(PythonToken *tok)
 
 void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok)
 {
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
     // check if we have code after this return with same block level
     int guard = 10;
     PythonTextBlockData *txtData = tok->txtBlock();
     do {
         txtData = txtData->next();
         if (txtData->isCodeLine()) {
-            if (txtData->indent() == tok->txtBlock()->indent()) {
+            if (txtData->indent() == tok->txtBlock()->indent())
                 m_module->setMessage(txtData->firstCodeToken(), QString::fromLatin1("Code after a return will never run."));
-                break;
-            }
+            break;
         }
     } while (txtData && (--guard));
 }
@@ -961,8 +965,8 @@ PythonToken *PythonSourceFrame::scanAllParameters(PythonToken *tok, bool storePa
         else if (tok->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
             --parenCount;
 
-        if (parenCount == 0 && tok->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
-            return tok;
+        if (parenCount <= 0 && tok->token == PythonSyntaxHighlighter::T_DelimiterCloseParen)
+            return tok->next(); // so next caller knows where it ended
 
         // advance one token
         NEXT_TOKEN(tok)
@@ -1008,7 +1012,7 @@ PythonToken *PythonSourceFrame::scanParameter(PythonToken *paramToken, int &pare
         case PythonSyntaxHighlighter::T_DelimiterCloseParen:
             --parenCount;
             if (parenCount == 0)
-                return paramToken->previous(); // caller must know where closing paren is
+                return paramToken;
             break;
         case PythonSyntaxHighlighter::T_OperatorVariableParam:
             if (parenCount > 0)
@@ -1187,7 +1191,7 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
         while(prev && (guard--)) {
             switch (prev->token) {
             case PythonSyntaxHighlighter::T_DelimiterColon:
-                m_module->insertBlockStart(tok);
+                //m_module->insertBlockStart(tok);
                 // fallthrough
             case PythonSyntaxHighlighter::T_BlockStart:
                 indent.pushBlock(ind);

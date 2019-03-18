@@ -424,6 +424,18 @@ public:
                                  int searchFrom = 0) const;
 
     /**
+     * @brief firstTextToken lookup first token that is non whitespace
+     * @return first token that is a Text token (non whitespace)
+     */
+    const PythonToken *firstTextToken() const;
+
+    /**
+     * @brief firstCodeToken lookup first token that is a code token
+     * @return first token that is a code token
+     */
+    const PythonToken *firstCodeToken() const;
+
+    /**
      * @brief tokensBetweenOfType counts tokens to type match between these positions
      *         NOTE! this method ignores T_Indent tokens
      * @param startPos position to start at
