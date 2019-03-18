@@ -79,8 +79,21 @@ using namespace Gui;
 namespace Gui {
 class EditorViewP {
 public:
+    EditorViewP(EditorView *view) :
+        view(view),
+        searchBar(nullptr), activityTimer(new QTimer(view)),
+        centralLayout(nullptr), topBar(nullptr)
+    {
+    }
+    ~EditorViewP()
+    {
+        if (activityTimer) {
+            activityTimer->stop();
+            delete activityTimer;
+        }
+    }
+    EditorView *view;
     EditorSearchBar* searchBar;
-
     EditorView::DisplayName displayName;
     QTimer*  activityTimer;
     QVBoxLayout *centralLayout;
@@ -202,7 +215,7 @@ EditorView::EditorView(QPlainTextEdit* editor, QWidget* parent)
     : MDIView(0,parent,0), WindowParameter( "Editor" )
 {
     // create d pointer obj and init viewData obj (switches when switching file)
-    d = new EditorViewP;
+    d = new EditorViewP(this);
     d->editWrapper = EditorViewSingleton::instance()->createWrapper(QString(), editor);
     d->editWrapper->attach(this);
     d->displayName = EditorView::FullName;
@@ -237,7 +250,6 @@ EditorView::EditorView(QPlainTextEdit* editor, QWidget* parent)
     hPrefGrp->Attach( this );
     hPrefGrp->NotifyAll();
 
-    d->activityTimer = new QTimer(this);
     connect(d->activityTimer, SIGNAL(timeout()),
             this, SLOT(checkTimestamp()) );
 
@@ -250,8 +262,6 @@ EditorView::EditorView(QPlainTextEdit* editor, QWidget* parent)
 EditorView::~EditorView()
 {
     d->editWrapper->close(this);
-    d->activityTimer->stop();
-    delete d->activityTimer;
     delete d;
     getWindowParameter()->Detach( this );
 }
