@@ -16,7 +16,7 @@ PythonSourceFrameReturnType::PythonSourceFrameReturnType(PythonSourceListParentB
 {
     assert(module != nullptr && "Must get a valid owner");
     assert(module != nullptr && "Must get a vaild module");
-    m_token = tok;
+    setToken(tok);
 }
 
 PythonSourceFrameReturnType::~PythonSourceFrameReturnType()

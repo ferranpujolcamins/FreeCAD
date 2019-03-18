@@ -18,7 +18,7 @@ PythonSourceListNodeBase::PythonSourceListNodeBase(const PythonSourceListNodeBas
     m_owner(other.m_owner), m_token(other.m_token)
 {
     assert(other.m_owner != nullptr && "Trying to copy PythonSourceListNodeBase with null as owner");
-    //assert(other.m_owner != this && "Can't own myself");
+    m_token->attachReference(this);
 }
 
 PythonSourceListNodeBase::~PythonSourceListNodeBase()
