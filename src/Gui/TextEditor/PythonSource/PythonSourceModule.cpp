@@ -1,5 +1,6 @@
 #include "PythonSourceModule.h"
 #include <TextEditor/PythonCode.h>
+#include <QDebug>
 
 DBG_TOKEN_FILE
 
@@ -113,6 +114,8 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
         // we found it
         currentIndent = _currentBlockIndent(beginTok);
     } else {
+        if (guard == 0)
+            qDebug() << QLatin1String("scanFrame loopguard") << endl;
         // we dind't find any ':', must be in root frame
         assert(frameIndent == 0 && "Should be in root frame here!");
     }

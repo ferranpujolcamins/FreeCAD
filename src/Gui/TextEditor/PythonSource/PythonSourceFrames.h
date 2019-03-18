@@ -158,6 +158,8 @@ private:
     PythonToken *scanReturnStmt(PythonToken *tok);
     // scan yield statement
     PythonToken *scanYieldStmt(PythonToken *tok);
+    // sanity check after for code after a return or yield
+    void scanCodeAfterReturnOrYield(PythonToken *tok);
 
     // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList

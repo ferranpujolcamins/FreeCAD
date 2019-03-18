@@ -3,6 +3,7 @@
 #include "PythonSource.h"
 #include "PythonSourceRoot.h"
 #include "PythonSourceModule.h"
+#include <QDebug>
 
 DBG_TOKEN_FILE
 
@@ -327,6 +328,9 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
             break;
         }
     }
+
+    if (guard == 0)
+        qDebug() << QLatin1String("scanFrame loopguard") << endl;
 
     return tok;
 }
@@ -897,6 +901,9 @@ PythonToken *PythonSourceFrame::scanReturnStmt(PythonToken *tok)
     frmType->setTypeInfo(typeInfo);
     m_returnTypes.insert(frmType);
 
+    // set errormessage if we have code after return on this indentation level
+    scanCodeAfterReturnOrYield(tok);
+
     // advance token til next statement
     return gotoEndOfLine(tok);
 }
@@ -912,9 +919,28 @@ PythonToken *PythonSourceFrame::scanYieldStmt(PythonToken *tok)
         QString msg = QLatin1String("Setting yield in a function '%1' with a return\n");
         m_module->setSyntaxError(tok, msg);
     }
-
     // TODO implement yield
+
+    // set errormessage if we have code after return on this indentation level
+    scanCodeAfterReturnOrYield(tok);
+
     return gotoEndOfLine(tok);
+}
+
+void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok)
+{
+    // check if we have code after this return with same block level
+    int guard = 10;
+    PythonTextBlockData *txtData = tok->txtBlock();
+    do {
+        txtData = txtData->next();
+        if (txtData->isCodeLine()) {
+            if (txtData->indent() == tok->txtBlock()->indent()) {
+                m_module->setMessage(txtData->firstCodeToken(), QString::fromLatin1("Code after a return will never run."));
+                break;
+            }
+        }
+    } while (txtData && (--guard));
 }
 
 // may return nullptr on error
