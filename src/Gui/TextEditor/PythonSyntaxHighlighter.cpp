@@ -326,23 +326,7 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
             // handle indentation
             case ' ': case '\t':
             {
-                if (d->activeBlock->isEmpty()) {
-
-                    int count = 0, j = i;
-
-                    for (; j < text.length(); ++j) {
-                        if (text.at(j) == QLatin1Char(' ')) {
-                            ++count;
-                        } else if (text.at(j) == QLatin1Char('\t')) {
-                            count += 8; // according to python lexical documentaion tab is eight spaces
-                        } else {
-                            break;
-                        }
-                    }
-                    setIndentation(i, j, count);
-                    break;
-                }
-
+                scanIndentation(i, text);
             } break;
 
                 // operators or delimiters
@@ -720,6 +704,8 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
         case T_LiteralBlockDblQuote:
         {
             // multiline double quote string continued from previous line
+            scanIndentation(i, text);
+
             int endPos = text.indexOf(QLatin1String("\"\"\""), i);
             if (endPos != -1) {
                 endPos += 3;
@@ -733,6 +719,8 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
         case T_LiteralBlockSglQuote:
         {
             // multiline single quote string continued from previous line
+            scanIndentation(i, text);
+
             int endPos = text.indexOf(QLatin1String("'''"), i);
             if (endPos != -1) {
                 endPos += 3;
@@ -1104,6 +1092,26 @@ void PythonSyntaxHighlighter::setRestOfLine(int &pos, const QString &text,
     int len = text.size() -pos;
     setFormatToken(d->activeBlock->setDeterminedToken(token, pos, len));
     pos += len -1;
+}
+
+void PythonSyntaxHighlighter::scanIndentation(int &pos, const QString &text)
+{
+    if (d->activeBlock->isEmpty()) {
+
+        int count = 0, j = pos;
+
+        for (; j < text.length(); ++j) {
+            if (text.at(j) == QLatin1Char(' ')) {
+                ++count;
+            } else if (text.at(j) == QLatin1Char('\t')) {
+                count += 8; // according to python lexical documentaion tab is eight spaces
+            } else {
+                return;
+            }
+        }
+
+        setIndentation(pos, j, count);
+    }
 }
 
 void PythonSyntaxHighlighter::setWord(int &pos, int len,

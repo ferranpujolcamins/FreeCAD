@@ -347,6 +347,19 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
     PythonToken *tok = startToken;
     DBG_TOKEN(tok)
 
+
+    bool indentCached = indent.isValid();
+    // we don't do this on each row when scanning all frame
+    if (!indentCached) {
+        indent = m_module->currentBlockIndent(tok);
+    }
+
+    // T_Indent or code on pos 0
+    tok = handleIndent(tok, indent);
+    if (indent.framePopCnt())
+        return tok->previous(); // exit a frame and continue with
+                                // caller frame on this token (incr in scanFrame)
+
     // move up to first code token
     // used to determine firsttoken
     int guard = 100;
@@ -398,13 +411,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         tok = startToken;
     }
 
-
-    bool indentCached = indent.isValid();
-    // we don't do this on each row when scanning all frame
-    if (!indentCached) {
-        indent = m_module->currentBlockIndent(tok);
-    }
-
     PythonSourceModule *noConstModule = const_cast<PythonSourceModule*>(m_module);
 
     guard = 200; // max number of tokens in this line, unhang locked loop
@@ -449,8 +455,18 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         } break;
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
             if (!m_module->root()->isLineEscaped(tok)){
-                if (tok->previous() && tok->previous()->token == PythonSyntaxHighlighter::T_DelimiterColon)
-                    m_module->insertBlockStart(tok);
+                // insert Blockstart if we have a semicolon, non code tokens might exist before
+                PythonToken *prevTok = tok->previous();
+                int guard = 10;
+                while (prevTok && (--guard)) {
+                    if (prevTok->isCode()) {
+                        if (prevTok->token == PythonSyntaxHighlighter::T_DelimiterColon)
+                            m_module->insertBlockStart(tok);
+                        break;
+                    }
+                    PREV_TOKEN(prevTok)
+                }
+
                 if (m_lastToken.token() && (*m_lastToken.token() < *tok))
                     m_lastToken.setToken(tok);
                 return tok;
@@ -553,11 +569,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
                 m_lastToken.setToken(tok);
             continue;
         } break;
-//        case PythonSyntaxHighlighter::T_Indent: {
-//            tok = handleIndent(tok, indent);
-//            if (indent.framePopCnt())
-//                return tok->previous();
-//        } break;
         default:
             if (tok->isImport()) {
                 tok = scanImports(tok);
@@ -569,13 +580,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
                 DBG_TOKEN(tok)
                 continue;
 
-            } else if (tok->isNewLine()){
-                return tok; // exit this line
-            } else {
-                // T_Indent or code on pos 0
-                tok = handleIndent(tok, indent);
-                if (indent.framePopCnt())
-                    return tok->previous();
             }
 
         } // end switch

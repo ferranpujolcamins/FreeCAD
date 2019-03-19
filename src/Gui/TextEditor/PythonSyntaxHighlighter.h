@@ -253,6 +253,7 @@ private:
     Tokens numberType(const QString &text) const;
 
     void setRestOfLine(int &pos, const QString &text, Tokens token);
+    void scanIndentation(int &pos, const QString &text);
 
     void setWord(int &pos, int len, Tokens token);
 
