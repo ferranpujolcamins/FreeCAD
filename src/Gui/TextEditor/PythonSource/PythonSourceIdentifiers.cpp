@@ -250,7 +250,7 @@ const PythonSourceIdentifier
 *PythonSourceIdentifierList::getIdentifierReferencedBy(const PythonSourceIdentifier *ident,
                                                        int line, int pos, int limitChain) const
 {
-    if (!ident)
+    if (!ident || limitChain <= 0)
         return nullptr;
 
     const PythonSourceIdentifier *startIdent = ident;
@@ -264,7 +264,7 @@ const PythonSourceIdentifier
     switch (assign->typeInfo().type) {
     case PythonSourceRoot::ReferenceType:
         // lookup recursive
-        ident = getIdentifierReferencedBy(ident, line, pos, limitChain -1);
+        ident = getIdentifierReferencedBy(ident, line, pos -1, limitChain -1);
         if (!ident)
             return startIdent;
         return ident;

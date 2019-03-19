@@ -682,8 +682,8 @@ const PythonToken
                             return tok;
                         }
                         // not callable,
-                        TypeInfoPair typePair = identifierType(assign->token(),
-                                                               ident->frame());
+                        const PythonSourceFrame *frm = ident->module()->getFrameForToken(assign->token(), ident->module()->rootFrame());
+                        TypeInfoPair typePair = identifierType(assign->token(), frm);
                         typeInfo = typePair.thisType;
                     }
                 }
