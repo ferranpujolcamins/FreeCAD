@@ -63,6 +63,7 @@
 #include "FileDialog.h"
 #include "Macro.h"
 #include "PythonEditor.h"
+#include "TextEditor.h"
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 # include <PythonSource/PythonSourceDebugTools.h>
@@ -125,7 +126,7 @@ public:
     bool lock;
     QStringList undos;
     QStringList redos;
-    QPlainTextEdit* textEdit;
+    TextEditor* textEdit;
 };
 
 
@@ -211,7 +212,7 @@ struct _PyEditorRegister
  *  Constructs a EditorView which is a child of 'parent', with the
  *  name 'name'.
  */
-EditorView::EditorView(QPlainTextEdit* editor, QWidget* parent)
+EditorView::EditorView(TextEditor* editor, QWidget* parent)
     : MDIView(0,parent,0), WindowParameter( "Editor" )
 {
     // create d pointer obj and init viewData obj (switches when switching file)
@@ -682,7 +683,7 @@ bool EditorView::saveFile()
     if (!file.open(QFile::WriteOnly))
         return false;
 
-    QPlainTextEdit *editor = d->editWrapper->editor();
+    TextEditor *editor = d->editWrapper->editor();
 
     // trim trailing whitespace?
     // NOTE! maybe whitestrip should move to TextEditor instead?
@@ -694,22 +695,26 @@ bool EditorView::saveFile()
             vScroll = editor->verticalScrollBar()->value(),
             hScroll = editor->horizontalScrollBar()->value();
 
-        QStringList rows = editor->document()->toPlainText()
-                                .split(QLatin1Char('\n'));
+        QTextBlock block = editor->document()->firstBlock();
         int delCount = 0, chPos = -1;
-        for (QString &row : rows) {
-            ++chPos; // for the newline
-            int i =  row.size();
-            while(i > 0 && row[i - 1].isSpace())
-                --i;
-            if (chPos + row.size() - i <= oldPos) // for restore cursorposition
-                delCount += row.size() - i;
-            chPos += row.size();
-            row.remove(i, row.size() - i);
-        }
 
-        QString txt = rows.join(QLatin1String("\n"));
-        editor->document()->setPlainText(txt);
+        while (block.isValid()) {
+            QString row = block.text();
+            ++chPos; // for the newline
+            int j =  row.size();
+            while(j > 0 && row[j - 1].isSpace())
+                --j;
+            if (chPos + row.size() - j <= oldPos) // for restore cursorposition
+                delCount += row.size() - j;
+            chPos += row.size();
+            int removeChrs = row.size() - j;
+            if (removeChrs > 0) {
+                row.remove(j, removeChrs);
+                cursor.setPosition(block.position(), QTextCursor::MoveAnchor);
+                cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
+            }
+            block = block.next();
+        }
 
         // restore cursor and scroll position
         editor->verticalScrollBar()->setValue(vScroll);
@@ -980,7 +985,7 @@ void PythonEditorView::hideDebugMarker(const QString &fileName, int line)
 
 // -------------------------------------------------------------------------------
 
-EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor, const QString &fn) :
+EditorViewWrapper::EditorViewWrapper(TextEditor *editor, const QString &fn) :
     d(new EditorViewWrapperP)
 {
     d->textEdit = editor;
@@ -1068,7 +1073,7 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
     return false;
 }
 
-QPlainTextEdit *EditorViewWrapper::editor() const
+TextEditor *EditorViewWrapper::editor() const
 {
     return d->textEdit;
 }
@@ -1181,7 +1186,7 @@ EditorViewWrapper* EditorViewSingleton::getWrapper(const QString &fn)
 }
 
 EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
-                                                      QPlainTextEdit *editor)
+                                                      TextEditor *editor)
 {
     QString mime = QLatin1String("text/plain"); // default ;
     QFileInfo fi(fn);

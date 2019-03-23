@@ -44,6 +44,7 @@ class EditorViewP;
 class EditorViewTopBar;
 class EditorViewWrapper;
 class EditorSearchClearEdit;
+class TextEditor;
 /**
  * A special view class which sends the messages from the application to
  * the editor and embeds it in a window.
@@ -60,7 +61,7 @@ public:
         BaseName
     };
 
-    EditorView(QPlainTextEdit *editor, QWidget* parent);
+    EditorView(TextEditor *editor, QWidget* parent);
     ~EditorView();
 
     QPlainTextEdit* getEditor() const;
@@ -194,7 +195,7 @@ class GuiExport EditorViewWrapper
 {
     EditorViewWrapperP *d;
 public:
-    EditorViewWrapper(QPlainTextEdit *editor, const QString &fn);
+    EditorViewWrapper(TextEditor *editor, const QString &fn);
     ~EditorViewWrapper();
 
     /**
@@ -211,7 +212,7 @@ public:
      */
     bool close(EditorView* sharedOwner);
 
-    QPlainTextEdit *editor() const;
+    TextEditor *editor() const;
     QString fileName() const;
     void setFileName(const QString &fn);
     uint timestamp() const;
@@ -239,7 +240,7 @@ class GuiExport EditorViewSingleton : public QObject
 
     EditorViewSingletonP *d;
 public:
-    typedef QPlainTextEdit* (*createT)();
+    typedef TextEditor* (*createT)();
 
     EditorViewSingleton();
     ~EditorViewSingleton();
@@ -254,7 +255,7 @@ public:
     static EditorViewSingleton* instance();
 
     EditorViewWrapper *getWrapper(const QString &fn);
-    EditorViewWrapper *createWrapper(const QString &fn, QPlainTextEdit *editor = nullptr);
+    EditorViewWrapper *createWrapper(const QString &fn, TextEditor *editor = nullptr);
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
      * @param backSteps negative numer back from current accessed, ie -1 for previous
