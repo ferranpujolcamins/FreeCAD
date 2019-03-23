@@ -1,5 +1,7 @@
 add_subdirectory(PythonSource)
 
+SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 SET(EditorLibName TextEditor)
 INCLUDE_DIRECTORIES(
     ${CMAKE_CURRENT_BINARY_DIR}
@@ -106,13 +108,6 @@ SET(TextEditor_SRCS
     ${TextEditor_MOC_HDRS}
 )
 
-# the settings dialog sources
-SET(TextEditor_Dlg_CPP_SRCS DlgEditorImp.cpp)
-SET(TextEditor_Dlg_HPP_SRCS DlgEditorImp.h)
-SET(TextEditor_Dlg_UIC_SRCS DlgEditor.ui)
-fc_wrap_cpp(TextEditor_Dlg_MOC_SRCS ${TextEditor_Dlg_HPP_SRCS})
-
-
 # for debugging/dumping syntax parser and AST code
 if(BUILD_PYTHON_DEBUGTOOLS)
     SET(TextEditor_DbgTools_CPP_SRCS
@@ -133,10 +128,8 @@ SET(TextEditor_RES_SRCS
 )
 if (BUILD_QT5)
     QT5_ADD_RESOURCES(TextEditor_QRC_SRCS ${TextEditor_RES_SRCS})
-    QT5_WRAP_UI(TextEditor_UIC_HDRS ${TextEditor_Dlg_UIC_SRCS})
 else(BUILD_QT5)
     QT4_ADD_RESOURCES(TextEditor_QRC_SRCS ${TextEditor_RES_SRCS})
-    QT4_WRAP_UI(TextEditor_UIC_HDRS ${TextEditor_Dlg_UIC_SRCS})
 endif(BUILD_QT5)
 SET(TextEditor_Dlg_SRCS
     ${TextEditor_Dlg_CPP_SRCS}

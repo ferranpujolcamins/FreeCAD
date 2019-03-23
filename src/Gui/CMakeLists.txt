@@ -232,6 +232,7 @@ set(Gui_MOC_HDRS
     DlgCustomizeSpaceball.h
     DlgCustomizeSpNavSettings.h
     DlgDisplayPropertiesImp.h
+    DlgEditorImp.h
     DlgGeneralImp.h
     DlgInputDialogImp.h
     DlgKeyboardImp.h
@@ -348,6 +349,7 @@ SET(Gui_UIC_SRCS
     DlgCommands.ui
     DlgCustomizeSpNavSettings.ui
     DlgDisplayProperties.ui
+    DlgEditor.ui
     DlgGeneral.ui
     DlgInputDialog.ui
     DlgKeyboard.ui
@@ -564,6 +566,7 @@ SOURCE_GROUP("Dialog\\Customize" FILES ${Dialog_Customize_SRCS})
 
 # The settings dialog sources
 SET(Dialog_Settings_CPP_SRCS
+    DlgEditorImp.cpp
     DlgGeneralImp.cpp
     DlgOnlineHelpImp.cpp
     DlgPreferencesImp.cpp
@@ -577,6 +580,7 @@ SET(Dialog_Settings_CPP_SRCS
     DlgSettingsMacroImp.cpp
 )
 SET(Dialog_Settings_HPP_SRCS
+    DlgEditorImp.h
     DlgGeneralImp.h
     DlgOnlineHelpImp.h
     DlgPreferencesImp.h
@@ -592,6 +596,7 @@ SET(Dialog_Settings_HPP_SRCS
 SET(Dialog_Settings_SRCS
     ${Dialog_Settings_CPP_SRCS}
     ${Dialog_Settings_HPP_SRCS}
+    DlgEditor.ui
     DlgGeneral.ui
     DlgOnlineHelp.ui
     DlgPreferences.ui

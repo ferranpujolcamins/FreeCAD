@@ -50,7 +50,7 @@
 #include "QuantitySpinBox.h"
 
 
-#include <TextEditor/DlgEditorImp.h>
+#include <Gui/DlgEditorImp.h>
 
 using namespace Gui;
 using namespace Gui::Dialog;
