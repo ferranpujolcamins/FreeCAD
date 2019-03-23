@@ -595,7 +595,7 @@ void TextEditor::setUpMarkerAreaContextMenu(int line)
 
 void TextEditor::handleMarkerAreaContextMenu(QAction *res, int line)
 {
-    if (res->data().canConvert(QMetaType::Int)) {
+    if (res && res->data().canConvert(QVariant::Int)) {
         ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
         switch (type) {
         case Bookmark: {

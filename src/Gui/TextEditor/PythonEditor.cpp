@@ -861,7 +861,7 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 
 void PythonEditor::handleMarkerAreaContextMenu(QAction *res, int line)
 {
-    if (res && res->data().canConvert(QMetaType::Int)) {
+    if (res && res->data().canConvert(QVariant::Int)) {
         App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);
 
         ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
