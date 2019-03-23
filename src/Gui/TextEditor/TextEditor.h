@@ -141,6 +141,11 @@ public:
     /// called when editor has changed font size
     void fontSizeChanged();
 
+    /// calculate line from given pos, handles folded blocks
+    /// firstline starts at 1
+    /// if not possible to calculate return 0
+    int lineFromPos(const QPoint &pos);
+
 Q_SIGNALS:
     void clickedOnLine(int line, QMouseEvent *event);
     void contextMenuOnLine(int line, QContextMenuEvent * event);
@@ -152,6 +157,7 @@ protected:
     void wheelEvent(QWheelEvent * event);
     void contextMenuEvent(QContextMenuEvent * event);
     virtual void foldingClicked(int line);
+
 
 private:
     LineMarkerAreaP *d;
@@ -190,6 +196,12 @@ public:
 
     virtual TextEditBlockData *next() const;
     virtual TextEditBlockData *previous() const;
+
+    /**
+     * @brief copyBlock copies a textblocks info, such as bookmark, etc
+     * @param other TextBlockData to copy
+     */
+    void copyBlock(const TextEditBlockData &other);
 
 
     /**

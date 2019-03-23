@@ -674,6 +674,27 @@ void LineMarkerArea::fontSizeChanged()
     d->loadIcons(d->textEditor->fontMetrics().height());
 }
 
+int LineMarkerArea::lineFromPos(const QPoint &pos)
+{
+    QTextBlock block = d->textEditor->firstVisibleBlock();
+    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
+    if (rowSize.height() > 0) {
+        // a line might be folded, in so must iterate the real line
+        int line = (pos.y() / rowSize.height()) + block.blockNumber() + 1;
+        int estLine = line - block.blockNumber();
+        do {
+            if (block.isVisible())
+                --estLine;
+            else
+                ++line;
+            block = block.next();
+        } while(block.isValid() && estLine > 0);
+
+        return line;
+    }
+    return 0;
+}
+
 void LineMarkerArea::setLineNumbersVisible(bool active)
 {
     d->lineNumberActive = active;
@@ -691,7 +712,7 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     int curBlockNr = d->textEditor->textCursor().block().blockNumber();
     int blockNumber = block.blockNumber();
     int top = (int) d->textEditor->blockBoundingGeometry(block).translated(
-                                    d->textEditor->contentOffset()).top();
+                d->textEditor->contentOffset()).top();
     int bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
@@ -765,19 +786,8 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
 
 void LineMarkerArea::mouseReleaseEvent(QMouseEvent *event)
 {
-    QTextBlock block = d->textEditor->firstVisibleBlock();
-    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
-    if (rowSize.height() > 0) {
-        // a line might be folded, in so must iterate the real line
-        int line = ((event->y()) / rowSize.height()) + block.blockNumber() + 1;
-        int estLine = line - block.blockNumber();
-        do {
-            if (block.isVisible())
-                --estLine;
-            else
-                ++line;
-            block = block.next();
-        } while(block.isValid() && estLine > 0);
+    int line = lineFromPos(event->pos());
+    if (line > 0) {
 
         // determine if we clicked on folding area or linenr?
         const int foldingWidth = fontMetrics().height() + 2;
@@ -797,10 +807,8 @@ void LineMarkerArea::wheelEvent(QWheelEvent *event)
 
 void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 {
-    QTextBlock block = d->textEditor->firstVisibleBlock();
-    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
-    if (rowSize.height() > 0) {
-        int line = ((event->y()) / rowSize.height()) + block.blockNumber() + 1;
+    int line = lineFromPos(event->pos());
+    if (line > 0) {
         Q_EMIT contextMenuOnLine(line, event);
     }
 
@@ -884,6 +892,12 @@ TextEditBlockData *TextEditBlockData::previous() const
     if (!nextBlock.isValid())
         return nullptr;
     return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
+}
+
+void TextEditBlockData::copyBlock(const TextEditBlockData &other)
+{
+    m_bookmarkSet = other.m_bookmarkSet;
+    m_blockStateCnt = other.m_blockStateCnt;
 }
 
 // ------------------------------------------------------------------------------------
