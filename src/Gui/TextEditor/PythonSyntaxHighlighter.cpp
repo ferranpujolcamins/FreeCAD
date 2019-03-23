@@ -628,40 +628,52 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
                         } else if (word == QLatin1String("in")) {
                             setWord(i, len, T_OperatorIn);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("is")) {
                             setWord(i, len, T_OperatorIs);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("not")) {
                             setWord(i, len, T_OperatorNot);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("or")) {
                             setWord(i, len, T_OperatorOr);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("yield")) {
                             setWord(i, len, T_KeywordYield);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("return")) {
                             setWord(i, len, T_KeywordReturn);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("True")) {
                             setIdentifier(i, len, T_IdentifierTrue);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("False")) {
                             setIdentifier(i, len, T_IdentifierFalse);
                             d->endStateOfLastPara = T_Undetermined;
-
                         } else if (word == QLatin1String("None")) {
                             setIdentifier(i, len, T_IdentifierNone);
                             d->endStateOfLastPara = T_Undetermined;
-
-                        }  else {
+                        } else if (word == QLatin1String("if")) {
+                            setIdentifier(i, len, T_KeywordIf);
+                            d->endStateOfLastPara = T_Undetermined;
+                        } else if (word == QLatin1String("elif")) {
+                            setIdentifier(i, len, T_KeywordElIf);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }  else if (word == QLatin1String("else")) {
+                            setIdentifier(i, len, T_KeywordElse);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }  else if (word == QLatin1String("for")) {
+                            setIdentifier(i, len, T_KeywordFor);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }   else if (word == QLatin1String("while")) {
+                            setIdentifier(i, len, T_KeywordWhile);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }   else if (word == QLatin1String("break")) {
+                            setIdentifier(i, len, T_KeywordBreak);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }   else if (word == QLatin1String("continue")) {
+                            setIdentifier(i, len, T_KeywordContinue);
+                            d->endStateOfLastPara = T_Undetermined;
+                        }   else {
                             setWord(i, len, Tokens::T_Keyword);
                         }
 

@@ -454,11 +454,14 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
     // firstline might be empty
     const PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(
                                             highlighter->document()->begin().userData());
-    if (txtData) {
-        PythonToken *tok = txtData->tokenAt(0);
+
+    // find first token, first row might be empty
+    PythonToken *tok = nullptr;
+    while(txtData && !(tok = txtData->tokenAt(0)))
+        txtData = txtData->next();
+    if (tok) {
         DBG_TOKEN(tok)
-        if (tok)
-            mod->scanFrame(tok);
+                mod->scanFrame(tok);
     }
 
     return mod;

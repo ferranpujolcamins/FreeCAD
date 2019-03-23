@@ -77,7 +77,18 @@ public:
         T_KeywordAs,
         T_KeywordYield,
         T_KeywordReturn,
-        T__KeywordsEnd,
+        T__KeywordIfBlockStart,
+        T_KeywordIf,
+        T_KeywordElIf,
+        T_KeywordElse,
+        T__KeywordIfBlockEnd,
+        T__KeywordLoopStart = T__KeywordIfBlockEnd,
+        T_KeywordFor,
+        T_KeywordWhile,
+        T_KeywordBreak,
+        T_KeywordContinue,
+        T__KeywordsLoopEnd,
+        T__KeywordsEnd = T__KeywordsLoopEnd,
         // leave some room for future keywords
 
         // operators

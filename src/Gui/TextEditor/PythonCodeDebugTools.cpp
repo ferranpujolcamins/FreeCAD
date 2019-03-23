@@ -71,6 +71,13 @@ const char *Gui::Syntax::tokenToCStr(Gui::PythonSyntaxHighlighter::Tokens tok)
     case PythonSyntaxHighlighter::T_KeywordAs:           return "T_KeywordAs";
     case PythonSyntaxHighlighter::T_KeywordYield:        return "T_KeywordYield";
     case PythonSyntaxHighlighter::T_KeywordReturn:       return "T_KeywordReturn";
+    case PythonSyntaxHighlighter::T_KeywordIf:           return "T_KeywordIf";
+    case PythonSyntaxHighlighter::T_KeywordElIf:         return "T_KeywordElIf";
+    case PythonSyntaxHighlighter::T_KeywordElse:         return "T_KeywordElse";
+    case PythonSyntaxHighlighter::T_KeywordFor:          return "T_KeywordFor";
+    case PythonSyntaxHighlighter::T_KeywordWhile:        return "T_KeywordWhile";
+    case PythonSyntaxHighlighter::T_KeywordBreak:        return "T_KeywordBreak";
+    case PythonSyntaxHighlighter::T_KeywordContinue:     return "T_KeywordContinue";
         // leave some room for future keywords
 
         // operators
