@@ -189,6 +189,8 @@ public:
     TypeInfoPair builtinType(const PythonToken *tok,
                              const PythonSourceFrame *frame) const;
 
+    /// get the type of number of this token
+    DataTypes numberType(const PythonToken *tok) const;
 
     /// true if tok is a newline and previous token was a escape char
     bool isLineEscaped(const PythonToken *tok) const;

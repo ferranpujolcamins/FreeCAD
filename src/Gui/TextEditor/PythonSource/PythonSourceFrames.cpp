@@ -461,7 +461,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
                 while (prevTok && (--guard)) {
                     if (prevTok->isCode()) {
                         if (prevTok->token == PythonSyntaxHighlighter::T_DelimiterColon)
-                            m_module->insertBlockStart(tok);
+                            m_module->insertBlockStart(prevTok);
                         break;
                     }
                     PREV_TOKEN(prevTok)
@@ -760,8 +760,13 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                     if (tok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
                         typeInfo.type = PythonSourceRoot::ReferenceBuiltInType;
                     } else {
-                        // TODO figure out how to lookup Identifier
-                        ident = m_identifiers.getIdentifier(text);
+                        PythonSourceFrame *frm = this;
+                        do {
+                            if (!frm->isClass())
+                                ident = frm->identifiers().getIdentifier(text);
+                        } while (!ident && (frm = frm->parentFrame()));
+
+                        // finished lookup
                         if (ident) {
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                             typeInfo.referenceName = text;
@@ -769,15 +774,24 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                             m_module->setLookupError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
                         else {
                             // new identifier
-                            m_module->setLookupError(tok, QString::fromLatin1("Unexpected variable i RValue context '%1'").arg(tok->text()));
+                            m_module->setLookupError(tok, QString::fromLatin1("Unexpected variable in RValue context '%1'").arg(tok->text()));
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                         }
                     }
                     return tok;
 
+                } else if (tok->isIdentifierDeclaration()) {
+                    if (tok->isBoolean())
+                        typeInfo.type = PythonSourceRoot::BoolType;
+                    else if (tok->token == PythonSyntaxHighlighter::T_IdentifierNone)
+                        typeInfo.type = PythonSourceRoot::NoneType;
                 } else if (tok->isCode()) {
                     if (isTypeHint)
                         typeInfo.type = PythonSourceRoot::instance()->mapMetaDataType(tok->text());
+                    if (tok->isNumber())
+                        typeInfo.type = PythonSourceRoot::instance()->numberType(tok);
+                    else if (tok->isString())
+                        typeInfo.type = PythonSourceRoot::StringType;
                     else
                         m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected code (%1)").arg(text));
                     return tok;
@@ -908,7 +922,7 @@ PythonToken *PythonSourceFrame::scanReturnStmt(PythonToken *tok)
     m_returnTypes.insert(frmType);
 
     // set errormessage if we have code after return on this indentation level
-    scanCodeAfterReturnOrYield(tok);
+    scanCodeAfterReturnOrYield(tok, QLatin1String("return"));
 
     // advance token til next statement
     return gotoEndOfLine(tok);
@@ -928,12 +942,12 @@ PythonToken *PythonSourceFrame::scanYieldStmt(PythonToken *tok)
     // TODO implement yield
 
     // set errormessage if we have code after return on this indentation level
-    scanCodeAfterReturnOrYield(tok);
+    scanCodeAfterReturnOrYield(tok, QLatin1String("yield"));
 
     return gotoEndOfLine(tok);
 }
 
-void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok)
+void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok, QString name)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
@@ -945,7 +959,7 @@ void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok)
         txtData = txtData->next();
         if (txtData->isCodeLine()) {
             if (txtData->indent() == tok->txtBlock()->indent())
-                m_module->setMessage(txtData->firstCodeToken(), QString::fromLatin1("Code after a return will never run."));
+                m_module->setMessage(txtData->firstCodeToken(), QString::fromLatin1("Code after a %1 will never run.").arg(name));
             break;
         }
     } while (txtData && (--guard));
@@ -1165,17 +1179,16 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
         while(txtPrev && !txtPrev->isCodeLine() && (guard--))
             txtPrev = txtPrev->previous();
 
-        if (txtPrev) {// notify that this blok has ended
-            m_module->insertBlockEnd(txtPrev->tokens().last());
-            DBG_TOKEN(txtPrev->tokens().last())
-        }
-
         if (ind > indent.previousBlockIndent()) {
             m_module->setIndentError(tok); // uneven indentation
         } else {
 
             do { // handle when multiple blocks dedent in a single row
                 indent.popBlock();
+                if (txtPrev) {// notify that this blok has ended
+                    m_module->insertBlockEnd(txtPrev->tokens().last());
+                    DBG_TOKEN(txtPrev->tokens().last())
+                }
             } while(indent.currentBlockIndent() > ind);
 
             if (indent.framePopCnt() > 0) {
@@ -1208,6 +1221,7 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
                 }
                 // syntax error
                 m_module->setSyntaxError(tok, QLatin1String("Blockstart without ':'"));
+                indent.pushBlock(ind);
                 prev = nullptr; // break while loop
                 break;
             }

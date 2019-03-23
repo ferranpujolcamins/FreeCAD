@@ -159,7 +159,7 @@ private:
     // scan yield statement
     PythonToken *scanYieldStmt(PythonToken *tok);
     // sanity check after for code after a return or yield
-    void scanCodeAfterReturnOrYield(PythonToken *tok);
+    void scanCodeAfterReturnOrYield(PythonToken *tok, QString name);
 
     // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList

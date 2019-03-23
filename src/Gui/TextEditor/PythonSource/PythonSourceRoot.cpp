@@ -381,6 +381,21 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *
     return tp;
 }
 
+PythonSourceRoot::DataTypes PythonSourceRoot::numberType(const PythonToken *tok) const
+{
+    switch (tok->token) {
+    case PythonSyntaxHighlighter::T_NumberFloat:
+        return FloatType;
+    case PythonSyntaxHighlighter::T_NumberBinary:
+    case PythonSyntaxHighlighter::T_NumberDecimal:
+    case PythonSyntaxHighlighter::T_NumberHex: // falltrough
+    case PythonSyntaxHighlighter::T_NumberOctal:
+        return IntType;
+    default:
+        return InValidType;
+    }
+}
+
 bool PythonSourceRoot::isLineEscaped(const PythonToken *tok) const {
     DEFINE_DBG_VARS
     PREV_TOKEN(tok)
