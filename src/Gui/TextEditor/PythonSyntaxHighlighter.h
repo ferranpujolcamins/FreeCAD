@@ -361,6 +361,7 @@ struct PythonToken
     bool isFloat() const;
     bool isString() const;
     bool isMultilineString() const;
+    bool isBoolean() const;
     bool isKeyword() const;
     bool isOperator() const;
     bool isOperatorArithmetic() const;
@@ -389,6 +390,7 @@ struct PythonToken
     // all references get a call to PythonSourceListNode::tokenDeleted
     void attachReference(PythonSourceListNodeBase *srcListNode);
     void detachReference(PythonSourceListNodeBase *srcListNode);
+
 
 private:
     QList<PythonSourceListNodeBase*> m_srcLstNodes;

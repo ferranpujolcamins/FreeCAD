@@ -211,8 +211,12 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
         d->sourceScanTmr.stop(); // schedule source scanner for this row
 
-        // create new userData
-        d->activeBlock = new PythonTextBlockData(currentBlock());
+        // create new userData, copy bookmark etc
+        PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock());
+        d->activeBlock = dynamic_cast<PythonTextBlockData*>(currentBlock().userData());
+        if (d->activeBlock)
+            txtBlock->copyBlock(*d->activeBlock);
+        d->activeBlock = txtBlock;
         setCurrentBlockUserData(d->activeBlock);
 
         int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
@@ -1322,6 +1326,11 @@ bool PythonToken::isFloat() const {
 bool PythonToken::isString() const {
     return token > PythonSyntaxHighlighter::T__LiteralsStart &&
             token < PythonSyntaxHighlighter::T__LiteralsEnd;
+}
+
+bool PythonToken::isBoolean() const {
+    return token == PythonSyntaxHighlighter::T_IdentifierTrue ||
+           token == PythonSyntaxHighlighter::T_IdentifierFalse;
 }
 
 bool PythonToken::isMultilineString() const
