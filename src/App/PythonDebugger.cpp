@@ -36,6 +36,11 @@
 #include <Base/Console.h>
 #include <opcode.h> // python byte codes
 
+#if PY_MAJOR_VERSION >= 3
+# define PY_AS_C_STRING(pyObj) PyUnicode_AsUTF8(pyObj)
+#else
+# define PY_AS_C_STRING(pyObj) PyBytes_AsString(pyObj)
+#endif
 
 using namespace App;
 
@@ -1127,11 +1132,7 @@ bool PythonDebugger::setStackLevel(int level)
         PyFrameObject *frame = currentFrame();
         if (frame) {
             int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
-#if PY_MAJOR_VERSION >= 3
-            const char *filename = PyUnicode_AsUTF8(frame->f_code->co_filename);
-#else
-            const char *filename = PyBytes_AsString(frame->f_code->co_filename);
-#endif
+            const char *filename = PY_AS_C_STRING(frame->f_code->co_filename);
             QString file = QString::fromUtf8(filename);
             Q_EMIT haltAt(file, line);
             Q_EMIT nextInstruction(frame);
@@ -1167,12 +1168,8 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
         return 0;
     }
     QCoreApplication::processEvents();
+    QString file = QString::fromUtf8(PY_AS_C_STRING(frame->f_code->co_filename));
 
-#if PY_MAJOR_VERSION >= 3
-    QString file = QString::fromUtf8(PyUnicode_AsUTF8(frame->f_code->co_filename));
-#else
-    QString file = QString::fromUtf8(PyBytes_AsString(frame->f_code->co_filename));
-#endif
     switch (what) {
     case PyTrace_CALL:
         if (dbg->d->state != RunningState::Running &&
@@ -1270,13 +1267,19 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
     case PyTrace_EXCEPTION:
         if (dbg->frameRelatedToOpenedFiles(frame)) {
             // is it within a try: block, might be in a parent frame
+            QRegExp re(QLatin1String("importlib\\._bootstrap"));
             PyFrameObject *f = frame;
+
             while (f) {
                 if (f->f_iblock > 0 && f->f_iblock <= CO_MAXBLOCKS) {
                     int b_type = f->f_blockstack[f->f_iblock -1].b_type; // blockstackindex is +1 based
                     if (b_type == SETUP_EXCEPT)
                         return 0; // should be caught by a try .. except block
                 }
+                const char *fn = PY_AS_C_STRING(f->f_code->co_filename);
+                if (re.indexIn(QLatin1String(fn)) > -1)
+                    return 0; // its C-code that have called this frame,
+                              // can never be certain how C code handles exceptions
                 f = f->f_back; // try with previous (calling) frame
             }
 
@@ -1373,13 +1376,7 @@ bool PythonDebugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
     if (!frame || !frame->f_code)
         return false;
     do {
-#if PY_MAJOR_VERSION >= 3
-        PyObject *pyBytes = PyUnicode_AsUTF8String(frame->f_code->co_filename);
-        const char *fileName = PyBytes_AsString(pyBytes);
-        Py_XDECREF(pyBytes);
-#else
-        const char *fileName = PyBytes_AsString(frame->f_code->co_filename);
-#endif
+        const char *fileName = PY_AS_C_STRING(frame->f_code->co_filename);
         QString file = QString::fromUtf8(fileName);
         if (hasBreakpoint(file))
             return true;
