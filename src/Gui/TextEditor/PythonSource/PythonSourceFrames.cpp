@@ -830,7 +830,6 @@ PythonToken *PythonSourceFrame::scanImports(PythonToken *tok)
         case PythonSyntaxHighlighter::T_DelimiterNewLine:
             if (!m_module->root()->isLineEscaped(tok)) {
                 guard = 0; // we are finished, bail out
-                PREV_TOKEN(tok) // needed becase it is advanced in parent loop in scanline before check
                 if (modules.size() > 0) {
                     if (isAlias)
                         m_module->setSyntaxError(tok, QLatin1String("Expected aliasname before newline"));
@@ -955,7 +954,7 @@ void PythonSourceFrame::scanCodeAfterReturnOrYield(PythonToken *tok, QString nam
     PythonTextBlockData *txtData = tok->txtBlock();
     do {
         txtData = txtData->next();
-        if (txtData->isCodeLine()) {
+        if (txtData && txtData->isCodeLine()) {
             if (txtData->indent() == tok->txtBlock()->indent())
                 m_module->setMessage(txtData->firstCodeToken(), QString::fromLatin1("Code after a %1 will never run.").arg(name));
             break;

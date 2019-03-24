@@ -61,7 +61,11 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
     int frameIndent = 0,
         currentIndent = 0;
 
-    frameIndent = beginTok->txtBlock()->indent();
+    // root frame should always have 0 as indent
+    if (frm->parentFrame() == nullptr)
+        frameIndent = 0;
+    else
+        frameIndent = beginTok->txtBlock()->indent();
 
     //beginTok = tok;
     DBG_TOKEN(beginTok)
@@ -117,7 +121,7 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
         if (guard == 0)
             qDebug() << QLatin1String("scanFrame loopguard") << endl;
         // we dind't find any ':', must be in root frame
-        assert(frameIndent == 0 && "Should be in root frame here!");
+        assert(frm->parentFrame() == nullptr && frameIndent == 0 && "Should be in root frame here!");
     }
     if (frameIndent > 0 || currentIndent > 0)
         ind.pushFrameBlock(frameIndent, currentIndent);
