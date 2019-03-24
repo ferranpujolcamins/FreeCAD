@@ -5,6 +5,8 @@
 #include "PythonSourceFrames.h"
 #include "PythonSourceListBase.h"
 
+#include <QList>
+
 namespace Gui {
 class PythonSourceRoot;
 class PythonSourceIndent;
@@ -18,7 +20,7 @@ class PythonSourceModule : public PythonSourceListParentBase
     QString m_filePath;
     QString m_moduleName;
     PythonSyntaxHighlighter *m_highlighter;
-    bool m_rehighlight;
+    QList<int> m_rehighlightRows;
 public:
 
     explicit PythonSourceModule(PythonSourceRoot *root,
@@ -41,7 +43,7 @@ public:
     /// rescans a single row
     void scanLine(PythonToken *tok);
 
-    bool shouldRehighlight() const { return m_rehighlight; }
+    bool shouldRehighlight() const { return m_rehighlightRows.size() > 0; }
 
     /// returns indent info for block where tok is
     PythonSourceIndent currentBlockIndent(const PythonToken *tok) const;

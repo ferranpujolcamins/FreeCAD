@@ -793,7 +793,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 
         QString displayStr = QString(QLatin1String("%1 set at line: %2 col: %3"))
                 .arg(assign->typeInfo().typeAsStr())
-                .arg(assign->linenr())
+                .arg(assign->linenr()+1)
                 .arg(assign->position());
         QToolTip::showText(tooltipPos, displayStr);
 

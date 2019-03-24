@@ -301,36 +301,25 @@ PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceI
         m_lastToken.setToken(startToken);
 
     PythonToken *tok = startToken;
+    PythonTextBlockData *txtData = tok->txtBlock();
     DBG_TOKEN(tok)
 
-    bool isRootFrame = m_module->rootFrame() == this;
-
-    int guard = 15000; // max number of rows scanned
+    int guard = txtData->block().document()->blockCount(); // max number of rows scanned
     while (tok && (guard--)) {
+        txtData = tok->txtBlock();
         tok = scanLine(tok, indent);
-        NEXT_TOKEN(tok)
-        //int i = tok ? tok->txtBlock()->indent() : 0;
-        if (!tok || // bail out on last line or if indent is same or less than framestarter indent
-            (!isRootFrame && tok->txtBlock() != m_token->txtBlock() &&
-             tok->txtBlock()->isCodeLine() && !tok->isMultilineString() &&
-             tok->txtBlock()->indent() < indent.frameIndent()))
-        {
-            // store a blockend here
-            const PythonToken *newLineTok = m_lastToken.token()->txtBlock()->
-                                                  findToken(PythonSyntaxHighlighter::T_DelimiterNewLine, -1);
-            if (newLineTok)
-                m_module->insertBlockEnd(newLineTok);
 
-            break; // we have finished this frame
-        } else if (indent.framePopCnt() > 0) {
+        if (indent.framePopCnt() > 0) {
             indent.framePopCntDecr();
-            // store a blockend here
+            if (tok && m_parentFrame == nullptr)
+                m_lastToken.setToken(tok);
             break;
         }
+        NEXT_TOKEN(tok)
     }
 
     if (guard == 0)
-        qDebug() << QLatin1String("scanFrame loopguard") << endl;
+        qDebug() << QLatin1String("***Warning !! scanFrame loopguard") << endl;
 
     return tok;
 }
@@ -370,7 +359,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         return frmStartTok;
 
     // T_Indent or code on pos 0
-    tok = handleIndent(tok, indent);
+    tok = handleIndent(tok, indent, -1);
     if (indent.framePopCnt())
         return tok->previous(); // exit a frame and continue with
                                 // caller frame on this token (incr in scanFrame)
@@ -408,6 +397,9 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             DBG_TOKEN(tok)
         }
     }
+
+    // do increasing indents
+    tok = handleIndent(tok, indent, 1);
 
     PythonSourceModule *noConstModule = const_cast<PythonSourceModule*>(m_module);
 
@@ -472,7 +464,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             break;
         case PythonSyntaxHighlighter::T_IdentifierDefUnknown: {
             // first handle indents to get de-dent
-            tok = handleIndent(tok, indent);
+            tok = handleIndent(tok, indent, -1);
             if (indent.framePopCnt())
                 return tok->previous();
 
@@ -495,7 +487,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         } break;
         case PythonSyntaxHighlighter::T_IdentifierClass: {
             // first handle indents to get de-dent
-            tok = handleIndent(tok, indent);
+            tok = handleIndent(tok, indent, -1);
             if (indent.framePopCnt())
                 return tok->previous();
 
@@ -511,11 +503,13 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             DBG_TOKEN(tok)
             if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
                 m_lastToken.setToken(tok);
+            if (indent.framePopCnt()> 0)
+                return tok;
             continue;
         } break;
         case PythonSyntaxHighlighter::T_IdentifierFunction: {
             // first handle indents to get de-dent
-            tok = handleIndent(tok, indent);
+            tok = handleIndent(tok, indent, -1);
             if (indent.framePopCnt())
                 return tok->previous();
 
@@ -531,6 +525,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             DBG_TOKEN(tok)
             if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
                 m_lastToken.setToken(tok);
+            if (indent.framePopCnt()> 0)
+                return tok;
             continue;
         } break;
         case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
@@ -548,7 +544,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             if (!isClass())
                 m_module->setSyntaxError(tok, QLatin1String("Method without class"));
 
-            tok = handleIndent(tok, indent);
+            tok = handleIndent(tok, indent, -1);
             if (indent.framePopCnt())
                 return tok->previous();
 
@@ -565,6 +561,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             // should we exit this frame also?
             if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
                 m_lastToken.setToken(tok);
+            if (indent.framePopCnt()> 0)
+                return tok;
             continue;
         } break;
         default:
@@ -647,13 +645,6 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
                 DBG_TOKEN(tok)
             }
             break;
-// these should never get here
-//        case PythonSyntaxHighlighter::T_IdentifierModule:
-//            tok = scanImports(tok);
-//            // TODO determine if module can be found and what type
-//            break;
-//        case PythonSyntaxHighlighter::T_IdentifierModuleGlob:
-//            // TODO!
         default:
             assert(!tok->isImport() && "Should never get a import in scanIdentifier");
             if (tok->isIdentifierVariable())
@@ -772,7 +763,7 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                             m_module->setLookupError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
                         else {
                             // new identifier
-                            m_module->setLookupError(tok, QString::fromLatin1("Unexpected variable in RValue context '%1'").arg(tok->text()));
+                            m_module->setLookupError(tok, QString::fromLatin1("Unbound variable in RValue context '%1'").arg(tok->text()));
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                         }
                     }
@@ -1161,13 +1152,23 @@ PythonToken *PythonSourceFrame::gotoNextLine(PythonToken *tok)
 }
 
 PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
-                                             PythonSourceIndent &indent)
+                                             PythonSourceIndent &indent,
+                                             int direction)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
 
     int ind = tok->txtBlock()->indent();
-    if (ind < indent.currentBlockIndent()) {
+    if (tok->txtBlock()->tokens().size() > 2) {
+        switch (tok->txtBlock()->tokens()[1]->token) {
+        case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:
+        case PythonSyntaxHighlighter::T_LiteralBlockSglQuote:
+            return tok;// ignore indents if we are at a multiline string
+        default: break;
+        }
+    }
+
+    if (ind < indent.currentBlockIndent() && direction < 1) {
         // dedent
 
         // backup until last codeline
@@ -1197,7 +1198,7 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
                 return tok;
             }
         }
-    } else if (ind > indent.currentBlockIndent()) {
+    } else if (ind > indent.currentBlockIndent() && direction > -1) {
         // indent
         // find previous ':'
         const PythonToken *prev = tok->previous();
@@ -1219,7 +1220,10 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
                 }
                 // syntax error
                 m_module->setSyntaxError(tok, QLatin1String("Blockstart without ':'"));
-                indent.pushBlock(ind);
+                if (direction > 0)
+                    indent.pushFrameBlock(indent.currentBlockIndent(), ind);
+                else
+                    indent.pushBlock(ind);
                 prev = nullptr; // break while loop
                 break;
             }

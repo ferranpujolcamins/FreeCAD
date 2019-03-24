@@ -456,12 +456,10 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
                                             highlighter->document()->begin().userData());
 
     // find first token, first row might be empty
-    PythonToken *tok = nullptr;
-    while(txtData && !(tok = txtData->tokenAt(0)))
-        txtData = txtData->next();
+    PythonToken *tok = txtData->tokens()[0];
     if (tok) {
         DBG_TOKEN(tok)
-                mod->scanFrame(tok);
+        mod->scanFrame(tok);
     }
 
     return mod;

@@ -997,7 +997,7 @@ void PythonSyntaxHighlighter::setFilePath(QString filePath)
     PythonSourceRoot::instance()->scanCompleteModule(filePath, this);
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
-            DumpSyntaxTokens dump(document()->begin());
+            //DumpSyntaxTokens dump(document()->begin());
             DumpModule dMod(PythonSourceRoot::instance()->moduleFromPath(d->filePath));
         }
 #endif

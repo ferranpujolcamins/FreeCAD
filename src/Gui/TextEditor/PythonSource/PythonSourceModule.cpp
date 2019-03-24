@@ -12,8 +12,7 @@ PythonSourceModule::PythonSourceModule(PythonSourceRoot *root,
     PythonSourceListParentBase(this),
     m_root(root),
     m_rootFrame(this, this),
-    m_highlighter(highlighter),
-    m_rehighlight(false)
+    m_highlighter(highlighter)
 {
 }
 
@@ -27,8 +26,11 @@ void PythonSourceModule::scanFrame(PythonToken *tok)
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanFrame(tok, indent);
 
-   // if (m_rehighlight)
-        //m_highlighter->rehighlight();
+    const QTextDocument *doc = tok->txtBlock()->block().document();
+    while (!m_rehighlightRows.isEmpty()) {
+        int row = m_rehighlightRows.takeFirst();
+        m_highlighter->rehighlightBlock(doc->findBlockByLineNumber(row));
+    }
 }
 
 void PythonSourceModule::scanLine(PythonToken *tok)
@@ -40,8 +42,11 @@ void PythonSourceModule::scanLine(PythonToken *tok)
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanLine(tok, indent);
 
-   // if (m_rehighlight && tok)
-   //     m_highlighter->rehighlightBlock(tok->txtBlock()->block());
+    const QTextDocument *doc = tok->txtBlock()->block().document();
+    while (!m_rehighlightRows.isEmpty()) {
+        int row = m_rehighlightRows.takeFirst();
+        m_highlighter->rehighlightBlock(doc->findBlockByLineNumber(row));
+    }
 }
 
 PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok) const
@@ -164,8 +169,12 @@ int PythonSourceModule::_currentBlockIndent(const PythonToken *tok) const
 
 void PythonSourceModule::setFormatToken(const PythonToken *tok, QTextCharFormat format)
 {
-    if (tok->txtBlock()->setReformat(tok, format))
-        m_rehighlight = true; // only re-highlight if we succeed
+    if (tok->txtBlock()->setReformat(tok, format)) {
+        int row = tok->txtBlock()->block().blockNumber();
+        if (!m_rehighlightRows.contains(row))
+            m_rehighlightRows.append(row); // only re-highlight if we succeed
+
+    }
 }
 
 void PythonSourceModule::setFormatToken(const PythonToken *tok)
@@ -210,6 +219,9 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     {
         childFrm = dynamic_cast<const PythonSourceFrame*>(itm);
         assert(childFrm != nullptr && "Wrong datatype stored in PythonSourceFrame");
+        if (!childFrm->token() || !childFrm->lastToken())
+            continue;
+
         if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken())
         {
             // find recursivly

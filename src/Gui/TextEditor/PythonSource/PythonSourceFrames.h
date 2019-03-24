@@ -142,8 +142,15 @@ private:
     // moves token til next line with tokens
     PythonToken *gotoNextLine(PythonToken *tok);
 
+    /**
+     * @brief handleIndent calculates the indent, pushes and pops indent blocks
+     * @param tok = Starttoken
+     * @param indent = indent class to mutate
+     * @param direction = -1: only calc deindent, 1: only calc indent and push frames instead of block, 0 do both
+     * @return
+     */
     PythonToken *handleIndent(PythonToken *tok,
-                              PythonSourceIndent &indent);
+                              PythonSourceIndent &indent, int direction);
 
     // set identifier and sets up reference to RValue
     PythonToken *scanIdentifier(PythonToken *tok);
