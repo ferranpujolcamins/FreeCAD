@@ -24,14 +24,68 @@
 
 #include "PythonSyntaxHighlighter.h"
 #include <stdio.h>
+#include <QAbstractItemModel>
+#include <QModelIndex>
+#include <QWidget>
+
+QT_BEGIN_NAMESPACE
+class QTextDocument;
+class QTabWidget;
+class QTreeView;
+QT_END_NAMESPACE
 
 namespace Gui {
-
+class TextEditor;
 namespace Syntax {
 
 const char* tokenToCStr(PythonSyntaxHighlighter::Tokens tok);
 
+
+// -----------------------------------------------------------------------------
+
+class TokenModel : public QAbstractItemModel
+{
+    Q_OBJECT
+public:
+    explicit TokenModel(const QTextDocument *doc, QObject *parent = 0);
+    virtual ~TokenModel();
+    QVariant data(const QModelIndex &index, int role) const override;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
+    QVariant headerData(int section, Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
+    QModelIndex index(int row, int column,
+                      const QModelIndex &parent = QModelIndex()) const override;
+    QModelIndex parent(const QModelIndex &index) const override;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+
+public Q_SLOTS:
+    void refreshAll();
+
+private:
+    const PythonTextBlockData *getTextBlock(long line) const;
+    const QTextDocument *m_doc;
+};
+
+// -------------------------------------------------------------
+
+class DebugWindow : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit DebugWindow(TextEditor *editor);
+    virtual ~DebugWindow();
+
+private:
+    TextEditor *m_editor;
+    QTabWidget *m_tabWgt;
+    TokenModel *m_tokModel;
+    QTreeView  *m_tokTree;
+};
+
 } // namespace Syntax
+
+// --------------------------------------------------------------------
 
 class DumpToFileBaseClass
 {
@@ -55,6 +109,7 @@ public:
 };
 
 // -----------------------------------------------------------------
+
 
 
 

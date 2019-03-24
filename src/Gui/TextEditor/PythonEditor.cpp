@@ -85,17 +85,23 @@ struct PythonEditorP
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     PythonEditorCodeAnalyzer *codeAnalyzer;
-    PythonEditorP()
+    PythonEditorP(PythonEditor *editor)
         : autoIndented(false), debugLine(-1),
-//          callTipsList(nullptr),
           codeAnalyzer(nullptr)
     {
         debugger = Application::Instance->macroManager()->debugger();
         pythonCode = new PythonCode();
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        dbgWindow = new Syntax::DebugWindow(editor);
+        dbgWindow->show();
+#endif
     }
     ~PythonEditorP()
     {
         delete pythonCode;
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        delete dbgWindow;
+#endif
     }
     void loadIcons(int rowHeight)
     {
@@ -103,6 +109,10 @@ struct PythonEditorP
         breakpointDisabled = BitmapFactory().iconFromTheme("breakpoint-disabled").pixmap(rowHeight, rowHeight);
         debugMarker = BitmapFactory().iconFromTheme("debug-marker").pixmap(rowHeight, rowHeight);
     }
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    Syntax::DebugWindow *dbgWindow;
+#endif
 };
 
 // -------------------------------------------------------------------------------------
@@ -189,7 +199,7 @@ public:
 PythonEditor::PythonEditor(QWidget* parent)
   : TextEditor(parent)
 {
-    d = new PythonEditorP();
+    d = new PythonEditorP(this);
     d->loadIcons(fontMetrics().height());
 
     PythonSyntaxHighlighter *hl = new PythonSyntaxHighlighter(this);

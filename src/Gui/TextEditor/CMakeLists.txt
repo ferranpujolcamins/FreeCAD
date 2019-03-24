@@ -114,10 +114,17 @@ if(BUILD_PYTHON_DEBUGTOOLS)
         PythonCodeDebugTools.cpp)
     SET(TextEditor_DbgTools_HPP_SRCS
         PythonCodeDebugTools.h)
+    SET(TextEditor_DbgTools_MOC_HDRS
+        PythonCodeDebugTools.h)
     add_definitions(-DBUILD_PYTHON_DEBUGTOOLS=1)
+    # run moc
+    fc_wrap_cpp(TextEditor_DbgTools_MOC_SRCS ${TextEditor_DbgTools_MOC_HDRS})
+
     SET(TextEditor_DbgTools_SRCS
         ${TextEditor_DbgTools_CPP_SRCS}
-        ${TextEditor_DbgTools_HPP_SRCS})
+        ${TextEditor_DbgTools_HPP_SRCS}
+        ${TextEditor_DbgTools_MOC_HDRS})
+
 endif()
 SOURCE_GROUP("TextEditor" FILES ${TextEditor_SRCS})
 
@@ -142,7 +149,6 @@ SET(TextEditor_Dlg_SRCS
 SET(TextEditorAll_SRCS ${TextEditor_SRCS}
                        ${TextEditor_Dlg_SRCS}
                        ${TextEditor_QRC_SRCS}
-                       ${TextEditor_UIC_HDRS}
                        ${TextEditor_DbgTools_SRCS}
 )
 SOURCE_GROUP("Editor" FILES ${TextEditorAll_SRCS})
