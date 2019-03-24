@@ -228,15 +228,17 @@ void PythonSourceModule::insertBlockStart(const PythonToken *colonTok) const
     }
 }
 
-void PythonSourceModule::insertBlockEnd(const PythonToken *newLineTok) const
+PythonToken *PythonSourceModule::insertBlockEnd(const PythonToken *newLineTok) const
 {
     if (newLineTok->previous() &&
         newLineTok->previous()->token != PythonSyntaxHighlighter::T_BlockEnd)
     {
-        newLineTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockEnd,
-                                            newLineTok->previous()->startPos, 0);
+        PythonToken *blkEndTok = newLineTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockEnd,
+                                                               newLineTok->previous()->startPos, 0);
         newLineTok->txtBlock()->decBlockState();
+        return blkEndTok;
     }
+    return nullptr;
 }
 
 

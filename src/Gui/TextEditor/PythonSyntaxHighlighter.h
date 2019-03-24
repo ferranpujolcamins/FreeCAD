@@ -542,7 +542,7 @@ public:
      * @param pos: where in textducument
      * @param len: token length in document
      */
-    void insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len);
+    PythonToken *insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len);
 
     /**
      * @brief scanInfo contains parse messages set by code analyzer

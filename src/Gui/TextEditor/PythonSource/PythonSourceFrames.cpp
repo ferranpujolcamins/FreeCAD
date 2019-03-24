@@ -344,7 +344,8 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
     if (!startToken)
         return startToken;
 
-    PythonToken *tok = startToken;
+    PythonToken *tok = startToken,
+                *frmStartTok = startToken;
     DBG_TOKEN(tok)
 
 
@@ -354,25 +355,25 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         indent = m_module->currentBlockIndent(tok);
     }
 
+    // move up to first code token
+    // used to determine firsttoken
+    int guard = 100;
+    while(frmStartTok && (guard--)) {
+        if (frmStartTok->isNewLine())
+            return frmStartTok; // empty row
+        if (frmStartTok->isText())
+            break;
+        NEXT_TOKEN(frmStartTok)
+    }
+
+    if (!frmStartTok)
+        return frmStartTok;
+
     // T_Indent or code on pos 0
     tok = handleIndent(tok, indent);
     if (indent.framePopCnt())
         return tok->previous(); // exit a frame and continue with
                                 // caller frame on this token (incr in scanFrame)
-
-    // move up to first code token
-    // used to determine firsttoken
-    int guard = 100;
-    while(tok && (guard--)) {
-        if (tok->isNewLine())
-            return tok; // empty row
-        if (tok->isText())
-            break;
-        NEXT_TOKEN(tok)
-    }
-
-    if (!tok)
-        return tok;
 
     if (isModule())
         m_type.type = PythonSourceRoot::ModuleType;
@@ -388,27 +389,24 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
     {
         isFrameStarter = true;
         // set initial start token
-        setToken(tok);
+        setToken(frmStartTok);
 
         // scan parameterLists
         if (m_parentFrame){
             // not rootFrame, parse argumentslist
             if (!isClass()) {
                 // not __init__ as that is scanned in parentframe
-                if (m_parentFrame->isClass() && tok->text() == QLatin1String("__init__"))
-                    tok = tok->next();
+                if (m_parentFrame->isClass() && frmStartTok->text() == QLatin1String("__init__"))
+                    tok = frmStartTok->next();
                 else
-                    tok = scanAllParameters(tok, true, false);
+                    tok = scanAllParameters(frmStartTok, true, false);
             } else {
                 // FIXME implement inheritance
                 //tok = scanInheritance(tok);
-                tok = tok->next(); // TODO remove when inheritance is implemented
+                tok = frmStartTok->next(); // TODO remove when inheritance is implemented
             }
             DBG_TOKEN(tok)
         }
-    } else {
-        // we need to reset this position as we want to handle indents
-        tok = startToken;
     }
 
     PythonSourceModule *noConstModule = const_cast<PythonSourceModule*>(m_module);
@@ -1183,13 +1181,14 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
             m_module->setIndentError(tok); // uneven indentation
         } else {
 
+            PythonToken *lastTok = txtPrev->tokens().last();
             do { // handle when multiple blocks dedent in a single row
                 indent.popBlock();
-                if (txtPrev) {// notify that this blok has ended
-                    m_module->insertBlockEnd(txtPrev->tokens().last());
-                    DBG_TOKEN(txtPrev->tokens().last())
+                if (txtPrev) {// notify that this block has ended
+                    lastTok = m_module->insertBlockEnd(lastTok);
+                    DBG_TOKEN(lastTok)
                 }
-            } while(indent.currentBlockIndent() > ind);
+            } while(indent.currentBlockIndent() > ind && lastTok);
 
             if (indent.framePopCnt() > 0) {
                 // save end token for this frame

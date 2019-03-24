@@ -71,7 +71,7 @@ public:
     /// inserts a blockStartTok after colonTok
     void insertBlockStart(const PythonToken *colonTok) const;
     /// inserts a blockEnd token before newLineTok
-    void insertBlockEnd(const PythonToken *newLineTok) const;
+    PythonToken *insertBlockEnd(const PythonToken *newLineTok) const;
 
 
 protected:

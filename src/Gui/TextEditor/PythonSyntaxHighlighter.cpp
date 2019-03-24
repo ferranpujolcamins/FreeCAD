@@ -1122,7 +1122,7 @@ void PythonSyntaxHighlighter::scanIndentation(int &pos, const QString &text)
             } else if (text.at(j) == QLatin1Char('\t')) {
                 count += 8; // according to python lexical documentaion tab is eight spaces
             } else {
-                return;
+                break;
             }
         }
 
@@ -1768,9 +1768,8 @@ int PythonTextBlockData::indent() const
     return m_indentCharCount; // note tab=8
 }
 
-void PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len)
+PythonToken *PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int pos, int len)
 {
-    PythonToken *tokenObj = new PythonToken(token, pos, pos + len, this);
     int idx = -1;
     for (PythonToken *tok : m_tokens) {
         ++idx;
@@ -1778,8 +1777,13 @@ void PythonTextBlockData::insertToken(PythonSyntaxHighlighter::Tokens token, int
             break;
     }
 
-    if (idx > -1)
+    if (idx > -1) {
+        PythonToken *tokenObj = new PythonToken(token, pos, pos + len, this);
         m_tokens.insert(idx, tokenObj);
+        return tokenObj;
+    }
+
+    return nullptr;
 }
 
 PythonTextBlockScanInfo *PythonTextBlockData::scanInfo() const
