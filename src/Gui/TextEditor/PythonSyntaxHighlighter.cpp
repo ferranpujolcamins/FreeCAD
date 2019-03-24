@@ -322,7 +322,7 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
                 // detection of that was in a previous iteration
                 i -= prefixLen;
 
-                setLiteral(i, len + endMarker.length(), token);
+                setLiteral(i, len + endMarker.length() + prefixLen, token);
                 prefixLen = 0;
 
             } break;
@@ -950,7 +950,11 @@ QTextCharFormat PythonSyntaxHighlighter::getFormatToken(const PythonToken *token
     case T_IdentifierSelf:
         format.setFontWeight(QFont::Bold);
         colorIdx = SyntaxHighlighter::IdentifierSelf; break;
-
+    case T_IdentifierFalse: case T_IdentifierNone:
+    case T_IdentifierTrue:
+        format.setFontWeight(QFont::Bold);
+        colorIdx = SyntaxHighlighter::Keyword;
+        break;
 
     case T_MetaData:
         colorIdx = SyntaxHighlighter::MetaData; break;
@@ -1126,7 +1130,8 @@ void PythonSyntaxHighlighter::scanIndentation(int &pos, const QString &text)
             }
         }
 
-        setIndentation(pos, j, count);
+        if (j - pos > 0)
+            setIndentation(pos, j, count);
     }
 }
 
