@@ -738,7 +738,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         // TODO figure out how to extract attribute / item chain for objects, dicts and lists
         // using tokens from syntaxhighlighter
 
-        QString str = d->pythonCode->findFromCurrentFrame(textUnderPos);
+        QString str = d->pythonCode->findFromCurrentFrame(tok);
         QToolTip::showText(tooltipPos, str, this);
         return true;
     } else {

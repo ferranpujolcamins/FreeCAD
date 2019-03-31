@@ -39,6 +39,7 @@
 #include "BitmapFactory.h"
 #include "Macro.h"
 #include <Base/PyTools.h>
+#include <PythonSource/PythonSource.h>
 
 #include <frameobject.h> // python
 #include <CXX/Objects.hxx>
@@ -53,6 +54,22 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QTextCharFormat>
+
+DBG_TOKEN_FILE
+
+#if PY_MAJOR_VERSION >= 3
+# define PY_AS_STRING PyUnicode_AsUTF8
+# define PY_FROM_STRING PyUnicode_FromString
+# define PY_LONG_CHECK PyLong_Check
+# define PY_LONG_FROM_STRING PyLong_FromString
+# define PY_LONG_AS_LONG PyLong_AsLong
+#else
+# define PY_AS_STRING PyBytes_AsString
+# define PY_FROM_STRING PyBytes_FromString
+# define PY_LONG_CHECK PyInt_Check
+# define PY_LONG_FROM_STRING PyInt_FromString
+# define PY_LONG_AS_LONG PyInt_AsLong
+#endif
 
 
 namespace Gui {
@@ -83,38 +100,38 @@ PythonCode::~PythonCode()
 /**
  * @brief deepcopys a object, caller takes ownership
  * @param obj to deep copy
- * @return the new obj
+ * @return the new obj, borrowed ref
  */
 PyObject *PythonCode::deepCopy(PyObject *obj)
 {
     Base::PyGILStateLocker lock;
+    PyObject *deepCopyPtr = nullptr, *args = nullptr, *result = nullptr;
 
     // load copy module
-    PyObject *deepcopyPtr = PP_Load_Attribute("copy", "deepcopy");
-    if (!deepcopyPtr)
-        return nullptr;
+    deepCopyPtr = PP_Load_Attribute("copy", "deepcopy");
+    if (!deepCopyPtr)
+        goto out;
 
-    Py_INCREF(deepcopyPtr);
+    Py_INCREF(deepCopyPtr);
 
     // create argument tuple
-    PyObject *args = PyTuple_New(sizeof obj);
-    if (!args) {
-        Py_DECREF(deepcopyPtr);
-        return nullptr;
-    }
+    args = PyTuple_New(sizeof obj);
+    if (!args)
+        goto out;
 
     Py_INCREF(args);
 
-    if (PyTuple_SetItem(args, 0, (PyObject*)obj) != 0) {
-        Py_DECREF(args);
-        Py_DECREF(deepcopyPtr);
-    }
+    if (PyTuple_SetItem(args, 0, obj) != 0)
+        goto out;
 
     // call pythons copy.deepcopy
-    PyObject *result = PyObject_CallObject(deepcopyPtr, args);
-    if (!result) {
+    result = PyObject_CallObject(deepCopyPtr, args);
+    if (!result)
         PyErr_Clear();
-    }
+
+out:
+    Py_XDECREF(deepCopyPtr);
+    Py_XDECREF(args);
 
     return result;
 }
@@ -122,46 +139,57 @@ PyObject *PythonCode::deepCopy(PyObject *obj)
 // get thee root of the parent identifier ie os.path.join
 //                                                    ^
 // must traverse from os, then os.path before os.path.join
-QString PythonCode::findFromCurrentFrame(QString varName)
+QString PythonCode::findFromCurrentFrame(const PythonToken *tok)
 {
     Base::PyGILStateLocker locker;
-    PyFrameObject *current_frame = App::PythonDebugger::instance()->currentFrame();
-    if (current_frame == 0)
+    PyFrameObject *frame = App::PythonDebugger::instance()->currentFrame();
+    if (frame == nullptr)
         return QString();
 
     QString foundKey;
 
-    PyFrame_FastToLocals(current_frame);
-    Py::Object obj = getDeepObject(current_frame->f_locals, varName, foundKey);
-    if (obj.isNull())
-        obj = getDeepObject(current_frame->f_globals, varName, foundKey);
+    PyObject *obj = nullptr;
 
-    if (obj.isNull())
-        obj = getDeepObject(current_frame->f_builtins, varName, foundKey);
+    // lookup through parant frames chain
+    do {
+        PyFrame_FastToLocals(frame);
+        obj = getDeepObject(frame->f_locals, tok, foundKey);
+    } while (!obj && (frame = frame->f_back));
 
-    if (obj.isNull()) {
+    // if not found look in globals
+    if (!obj)
+        obj = getDeepObject(App::PythonDebugger::instance()->currentFrame()->f_globals,
+                            tok, foundKey);
+    // or in builtins
+    if (!obj)
+        obj = getDeepObject(App::PythonDebugger::instance()->currentFrame()->f_builtins,
+                            tok, foundKey);
+    if (!obj)
         return QString();
-    }
 
-    return QString(QLatin1String("%1:%3\nType:%2\n%4"))
-            .arg(foundKey)
-            .arg(QString::fromStdString(obj.type().as_string()))
-            .arg(QString::fromStdString(obj.str().as_string()))
-            .arg(QString::fromStdString(obj.repr().as_string()));
+    // found correct object
+    const char *valueStr = nullptr, *reprStr = nullptr, *typeStr = nullptr;
+    PyObject *reprObj = nullptr, *valueObj = nullptr;
+    // repr this object
+    reprObj = PyObject_Repr(obj); // new reference
+    reprStr = PY_AS_STRING(reprObj);
+    Py_XDECREF(reprObj);
 
-//    // found correct object
-//    const char *valueStr, *reprStr, *typeStr;
-//    PyObject *repr_obj;
-//    repr_obj = PyObject_Repr(obj);
-//    typeStr = Py_TYPE(obj)->tp_name;
-//    obj = PyObject_Str(obj);
-//    valueStr = PyBytes_AS_STRING(obj);
-//    reprStr = PyBytes_AS_STRING(repr_obj);
-//    return QString(QLatin1String("%1:%3\nType:%2\n%4"))
-//                .arg(foundKey)
-//                .arg(QLatin1String(typeStr))
-//                .arg(QLatin1String(valueStr))
-//                .arg(QLatin1String(reprStr));
+    // value of obj
+    valueObj = PyObject_Str(obj); // new reference
+    valueStr = PY_AS_STRING(valueObj);
+    Py_XDECREF(valueObj);
+
+    // type
+    typeStr = Py_TYPE(obj)->tp_name;
+
+    Py_DECREF(obj);
+
+    return QString::fromLatin1("%1=%3\nType:%2\n%4")
+                    .arg(foundKey)
+                    .arg(QLatin1String(typeStr))
+                    .arg(QLatin1String(valueStr))
+                    .arg(QLatin1String(reprStr));
 }
 
   /**
@@ -174,48 +202,118 @@ QString PythonCode::findFromCurrentFrame(QString varName)
  * @param key: name of var to find
  * @return Obj if found or nullptr
  */
-Py::Object PythonCode::getDeepObject(PyObject *obj, QString key, QString &foundKey)
+PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
+                                    QString &foundKey)
 {
+    DEFINE_DBG_VARS
+
     Base::PyGILStateLocker locker;
-    PyObject *keyObj = nullptr;
-    PyObject *tmp = nullptr;
+    PyObject *keyObj = nullptr, *tmp = nullptr, *outObj = obj;
 
-    QStringList parts = key.split(QLatin1Char('.'));
-    if (!parts.size())
-        return Py::Object();
+    QList<const PythonToken*> chain;
+    const PythonToken *tok = needleTok;
+    bool lookupSubItm = needleTok->token == PythonSyntaxHighlighter::T_DelimiterOpenBracket;
+    if (lookupSubItm)
+        PREV_TOKEN(tok)
+    // search up to root ie cls.attr.dict[stringVariable]
+    //                               ^
+    //                          ^
+    //                      ^
+    while (tok){
+        if (tok->isIdentifierVariable()) {
+            chain.prepend(tok);
+        } else if (tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod)
+            break;
+        PREV_TOKEN(tok)
+    }
 
-    for (int i = 0; i < parts.size(); ++i) {
-        keyObj = PyBytes_FromString(parts[i].toLatin1());
+    if (chain.size() == 0)
+        return nullptr;
+
+    for (int i = 0; i < chain.size(); ++i) {
+        keyObj = PY_FROM_STRING(chain[i]->text().toLatin1().data());
         if (keyObj != nullptr) {
+            Py_INCREF(keyObj);
             do {
-                if (PyObject_HasAttr(obj, keyObj) > 0) {
-                    obj = PyObject_GetAttr(obj, keyObj);
-                    tmp = obj;
+                if (PyObject_HasAttr(outObj, keyObj) > 0) {
+                    outObj = PyObject_GetAttr(outObj, keyObj);
+                    tmp = outObj;
                     Py_XINCREF(tmp);
-                } else if (PyDict_Check(obj) &&
-                           PyDict_Contains(obj, keyObj))
+                } else if (PyDict_Check(outObj) &&
+                           PyDict_Contains(outObj, keyObj))
                 {
-                    obj = PyDict_GetItem(obj, keyObj);
+                    outObj = PyDict_GetItem(outObj, keyObj);
                     Py_XDECREF(tmp);
                     tmp = nullptr;
                 } else
-                    break; // bust out as we havent found it
+                    goto out; // bust out as we havent found it
 
                 // if we get here we have found what we want
-                if (i == parts.size() -1) {
+                if (i == chain.size() -1) {
                     // found the last part
-                    foundKey = parts[i];
-                    return Py::Object(obj);
-                } else {
-                    continue;
+                    foundKey = chain[i]->text();
                 }
-
             } while(false); // bust of 1 time loop
-        } else {
-            return Py::Object();
+
+            Py_DECREF(keyObj);
+        } else
+            break;
+    }
+
+    // find the value of this object with subobj as item
+    if (lookupSubItm) {
+        QString tmp;
+        PyObject *needle = nullptr;
+        tok = needleTok->next();
+        DBG_TOKEN(tok)
+        // move to last code before next ']' etc
+        while(tok) {
+            if (tok->token == PythonSyntaxHighlighter::T_DelimiterOpenBracket) {
+                NEXT_TOKEN(tok)
+                needle = getDeepObject(outObj, tok, tmp);
+                break;
+            } else if (tok->isIdentifierVariable()) {
+                needle = getDeepObject(outObj, tok, tmp);
+                break;
+            } else if (tok->isNumber()) {
+                needle = PY_LONG_FROM_STRING(tok->text().toLatin1().data(), nullptr, 0);
+                if (!needle)
+                    PyErr_Clear();
+            } else if (tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod) {
+                break;
+            }
+            NEXT_TOKEN(tok)
+        }
+
+        if (needle) {
+            Py_INCREF(needle);
+            if (PyDict_Check(outObj)) {
+                if (PyDict_Contains(outObj, needle)) {
+                    outObj = PyDict_GetItem(outObj, needle);
+                }
+            } else if (PY_LONG_CHECK(needle)) {
+                long idx = PY_LONG_AS_LONG(needle);
+                if (idx > -1) {
+                    if (PyList_Check(outObj) && PyList_Size(outObj) > idx) {
+                        // lookup in list
+                        outObj = PyList_GetItem(outObj, idx); // borrowed
+                        foundKey += QString::fromLatin1("[%1]").arg(idx);
+                    } else if (PyTuple_Check(outObj) && PyTuple_Size(outObj) > idx) {
+                        // lookup in tuple
+                        outObj = PyTuple_GetItem(outObj, idx); // borrowed
+                        foundKey += QString::fromLatin1("[%1]").arg(idx);
+                    }
+
+                } else if (PyErr_Occurred())
+                    PyErr_Clear();
+            }
+            Py_DECREF(needle);
         }
     }
-    return Py::Object();
+
+out:
+    Py_XINCREF(outObj);
+    return outObj;
 }
 
 
