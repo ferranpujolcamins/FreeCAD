@@ -211,10 +211,7 @@ PythonSourceIdentifier
     }
 
     // new indentifier
-    if (!identifier) {
-        identifier = new PythonSourceIdentifier(this, m_module);
-        insert(identifier);
-    } else {
+    if (identifier) {
         // check so we don't double insert
         PythonSourceListNodeBase *itm = identifier->findExact(tok);
         if (itm) {
@@ -227,9 +224,18 @@ PythonSourceIdentifier
         }
     }
 
+    // create identifier
+    identifier = new PythonSourceIdentifier(this, m_module);
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    identifier->m_name = tok->text();
+#endif
+
     // create new assigment
     assign = new PythonSourceIdentifierAssignment(identifier, tok, typeInfo);
     identifier->insert(assign);
+
+    // must have a assignment before we insert
+    insert(identifier);
     return identifier;
 }
 

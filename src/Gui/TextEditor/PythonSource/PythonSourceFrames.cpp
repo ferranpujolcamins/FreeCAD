@@ -95,7 +95,7 @@ int PythonSourceFrameReturnTypeList::compare(const PythonSourceListNodeBase *lef
 // -----------------------------------------------------------------------------
 
 PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner,
-                                     const PythonSourceModule *module,
+                                     PythonSourceModule *module,
                                      PythonSourceFrame *parentFrame,
                                      bool isClass):
     PythonSourceListParentBase(owner),
@@ -112,7 +112,7 @@ PythonSourceFrame::PythonSourceFrame(PythonSourceFrame *owner,
 }
 
 PythonSourceFrame::PythonSourceFrame(PythonSourceModule *owner,
-                                     const PythonSourceModule *module,
+                                     PythonSourceModule *module,
                                      PythonSourceFrame *parentFrame,
                                      bool isClass):
     PythonSourceListParentBase(owner),
@@ -376,6 +376,12 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
         tok->token == PythonSyntaxHighlighter::T_IdentifierClass ||
         isFrameStarter)
     {
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+        if (isFrameStarter)
+            m_name = m_module->moduleName();
+        else
+            m_name = frmStartTok->text();
+#endif
         isFrameStarter = true;
         // set initial start token
         setToken(frmStartTok);
@@ -623,6 +629,10 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
                 tok = scanRValue(tok, typeInfo, false);
                 ident = m_identifiers.setIdentifier(identifierTok, typeInfo);
             }
+            if (identifierTok && identifierTok->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
+                identifierTok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
+                m_module->setFormatToken(tok);
+            }
             break;
         case PythonSyntaxHighlighter::T_DelimiterColon:
             // type hint or blockstart
@@ -759,6 +769,10 @@ PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,
                         if (ident) {
                             typeInfo.type = PythonSourceRoot::ReferenceType;
                             typeInfo.referenceName = text;
+                            if (tok->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
+                                tok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
+                                m_module->setFormatToken(tok);
+                            }
                         } else if (isTypeHint)
                             m_module->setLookupError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
                         else {
@@ -922,10 +936,10 @@ PythonToken *PythonSourceFrame::scanYieldStmt(PythonToken *tok)
     DBG_TOKEN(tok)
     assert(tok && tok->token == PythonSyntaxHighlighter::T_KeywordYield && "Expected a yield token");
 
-    if (!m_returnTypes.empty() && hasOtherTokens(PythonSyntaxHighlighter::T_KeywordYield)) {
+    if (!m_returnTypes.empty() && m_returnTypes.hasOtherTokens(PythonSyntaxHighlighter::T_KeywordYield)) {
         // we have other tokens !
-        QString msg = QLatin1String("Setting yield in a function '%1' with a return\n");
-        m_module->setSyntaxError(tok, msg);
+        QString msg = QLatin1String("Setting yield in a function with a return statement\n");
+        m_module->setMessage(tok, msg);
     }
     // TODO implement yield
 

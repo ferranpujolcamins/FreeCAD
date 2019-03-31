@@ -68,15 +68,15 @@ class PythonSourceFrame : public PythonSourceListParentBase
     PythonSourceRoot::TypeInfo m_type;
     PythonSourceTypeHint *m_typeHint;
     PythonSourceFrame *m_parentFrame;
-    const PythonSourceModule *m_module;
+    PythonSourceModule *m_module;
     PythonSourceListNodeBase m_lastToken; // we need to use ListNodeBase as a wrapper
                                           // handle gracefully when Pythontoken gets deleted in document
     bool m_isClass;
 
 public:
-    explicit PythonSourceFrame(PythonSourceFrame *owner, const PythonSourceModule *module,
+    explicit PythonSourceFrame(PythonSourceFrame *owner, PythonSourceModule *module,
                                PythonSourceFrame *parentFrame = nullptr, bool isClass = false);
-    explicit PythonSourceFrame(PythonSourceModule *owner, const PythonSourceModule *module,
+    explicit PythonSourceFrame(PythonSourceModule *owner, PythonSourceModule *module,
                                PythonSourceFrame *parentFrame = nullptr, bool isClass = false);
     ~PythonSourceFrame();
 
@@ -177,6 +177,10 @@ private:
     PythonSourceRoot::TypeInfo guessIdentifierType(const PythonToken *token);
     // goto end of line
     PythonToken *gotoEndOfLine(PythonToken *tok);
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    QString m_name;
+#endif
 };
 
 } // namespace Gui

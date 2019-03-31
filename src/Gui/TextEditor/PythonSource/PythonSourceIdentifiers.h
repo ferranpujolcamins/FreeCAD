@@ -110,6 +110,11 @@ protected:
     // should sort by linenr and (if same line also token startpos)
     int compare(const PythonSourceListNodeBase *left,
                 const PythonSourceListNodeBase *right) const;
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+public:
+    QString m_name;
+#endif
 };
 
 // ----------------------------------------------------------------------------
