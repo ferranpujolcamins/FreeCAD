@@ -94,6 +94,8 @@ struct PythonEditorP
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         dbgWindow = new Syntax::DebugWindow(editor);
         dbgWindow->show();
+#else
+        (void*)editor;
 #endif
     }
     ~PythonEditorP()

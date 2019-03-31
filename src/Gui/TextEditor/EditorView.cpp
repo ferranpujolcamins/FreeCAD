@@ -120,7 +120,7 @@ public:
  */
 class EditorViewWrapperP {
 public:
-    QList<EditorView*> owners;
+    EditorView *owner;
     QString fileName;
     uint timestamp;
     bool lock;
@@ -418,7 +418,7 @@ bool EditorView::closeFile()
 {
     if (canClose()) {
         EditorViewWrapper *oldWrapper = d->editWrapper;
-        EditorViewWrapper *newWrapper = EditorViewSingleton::instance()->lastAccessed(-1);
+        EditorViewWrapper *newWrapper = EditorViewSingleton::instance()->lastAccessed(this, -1);
         bool created = false;
         if (!newWrapper) {
             newWrapper = EditorViewSingleton::instance()->createWrapper(QString());
@@ -471,14 +471,43 @@ bool EditorView::saveAs(void)
  */
 bool EditorView::open(const QString& fileName)
 {
-    EditorViewWrapper *oldWrapper = d->editWrapper;
-    EditorViewWrapper *newWrapper = EditorViewSingleton::instance()->getWrapper(fileName);
-    if (!newWrapper) { // not yet opened
+    EditorViewWrapper *oldWrapper = d->editWrapper,
+                      *thisWrapper = nullptr,
+                      *newWrapper = nullptr;
+
+    QList<EditorViewWrapper*> editWrappers = EditorViewSingleton::instance()->getWrappers(fileName);
+    for (EditorViewWrapper *wrap : editWrappers) {
+        if (wrap->owner() == this) {
+            thisWrapper = wrap;
+            break;
+        }
+        newWrapper = wrap;
+    }
+
+    if (!thisWrapper && newWrapper) {
+        // file opened, but is it isn't is in this tab
+        PythonEditor *pyedit = qobject_cast<PythonEditor*>(newWrapper->editor());
+        TextEditor *edit = nullptr;
+        if (pyedit)
+            edit = new PythonEditor(this);
+        else
+            edit = new TextEditor(this);
+
+        // set document
+        edit->setDocument(newWrapper->editor()->document());
+        edit->setSyntaxHighlighter(newWrapper->editor()->syntaxHighlighter());
+
+        newWrapper = EditorViewSingleton::instance()->createWrapper(fileName, edit);
+        if (!newWrapper)
+            return false;
+
+    } else if (!newWrapper) { // not yet opened
         newWrapper = EditorViewSingleton::instance()->createWrapper(fileName);
         if (!newWrapper)
             return false;
     }
 
+    // opened in this View/tab
     // swap currently viewed editor
     QPlainTextEdit *old = swapEditor(newWrapper->editor());
     if (!old) {
@@ -740,7 +769,11 @@ bool EditorView::saveFile()
     editor->document()->setModified(false);
 
     QFileInfo fi(d->editWrapper->fileName());
-    d->editWrapper->setTimestamp(fi.lastModified().toTime_t());
+    for (EditorViewWrapper *wrap : EditorViewSingleton::instance()->getWrappers(
+                                            d->editWrapper->fileName()))
+    {
+        wrap->setTimestamp(fi.lastModified().toTime_t());
+    }
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             //DumpSyntaxTokens tok(editor->document()->begin());
@@ -1031,8 +1064,7 @@ EditorViewWrapper::~EditorViewWrapper()
 void EditorViewWrapper::attach(EditorView* sharedOwner)
 {
     // handles automatic clenup
-    if (!d->owners.contains(sharedOwner))
-        d->owners.append(sharedOwner);
+    d->owner = sharedOwner;
 
     // hook up signals with view
     QObject::connect(d->textEdit->document(), SIGNAL(modificationChanged(bool)),
@@ -1050,8 +1082,7 @@ void EditorViewWrapper::attach(EditorView* sharedOwner)
 void EditorViewWrapper::detach(EditorView* sharedOwner)
 {
     // handles automatic clenup
-    if (d->owners.contains(sharedOwner))
-        d->owners.removeAll(sharedOwner);
+    d->owner = sharedOwner;
 
     // disconnect signals from view
     QObject::disconnect(d->textEdit->document(), SIGNAL(modificationChanged(bool)),
@@ -1072,26 +1103,28 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
     d->textEdit->setParent(0);
 
     // cleanup and memory release
-    if (!d->owners.size()) {
-        EditorViewSingleton::instance()->d->wrappers.removeAll(this);
-        EditorViewSingleton::instance()->d->accessOrder.removeAll(d->fileName);
-        if (d->textEdit) {
-            d->textEdit->deleteLater();
-            d->textEdit = nullptr;
-        }
-
-        // emit changes
-        Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
-        Q_EMIT EditorViewSingleton::instance()->fileClosed(d->fileName);
-
-        return true;
+    EditorViewSingleton::instance()->d->wrappers.removeAll(this);
+    EditorViewSingleton::instance()->d->accessOrder.removeAll(d->fileName);
+    if (d->textEdit) {
+        d->textEdit->deleteLater();
+        d->textEdit = nullptr;
     }
-    return false;
+
+    // emit changes
+    Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
+    Q_EMIT EditorViewSingleton::instance()->fileClosed(d->fileName);
+
+    return true;
 }
 
 TextEditor *EditorViewWrapper::editor() const
 {
     return d->textEdit;
+}
+
+EditorView *EditorViewWrapper::owner() const
+{
+    return d->owner;
 }
 
 QString EditorViewWrapper::fileName() const
@@ -1188,10 +1221,12 @@ EditorViewSingleton* EditorViewSingleton::instance()
     return _instance;
 }
 
-EditorViewWrapper* EditorViewSingleton::getWrapper(const QString &fn)
+EditorViewWrapper* EditorViewSingleton::getWrapper(const QString &fn, EditorView *ownerView)
 {
     for (EditorViewWrapper* editWrapper : d->wrappers) {
-        if (editWrapper->fileName() == fn) {
+        if ((editWrapper->fileName() == fn) &&
+            (editWrapper->owner() == ownerView))
+        {
             d->accessOrder.removeAll(fn);
             d->accessOrder.append(fn);
             return editWrapper;
@@ -1199,6 +1234,17 @@ EditorViewWrapper* EditorViewSingleton::getWrapper(const QString &fn)
     }
 
     return nullptr;
+}
+
+QList<EditorViewWrapper *> EditorViewSingleton::getWrappers(const QString &fn)
+{
+    QList<EditorViewWrapper*> wrappers;
+    for (EditorViewWrapper *editWrapper : d->wrappers) {
+        if (editWrapper->fileName() == fn)
+            wrappers.append(editWrapper);
+    }
+
+    return wrappers;
 }
 
 EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
@@ -1279,11 +1325,11 @@ EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
     return ew;
 }
 
-EditorViewWrapper *EditorViewSingleton::lastAccessed(int backSteps)
+EditorViewWrapper *EditorViewSingleton::lastAccessed(EditorView *view, int backSteps)
 {
     int idx = d->accessOrder.size() + backSteps -1;
     if (idx >= 0 && d->accessOrder.size() > idx)
-        return getWrapper(d->accessOrder.at(idx));
+        return getWrapper(d->accessOrder.at(idx), view);
     return nullptr;
 }
 

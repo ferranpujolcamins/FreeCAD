@@ -213,6 +213,7 @@ public:
     bool close(EditorView* sharedOwner);
 
     TextEditor *editor() const;
+    EditorView* owner() const;
     QString fileName() const;
     void setFileName(const QString &fn);
     uint timestamp() const;
@@ -254,14 +255,15 @@ public:
      */
     static EditorViewSingleton* instance();
 
-    EditorViewWrapper *getWrapper(const QString &fn);
+    EditorViewWrapper *getWrapper(const QString &fn, EditorView *ownerView);
+    QList<EditorViewWrapper*> getWrappers(const QString &fn);
     EditorViewWrapper *createWrapper(const QString &fn, TextEditor *editor = nullptr);
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
      * @param backSteps negative numer back from current accessed, ie -1 for previous
      * @return the corresponding EditorWrapper
      */
-    EditorViewWrapper *lastAccessed(int backSteps = 0);
+    EditorViewWrapper *lastAccessed(EditorView *view, int backSteps = 0);
     QList<const EditorViewWrapper*> openedByType(QStringList types = QStringList());
 
 Q_SIGNALS:

@@ -47,7 +47,7 @@ class TokenModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    explicit TokenModel(const QTextDocument *doc, QObject *parent = 0);
+    explicit TokenModel(const TextEditor *editor, QObject *parent = 0);
     virtual ~TokenModel();
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
@@ -64,7 +64,7 @@ public Q_SLOTS:
 
 private:
     const PythonTextBlockData *getTextBlock(long line) const;
-    const QTextDocument *m_doc;
+    const TextEditor *m_editor;
 };
 
 // -------------------------------------------------------------

@@ -455,12 +455,17 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
     const PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(
                                             highlighter->document()->begin().userData());
 
-    // find first token, first row might be empty
-    PythonToken *tok = txtData->tokens()[0];
-    if (tok) {
-        DBG_TOKEN(tok)
-        mod->scanFrame(tok);
+    if (!txtData)
+        highlighter->rehighlight();
+    else {
+        // find first token, first row might be empty
+        PythonToken *tok = txtData->tokens()[0];
+        if (tok) {
+            DBG_TOKEN(tok)
+            mod->scanFrame(tok);
+        }
     }
+
 
     return mod;
 }

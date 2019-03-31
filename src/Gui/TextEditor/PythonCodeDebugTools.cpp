@@ -268,9 +268,9 @@ static const std::intptr_t SRC_ROW_FLAG = (1 << 7),
                            SRC_ROW_MASK = 0xFFFFFFFFFFFFFF00,
                            TOK_ROW_MASK = 0x00000000000000FF;
 
-TokenModel::TokenModel(const QTextDocument *doc, QObject *parent) :
+TokenModel::TokenModel(const TextEditor *editor, QObject *parent) :
     QAbstractItemModel(parent),
-    m_doc(doc)
+    m_editor(editor)
 {
 }
 
@@ -288,7 +288,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
     auto idx = reinterpret_cast<std::intptr_t>(index.internalPointer());
     if (idx & SRC_ROW_FLAG) {
         // its a code line
-        QTextBlock block = m_doc->findBlockByLineNumber(index.row());
+        QTextBlock block = m_editor->document()->findBlockByLineNumber(index.row());
         if (block.isValid()) {
             if (index.column() == 0) {
                 if (role == Qt::ForegroundRole)
@@ -395,7 +395,7 @@ QModelIndex TokenModel::parent(const QModelIndex &index) const
 
 int TokenModel::rowCount(const QModelIndex &parent) const
 {
-    if (parent.column() > 0 || m_doc->isEmpty())
+    if (parent.column() > 0 || m_editor->document()->isEmpty())
         return 0; // we only have children to col0
 
     if (parent.isValid()) {
@@ -412,7 +412,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
     }
     // root element, number of rows
     if (parent.row() < 0)
-        return m_doc->blockCount();
+        return m_editor->document()->blockCount();
     return 0;
 }
 
@@ -431,7 +431,7 @@ void TokenModel::refreshAll()
 
 const PythonTextBlockData *TokenModel::getTextBlock(long line) const
 {
-    QTextBlock block = m_doc->findBlockByLineNumber(line);
+    QTextBlock block = m_editor->document()->findBlockByLineNumber(line);
     if (!block.isValid())
         return nullptr;
 
@@ -453,7 +453,7 @@ DebugWindow::DebugWindow(TextEditor *editor) :
     m_tabWgt = new QTabWidget(this);
     layout->addWidget(m_tabWgt);
 
-    m_tokModel = new TokenModel(m_editor->document());
+    m_tokModel = new TokenModel(m_editor);
     m_tokTree  = new QTreeView();
     m_tokTree->setModel(m_tokModel);
 
