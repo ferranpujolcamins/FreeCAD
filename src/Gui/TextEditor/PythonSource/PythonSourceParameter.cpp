@@ -15,7 +15,7 @@ PythonSourceParameter::PythonSourceParameter(PythonSourceParameterList *parent, 
     PythonSourceListNodeBase(parent),
     m_paramType(InValid)
 {
-    m_token = tok;
+    setToken(tok);
 }
 
 PythonSourceParameter::~PythonSourceParameter()
