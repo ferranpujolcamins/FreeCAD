@@ -751,6 +751,7 @@ bool EditorView::saveFile()
                 row.remove(j, removeChrs);
                 cursor.setPosition(block.position(), QTextCursor::MoveAnchor);
                 cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
+                cursor.insertText(row);
             }
             block = block.next();
         }
