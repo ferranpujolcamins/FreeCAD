@@ -318,7 +318,8 @@ void TextEditor::drawMarker(int line, int x, int y, QPainter* p)
 
 void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
 {
-    sh->setDocument(this->document());
+    if (sh)
+        sh->setDocument(this->document());
     this->highlighter = sh;
 }
 

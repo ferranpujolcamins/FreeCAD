@@ -452,20 +452,23 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
 
     // find the first token of any kind
     // firstline might be empty
-    const PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(
-                                            highlighter->document()->begin().userData());
+    if (highlighter && highlighter->document()) {
+        QTextBlock block = highlighter->document()->begin();
+        const PythonTextBlockData *txtData = nullptr;
+        if (block.isValid())
+            txtData = dynamic_cast<PythonTextBlockData*>(block.userData());
 
-    if (!txtData)
-        highlighter->rehighlight();
-    else {
-        // find first token, first row might be empty
-        PythonToken *tok = txtData->tokens()[0];
-        if (tok) {
-            DBG_TOKEN(tok)
-            mod->scanFrame(tok);
+        if (!txtData)
+            highlighter->rehighlight();
+        else {
+            // find first token, first row might be empty
+            PythonToken *tok = txtData->tokens()[0];
+            if (tok) {
+                DBG_TOKEN(tok)
+                mod->scanFrame(tok);
+            }
         }
     }
-
 
     return mod;
 }
