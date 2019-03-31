@@ -974,6 +974,12 @@ void PythonEditorView::toggleBreakpoint()
 
 void PythonEditorView::showDebugMarker(const QString &fileName, int line)
 {
+
+    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
+                                        getMainWindow()->activeWindow());
+    if (editView != this)
+        return;
+
     if (fileName != this->fileName())
         open(fileName);
 
@@ -1019,6 +1025,7 @@ EditorViewWrapper::EditorViewWrapper(TextEditor *editor, const QString &fn) :
 
 EditorViewWrapper::~EditorViewWrapper()
 {
+    delete d;
 }
 
 void EditorViewWrapper::attach(EditorView* sharedOwner)
