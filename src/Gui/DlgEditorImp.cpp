@@ -68,7 +68,6 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
   : PreferencePage( parent )
 {
     this->setupUi(this);
-    this->EnableFolding->hide(); // Switch off until we have an editor with folding
 
     d = new DlgSettingsEditorP();
 
@@ -151,6 +150,7 @@ void DlgSettingsEditorImp::saveSettings()
 {
     EnableLineNumber->onSave();
     EnableFolding->onSave();
+    EnableIndentMarkers->onSave();
     EnableTrimTrailingWhitespaces->onSave();
     EnableAutoIndent->onSave();
     EnableScrollToExceptionLine->onSave();
@@ -178,6 +178,7 @@ void DlgSettingsEditorImp::loadSettings()
 {
     EnableLineNumber->onRestore();
     EnableFolding->onRestore();
+    EnableIndentMarkers->onRestore();
     EnableTrimTrailingWhitespaces->onRestore();
     EnableAutoIndent->onRestore();
     EnableScrollToExceptionLine->onRestore();

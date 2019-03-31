@@ -119,6 +119,9 @@ private:
     LineMarkerArea* lineNumberArea;
     struct TextEditorP* d;
 
+    void paintIndentMarkers(QPaintEvent *e);
+    void paintFoldedTextMarker(QPaintEvent *e);
+
     friend class SyntaxHighlighter;
     friend class LineMarkerArea;
 };
