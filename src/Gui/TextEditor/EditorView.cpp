@@ -479,6 +479,7 @@ bool EditorView::open(const QString& fileName)
     for (EditorViewWrapper *wrap : editWrappers) {
         if (wrap->owner() == this) {
             thisWrapper = wrap;
+            newWrapper = wrap;
             break;
         }
         newWrapper = wrap;
