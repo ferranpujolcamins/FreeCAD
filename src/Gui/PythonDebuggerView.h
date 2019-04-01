@@ -31,7 +31,12 @@
 #include <frameobject.h>
 #include <QVariant>
 
+QT_BEGIN_NAMESPACE
 class QVBoxLayout;
+class QTreeView;
+class QLineEdit;
+QT_END_NAMESPACE
+
 namespace  Base {
     class PyException;
     class PyExceptionInfo;
@@ -78,6 +83,25 @@ private:
     void initButtons(QVBoxLayout *vLayout);
     PythonDebuggerViewP *d;
 };
+
+// ------------------------------------------------------------------------------
+
+class WatchWindow : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit WatchWindow(QWidget *parent);
+    virtual ~WatchWindow();
+
+private Q_SLOTS:
+    void returnPressed();
+    void onCustomContextMenu(const QPoint &point);
+
+private:
+    QLineEdit *m_lineEdit;
+    QTreeView *m_treeView;
+};
+
 
 //-------------------------------------------------------------------------------
 
@@ -211,14 +235,16 @@ private:
 };
 
 // ---------------------------------------------------------------------------------
-
-class VariableTreeModel : public QAbstractItemModel
+class VarTreeModelBase : public QAbstractItemModel
 {
     Q_OBJECT
-
 public:
-    VariableTreeModel(QObject *parent = 0);
-    ~VariableTreeModel();
+    VarTreeModelBase(QObject *parent = 0);
+    virtual ~VarTreeModelBase();
+
+    void scanObject(PyObject *startObject, VariableTreeItem *parentItem,
+                    int depth, bool noBuiltins);
+    VariableTreeItem *m_rootItem;
 
     QVariant data(const QModelIndex &index, int role) const;
     Qt::ItemFlags flags(const QModelIndex &index) const;
@@ -241,21 +267,57 @@ public:
     VariableTreeItem *getItem(const QModelIndex &index) const;
 
 public Q_SLOTS:
-    void clear();
+    virtual void clear() = 0;
 
-private Q_SLOTS:
-    void updateVariables(PyFrameObject *frame);
+protected Q_SLOTS:
+    virtual void updateVariables(PyFrameObject *frame) = 0;
     void lazyLoad(const QModelIndex &parent);
     void lazyLoad(VariableTreeItem *parentItem);
+};
+
+// ---------------------------------------------------------------------------------
+
+class VariableTreeModel : public VarTreeModelBase
+{
+    Q_OBJECT
+
+public:
+    VariableTreeModel(QObject *parent = 0);
+    ~VariableTreeModel();
+
+public Q_SLOTS:
+    void clear();
+
+protected Q_SLOTS:
+    void updateVariables(PyFrameObject *frame);
 
 private:
     //void setupModelData(const QStringList &lines, VariableTreeItem *parent);
-    void scanObject(PyObject *startObject, VariableTreeItem *parentItem,
-                    int depth, bool noBuiltins);
-    VariableTreeItem *m_rootItem;
     VariableTreeItem *m_localsItem;
     VariableTreeItem *m_globalsItem;
     //VariableTreeItem *m_builtinsItem;
+};
+
+// ----------------------------------------------------------------------
+
+class WatchModel : public VarTreeModelBase
+{
+    Q_OBJECT
+public:
+    WatchModel(QObject *parent = 0),
+    ~WatchModel();
+
+    void addItem(QString name);
+    void removeItem(QString name);
+
+public Q_SLOTS:
+    void clear();
+
+protected Q_SLOTS:
+    void updateVariables(PyFrameObject *frame);
+
+private:
+    QList<VariableTreeItem*> m_items;
 };
 
 } // namespace DockWnd
