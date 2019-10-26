@@ -90,6 +90,7 @@ generate_from_xml(ExtensionPy)
 generate_from_xml(ExtensionContainerPy)
 generate_from_xml(DocumentObjectExtensionPy)
 generate_from_xml(GroupExtensionPy)
+generate_from_xml(LinkBaseExtensionPy)
 generate_from_xml(DocumentObjectGroupPy)
 generate_from_xml(GeoFeaturePy)
 generate_from_xml(GeoFeatureGroupExtensionPy)
@@ -108,6 +109,7 @@ SET(FreeCADApp_XML_SRCS
     ExtensionContainerPy.xml
     DocumentObjectExtensionPy.xml
     GroupExtensionPy.xml
+    LinkBaseExtensionPy.xml
     DocumentObjectGroupPy.xml
     DocumentObjectPy.xml
     GeoFeaturePy.xml
@@ -166,6 +168,8 @@ SET(Document_CPP_SRCS
     MaterialObject.cpp
     MergeDocuments.cpp
     TextDocument.cpp
+    Link.cpp
+    LinkBaseExtensionPyImp.cpp
 )
 
 SET(Document_HPP_SRCS
@@ -181,6 +185,7 @@ SET(Document_HPP_SRCS
     DocumentObserver.h
     DocumentObserverPython.h
     Expression.h
+    ExpressionParser.h
     ExpressionVisitors.h
     FeatureCustom.h
     FeaturePython.h
@@ -204,6 +209,7 @@ SET(Document_HPP_SRCS
     MaterialObject.h
     MergeDocuments.h
     TextDocument.h
+    Link.h
 )
 SET(Document_SRCS
     ${Document_CPP_SRCS}
@@ -273,6 +279,7 @@ SET(FreeCADApp_CPP_SRCS
     ${PythonDebugger_CPP_SRCS}
     Application.cpp
     ApplicationPy.cpp
+    AutoTransaction.cpp
     Branding.cpp
     ColorModel.cpp
     ComplexGeoData.cpp
@@ -287,6 +294,7 @@ SET(FreeCADApp_HPP_SRCS
     ${Properties_HPP_SRCS}
     ${PythonDebugger_HPP_SRCS}
     Application.h
+    AutoTransaction.h
     Branding.h
     ColorModel.h
     ComplexGeoData.h
@@ -304,20 +312,22 @@ SET(FreeCADApp_SRCS
     PreCompiled.h
 )
 
-if(BUILD_USE_PCH)
+if(FREECAD_USE_PCH)
     add_definitions(-D_PreComp_)
     ADD_MSVC_PRECOMPILED_HEADER(FreeCADApp PreCompiled.h PreCompiled.cpp FreeCADApp_CPP_SRCS)
-endif(BUILD_USE_PCH)
+endif(FREECAD_USE_PCH)
 
 add_library(FreeCADApp SHARED ${FreeCADApp_SRCS})
 
 target_link_libraries(FreeCADApp ${FreeCADApp_LIBS})
 
+add_dependencies(FreeCADApp fc_version)
+
 SET_BIN_DIR(FreeCADApp FreeCADApp)
 
 if(WIN32)
     INSTALL(TARGETS FreeCADApp
-        RUNTIME DESTINATION bin
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 else(WIN32)

@@ -114,6 +114,31 @@ PyException::PyException():
     _init();
 }
 
+PyException::PyException(const Py::Object &obj) :
+    Exception(),
+    _offset(-1),
+    _pyType(nullptr),
+    _pyValue(nullptr),
+    _pyTraceback(nullptr)
+{
+    // This should be done in the constructor because when doing
+    // in the destructor it's not always clear when it is called
+    // and thus may clear a Python exception when it should not.
+    PyGILStateLocker locker;
+
+    _pyState = PyThreadState_GET();
+    _pyValue = (PyObject*)obj.ptr();
+    if (_pyValue)
+        _pyType = _pyValue->ob_type;
+
+    _sErrMsg = obj.as_string();
+    // WARNING: we are assuming that python type object will never be
+    // destroyed, so we don't keep reference here to save book-keeping in
+    // our copy constructor and destructor
+    //_exceptionType = (PyObject*)obj.ptr()->ob_type;
+    //_errorType = obj.ptr()->ob_type->tp_name;
+}
+
 // set exception from tracer function (ie within debugger)
 PyException::PyException(PyObject *tracebackArg) :
     Exception(),
@@ -152,7 +177,7 @@ PyException::PyException(const PyException &other) :
 
 // helper function for construtors, should never be called from another method
 void PyException::_init()
-{
+{    
     // calculate lineNr, functionName, fileName
     if (_pyTraceback && PyTraceBack_Check(_pyTraceback)) { // no traceback when in global space
         PyTracebackObject* tb = (PyTracebackObject*)_pyTraceback;
@@ -167,7 +192,9 @@ void PyException::_init()
         _file = filename;
 
     } else if (_pyValue) {
-        // in global space
+        // in global space, we don't get here when its a traceback
+        // base class check setPyObject
+        setPyObject(PP_PyDict_Object);
 
 #if PY_MAJOR_VERSION >= 3
         // hack, py3.7 needs to call args before filename?
@@ -176,34 +203,39 @@ void PyException::_init()
 #endif
 
         // linenr global space
-        PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
-        if (lineobj) {
-            long line = PY_AS_LONG(lineobj);
-            Py_DECREF(lineobj);
-            _line = static_cast<int>(line);
-        } else
-            PyErr_Clear();
+        if (_line == 0) {
+            PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
+            if (lineobj) {
+                long line = PY_AS_LONG(lineobj);
+                Py_DECREF(lineobj);
+                _line = static_cast<int>(line);
+            } else
+                PyErr_Clear();
+        }
 
         // fileName global space
-        PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
-        if (filenameobj) {
-            if (PyBytes_Check(filenameobj)) {
-                const char *msg = PyBytes_AS_STRING(filenameobj);
-                _file = msg;
-            } else if (PyUnicode_Check(filenameobj)) {
+        if (_file.empty()) {
+            PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
+            if (filenameobj) {
+                if (PyBytes_Check(filenameobj)) {
+                    const char *msg = PyBytes_AS_STRING(filenameobj);
+                    _file = msg;
+                } else if (PyUnicode_Check(filenameobj)) {
 #if PY_MAJOR_VERSION >= 3
-                const char *msg = PyUnicode_AsUTF8(filenameobj);
+                    const char *msg = PyUnicode_AsUTF8(filenameobj);
 #else
-                PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
-                const char *msg = PyBytes_AsString(pyBytes);
-                Py_XDECREF(pyBytes);
+                    PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
+                    const char *msg = PyBytes_AsString(pyBytes);
+                    Py_XDECREF(pyBytes);
 #endif
-                _file = msg;
-            }
-            Py_XDECREF(filenameobj);
-        } else
-            PyErr_Clear();
+                    _file = msg;
+                }
+                Py_XDECREF(filenameobj);
+            } else
+                PyErr_Clear();
+        }
     }
+
     if (_pyValue) {
         // we get here regardless of traceback or not
 #if PY_MAJOR_VERSION >= 3
@@ -229,6 +261,7 @@ void PyException::_init()
 
     // make use of PyTools.c
     PP_Fetch_Error_Text();    /* fetch (and clear) exception */
+
     // restore refconts
     if (_pyType && _pyType->ob_refcnt < refType)
         _pyType->ob_refcnt = refType;
@@ -236,6 +269,7 @@ void PyException::_init()
         _pyValue->ob_refcnt = refValue;
     if (_pyTraceback && _pyTraceback->ob_refcnt < refTraceback)
         _pyTraceback->ob_refcnt = refTraceback;
+
 
     std::string prefix = PP_last_error_type; /* exception name text */
 //  prefix += ": ";
@@ -249,10 +283,25 @@ void PyException::_init()
     else
         _sErrMsg = error;
 #endif
-    _sErrMsg = error;
-    _errorType = prefix;
+    if (_sErrMsg.empty())
+        _sErrMsg = error;
+    if (_errorType.empty())
+        _errorType = prefix;
 
-    _stackTrace = PP_last_error_trace;     /* exception traceback text */
+    if (_pyType == nullptr)
+        _pyType = PP_last_exception_type;
+
+    if(PP_last_exception_type) {
+        // WARNING: we are assuming that python type object will never be
+        // destroyed, so we don't keep reference here to save book-keeping in
+        // our copy constructor and destructor
+        Py_DECREF(PP_last_exception_type);
+        PP_last_exception_type = 0;
+
+    }
+
+    if (_stackTrace.empty())
+        _stackTrace = PP_last_error_trace;     /* exception traceback text */
     PyErr_Clear(); // must be called to keep Python interpreter in a valid state (Werner)
 }
 
@@ -308,25 +357,35 @@ PyException &PyException::operator =(const PyException &other)
 
 void PyException::ThrowException(void)
 {
-    PyException myexcp = PyException();
+    PyException myexcp;
+    myexcp.ReportException();
+    myexcp.raiseException();
+}
 
+void PyException::raiseException() {
     PyGILStateLocker locker;
+
     if (PP_PyDict_Object!=NULL) {
         // delete the Python dict upon destruction of edict
         Py::Dict edict(PP_PyDict_Object, true);
         PP_PyDict_Object = 0;
 
-        if (!edict.hasKey("sclassname"))
-            throw myexcp;
-
-        std::string exceptionname = static_cast<std::string>(Py::String(edict.getItem("sclassname")));
-        if (!Base::ExceptionFactory::Instance().CanProduce(exceptionname.c_str()))
-            throw myexcp;
-
+        std::string exceptionname;
+        if (_exceptionType == Base::BaseExceptionFreeCADAbort)
+            edict.setItem("sclassname", 
+                    Py::String(typeid(Base::AbortException).name()));
+        if(_isReported)
+            edict.setItem("breported", Py::True());
         Base::ExceptionFactory::Instance().raiseException(edict.ptr());
     }
-    else
-        throw myexcp;
+
+    if (_exceptionType == Base::BaseExceptionFreeCADAbort) {
+        Base::AbortException e(_sErrMsg.c_str());
+        e.setReported(_isReported);
+        throw e;
+    }
+
+    throw *this;
 }
 
 const std::string PyException::getErrorType(bool extractName /*= false*/) const
@@ -342,8 +401,11 @@ const std::string PyException::getErrorType(bool extractName /*= false*/) const
 
 void PyException::ReportException (void) const
 {
-    Base::Console().Error("%s%s: %s\n",
-        _stackTrace.c_str(), _errorType.c_str(), what());
+    if (!_isReported) {
+        _isReported = true;
+        Base::Console().Error("%s%s: %s\n",
+            _stackTrace.c_str(), _errorType.c_str(), what());
+    }
 }
 
 // ---------------------------------------------------------
@@ -815,13 +877,15 @@ void InterpreterSingleton::runInteractiveString(const char *sCmd)
         PyErr_Fetch(&errobj, &errdata, &errtraceback);
 
         RuntimeError exc(""); // do not use PyException since this clears the error indicator
+        if (errdata) {
 #if PY_MAJOR_VERSION >= 3
-        if (PyUnicode_Check(errdata))
-            exc.setMessage(PyUnicode_AsUTF8(errdata));
+            if (PyUnicode_Check(errdata))
+                exc.setMessage(PyUnicode_AsUTF8(errdata));
 #else
-        if (PyString_Check(errdata))
-            exc.setMessage(PyString_AsString(errdata));
+            if (PyString_Check(errdata))
+                exc.setMessage(PyString_AsString(errdata));
 #endif
+        }
         PyErr_Restore(errobj, errdata, errtraceback);
         if (PyErr_Occurred())
             PyErr_Print();
@@ -953,6 +1017,19 @@ const char* InterpreterSingleton::init(int argc,char *argv[])
         // https://bugs.python.org/issue17797#msg197474
         //
         Py_Initialize();
+        const char* virtualenv = getenv("VIRTUAL_ENV");
+        if (virtualenv) {
+            PyRun_SimpleString(
+                "# Check for virtualenv, and activate if present.\n"
+                "# See https://virtualenv.pypa.io/en/latest/userguide/#using-virtualenv-without-bin-python\n"
+                "import os\n"
+                "import sys\n"
+                "base_path = os.getenv(\"VIRTUAL_ENV\")\n"
+                "if not base_path is None:\n"
+                "    activate_this = os.path.join(base_path, \"bin\", \"activate_this.py\")\n"
+                "    exec(open(activate_this).read(), {'__file__':activate_this})\n"
+            );
+        }
         PyEval_InitThreads();
 #if PY_MAJOR_VERSION >= 3
         size_t size = argc;

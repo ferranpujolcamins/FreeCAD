@@ -71,13 +71,18 @@ DrawProjGroup::DrawProjGroup(void)
     Source.setScope(App::LinkScope::Global);
     ADD_PROPERTY_TYPE(Anchor, (0), group, App::Prop_None, "The root view to align projections with");
     Anchor.setScope(App::LinkScope::Global);
+    
+    
     ProjectionType.setEnums(ProjectionTypeEnums);
-    ADD_PROPERTY(ProjectionType, ((long)0));
+    ADD_PROPERTY_TYPE(ProjectionType, ((long)getDefProjConv()), group, 
+                                App::Prop_None, "First or Third Angle projection");
 
-    ADD_PROPERTY_TYPE(AutoDistribute ,(autoDist),agroup,App::Prop_None,"Distribute Views Automatically or Manually");
+    ADD_PROPERTY_TYPE(AutoDistribute ,(autoDist),agroup,
+                                App::Prop_None,"Distribute Views Automatically or Manually");
     ADD_PROPERTY_TYPE(spacingX, (15), agroup, App::Prop_None, "Horizontal spacing between views");
     ADD_PROPERTY_TYPE(spacingY, (15), agroup, App::Prop_None, "Vertical spacing between views");
     Rotation.setStatus(App::Property::Hidden,true);   //DPG does not rotate
+    Caption.setStatus(App::Property::Hidden,true);
 
 }
 
@@ -105,8 +110,13 @@ void DrawProjGroup::onChanged(const App::Property* prop)
 //            }
         }
         if (prop == &Scale) {
-            updateChildren();
+            updateChildrenScale();
         }
+
+        if (prop == &ProjectionType) {
+            updateChildrenEnforce();
+        }
+
         if (prop == &Source) {
             updateChildrenSource();
         }
@@ -165,14 +175,8 @@ App::DocumentObjectExecReturn *DrawProjGroup::execute(void)
         //no anchor yet.  nothing to do.
         return DrawViewCollection::execute();
     }
-    
-//    for (auto& v: Views.getValues()) {          //is this needed here? Up to DPGI to keep up to date. 
-//        v->recomputeFeature();
-//    }
 
-    for (auto& item: getViewsAsDPGI()) {
-        item->autoPosition();
-    }
+    autoPositionChildren();
 
     return DrawViewCollection::execute();
 }
@@ -390,6 +394,10 @@ App::DocumentObject * DrawProjGroup::addProjection(const char *viewProjType)
     DrawProjGroupItem *view( nullptr );
     std::pair<Base::Vector3d,Base::Vector3d> vecs;
 
+    DrawPage* dp = findParentPage();
+    if (dp == nullptr) {
+        Base::Console().Error("DPG:addProjection - %s - DPG is not on a page!\n",getNameInDocument());
+    }
 
     if ( checkViewProjType(viewProjType) && !hasProjection(viewProjType) ) {
         std::string FeatName = getDocument()->getUniqueObjectName("ProjItem");
@@ -403,32 +411,32 @@ App::DocumentObject * DrawProjGroup::addProjection(const char *viewProjType)
                                     getNameInDocument(),viewProjType);
             throw Base::TypeError("Error: new projection is not a DPGI!");
         }
-        addView(view);                            //from DrawViewCollection
-        view->Source.setValues( Source.getValues() );
-        view->Scale.setValue( getScale() );
-        view->Type.setValue( viewProjType );
-        view->Label.setValue( viewProjType );
-        view->Source.setValues( Source.getValues() );
-        if (strcmp(viewProjType, "Front") != 0 ) {  //not Front!
-            vecs = getDirsFromFront(view);
-            view->Direction.setValue(vecs.first);
-            view->RotationVector.setValue(vecs.second);
-            view->recomputeFeature();
-        } else {  //Front
-            Anchor.setValue(view);
-            Anchor.purgeTouched();
-            view->LockPosition.setValue(true);  //lock "Front" position within DPG (note not Page!).
-            view->LockPosition.setStatus(App::Property::ReadOnly,true); //Front should stay locked.
-            App::GetApplication().signalChangePropertyEditor(view->LockPosition);
-            view->LockPosition.purgeTouched();
-            requestPaint();   //make sure the group object is on the Gui page
+        if (view != nullptr) {                        //coverity CID 151722
+            addView(view);                            //from DrawViewCollection
+            view->Source.setValues( Source.getValues() );
+            view->Scale.setValue( getScale() );
+            view->Type.setValue( viewProjType );
+            view->Label.setValue( viewProjType );
+            view->Source.setValues( Source.getValues() );
+            if (strcmp(viewProjType, "Front") != 0 ) {  //not Front!
+                vecs = getDirsFromFront(view);
+                view->Direction.setValue(vecs.first);
+                view->RotationVector.setValue(vecs.second);
+                view->recomputeFeature();
+            } else {  //Front
+                Anchor.setValue(view);
+                Anchor.purgeTouched();
+                view->LockPosition.setValue(true);  //lock "Front" position within DPG (note not Page!).
+                view->LockPosition.setStatus(App::Property::ReadOnly,true); //Front should stay locked.
+                view->LockPosition.purgeTouched();
+                requestPaint();   //make sure the group object is on the Gui page
+            }
+        //        addView(view);                            //from DrawViewCollection
+        //        if (view != getAnchor()) {                //anchor is done elsewhere
+        //            view->recomputeFeature();
+        //        }
         }
-//        addView(view);                            //from DrawViewCollection
-//        if (view != getAnchor()) {                //anchor is done elsewhere
-//            view->recomputeFeature();
-//        }
     }
-
     return view;
 }
 
@@ -689,8 +697,16 @@ int DrawProjGroup::getViewIndex(const char *viewTypeCStr) const
     int result = 4;                                        //default to front view's position
     // Determine layout - should be either "First Angle" or "Third Angle"
     const char* projType;
+    DrawPage* dp = findParentPage();
     if (ProjectionType.isValue("Default")) {
-        projType = findParentPage()->ProjectionType.getValueAsString();
+        if (dp != nullptr) {
+            projType = dp->ProjectionType.getValueAsString();
+        } else {
+            Base::Console().Warning("DPG: %s - can not find parent page. Using default Projection Type. (1)\n",
+                                    getNameInDocument());
+            int projConv = getDefProjConv();
+            projType = ProjectionTypeEnums[projConv + 1];
+        }
     } else {
         projType = ProjectionType.getValueAsString();
     }
@@ -744,7 +760,17 @@ void DrawProjGroup::arrangeViewPointers(DrawProjGroupItem *viewPtrs[10]) const
     // Determine layout - should be either "First Angle" or "Third Angle"
     const char* projType;
     if (ProjectionType.isValue("Default")) {
-        projType = findParentPage()->ProjectionType.getValueAsString();
+        DrawPage* dp = findParentPage();
+        if (dp != nullptr) {
+            projType = dp->ProjectionType.getValueAsString();
+        } else {
+            Base::Console().Error("DPG:arrangeViewPointers - %s - DPG is not on a page!\n",
+                                    getNameInDocument());
+            Base::Console().Warning("DPG:arrangeViewPointers - using system default Projection Type\n",
+                                    getNameInDocument());
+            int projConv = getDefProjConv();
+            projType = ProjectionTypeEnums[projConv + 1];
+        }
     } else {
         projType = ProjectionType.getValueAsString();
     }
@@ -792,12 +818,15 @@ void DrawProjGroup::arrangeViewPointers(DrawProjGroupItem *viewPtrs[10]) const
                 } else if (strcmp(viewTypeCStr, "FrontBottomRight") == 0) {
                     viewPtrs[thirdAngle ? 9 : 0] = oView;
                 } else {
-                    throw Base::TypeError("Unknown view type in DrawProjGroup::arrangeViewPointers()");
+                    Base::Console().Warning("DPG: %s - unknown view type: %s. \n",
+                                            getNameInDocument(),viewTypeCStr);
+                    throw Base::TypeError("Unknown view type in DrawProjGroup::arrangeViewPointers.");
                 }
             }
         }
     } else {
-        throw Base::ValueError("Unknown view type in DrawProjGroup::arrangeViewPointers()");
+        Base::Console().Warning("DPG: %s - unknown Projection convention: %s\n",getNameInDocument(),projType);
+        throw Base::ValueError("Unknown Projection convention in DrawProjGroup::arrangeViewPointers");
     }
 }
 
@@ -822,19 +851,45 @@ void DrawProjGroup::makeViewBbs(DrawProjGroupItem *viewPtrs[10],
         }
 }
 
-/*! 
- * tell children DPGIs that parent DPG has changed Scale
- */
-void DrawProjGroup::updateChildren(void)
+void DrawProjGroup::recomputeChildren(void)
+{
+//    Base::Console().Message("DPG::recomputeChildren()\n");
+    for( const auto it : Views.getValues() ) {
+        auto view( dynamic_cast<DrawProjGroupItem *>(it) );
+        if (view == nullptr) {
+            throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
+        } else {
+            view->recomputeFeature();
+        }
+    }
+}
+
+void DrawProjGroup::autoPositionChildren(void)
 {
     for( const auto it : Views.getValues() ) {
         auto view( dynamic_cast<DrawProjGroupItem *>(it) );
         if (view == nullptr) {
-            //if an element in Views is not a DPGI, something really bad has happened somewhere
-            Base::Console().Log("PROBLEM - DPG::updateChildren - non DPGI entry in Views! %s\n",
-                                    getNameInDocument());
             throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
         } else {
+            view->autoPosition();
+        }
+    }
+}
+
+/*! 
+ * tell children DPGIs that parent DPG has changed Scale
+ */
+void DrawProjGroup::updateChildrenScale(void)
+{
+//    Base::Console().Message("DPG::updateChildrenScale\n");
+    for( const auto it : Views.getValues() ) {
+        auto view( dynamic_cast<DrawProjGroupItem *>(it) );
+        if (view == nullptr) {
+            //if an element in Views is not a DPGI, something really bad has happened somewhere
+            Base::Console().Log("PROBLEM - DPG::updateChildrenScale - non DPGI entry in Views! %s\n",
+                                    getNameInDocument());
+            throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
+        } else  if(view->Scale.getValue()!=Scale.getValue()) {
             view->Scale.setValue(Scale.getValue());
         }
     }
@@ -852,7 +907,7 @@ void DrawProjGroup::updateChildrenSource(void)
             Base::Console().Log("PROBLEM - DPG::updateChildrenSource - non DPGI entry in Views! %s\n",
                                     getNameInDocument());
             throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
-        } else {
+        } else if (view->Source.getValues() != Source.getValues()) {
             view->Source.setValues(Source.getValues());
         }
     }
@@ -871,6 +926,21 @@ void DrawProjGroup::updateChildrenLock(void)
             Base::Console().Log("PROBLEM - DPG::updateChildrenLock - non DPGI entry in Views! %s\n",
                                     getNameInDocument());
             throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
+        }
+    }
+}
+
+void DrawProjGroup::updateChildrenEnforce(void)
+{
+    for( const auto it : Views.getValues() ) {
+        auto view( dynamic_cast<DrawProjGroupItem *>(it) );
+        if (view == nullptr) {
+            //if an element in Views is not a DPGI, something really bad has happened somewhere
+            Base::Console().Log("PROBLEM - DPG::updateChildrenEnforce - non DPGI entry in Views! %s\n",
+                                    getNameInDocument());
+            throw Base::TypeError("Error: projection in DPG list is not a DPGI!");
+        } else {
+            view->enforceRecompute();
         }
     }
 }
@@ -1143,7 +1213,6 @@ void DrawProjGroup::spinCCW()
     updateSecondaryDirs();
 }
 
-
 std::vector<DrawProjGroupItem*> DrawProjGroup::getViewsAsDPGI()
 {
     std::vector<DrawProjGroupItem*> result;
@@ -1153,6 +1222,14 @@ std::vector<DrawProjGroupItem*> DrawProjGroup::getViewsAsDPGI()
         result.push_back(item);
     }
     return result;
+}
+
+int DrawProjGroup::getDefProjConv(void) const
+{
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
+                                                               GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
+    int defProjConv = hGrp->GetInt("ProjectionAngle",0);
+    return defProjConv;
 }
 
 /*!

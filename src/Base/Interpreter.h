@@ -53,6 +53,40 @@
 
 #include "Exception.h"
 
+/** Helper macro to obtain callable from an object
+ *
+ * @param _pyobj: PyObject pointer
+ * @param _name: the callable string name
+ * @param _var: the callable variable to be assigned
+ *
+ *  See FeaturePythonImp::init() for example usage
+ */
+#define FC_PY_GetCallable(_pyobj,_name,_var) \
+    do {\
+        _var = Py::Object();\
+        if(PyObject_HasAttrString(_pyobj, _name)) {\
+            Py::Object _obj(PyObject_GetAttrString (_pyobj, _name), true);\
+            if(_obj.isCallable())\
+                _var = _obj;\
+        }\
+    }while(0)
+
+/** Helper macro to obtain attribute from an object
+ *
+ * @param _pyobj: PyObject pointer
+ * @param _name: the attribute string name
+ * @param _var: the attribute variable to be assigned
+ *
+ *  See FeaturePythonImp::init() for example usage
+ */
+#define FC_PY_GetObject(_pyobj,_name,_var) \
+    do {\
+        _var = Py::Object();\
+        if(PyObject_HasAttrString(_pyobj, _name))\
+            _var = Py::asObject(PyObject_GetAttrString (_pyobj, _name));\
+    }while(0)
+
+
 namespace Base {
 
     using std::string;
@@ -75,12 +109,15 @@ protected:
 
 public:
     /// constructor does the whole job
-    explicit PyException();
+    explicit PyException(void);
     PyException(PyObject *tracebackArg);
     PyException(const PyException &other);
+    PyException(const Py::Object &obj);
     ~PyException() throw();
 
     PyException& operator =(const PyException &other);
+
+    void raiseException();
     
     /// this method determines if the original exception
     /// can be reconstructed or not, if yes throws the reconstructed version
@@ -88,6 +125,7 @@ public:
     static void ThrowException(void);
 
     ///  this function returns the stack trace
+<<<<<<< HEAD
     const std::string &getStackTrace(void) const { return _stackTrace; }
 
     /// getErrorType
@@ -95,22 +133,27 @@ public:
     ///   Gets to typename as reported by python <class '*PyExcClassname'>
     /// if extractName == true
     ///   Gets type name minus <class '*PyExcClassName*'> -> PyExcClassname
-    const std::string getErrorType(bool extractName = false) const;
+    const std::string getErrorType(bool extractName = false) const override;
 
     ///   At what column the exception happened, example syntax err at 7th char
     int getOffset() const { return _offset; }
 
-    void ReportException (void) const;
+    void ReportException (void) const override;
+    virtual const PyObject *getPyExceptionType(void) const override {return _pyType;}
 
 protected:
     std::string _stackTrace;
     std::string _errorType;
+
     int _offset;
     PyObject *_pyType, *_pyValue, *_pyTraceback;
     PyThreadState *_pyState;
 
     void _clone(const PyException &other);
     void _init();
+
+private:
+    //PyObject *_exceptionType;
 };
 
 /**
@@ -168,6 +211,20 @@ private:
     PyObject *getAttr(const char *attr) const;
     PyObject *getItem(const char *attr) const;
 };
+
+inline Py::Object pyCall(PyObject *callable, PyObject *args=0) {
+    PyObject *result = PyObject_CallObject(callable, args);
+    if(!result)
+        throw Py::Exception();
+    return Py::asObject(result);
+}
+
+inline Py::Object pyCallWithKeywords(PyObject *callable, PyObject *args, PyObject *kwds=0) {
+    PyObject *result = PyObject_Call(callable, args, kwds);
+    if(!result)
+        throw Py::Exception();
+    return Py::asObject(result);
+}
 
 /**
  * The SystemExitException is thrown if the Python-internal PyExc_SystemExit exception

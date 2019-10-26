@@ -62,7 +62,20 @@ Tessellation::Tessellation(QWidget* parent)
     connect(buttonGroup, SIGNAL(buttonClicked(int)),
             this, SLOT(meshingMethod(int)));
 
+    ParameterGrp::handle handle = App::GetApplication().GetParameterGroupByPath
+        ("User parameter:BaseApp/Preferences/Mod/Mesh/Meshing/Standard");
+    double value = ui->spinSurfaceDeviation->value().getValue();
+    value = handle->GetFloat("LinearDeflection", value);
+    double angle = ui->spinAngularDeviation->value().getValue();
+    angle = handle->GetFloat("AngularDeflection", angle);
+    bool relative = ui->relativeDeviation->isChecked();
+    relative = handle->GetBool("RelativeLinearDeflection", relative);
+    ui->relativeDeviation->setChecked(relative);
+
     ui->spinSurfaceDeviation->setMaximum(INT_MAX);
+    ui->spinSurfaceDeviation->setValue(value);
+    ui->spinAngularDeviation->setValue(angle);
+
     ui->spinMaximumEdgeLength->setRange(0, INT_MAX);
 
     // set the standard method
@@ -92,7 +105,6 @@ Tessellation::Tessellation(QWidget* parent)
     }
 
     meshingMethod(buttonGroup->checkedId());
-    findShapes();
 }
 
 Tessellation::~Tessellation()
@@ -170,18 +182,18 @@ void Tessellation::changeEvent(QEvent *e)
     QWidget::changeEvent(e);
 }
 
-void Tessellation::findShapes()
+std::list<App::DocumentObjectT> Tessellation::findShapes()
 {
+    std::list<App::DocumentObjectT> shapeObjects;
     App::Document* activeDoc = App::GetApplication().getActiveDocument();
-    if (!activeDoc) return;
+    if (!activeDoc) return shapeObjects;
     Gui::Document* activeGui = Gui::Application::Instance->getDocument(activeDoc);
-    if (!activeGui) return;
+    if (!activeGui) return shapeObjects;
 
     this->document = QString::fromLatin1(activeDoc->getName());
     std::vector<Part::Feature*> objs = activeDoc->getObjectsOfType<Part::Feature>();
 
     double edgeLen = 0;
-    bool foundSelection = false;
     for (std::vector<Part::Feature*>::iterator it = objs.begin(); it!=objs.end(); ++it) {
         const TopoDS_Shape& shape = (*it)->Shape.getValue();
         if (shape.IsNull()) continue;
@@ -197,31 +209,22 @@ void Tessellation::findShapes()
             edgeLen = std::max<double>(edgeLen, bbox.LengthX());
             edgeLen = std::max<double>(edgeLen, bbox.LengthY());
             edgeLen = std::max<double>(edgeLen, bbox.LengthZ());
-            QString label = QString::fromUtf8((*it)->Label.getValue());
-            QString name = QString::fromLatin1((*it)->getNameInDocument());
-            
-            QTreeWidgetItem* child = new QTreeWidgetItem();
-            child->setText(0, label);
-            child->setToolTip(0, label);
-            child->setData(0, Qt::UserRole, name);
-            Gui::ViewProvider* vp = activeGui->getViewProvider(*it);
-            if (vp) child->setIcon(0, vp->getIcon());
-            ui->treeWidget->addTopLevelItem(child);
+
             if (Gui::Selection().isSelected(*it)) {
-                child->setSelected(true);
-                foundSelection = true;
+                App::DocumentObjectT objT(*it);
+                shapeObjects.push_back(objT);
             }
         }
     }
 
     ui->spinMaximumEdgeLength->setValue(edgeLen/10);
-    if (foundSelection)
-        ui->treeWidget->hide();
+    return shapeObjects;
 }
 
 bool Tessellation::accept()
 {
-    if (ui->treeWidget->selectedItems().isEmpty()) {
+    std::list<App::DocumentObjectT> shapeObjects = findShapes();
+    if (shapeObjects.empty()) {
         QMessageBox::critical(this, windowTitle(),
             tr("Select a shape for meshing, first."));
         return false;
@@ -240,12 +243,22 @@ bool Tessellation::accept()
 
         int method = buttonGroup->checkedId();
 
+        // Save parameters
+        if (method == 0) {
+            ParameterGrp::handle handle = App::GetApplication().GetParameterGroupByPath
+                ("User parameter:BaseApp/Preferences/Mod/Mesh/Meshing/Standard");
+            double value = ui->spinSurfaceDeviation->value().getValue();
+            handle->SetFloat("LinearDeflection", value);
+            double angle = ui->spinAngularDeviation->value().getValue();
+            handle->SetFloat("AngularDeflection", angle);
+            bool relative = ui->relativeDeviation->isChecked();
+            handle->SetBool("RelativeLinearDeflection", relative);
+        }
+
         activeDoc->openTransaction("Meshing");
-        QList<QTreeWidgetItem *> items = ui->treeWidget->selectedItems();
-        std::vector<Part::Feature*> shapes = Gui::Selection().getObjectsOfType<Part::Feature>();
-        for (QList<QTreeWidgetItem *>::iterator it = items.begin(); it != items.end(); ++it) {
-            shape = (*it)->data(0, Qt::UserRole).toString();
-            label = (*it)->text(0);
+        for (std::list<App::DocumentObjectT>::iterator it = shapeObjects.begin(); it != shapeObjects.end(); ++it) {
+            shape = QString::fromLatin1(it->getObjectName().c_str());
+            label = QString::fromUtf8(it->getObjectLabel().c_str());
 
             QString cmd;
             if (method == 0) { // Standard
@@ -273,7 +286,6 @@ bool Tessellation::accept()
                     "__shape__.Placement=__part__.getGlobalPlacement()\n"
                     "__mesh__.Mesh=MeshPart.meshFromShape(%3)\n"
                     "__mesh__.Label=\"%4 (Meshed)\"\n"
-                    "__mesh__.ViewObject.CreaseAngle=25.0\n"
                     "del __doc__, __mesh__, __part__, __shape__\n")
                     .arg(this->document)
                     .arg(shape)
@@ -292,7 +304,6 @@ bool Tessellation::accept()
                     "__shape__.Placement=__part__.getGlobalPlacement()\n"
                     "__mesh__.Mesh=MeshPart.meshFromShape(Shape=__shape__,MaxLength=%3)\n"
                     "__mesh__.Label=\"%4 (Meshed)\"\n"
-                    "__mesh__.ViewObject.CreaseAngle=25.0\n"
                     "del __doc__, __mesh__, __part__, __shape__\n")
                     .arg(this->document)
                     .arg(shape)
@@ -317,7 +328,6 @@ bool Tessellation::accept()
                         "__mesh__.Mesh=MeshPart.meshFromShape(Shape=__shape__,"
                         "Fineness=%3,SecondOrder=%4,Optimize=%5,AllowQuad=%6)\n"
                         "__mesh__.Label=\"%7 (Meshed)\"\n"
-                        "__mesh__.ViewObject.CreaseAngle=25.0\n"
                         "del __doc__, __mesh__, __part__, __shape__\n")
                         .arg(this->document)
                         .arg(shape)
@@ -337,7 +347,6 @@ bool Tessellation::accept()
                         "__mesh__.Mesh=MeshPart.meshFromShape(Shape=__shape__,"
                         "GrowthRate=%3,SegPerEdge=%4,SegPerRadius=%5,SecondOrder=%6,Optimize=%7,AllowQuad=%8)\n"
                         "__mesh__.Label=\"%9 (Meshed)\"\n"
-                        "__mesh__.ViewObject.CreaseAngle=25.0\n"
                         "del __doc__, __mesh__, __part__, __shape__\n")
                         .arg(this->document)
                         .arg(shape)

@@ -81,6 +81,11 @@ endif(MSVC)
 list(APPEND FreeCADGui_LIBS TextEditor)
 
 if (BUILD_QT5)
+
+    if (Qt5WebEngineWidgets_FOUND AND BUILD_WITH_CONDA)
+        add_definitions(-DQTWEBENGINE)
+    endif()
+
     include_directories(
         ${Qt5Core_INCLUDE_DIRS}
         ${Qt5Widgets_INCLUDE_DIRS}
@@ -99,6 +104,14 @@ if (BUILD_QT5)
         ${Qt5Network_LIBRARIES}
         ${Qt5UiTools_LIBRARIES}
     )
+    if(${Qt5WinExtras_FOUND})
+      include_directories(
+        ${Qt5WinExtras_INCLUDE_DIRS}
+      )
+      list(APPEND FreeCADGui_LIBS
+        ${Qt5WinExtras_LIBRARIES}
+      )
+    endif()
 else()
     include_directories(
         ${QT_INCLUDE_DIR}
@@ -110,11 +123,38 @@ else()
 endif()
 
 IF(SPNAV_FOUND)
-    if (BUILD_QT5 AND UNIX AND NOT APPLE)
+    if(SPNAV_USE_X11)
+      add_definitions(-DSPNAV_USE_X11)
+      if (BUILD_QT5 AND UNIX AND NOT APPLE)
         find_package(Qt5X11Extras REQUIRED)
         include_directories(${Qt5X11Extras_INCLUDE_DIRS})
         list(APPEND FreeCADGui_LIBS ${Qt5X11Extras_LIBRARIES})
-    endif()
+      endif()
+      find_package(X11 QUIET)
+      if (X11_FOUND)
+        list(APPEND FreeCADGui_LIBS
+            ${X11_X11_LIB}
+        )
+      endif(X11_FOUND)
+      SET(FreeCADGui_SDK_SRCS
+        3Dconnexion/GuiAbstractNativeEvent.cpp
+        3Dconnexion/GuiNativeEventLinuxX11.cpp
+        )
+      SET(FreeCADGui_SDK_MOC_HDRS
+        3Dconnexion/GuiAbstractNativeEvent.h
+        3Dconnexion/GuiNativeEventLinuxX11.h
+        )
+    else(SPNAV_USE_X11)
+      SET(FreeCADGui_SDK_SRCS
+        3Dconnexion/GuiAbstractNativeEvent.cpp
+        3Dconnexion/GuiNativeEventLinux.cpp
+      )
+      SET(FreeCADGui_SDK_MOC_HDRS
+        3Dconnexion/GuiAbstractNativeEvent.h
+        3Dconnexion/GuiNativeEventLinux.h
+      )
+    endif(SPNAV_USE_X11)
+    SOURCE_GROUP("3D connexion SDK" FILES ${FreeCADGui_SDK_SRCS})
 
     add_definitions(-DSPNAV_FOUND)
     include_directories(
@@ -123,12 +163,6 @@ IF(SPNAV_FOUND)
     list(APPEND FreeCADGui_LIBS
         ${SPNAV_LIBRARIES}
     )
-    find_package(X11 QUIET)
-    if (X11_FOUND)
-        list(APPEND FreeCADGui_LIBS
-            ${X11_X11_LIB}
-        )
-    endif(X11_FOUND)
 ENDIF(SPNAV_FOUND)
 
 IF(OCULUS_FOUND)
@@ -150,9 +184,17 @@ if(SHIBOKEN_INCLUDE_DIR)
     include_directories(
         ${SHIBOKEN_INCLUDE_DIR}
     )
-    list(APPEND FreeCADGui_LIBS
-        ${SHIBOKEN_LIBRARY}
-    )
+    if (SHIBOKEN_LIBRARY)
+        list(APPEND FreeCADGui_LIBS
+            ${SHIBOKEN_LIBRARY}
+        )
+    else (SHIBOKEN_LIBRARY)
+        if (TARGET Shiboken2::libshiboken)
+            list(APPEND FreeCADGui_LIBS
+                Shiboken2::libshiboken
+            )
+        endif (TARGET Shiboken2::libshiboken)
+    endif (SHIBOKEN_LIBRARY)
 endif(SHIBOKEN_INCLUDE_DIR)
 
 if(PYSIDE_INCLUDE_DIR)
@@ -161,9 +203,17 @@ if(PYSIDE_INCLUDE_DIR)
         ${PYSIDE_INCLUDE_DIR}/QtCore
         ${PYSIDE_INCLUDE_DIR}/QtGui
     )
-    list(APPEND FreeCADGui_LIBS
-        ${PYSIDE_LIBRARY}
-    )
+    if (PYSIDE_LIBRARY)
+        list(APPEND FreeCADGui_LIBS
+            ${PYSIDE_LIBRARY}
+        )
+    else (PYSIDE_LIBRARY)
+        if (TARGET PySide2::pyside2)
+            list(APPEND FreeCADGui_LIBS
+                PySide2::pyside2
+            )
+        endif (TARGET PySide2::pyside2)
+    endif (PYSIDE_LIBRARY)
     if (BUILD_QT5)
         include_directories(
             ${PYSIDE_INCLUDE_DIR}/QtWidgets
@@ -180,6 +230,9 @@ generate_from_xml(ViewProviderPy)
 generate_from_xml(ViewProviderDocumentObjectPy)
 generate_from_xml(WorkbenchPy)
 generate_from_xml(SelectionObjectPy)
+generate_from_xml(LinkViewPy)
+generate_from_xml(ViewProviderLinkPy)
+generate_from_xml(AxisOriginPy)
 
 generate_from_py(FreeCADGuiInit GuiInitScript.h)
 
@@ -191,6 +244,9 @@ SET(FreeCADGui_XML_SRCS
     WorkbenchPy.xml
     SelectionObjectPy.xml
     DocumentPy.xml
+    LinkViewPy.xml
+    ViewProviderLinkPy.xml
+    AxisOriginPy.xml
 )
 SOURCE_GROUP("XML" FILES ${FreeCADApp_XML_SRCS})
 
@@ -200,16 +256,26 @@ SET(FreeCADGui_SDK_SRCS
     3Dconnexion/I3dMouseParams.h
     3Dconnexion/MouseParameters.cpp
     3Dconnexion/MouseParameters.h
-    3Dconnexion/GuiApplicationNativeEventAwareWin32.cpp
+    3Dconnexion/GuiAbstractNativeEvent.cpp
+    3Dconnexion/GuiNativeEventWin32.cpp
 )
 SOURCE_GROUP("3D connexion SDK" FILES ${FreeCADGui_SDK_SRCS})
+SET(FreeCADGui_SDK_MOC_HDRS
+  3Dconnexion/GuiAbstractNativeEvent.h
+  3Dconnexion/GuiNativeEventWin32.h
+)
 endif(FREECAD_USE_3DCONNEXION AND MSVC)
 
 if(FREECAD_USE_3DCONNEXION AND APPLE)
 SET(FreeCADGui_SDK_SRCS
-    3Dconnexion/GuiApplicationNativeEventAwareMac.cpp
+    3Dconnexion/GuiAbstractNativeEvent.cpp
+    3Dconnexion/GuiNativeEventMac.cpp
 )
 SOURCE_GROUP("3D connexion SDK" FILES ${FreeCADGui_SDK_SRCS})
+SET(FreeCADGui_SDK_MOC_HDRS
+  3Dconnexion/GuiAbstractNativeEvent.h
+  3Dconnexion/GuiNativeEventMac.h
+)
 endif(FREECAD_USE_3DCONNEXION AND APPLE)
 
 set(Gui_MOC_HDRS
@@ -239,10 +305,11 @@ set(Gui_MOC_HDRS
     DlgMacroExecuteImp.h
     DlgMacroRecordImp.h
     DlgRunExternal.h
-    DlgEditFileIncludeProptertyExternal.h
+    DlgEditFileIncludePropertyExternal.h
     DlgMaterialPropertiesImp.h
     DlgOnlineHelpImp.h
     DlgParameterImp.h
+    DlgParameterFind.h
     DlgPreferencesImp.h
     DlgProjectInformationImp.h
     DlgProjectUtility.h
@@ -318,6 +385,10 @@ set(Gui_MOC_HDRS
     TaskView/TaskView.h
     DAGView/DAGView.h
     DAGView/DAGModel.h
+    TaskElementColors.h
+    DlgObjectSelection.h
+    DlgAddProperty.h
+    ${FreeCADGui_SDK_MOC_HDRS}
 )
 
 fc_wrap_cpp(Gui_MOC_SRCS ${Gui_MOC_HDRS})
@@ -359,6 +430,7 @@ SET(Gui_UIC_SRCS
     DlgMaterialProperties.ui
     DlgOnlineHelp.ui
     DlgParameter.ui
+    DlgParameterFind.ui
     DlgPreferences.ui
     DlgProjectInformation.ui
     DlgProjectUtility.ui
@@ -388,6 +460,9 @@ SET(Gui_UIC_SRCS
     TextureMapping.ui
     TaskView/TaskAppearance.ui
     TaskView/TaskSelectLinkProperty.ui
+    TaskElementColors.ui
+    DlgObjectSelection.ui
+    DlgAddProperty.ui
 )
 
 SET(Gui_RES_SRCS
@@ -419,6 +494,7 @@ SET(Command_CPP_SRCS
     CommandTest.cpp
     CommandView.cpp
     CommandStructure.cpp
+    CommandLink.cpp
 )
 SET(Command_SRCS
     ${Command_CPP_SRCS}
@@ -438,10 +514,11 @@ SET(Dialog_CPP_SRCS
     DlgInputDialogImp.cpp
     DlgMacroExecuteImp.cpp
     DlgRunExternal.cpp
-    DlgEditFileIncludeProptertyExternal.cpp
+    DlgEditFileIncludePropertyExternal.cpp
     DlgMacroRecordImp.cpp
     DlgMaterialPropertiesImp.cpp
     DlgParameterImp.cpp
+    DlgParameterFind.cpp
     DlgProjectInformationImp.cpp
     DlgProjectUtility.cpp
     DlgPropertyLink.cpp
@@ -459,6 +536,9 @@ SET(Dialog_CPP_SRCS
     DownloadItem.cpp
     DownloadManager.cpp
     DocumentRecovery.cpp
+    TaskElementColors.cpp
+    DlgObjectSelection.cpp
+    DlgAddProperty.cpp
 )
 
 SET(Dialog_HPP_SRCS
@@ -470,10 +550,11 @@ SET(Dialog_HPP_SRCS
     DlgInputDialogImp.h
     DlgMacroExecuteImp.h
     DlgRunExternal.h
-    DlgEditFileIncludeProptertyExternal.h
+    DlgEditFileIncludePropertyExternal.h
     DlgMacroRecordImp.h
     DlgMaterialPropertiesImp.h
     DlgParameterImp.h
+    DlgParameterFind.h
     DlgProjectInformationImp.h
     DlgProjectUtility.h
     DlgPropertyLink.h
@@ -491,6 +572,9 @@ SET(Dialog_HPP_SRCS
     DownloadItem.h
     DownloadManager.h
     DocumentRecovery.h
+    TaskElementColors.h
+    DlgObjectSelection.h
+    DlgAddProperty.h
 )
 
 SET(Dialog_SRCS
@@ -504,6 +588,7 @@ SET(Dialog_SRCS
     DlgAuthorization.ui
     DlgDisplayProperties.ui
     DlgInputDialog.ui
+    DlgAddProperty.ui
     DlgLocationAngle.ui
     DlgLocationPos.ui
     DlgMacroExecute.ui
@@ -511,6 +596,7 @@ SET(Dialog_SRCS
     DlgMacroRecord.ui
     DlgMaterialProperties.ui
     DlgParameter.ui
+    DlgParameterFind.ui
     DlgProjectInformation.ui
     DlgProjectUtility.ui
     DlgPropertyLink.ui
@@ -525,6 +611,8 @@ SET(Dialog_SRCS
     Placement.ui
     SceneInspector.ui
     TextureMapping.ui
+    TaskElementColors.ui
+    DlgObjectSelection.ui
 )
 SOURCE_GROUP("Dialog" FILES ${Dialog_SRCS})
 
@@ -849,6 +937,7 @@ SET(View3D_SRCS
     GLPainter.h
     MouseSelection.h
     NavigationStyle.h
+    GestureNavigationStyle.h
     SplitView3DInventor.h
     View.h
     View3DInventor.h
@@ -920,6 +1009,11 @@ SET(Viewprovider_CPP_SRCS
     ViewProviderOrigin.cpp
     ViewProviderMaterialObject.cpp
     ViewProviderTextDocument.cpp
+    ViewProviderLink.cpp
+    LinkViewPyImp.cpp
+    ViewProviderLinkPyImp.cpp
+    AxisOriginPyImp.cpp
+    AxisOrigin.cpp
 )
 SET(Viewprovider_SRCS
     ${Viewprovider_CPP_SRCS}
@@ -950,6 +1044,8 @@ SET(Viewprovider_SRCS
     ViewProviderOrigin.h
     ViewProviderMaterialObject.h
     ViewProviderTextDocument.h
+    ViewProviderLink.h
+    AxisOrigin.h
 )
 SOURCE_GROUP("View3D\\Viewprovider" FILES ${Viewprovider_SRCS})
 
@@ -969,6 +1065,7 @@ SET(Inventor_CPP_SRCS
     SoFCOffscreenRenderer.cpp
     SoFCSelection.cpp
     SoFCUnifiedSelection.cpp
+    SoFCSelectionContext.cpp
     SoFCSelectionAction.cpp
     SoFCVectorizeSVGAction.cpp
     SoFCVectorizeU3DAction.cpp
@@ -994,6 +1091,7 @@ SET(Inventor_SRCS
     SoFCOffscreenRenderer.h
     SoFCSelection.h
     SoFCUnifiedSelection.h
+    SoFCSelectionContext.h
     SoFCSelectionAction.h
     SoFCVectorizeSVGAction.h
     SoFCVectorizeU3DAction.h
@@ -1018,6 +1116,7 @@ SET(Widget_CPP_SRCS
     WidgetFactory.cpp
     Widgets.cpp
     Window.cpp
+    ViewParams.cpp
 )
 SET(Widget_HPP_SRCS
     FileDialog.h
@@ -1032,6 +1131,7 @@ SET(Widget_HPP_SRCS
     WidgetFactory.h
     Widgets.h
     Window.h
+    ViewParams.h
 )
 SET(Widget_SRCS
     ${Widget_CPP_SRCS}
@@ -1042,11 +1142,13 @@ SOURCE_GROUP("Widget" FILES ${Widget_SRCS})
 # The view sources
 SET(View_CPP_SRCS
     MDIView.cpp
+    MDIViewPy.cpp
     GraphvizView.cpp
     ActiveObjectList.cpp
 )
 SET(View_HPP_SRCS
     MDIView.h
+    MDIViewPy.h
     GraphvizView.h
     ActiveObjectList.h
 )
@@ -1137,6 +1239,7 @@ SET(FreeCADGui_SRCS
     GraphicsViewZoom.h
     GuiApplication.h
     GuiApplicationNativeEventAware.h
+    3Dconnexion/GuiAbstractNativeEvent.h
     GuiConsole.h
     InventorAll.h
     Macro.h
@@ -1153,6 +1256,7 @@ SET(FreeCADGui_SRCS
     ManualAlignment.h
     TransactionObject.h
     WinNativeGestureRecognizers.h
+    ${FreeCADGui_SDK_MOC_HDRS}
 )
 
 SET(FreeCADGui_SRCS
@@ -1214,10 +1318,10 @@ if(MSVC)
     )
 endif(MSVC)
 
-if (BUILD_USE_PCH)
+if (FREECAD_USE_PCH)
     add_definitions(-D_PreComp_)
     ADD_MSVC_PRECOMPILED_HEADER(FreeCADGui PreCompiled.h PreCompiled.cpp FreeCADGui_CPP_SRCS)
-endif(BUILD_USE_PCH)
+endif(FREECAD_USE_PCH)
 
 if (FREECAD_USE_QT_FILEDIALOG)
     set_source_files_properties(FileDialog.cpp PROPERTIES COMPILE_FLAGS -DUSE_QT_FILEDIALOG)
@@ -1230,21 +1334,27 @@ SET_BIN_DIR(FreeCADGui FreeCADGui)
 
 if(WIN32)
     INSTALL(TARGETS FreeCADGui
-        RUNTIME DESTINATION bin
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 else(WIN32)
     INSTALL(TARGETS FreeCADGui
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
-    INSTALL(FILES Icons/freecad.xpm
-        Icons/freecad-icon-16.png
-        Icons/freecad-icon-32.png
-        Icons/freecad-icon-48.png
-        Icons/freecad-icon-64.png
-        Icons/freecad.svg
-        Icons/freecad-doc.png
-        DESTINATION ${CMAKE_INSTALL_DATADIR}
-    )
+    #INSTALL(FILES Icons/freecad.xpm
+    #    Icons/freecad-icon-16.png
+    #    Icons/freecad-icon-32.png
+    #    Icons/freecad-icon-48.png
+    #    Icons/freecad-icon-64.png
+    #    Icons/freecad.svg
+    #    Icons/freecad-doc.png
+    #    DESTINATION ${CMAKE_INSTALL_DATADIR}
+    #)
+    INSTALL(FILES Icons/freecad-icon-16.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/16x16/apps RENAME freecad.png)
+    INSTALL(FILES Icons/freecad-icon-32.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/32x32/apps RENAME freecad.png)
+    INSTALL(FILES Icons/freecad-icon-48.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/48x48/apps RENAME freecad.png)
+    INSTALL(FILES Icons/freecad-icon-64.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/64x64/apps RENAME freecad.png)
+    INSTALL(FILES Icons/freecad.svg DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps)
+    INSTALL(FILES Icons/freecad.xpm DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pixmaps)
+    INSTALL(FILES Icons/freecad-doc.svg DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/mimetypes RENAME application-x-extension-fcstd.svg)
 endif(WIN32)
-

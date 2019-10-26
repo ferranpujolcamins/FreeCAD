@@ -85,13 +85,13 @@ public:
     void append(const QString &inputLine);
     const QStringList& values() const;
     void restart();
-		void markScratch( void );
-		void doScratch( void );
+    void markScratch( void );
+    void doScratch( void );
 
 private:
     QStringList                _history;
     QStringList::ConstIterator _it;
-		int                        _scratchBegin;
+    int                        _scratchBegin;
     QString                    _prefix;
 };
 
@@ -231,6 +231,8 @@ private:
     void insertPythonError (const QString&);
     void runSourceFromMimeData(const QString&);
     void appendOutput(const QString&, int);
+    void loadHistory() const;
+    void saveHistory() const;
 
 Q_SIGNALS:
     void pendingSource( void );
@@ -244,6 +246,10 @@ private:
 private:
     PythonConsoleHighlighter* pythonSyntax;
     QString                 *_sourceDrain;
+<<<<<<< HEAD
+=======
+    QString                  _historyFile;
+>>>>>>> master
 };
 
 /**

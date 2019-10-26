@@ -97,6 +97,9 @@ public:
     App::PropertyLinkSubList       References2D;                       //Points to Projection SubFeatures
     App::PropertyLinkSubList       References3D;                       //Points to 3D Geometry SubFeatures
     App::PropertyEnumeration       Type;                               //DistanceX,DistanceY,Diameter, etc
+
+    App::PropertyBool              TheoreticalExact;
+    App::PropertyBool              Inverted;
     App::PropertyString            FormatSpec;
     App::PropertyBool              Arbitrary;
     App::PropertyFloat             OverTolerance;
@@ -120,7 +123,7 @@ public:
     //return PyObject as DrawViewDimensionPy
     virtual PyObject *getPyObject(void);
 
-    virtual std::string getFormatedValue(bool obtuse = false);
+    virtual std::string getFormatedValue(int partial = 0);
     virtual double getDimValue();
     DrawViewPart* getViewPart() const;
     virtual QRectF getRect() const { return QRectF(0,0,1,1);}                   //pretend dimensions always fit!
@@ -137,6 +140,7 @@ public:
     arcPoints getArcPoints(void) {return m_arcPoints; }
     anglePoints getAnglePoints(void) {return m_anglePoints; }
     bool leaderIntersectsArc(Base::Vector3d s, Base::Vector3d pointOnCircle);
+    bool references(std::string geomName) const;
 
 protected:
     void onChanged(const App::Property* prop);
@@ -152,10 +156,10 @@ protected:
 
 protected:
     Measure::Measurement *measurement;
-    double dist2Segs(Base::Vector2d s1,
-                     Base::Vector2d e1,
-                     Base::Vector2d s2,
-                     Base::Vector2d e2) const;
+    double dist2Segs(Base::Vector3d s1,
+                     Base::Vector3d e1,
+                     Base::Vector3d s2,
+                     Base::Vector3d e2) const;
     pointPair closestPoints(TopoDS_Shape s1,
                             TopoDS_Shape s2) const;
 

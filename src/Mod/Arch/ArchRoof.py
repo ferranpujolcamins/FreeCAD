@@ -183,7 +183,7 @@ class _Roof(ArchComponent.Component):
 
         ArchComponent.Component.__init__(self,obj)
         self.setProperties(obj)
-        obj.IfcRole = "Roof"
+        obj.IfcType = "Roof"
         obj.Proxy = self
 
     def setProperties(self,obj):
@@ -674,8 +674,12 @@ class _Roof(ArchComponent.Component):
                 if obj.Base.Shape.Solids:
                     return obj.Shape
                 else :
-                    if self.sub:
-                        return self.sub
+                    if hasattr(self,"sub"):
+                        if self.sub:
+                            return self.sub
+                        else :
+                            self.execute(obj)
+                            return self.sub
                     else :
                         self.execute(obj)
                         return self.sub

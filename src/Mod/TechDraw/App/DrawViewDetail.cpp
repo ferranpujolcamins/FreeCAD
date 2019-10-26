@@ -27,38 +27,39 @@
 # include <sstream>
 
 #include <Bnd_Box.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepAlgoAPI_Common.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
-#include <BRepAlgoAPI_Cut.hxx>
-#include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepAdaptor_Surface.hxx>
-# include <BRep_Builder.hxx>
-#include <BRepPrimAPI_MakeCylinder.hxx>
-#include <BRepPrim_Cylinder.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
-#include <BRepAlgoAPI_Common.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakePrism.hxx>
+#include <BRepPrim_Cylinder.hxx>
+#include <BRepTools.hxx>
+#include <Geom_Plane.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
 #include <gp_Ax3.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Pln.hxx>
 #include <gp_Dir.hxx>
-#include <Geom_Plane.hxx>
-#include <HLRBRep_Algo.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
 #include <HLRAlgo_Projector.hxx>
+#include <HLRBRep_Algo.hxx>
 #include <HLRBRep_HLRToShape.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopoDS_Edge.hxx>
-#include <TopoDS_Vertex.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Solid.hxx>
-#include <TopoDS_Shell.hxx>
-#include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS_Shell.hxx>
+#include <TopoDS_Solid.hxx>
+#include <TopoDS_Vertex.hxx>
 
 #endif
 
@@ -68,6 +69,7 @@
 # include <QFileInfo>
 
 #include <App/Application.h>
+#include <App/Document.h>
 #include <App/Material.h>
 #include <Base/BoundBox.h>
 #include <Base/Exception.h>
@@ -79,6 +81,7 @@
 
 #include "Geometry.h"
 #include "GeometryObject.h"
+#include "Cosmetic.h"
 #include "EdgeWalker.h"
 #include "DrawProjectSplit.h"
 #include "DrawUtil.h"
@@ -110,6 +113,11 @@ DrawViewDetail::DrawViewDetail()
 
     getParameters();
     m_fudge = 1.01;
+
+    //hide Properties not relevant to DVDetail
+    Direction.setStatus(App::Property::Hidden,true);
+    Rotation.setStatus(App::Property::Hidden,true);
+
 }
 
 DrawViewDetail::~DrawViewDetail()
@@ -134,7 +142,6 @@ short DrawViewDetail::mustExecute() const
 void DrawViewDetail::onChanged(const App::Property* prop)
 {
     if (!isRestoring()) {
-        //Base::Console().Message("TRACE - DVD::onChanged(%s) - %s\n",prop->getName(),Label.getValue());
         if (prop == &Reference) {
             std::string lblText = "Detail " +
                                   std::string(Reference.getValue());
@@ -143,7 +150,8 @@ void DrawViewDetail::onChanged(const App::Property* prop)
         if ((prop == &Reference)  ||
            (prop == &Radius)     ||
            (prop == &AnchorPoint))  {
-            BaseView.getValue()->touch();    //hack.  sb "update graphics"
+//            BaseView.getValue()->touch();    //hack.  sb "update graphics"
+            enforceRecompute();
         }
 
     }
@@ -158,7 +166,14 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
 
     App::DocumentObject* baseObj = BaseView.getValue();
     if (!baseObj)  {
-        Base::Console().Log("INFO - DVD::execute - No BaseView - creation?\n");
+        bool isRestoring = getDocument()->testStatus(App::Document::Status::Restoring);
+        if (isRestoring) {
+            Base::Console().Warning("DVD::execute - No BaseView (but document is restoring) - %s\n",
+                                getNameInDocument());
+        } else {
+            Base::Console().Error("Error: DVD::execute - No BaseView(s) linked. - %s\n",
+                                  getNameInDocument());
+        }
         return DrawView::execute();
     }
 
@@ -189,6 +204,14 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     }
 
     if (shape.IsNull()) {
+        bool isRestoring = getDocument()->testStatus(App::Document::Status::Restoring);
+        if (isRestoring) {
+            Base::Console().Warning("DVD::execute - source shape is invalid - (but document is restoring) - %s\n",
+                                getNameInDocument());
+        } else {
+            Base::Console().Error("Error: DVD::execute - Source shape is Null. - %s\n",
+                                  getNameInDocument());
+        }
         return new App::DocumentObjectExecReturn("DVD - Linked shape object is invalid");
     }
 
@@ -199,29 +222,25 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     double scale = getScale();
 
     BRepBuilderAPI_Copy BuilderCopy(shape);
-    TopoDS_Shape myShape = BuilderCopy.Shape();
+    TopoDS_Shape copyShape = BuilderCopy.Shape();
 
-    gp_Pnt gpCenter = TechDrawGeometry::findCentroid(myShape,
-                                                     dirDetail);
+    gp_Pnt gpCenter = TechDraw::findCentroid(copyShape,
+                                             dirDetail);
     Base::Vector3d shapeCenter = Base::Vector3d(gpCenter.X(),gpCenter.Y(),gpCenter.Z());
 
     gp_Ax2 viewAxis;
     gp_Ax2 vaBase;
-    if (dpgi != nullptr) {
-        viewAxis = dpgi->getViewAxis(shapeCenter, dirDetail);
-    } else {
-        viewAxis = dvp->getViewAxis(shapeCenter, dirDetail,false);
-    }
+    viewAxis = dvp->getViewAxis(shapeCenter, dirDetail, true);
 
-    myShape = TechDrawGeometry::moveShape(myShape,                     //centre on origin
-                                          -shapeCenter);
-    gpCenter = TechDrawGeometry::findCentroid(myShape,                 //sb origin!
-                                              dirDetail);
+    copyShape = TechDraw::moveShape(copyShape,                     //centre on origin
+                                  -shapeCenter);
+    gpCenter = TechDraw::findCentroid(copyShape,                 //sb origin!
+                                      dirDetail);
     shapeCenter = Base::Vector3d(gpCenter.X(),gpCenter.Y(),gpCenter.Z());
 
     Bnd_Box bbxSource;
     bbxSource.SetGap(0.0);
-    BRepBndLib::Add(myShape, bbxSource);
+    BRepBndLib::Add(copyShape, bbxSource);
     double diag = sqrt(bbxSource.SquareExtent());
 
     Base::Vector3d extentFar,extentNear;
@@ -229,7 +248,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     extentNear = shapeCenter + dirDetail * diag * -1.0;
 
     anchor = Base::Vector3d(anchor.x,anchor.y, 0.0);
-    viewAxis = getViewAxis(shapeCenter, dirDetail, false);                //change view axis to (0,0,0)
+    viewAxis = dvp->getViewAxis(shapeCenter, dirDetail, false);                //change view axis to (0,0,0)
     Base::Vector3d offsetCenter3D = DrawUtil::toR3(viewAxis, anchor);     //displacement in R3
     Base::Vector3d stdZ(0.0,0.0,1.0);
     if (DrawUtil::checkParallel(dirDetail,stdZ)) {
@@ -251,7 +270,7 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
     gp_Vec extrudeDir(extrudeVec.x,extrudeVec.y,extrudeVec.z);
     TopoDS_Shape tool = BRepPrimAPI_MakePrism(aProjFace, extrudeDir, false, true).Shape();
 
-    BRepAlgoAPI_Common mkCommon(myShape,tool);
+    BRepAlgoAPI_Common mkCommon(copyShape,tool);
     if (!mkCommon.IsDone()) {
         Base::Console().Log("DVD::execute - mkCommon not done\n");
         return new App::DocumentObjectExecReturn("DVD::execute - mkCommon not done");
@@ -268,11 +287,22 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
         Base::Console().Warning("DVD::execute - mkCommon.Shape is not a solid!\n");
     }
     TopoDS_Shape detail = mkCommon.Shape();
+
+//    BRepTools::Write(tool, "DVDTool.brep");            //debug
+//    BRepTools::Write(copyShape, "DVDCopy.brep");       //debug
+//    BRepTools::Write(detail, "DVDdetail.brep");        //debug
+
     Bnd_Box testBox;
     testBox.SetGap(0.0);
     BRepBndLib::Add(detail, testBox);
     if (testBox.IsVoid()) {
-        Base::Console().Message("DrawViewDetail - detail area contains no geometry\n");
+//        Base::Console().Warning("DrawViewDetail - detail area contains no geometry\n");
+        TechDraw::GeometryObject* go = getGeometryObject();
+        if (go != nullptr) {
+            go->clear();
+        }
+        requestPaint();
+        dvp->requestPaint();
         return new App::DocumentObjectExecReturn("DVDetail - detail area contains no geometry");
     }
 
@@ -281,26 +311,26 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
 //    TopoDS_Compound Comp;
 //    builder.MakeCompound(Comp);
 //    builder.Add(Comp, tool);
-//    builder.Add(Comp, myShape);
+//    builder.Add(Comp, copyShape);
 
     gp_Pnt inputCenter;
     try {
-        inputCenter = TechDrawGeometry::findCentroid(tool,
+        inputCenter = TechDraw::findCentroid(tool,
                                                      dirDetail);
-        TopoDS_Shape mirroredShape = TechDrawGeometry::mirrorShape(detail,
+        TopoDS_Shape mirroredShape = TechDraw::mirrorShape(detail,
                                                     inputCenter,
                                                     scale);
 
-        viewAxis = getViewAxis(Base::Vector3d(inputCenter.X(),inputCenter.Y(),inputCenter.Z()),dirDetail);
+        viewAxis = dvp->getViewAxis(Base::Vector3d(inputCenter.X(),inputCenter.Y(),inputCenter.Z()),dirDetail);
 
         double shapeRotate = dvp->Rotation.getValue();                      //degrees CW?
  
         if (!DrawUtil::fpCompare(shapeRotate,0.0)) {
-            mirroredShape = TechDrawGeometry::rotateShape(mirroredShape,
-                                                          viewAxis,
-                                                          shapeRotate);
+            mirroredShape = TechDraw::rotateShape(mirroredShape,
+                                                  viewAxis,
+                                                   shapeRotate);
         }
-        inputCenter = TechDrawGeometry::findCentroid(mirroredShape,
+        inputCenter = TechDraw::findCentroid(mirroredShape,
                                                      dirDetail);
 
         geometryObject = buildGeometryObject(mirroredShape,viewAxis);
@@ -325,8 +355,15 @@ App::DocumentObjectExecReturn *DrawViewDetail::execute(void)
         return new App::DocumentObjectExecReturn(e1.GetMessageString());
     }
 
+    //add the cosmetic vertices to the geometry vertices list
+    addCosmeticVertexesToGeom();
+    //add the cosmetic Edges to geometry Edges list
+    addCosmeticEdgesToGeom();
+    //add centerlines to geometry edges list
+    addCenterLinesToGeom();
+
     requestPaint();
-    dvp->requestPaint();
+    dvp->requestPaint();  //to refresh detail highlight!
 
     return App::DocumentObject::StdReturn;
 }
