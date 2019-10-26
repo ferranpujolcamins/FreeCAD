@@ -1715,7 +1715,10 @@ void WatchModel::removeItem(QString name)
     if (!itm)
         return;
 
-    m_rootItem->removeChild(itm->childNumber());
+    int childNr = itm->childNumber();
+    beginRemoveRows(createIndex(0, 0, m_rootItem), childNr, childNr);
+    m_rootItem->removeChild(childNr);
+    endInsertRows();
 }
 
 void WatchModel::clear()
