@@ -81,7 +81,7 @@
 #include <Gui/Command.h>
 #include <Gui/OnlineDocumentation.h>
 #include <Gui/DownloadManager.h>
-#include <Gui/TextDocumentEditorView.h>
+#include <Gui/TextEditor/TextDocumentEditorView.h>
 
 #include <Base/Parameter.h>
 #include <Base/Exception.h>

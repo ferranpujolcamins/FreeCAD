@@ -129,7 +129,7 @@ PyException::PyException(const Py::Object &obj) :
     _pyState = PyThreadState_GET();
     _pyValue = (PyObject*)obj.ptr();
     if (_pyValue)
-        _pyType = _pyValue->ob_type;
+        _pyType = (PyObject*)_pyValue->ob_type;
 
     _sErrMsg = obj.as_string();
     // WARNING: we are assuming that python type object will never be
@@ -371,7 +371,7 @@ void PyException::raiseException() {
         PP_PyDict_Object = 0;
 
         std::string exceptionname;
-        if (_exceptionType == Base::BaseExceptionFreeCADAbort)
+        if (_pyType == Base::BaseExceptionFreeCADAbort)
             edict.setItem("sclassname", 
                     Py::String(typeid(Base::AbortException).name()));
         if(_isReported)
@@ -379,7 +379,7 @@ void PyException::raiseException() {
         Base::ExceptionFactory::Instance().raiseException(edict.ptr());
     }
 
-    if (_exceptionType == Base::BaseExceptionFreeCADAbort) {
+    if (_pyType == Base::BaseExceptionFreeCADAbort) {
         Base::AbortException e(_sErrMsg.c_str());
         e.setReported(_isReported);
         throw e;

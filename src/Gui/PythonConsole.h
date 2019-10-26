@@ -246,10 +246,7 @@ private:
 private:
     PythonConsoleHighlighter* pythonSyntax;
     QString                 *_sourceDrain;
-<<<<<<< HEAD
-=======
     QString                  _historyFile;
->>>>>>> master
 };
 
 /**

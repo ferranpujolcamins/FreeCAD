@@ -475,7 +475,7 @@
        </widget>
       </item>
       <item row="0" column="0" rowspan="4">
-       <widget class="QTreeWidget" name="displayItems">
+       <widget class="QTreeView" name="displayItems">
         <property name="toolTip">
          <string>Color and font settings will be applied to selected type</string>
         </property>

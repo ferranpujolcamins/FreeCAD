@@ -125,7 +125,6 @@ public:
     static void ThrowException(void);
 
     ///  this function returns the stack trace
-<<<<<<< HEAD
     const std::string &getStackTrace(void) const { return _stackTrace; }
 
     /// getErrorType
@@ -133,13 +132,13 @@ public:
     ///   Gets to typename as reported by python <class '*PyExcClassname'>
     /// if extractName == true
     ///   Gets type name minus <class '*PyExcClassName*'> -> PyExcClassname
-    const std::string getErrorType(bool extractName = false) const override;
+    const std::string getErrorType(bool extractName = false) const;
 
     ///   At what column the exception happened, example syntax err at 7th char
     int getOffset() const { return _offset; }
 
     void ReportException (void) const override;
-    virtual const PyObject *getPyExceptionType(void) const override {return _pyType;}
+    virtual PyObject *getPyExceptionType(void) const override {return _pyType;}
 
 protected:
     std::string _stackTrace;

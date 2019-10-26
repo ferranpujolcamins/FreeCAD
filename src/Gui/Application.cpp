@@ -94,7 +94,7 @@
 #include "TransactionObject.h"
 #include "FileDialog.h"
 
-#include "TextDocumentEditorView.h"
+#include "Gui/TextEditor/TextDocumentEditorView.h"
 #include "SplitView3DInventor.h"
 #include "View3DInventor.h"
 #include "ViewProvider.h"
