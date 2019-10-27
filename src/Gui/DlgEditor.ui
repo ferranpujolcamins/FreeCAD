@@ -121,6 +121,45 @@
          </widget>
         </item>
         <item>
+         <widget class="Gui::PrefCheckBox" name="EnableLineWrap">
+          <property name="text">
+           <string>Enable line wrapping</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>EnableLineWrap</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="textLblTextWidth">
+          <property name="text">
+           <string>Text Width:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="Gui::PrefSpinBox" name="TextWidth">
+          <property name="toolTip">
+           <string>Text width marker</string>
+          </property>
+          <property name="value">
+           <number>80</number>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>TextWidth</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item>
          <spacer>
           <property name="orientation">
            <enum>Qt::Vertical</enum>
@@ -185,6 +224,13 @@
           </property>
          </widget>
         </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="textLabel1">
+          <property name="text">
+           <string>Tab size:</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="1">
          <widget class="Gui::PrefSpinBox" name="tabSize">
           <property name="toolTip">
@@ -240,13 +286,6 @@
           </property>
           <property name="prefPath" stdset="0">
            <cstring>Editor</cstring>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="textLabel1">
-          <property name="text">
-           <string>Tab size:</string>
           </property>
          </widget>
         </item>

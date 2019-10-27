@@ -151,12 +151,14 @@ void DlgSettingsEditorImp::saveSettings()
     EnableLineNumber->onSave();
     EnableFolding->onSave();
     EnableIndentMarkers->onSave();
+    EnableLineWrap->onSave();
     EnableTrimTrailingWhitespaces->onSave();
     EnableAutoIndent->onSave();
     EnableScrollToExceptionLine->onSave();
     EnableHaltDebuggerOnExceptions->onSave();
     EnableCodeAnalyzer->onSave();
     EnableCenterDebugmarker->onSave();
+    TextWidth->onSave();
     PopupTimeoutTime->onSave();
     tabSize->onSave();
     indentSize->onSave();
@@ -179,6 +181,7 @@ void DlgSettingsEditorImp::loadSettings()
     EnableLineNumber->onRestore();
     EnableFolding->onRestore();
     EnableIndentMarkers->onRestore();
+    EnableLineWrap->onRestore();
     EnableTrimTrailingWhitespaces->onRestore();
     EnableAutoIndent->onRestore();
     EnableScrollToExceptionLine->onRestore();
@@ -186,6 +189,7 @@ void DlgSettingsEditorImp::loadSettings()
     EnableCodeAnalyzer->onRestore();
     EnableCodeAnalyzer->onRestore();
     EnableCenterDebugmarker->onRestore();
+    TextWidth->onRestore();
     PopupTimeoutTime->onRestore();
     tabSize->onRestore();
     indentSize->onRestore();

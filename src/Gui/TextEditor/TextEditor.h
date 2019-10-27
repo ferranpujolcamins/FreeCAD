@@ -120,6 +120,7 @@ private:
     struct TextEditorP* d;
 
     void paintIndentMarkers(QPaintEvent *e);
+    void paintTextWidthMarker(QPaintEvent *e);
     void paintFoldedTextMarker(QPaintEvent *e);
 
     friend class SyntaxHighlighter;

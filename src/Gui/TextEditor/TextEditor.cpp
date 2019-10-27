@@ -485,19 +485,34 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
     } else if (strcmp(sReason, "EnableIndentMarkers") == 0) {
         d->showIndentMarkers = hPrefGrp->GetBool("EnableIndentMarkers", true);
         repaint();
+    } else if (strncmp(sReason, "EnableLineWrap", 25) == 0) {
+        // enable/disable linewrap mode in Editor from Edit->Preferences->Editor menu.
+        QPlainTextEdit::LineWrapMode wrapMode;
+        bool wrap = hPrefGrp->GetBool("EnableLineWrap", false);
+        wrapMode = wrap ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap;
+
+        if (lineWrapMode() != wrapMode) {
+            setLineWrapMode(wrapMode);
+            if (wrap) {
+                QFontMetrics metric(font());
+                int fontSize = metric.width(QLatin1String("0"));
+                document()->setTextWidth(80);//(fontSize * 80) + lineNumberArea->width());
+            } else
+                setMaximumWidth(QWIDGETSIZE_MAX);
+
+            repaint();
+        }
+    } else if (strncmp(sReason, "EnableLineNumber", 25) == 0) {
+        // Enables/Disables Line number in the Macro Editor from Edit->Preferences->Editor menu.
+        QRect cr = contentsRect();
+        bool show = hPrefGrp->GetBool( "EnableLineNumber", true );
+        if(show) {
+            lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+        } else {
+            lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
+        }
+        lineNumberArea->setLineNumbersVisible(show);
     }
-
-
-    // Enables/Disables Line number in the Macro Editor from Edit->Preferences->Editor menu.
-    QRect cr = contentsRect();
-    bool show = hPrefGrp->GetBool( "EnableLineNumber", true );
-    if(show) {
-        lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
-    } else {
-        lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
-    }
-    lineNumberArea->setLineNumbersVisible(show);
-
 }
 
 void TextEditor::paintEvent(QPaintEvent *e)
@@ -505,6 +520,8 @@ void TextEditor::paintEvent(QPaintEvent *e)
     QPlainTextEdit::paintEvent(e);
     if (d->showIndentMarkers)
         paintIndentMarkers(e);
+
+    paintTextWidthMarker(e);
 
     paintFoldedTextMarker(e);
 }
@@ -686,6 +703,62 @@ void TextEditor::paintIndentMarkers(QPaintEvent *e)
             break; // outside our visible area
         block = block.next();
     }
+}
+
+void TextEditor::paintTextWidthMarker(QPaintEvent *e)
+{
+    // paint textwidth marker
+    QPainter painter(viewport());
+    painter.setClipRect(e->rect());
+    painter.setPen(QColor(171, 130, 165));
+    painter.setBrush(QColor(0xEE, 0xEE, 0xEE, 50));
+    painter.setFont(font());
+
+    QPointF offset(contentOffset());
+
+    const QRect viewportRect = viewport()->rect();
+    const int margin = document()->documentMargin();
+    const int textWidth = getWindowParameter()->GetInt( "TextWidth", 80 );
+    QString textWidthBlock;
+    textWidthBlock = textWidthBlock.leftJustified(textWidth, QLatin1Char(' '));
+    QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, textWidthBlock);
+    if (viewportRect.x() >= viewportRect.width())
+        return;
+    QRect overWidthRect(lineNumberArea->width() + margin, 0,
+                        viewportRect.width() - viewportRect.x(), viewportRect.height());
+    overWidthRect.setX(fontRect.width() + margin);
+    painter.drawLine(overWidthRect.x(), overWidthRect.top(),
+                     overWidthRect.x(), overWidthRect.bottom());
+    painter.drawRect(overWidthRect);
+
+
+//    const int indBlockWidth = fontRect.width();
+//    const int cursorPos = textCursor().position();
+
+//    QTextBlock block = firstVisibleBlock();
+//    while(block.isValid()) {
+//        const QRectF rect = blockBoundingRect(block).translated(offset);
+
+//        int indents = 0;
+//        for (const QChar ch: block.text()) {
+//            if (ch == QLatin1Char(' '))
+//                ++indents;
+//            else if (ch == QLatin1Char('\t'))
+//                indents += indentSize;
+//            else
+//                break;
+//        }
+
+//        for(int i = indentSize, counts = 1; i < indents; i += indentSize, ++counts) {
+//            const int x0 = rect.x() + (indBlockWidth * counts) + margin;
+//            if (block.position() + i != cursorPos)
+//                painter.drawLine(x0, rect.top(), x0, rect.bottom() - 1);
+//        }
+//        offset.ry() += rect.height();
+//        if (offset.y() > viewportRect.height())
+//            break; // outside our visible area
+//        block = block.next();
+//    }
 }
 
 void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
