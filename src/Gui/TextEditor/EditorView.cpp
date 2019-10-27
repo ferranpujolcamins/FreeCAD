@@ -80,11 +80,14 @@ using namespace Gui;
 namespace Gui {
 class EditorViewP {
 public:
-    EditorViewP(EditorView *view) :
+    EditorViewP(EditorView *view, TextEditor* editor) :
         view(view),
         searchBar(nullptr), activityTimer(new QTimer(view)),
-        centralLayout(nullptr), topBar(nullptr)
+        centralLayout(nullptr),
+        editWrapper(EditorViewSingleton::instance()->createWrapper(QString(), editor)),
+        topBar(nullptr)
     {
+        editWrapper->attach(view);
     }
     ~EditorViewP()
     {
@@ -92,6 +95,9 @@ public:
             activityTimer->stop();
             delete activityTimer;
         }
+
+        editWrapper->close(view);
+        delete editWrapper;
     }
     EditorView *view;
     EditorSearchBar* searchBar;
@@ -120,6 +126,14 @@ public:
  */
 class EditorViewWrapperP {
 public:
+    EditorViewWrapperP() :
+        timestamp(0), lock(false),
+        textEdit(nullptr)
+    {}
+    ~EditorViewWrapperP()
+    {
+        textEdit = nullptr;
+    }
     EditorView *owner;
     QString fileName;
     uint timestamp;
@@ -216,9 +230,7 @@ EditorView::EditorView(TextEditor* editor, QWidget* parent)
     : MDIView(0,parent,0), WindowParameter( "Editor" )
 {
     // create d pointer obj and init viewData obj (switches when switching file)
-    d = new EditorViewP(this);
-    d->editWrapper = EditorViewSingleton::instance()->createWrapper(QString(), editor);
-    d->editWrapper->attach(this);
+    d = new EditorViewP(this, editor);
     d->displayName = EditorView::FullName;
 
     // create searchbar
@@ -262,8 +274,6 @@ EditorView::EditorView(TextEditor* editor, QWidget* parent)
 /** Destroys the object and frees any allocated resources */
 EditorView::~EditorView()
 {
-    d->editWrapper->close(this);
-    delete d->editWrapper;
     delete d;
     getWindowParameter()->Detach( this );
 }
@@ -1105,8 +1115,7 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
     d->textEdit->setParent(0);
 
     // cleanup and memory release
-    EditorViewSingleton::instance()->d->wrappers.removeAll(this);
-    EditorViewSingleton::instance()->d->accessOrder.removeAll(d->fileName);
+    EditorViewSingleton::instance()->removeWrapper(this);
     if (d->textEdit) {
         d->textEdit->deleteLater();
         d->textEdit = nullptr;
@@ -1217,9 +1226,8 @@ bool EditorViewSingleton::registerTextEditorType(EditorViewSingleton::createT fa
 /* static */
 EditorViewSingleton* EditorViewSingleton::instance()
 {
-    static EditorViewSingleton* _instance = 0;
-    if (!_instance)
-        _instance = new EditorViewSingleton();
+    static EditorViewSingleton* _instance = new EditorViewSingleton();
+
     return _instance;
 }
 
@@ -1325,6 +1333,24 @@ EditorViewWrapper* EditorViewSingleton::createWrapper(const QString &fn,
     Q_EMIT openFilesChanged();
     Q_EMIT fileOpened(fn);
     return ew;
+}
+
+bool EditorViewSingleton::removeWrapper(EditorViewWrapper *ew)
+{
+    disconnect(ew->editor(), SIGNAL(modificationChanged(bool)),
+               this, SLOT(docModifiedChanged(bool)));
+    bool rm = false;
+    for(int i = 0; i < d->accessOrder.size(); ++i) {
+        if (d->accessOrder[i] == ew->fileName())
+            rm = true;
+        // remove all after first found
+        if (rm) {
+            d->accessOrder.removeAt(i);
+            --i;
+        }
+    }
+
+    return d->wrappers.removeAll(ew);
 }
 
 EditorViewWrapper *EditorViewSingleton::lastAccessed(EditorView *view, int backSteps)
@@ -1448,8 +1474,12 @@ void EditorViewTopBar::rebuildOpenedFiles()
     for (const EditorViewWrapper *wrapper : EditorViewSingleton::instance()->
                                     openedByType())
     {
-        if (!wrapper->editor()->document())
+        if (!wrapper->editor() ||
+            !wrapper->editor()->document())
+        {
             continue;
+        }
+
         d->openFiles->addItem(wrapper->editor()->windowIcon(),
                              createViewName(wrapper->fileName(),
                                             wrapper->editor()->document()->isModified()),

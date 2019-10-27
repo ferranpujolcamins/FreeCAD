@@ -258,6 +258,7 @@ public:
     EditorViewWrapper *getWrapper(const QString &fn, EditorView *ownerView);
     QList<EditorViewWrapper*> getWrappers(const QString &fn);
     EditorViewWrapper *createWrapper(const QString &fn, TextEditor *editor = nullptr);
+    bool removeWrapper(EditorViewWrapper *ew);
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
      * @param backSteps negative numer back from current accessed, ie -1 for previous
