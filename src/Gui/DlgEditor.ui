@@ -44,13 +44,13 @@
          <x>0</x>
          <y>0</y>
          <width>221</width>
-         <height>160</height>
+         <height>200</height>
         </rect>
        </property>
        <property name="title">
         <string>Options</string>
        </property>
-       <layout class="QVBoxLayout">
+       <layout class="QGridLayout">
         <property name="spacing">
          <number>6</number>
         </property>
@@ -66,29 +66,29 @@
         <property name="bottomMargin">
          <number>9</number>
         </property>
-        <item>      
-        <widget class="Gui::PrefCheckBox" name="EnableLineNumber">
-         <property name="focusPolicy">
-          <enum>Qt::TabFocus</enum>
-         </property>
-         <property name="toolTip">
-          <string>Code lines will be numbered </string>
-         </property>
-         <property name="text">
-          <string>Enable line numbers</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-         <property name="prefEntry" stdset="0">
-          <cstring>EnableLineNumber</cstring>
-         </property>
-         <property name="prefPath" stdset="0">
-          <cstring>Editor</cstring>
-         </property>
-        </widget>
+        <item row="0" column="0" colspan="2">
+         <widget class="Gui::PrefCheckBox" name="EnableLineNumber">
+          <property name="focusPolicy">
+           <enum>Qt::TabFocus</enum>
+          </property>
+          <property name="toolTip">
+           <string>Code lines will be numbered </string>
+          </property>
+          <property name="text">
+           <string>Enable line numbers</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>EnableLineNumber</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
         </item>
-        <item>
+        <item row="1" column="0" colspan="2">
          <widget class="Gui::PrefCheckBox" name="EnableFolding">
           <property name="text">
            <string>Enable folding</string>
@@ -104,7 +104,7 @@
           </property>
          </widget>
         </item>       
-        <item>
+        <item row="2" column="0" colspan="2">
          <widget class="Gui::PrefCheckBox" name="EnableIndentMarkers">
           <property name="text">
            <string>Enable Indent markers</string>
@@ -120,7 +120,7 @@
           </property>
          </widget>
         </item>
-        <item>
+        <item row="3" column="0" colspan="2">
          <widget class="Gui::PrefCheckBox" name="EnableLineWrap">
           <property name="text">
            <string>Enable line wrapping</string>
@@ -136,23 +136,39 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="0">
+        <item row="4" column="0" colspan="2">
+         <widget class="Gui::PrefCheckBox" name="EnableLongLineMarker">
+          <property name="text">
+           <string>Enable long text marker</string>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+          <property name="prefEntry" stdset="0">
+           <cstring>EnableLongLineMarker</cstring>
+          </property>
+          <property name="prefPath" stdset="0">
+           <cstring>Editor</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
          <widget class="QLabel" name="textLblTextWidth">
           <property name="text">
            <string>Text Width:</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="Gui::PrefSpinBox" name="TextWidth">
+        <item row="5" column="1">
+         <widget class="Gui::PrefSpinBox" name="LongLineWidth">
           <property name="toolTip">
-           <string>Text width marker</string>
+           <string>Long line marker at</string>
           </property>
           <property name="value">
            <number>80</number>
           </property>
           <property name="prefEntry" stdset="0">
-           <cstring>TextWidth</cstring>
+           <cstring>LongLineWidth</cstring>
           </property>
           <property name="prefPath" stdset="0">
            <cstring>Editor</cstring>
@@ -183,7 +199,7 @@
          <x>230</x>
          <y>0</y>
          <width>231</width>
-         <height>160</height>
+         <height>200</height>
         </rect>
        </property>
        <property name="title">

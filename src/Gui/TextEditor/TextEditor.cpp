@@ -75,10 +75,12 @@ struct TextEditorP
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
     const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
-    bool showIndentMarkers;
+    bool showIndentMarkers,
+         showLongLineMarker;
     TextEditorP() :
         completer(nullptr),
-        showIndentMarkers(true)
+        showIndentMarkers(true),
+        showLongLineMarker(false)
     {
     }
     ~TextEditorP()
@@ -482,26 +484,19 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         QFontMetrics metric(font());
         int fontSize = metric.width(QLatin1String("0"));
         setTabStopWidth(tabWidth * fontSize);
-    } else if (strcmp(sReason, "EnableIndentMarkers") == 0) {
+    } else if (strncmp(sReason, "EnableIndentMarkers", 30) == 0) {
         d->showIndentMarkers = hPrefGrp->GetBool("EnableIndentMarkers", true);
+        repaint();
+    } else if (strncmp(sReason, "EnableLongLineMarker", 30) == 0) {
+        d->showLongLineMarker = hPrefGrp->GetBool("EnableLongLineMarker", false);
         repaint();
     } else if (strncmp(sReason, "EnableLineWrap", 25) == 0) {
         // enable/disable linewrap mode in Editor from Edit->Preferences->Editor menu.
         QPlainTextEdit::LineWrapMode wrapMode;
         bool wrap = hPrefGrp->GetBool("EnableLineWrap", false);
         wrapMode = wrap ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap;
-
-        if (lineWrapMode() != wrapMode) {
-            setLineWrapMode(wrapMode);
-            if (wrap) {
-                QFontMetrics metric(font());
-                int fontSize = metric.width(QLatin1String("0"));
-                document()->setTextWidth(80);//(fontSize * 80) + lineNumberArea->width());
-            } else
-                setMaximumWidth(QWIDGETSIZE_MAX);
-
-            repaint();
-        }
+        setLineWrapMode(wrapMode);
+        repaint();
     } else if (strncmp(sReason, "EnableLineNumber", 25) == 0) {
         // Enables/Disables Line number in the Macro Editor from Edit->Preferences->Editor menu.
         QRect cr = contentsRect();
@@ -521,7 +516,8 @@ void TextEditor::paintEvent(QPaintEvent *e)
     if (d->showIndentMarkers)
         paintIndentMarkers(e);
 
-    paintTextWidthMarker(e);
+    if (d->showLongLineMarker)
+        paintTextWidthMarker(e);
 
     paintFoldedTextMarker(e);
 }
@@ -718,47 +714,18 @@ void TextEditor::paintTextWidthMarker(QPaintEvent *e)
 
     const QRect viewportRect = viewport()->rect();
     const int margin = document()->documentMargin();
-    const int textWidth = getWindowParameter()->GetInt( "TextWidth", 80 );
+    const int textWidth = getWindowParameter()->GetInt( "LongLineWidth", 80 );
     QString textWidthBlock;
     textWidthBlock = textWidthBlock.leftJustified(textWidth, QLatin1Char(' '));
     QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, textWidthBlock);
-    if (viewportRect.x() >= viewportRect.width())
-        return;
-    QRect overWidthRect(lineNumberArea->width() + margin, 0,
-                        viewportRect.width() - viewportRect.x(), viewportRect.height());
-    overWidthRect.setX(fontRect.width() + margin);
-    painter.drawLine(overWidthRect.x(), overWidthRect.top(),
-                     overWidthRect.x(), overWidthRect.bottom());
+
+    const QRectF rect = blockBoundingRect(firstVisibleBlock()).translated(offset);
+    const int x0 = rect.x() + fontRect.width() + margin;
+    QRect overWidthRect(x0, rect.y(), document()->size().width() - x0, viewportRect.height());
+    painter.drawLine(x0, overWidthRect.top(),
+                     x0, overWidthRect.bottom());
+    painter.setPen(Qt::NoPen);
     painter.drawRect(overWidthRect);
-
-
-//    const int indBlockWidth = fontRect.width();
-//    const int cursorPos = textCursor().position();
-
-//    QTextBlock block = firstVisibleBlock();
-//    while(block.isValid()) {
-//        const QRectF rect = blockBoundingRect(block).translated(offset);
-
-//        int indents = 0;
-//        for (const QChar ch: block.text()) {
-//            if (ch == QLatin1Char(' '))
-//                ++indents;
-//            else if (ch == QLatin1Char('\t'))
-//                indents += indentSize;
-//            else
-//                break;
-//        }
-
-//        for(int i = indentSize, counts = 1; i < indents; i += indentSize, ++counts) {
-//            const int x0 = rect.x() + (indBlockWidth * counts) + margin;
-//            if (block.position() + i != cursorPos)
-//                painter.drawLine(x0, rect.top(), x0, rect.bottom() - 1);
-//        }
-//        offset.ry() += rect.height();
-//        if (offset.y() > viewportRect.height())
-//            break; // outside our visible area
-//        block = block.next();
-//    }
 }
 
 void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
