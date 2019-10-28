@@ -678,21 +678,23 @@ void TextEditor::paintIndentMarkers(QPaintEvent *e)
 
     while(block.isValid()) {
         const QRectF rect = blockBoundingRect(block).translated(offset);
+        if (block.isVisible()) {
+            int indents = 0;
+            for (const QChar ch: block.text()) {
+                if (ch == QLatin1Char(' '))
+                    ++indents;
+                else if (ch == QLatin1Char('\t'))
+                    indents += indentSize;
+                else
+                    break;
+            }
 
-        int indents = 0;
-        for (const QChar ch: block.text()) {
-            if (ch == QLatin1Char(' '))
-                ++indents;
-            else if (ch == QLatin1Char('\t'))
-                indents += indentSize;
-            else
-                break;
-        }
-
-        for(int i = indentSize, counts = 1; i < indents; i += indentSize, ++counts) {
-            const int x0 = rect.x() + (indBlockWidth * counts) + margin;
-            if (block.position() + i != cursorPos)
-                painter.drawLine(x0, rect.top(), x0, rect.bottom() - 1);
+            for(int i = indentSize, counts = 1; i < indents; i += indentSize, ++counts) {
+                const int x0 = rect.x() + (indBlockWidth * counts) + margin;
+                if (block.position() + i != cursorPos)
+                    painter.drawLine(x0, rect.top(), x0,
+                                     rect.top() + rect.height() / block.lineCount() - 1);// rect.bottom() - 1);
+            }
         }
         offset.ry() += rect.height();
         if (offset.y() > viewportRect.height())
