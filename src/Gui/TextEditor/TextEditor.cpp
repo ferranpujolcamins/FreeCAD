@@ -39,6 +39,8 @@
 #include <QStyleOptionSlider>
 #include <QCompleter>
 
+#include <QDebug>
+
 using namespace Gui;
 
 namespace Gui {
@@ -528,56 +530,67 @@ bool TextEditor::event(QEvent *event)
     {
         QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
         QPoint point = helpEvent->pos();
+
         if (point.rx() < lineNumberAreaWidth()) {
             // on linenumberarea
-            QTextBlock block = firstVisibleBlock();
-            QRectF rowSize = blockBoundingGeometry(block);
-            int line = 0;
-            if (rowSize.height() > 0)
-                line = ((point.ry()) / rowSize.height()) + block.blockNumber() + 1;
+            int line = lineNumberArea->lineFromPos(point);
 
             return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
-        }
 
-        // in editor window
-        point.rx() -= lineNumberAreaWidth();
-        QTextCursor cursor = cursorForPosition(point);
-        cursor.select(QTextCursor::WordUnderCursor);
-        if (cursor.hasSelection()) {
-            int endPos = cursor.selectionEnd();
-            int startPos = cursor.selectionStart();
-            int pos = startPos;
-            QChar ch;
-            QTextDocument *doc = document();
+//            int line = 0, y = 0;
+//            QTextBlock block = firstVisibleBlock();
+//            while (block.isValid()) {
+//                QRectF rowSize = blockBoundingGeometry(block);
+//                y += rowSize.height();
+//                ++line;
+//                if (point.ry() <= y)
+//                    return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
 
-
-            // find the root (leftmost char)
-            do {
-                --pos;
-                ch = doc->characterAt(pos);
-            } while(ch.isLetterOrNumber() ||
-                    ch == QLatin1Char('.') ||
-                    ch == QLatin1Char('_'));
-            startPos = pos+1;
-
-            // find the end (rightmost char)
-            do {
-                ++pos;
-                ch = doc->characterAt(pos);
-            } while(pos < endPos &&
-                    (ch.isLetterOrNumber() ||
-                    ch == QLatin1Char('.') ||
-                    ch == QLatin1Char('_')));
-
-            endPos = pos;
-            cursor.setPosition(startPos);
-            cursor.setPosition(endPos, QTextCursor::KeepAnchor);
-            QPoint evtPos = helpEvent->pos();
-            evtPos.rx() -= lineMarkerArea()->width();
-            return editorToolTipEvent(evtPos, cursor.selectedText());
+//                block = block.next();
+//            }
 
         } else {
-            return editorToolTipEvent(helpEvent->globalPos(), QString());
+
+            // in editor window
+            point.rx() -= lineNumberAreaWidth();
+            QTextCursor cursor = cursorForPosition(point);
+            cursor.select(QTextCursor::WordUnderCursor);
+            if (cursor.hasSelection()) {
+                int endPos = cursor.selectionEnd();
+                int startPos = cursor.selectionStart();
+                int pos = startPos;
+                QChar ch;
+                QTextDocument *doc = document();
+
+
+                // find the root (leftmost char)
+                do {
+                    --pos;
+                    ch = doc->characterAt(pos);
+                } while(ch.isLetterOrNumber() ||
+                        ch == QLatin1Char('.') ||
+                        ch == QLatin1Char('_'));
+                startPos = pos+1;
+
+                // find the end (rightmost char)
+                do {
+                    ++pos;
+                    ch = doc->characterAt(pos);
+                } while(pos < endPos &&
+                        (ch.isLetterOrNumber() ||
+                        ch == QLatin1Char('.') ||
+                        ch == QLatin1Char('_')));
+
+                endPos = pos;
+                cursor.setPosition(startPos);
+                cursor.setPosition(endPos, QTextCursor::KeepAnchor);
+                QPoint evtPos = helpEvent->pos();
+                evtPos.rx() -= lineMarkerArea()->width();
+                return editorToolTipEvent(evtPos, cursor.selectedText());
+
+            } else {
+                return editorToolTipEvent(helpEvent->globalPos(), QString());
+            }
         }
     }
 
@@ -828,22 +841,39 @@ void LineMarkerArea::fontSizeChanged()
 int LineMarkerArea::lineFromPos(const QPoint &pos)
 {
     QTextBlock block = d->textEditor->firstVisibleBlock();
-    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
-    if (rowSize.height() > 0) {
-        // a line might be folded, in so must iterate the real line
-        int line = (pos.y() / rowSize.height()) + block.blockNumber() + 1;
-        int estLine = line - block.blockNumber();
-        do {
-            if (block.isVisible())
-                --estLine;
-            else
-                ++line;
-            block = block.next();
-        } while(block.isValid() && estLine > 0);
+    int line =  block.blockNumber(),
+        y = 0;
+    while (block.isValid()) {
+        QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
+        y += rowSize.height();
+        ++line;
+        if (pos.y() <= y) {
+            qDebug() << QLatin1String("line:") << line << endl;
+            return line;
+        }
 
-        return line;
+        block = block.next();
     }
+
     return 0;
+
+//    QTextBlock block = d->textEditor->firstVisibleBlock();
+//    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
+//    if (rowSize.height() > 0) {
+//        // a line might be folded, in so must iterate the real line
+//        int line = (pos.y() / rowSize.height()) + block.blockNumber() + 1;
+//        int estLine = line - block.blockNumber();
+//        do {
+//            if (block.isVisible())
+//                --estLine;
+//            else
+//                ++line;
+//            block = block.next();
+//        } while(block.isValid() && estLine > 0);
+
+//        return line;
+//    }
+//    return 0;
 }
 
 void LineMarkerArea::setLineNumbersVisible(bool active)
@@ -968,7 +998,7 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 
 void LineMarkerArea::foldingClicked(int line)
 {
-    QTextBlock block = d->textEditor->document()->findBlockByLineNumber(line -1);
+    QTextBlock block = d->textEditor->document()->findBlockByNumber(line -1);
     if (block.isValid() && block.isVisible()) {
         TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
         if (userData && userData->blockState() > 0) {
