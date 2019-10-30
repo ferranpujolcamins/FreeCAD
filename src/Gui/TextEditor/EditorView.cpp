@@ -297,7 +297,7 @@ void EditorView::checkTimestamp()
 {
     QFileInfo fi(d->editWrapper->fileName());
     uint timeStamp =  fi.lastModified().toTime_t();
-    if (timeStamp != d->editWrapper->timestamp()) {
+    if (fi.exists() && timeStamp != d->editWrapper->timestamp()) {
         switch( QMessageBox::question( this, tr("Modified file"), 
                 tr("%1.\n\nThis has been modified outside of the source editor. Do you want to reload it?")
                     .arg(d->editWrapper->fileName()),
@@ -430,8 +430,9 @@ bool EditorView::closeFile()
     if (canClose()) {
         EditorViewWrapper *oldWrapper = d->editWrapper;
         EditorViewWrapper *newWrapper = EditorViewSingleton::instance()->lastAccessed(this, -1);
+
         bool created = false;
-        if (!newWrapper) {
+        if (!newWrapper || oldWrapper == newWrapper) {
             newWrapper = EditorViewSingleton::instance()->createWrapper(QString());
             created = true;
         }
