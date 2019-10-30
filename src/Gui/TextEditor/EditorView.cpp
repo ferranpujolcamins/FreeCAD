@@ -50,6 +50,7 @@
 #include <QComboBox>
 #include <QMetaObject>
 #include <QMetaMethod>
+#include <QDebug>
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 #include <QMimeDatabase>
@@ -485,7 +486,8 @@ bool EditorView::open(const QString& fileName)
                       *thisWrapper = nullptr,
                       *newWrapper = nullptr;
 
-    QList<EditorViewWrapper*> editWrappers = EditorViewSingleton::instance()->getWrappers(fileName);
+    QList<EditorViewWrapper*> editWrappers = EditorViewSingleton::instance()->
+                                                getWrappers(fileName);
     for (EditorViewWrapper *wrap : editWrappers) {
         if (wrap->owner() == this) {
             thisWrapper = wrap;
@@ -1051,8 +1053,6 @@ EditorViewWrapper::EditorViewWrapper(TextEditor *editor, const QString &fn) :
     d->textEdit = editor;
     d->timestamp = 0;
     d->fileName = fn;
-
-    d->textEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
 
     // store it
     EditorViewSingleton::instance()->d->wrappers.append(this);

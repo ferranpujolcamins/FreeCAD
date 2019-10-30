@@ -534,20 +534,7 @@ bool TextEditor::event(QEvent *event)
         if (point.rx() < lineNumberAreaWidth()) {
             // on linenumberarea
             int line = lineNumberArea->lineFromPos(point);
-
             return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
-
-//            int line = 0, y = 0;
-//            QTextBlock block = firstVisibleBlock();
-//            while (block.isValid()) {
-//                QRectF rowSize = blockBoundingGeometry(block);
-//                y += rowSize.height();
-//                ++line;
-//                if (point.ry() <= y)
-//                    return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
-
-//                block = block.next();
-//            }
 
         } else {
 
@@ -634,7 +621,7 @@ void TextEditor::handleMarkerAreaContextMenu(QAction *res, int line)
         ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
         switch (type) {
         case Bookmark: {
-            QTextBlock block = document()->findBlockByLineNumber(line -1);
+            QTextBlock block = document()->findBlockByNumber(line -1);
             if (block.isValid()) {
                 TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
                 if (!userData) {
@@ -762,11 +749,13 @@ void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
     const int margin = document()->documentMargin();
     const int xOffset = 10;
     const int w = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, dotText).width();
-    const int h = blockBoundingRect(block).height();
+    int h = blockBoundingRect(block).height();
 
     QTextBlock prevBlock = block;
     while(block.isValid() && prevBlock.isValid()) {
         if (!block.isVisible() && prevBlock.isVisible()) {
+            QRectF prevRect = blockBoundingRect(prevBlock);
+            h = prevRect.height() / prevBlock.lineCount();
             const qreal y = offset.y() - h;
             QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, prevBlock.text());
             const qreal x = fontRect.width() + margin + xOffset;
@@ -784,8 +773,10 @@ void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
         }
 
         // check so we don't go out of our visible area
-        if (block.isVisible())
-            offset.ry() += h;
+        if (block.isVisible()) {
+            QRectF rect = blockBoundingRect(block);
+            offset.ry() += rect.height();
+        }
 
         if (offset.y() > viewportRect.height())
             break; // outside our visible area
