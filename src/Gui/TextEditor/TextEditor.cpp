@@ -95,7 +95,7 @@ struct TextEditorP
  *  syntax highlighting for the Python language. 
  */
 TextEditor::TextEditor(QWidget* parent)
-  : QPlainTextEdit(parent), WindowParameter("Editor"), highlighter(0)
+  : QPlainTextEdit(parent), WindowParameter("Editor"), highlighter(nullptr)
 {
     d = new TextEditorP();
     lineNumberArea = new LineMarkerArea(this);
@@ -261,11 +261,11 @@ void TextEditor::highlightSelections()
         // highlight current line
         QTextEdit::ExtraSelection selection;
         QColor lineColor = highlighter->color(QLatin1String("color_Currentline")); //d->colormap[QLatin1String("Current line highlight")];
-        unsigned int col = (lineColor.red() << 24) | (lineColor.green() << 16) | (lineColor.blue() << 8);
+        int col = (lineColor.red() << 24) | (lineColor.green() << 16) | (lineColor.blue() << 8);
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         unsigned long value = static_cast<unsigned long>(col);
         value = hPrefGrp->GetUnsigned( "Current line highlight", value);
-        col = static_cast<unsigned int>(value);
+        col = static_cast<int>(value);
         lineColor.setRgb((col>>24)&0xff, (col>>16)&0xff, (col>>8)&0xff);
         selection.format.setBackground(lineColor);
         selection.format.setProperty(QTextFormat::FullWidthSelection, true);
@@ -287,10 +287,10 @@ void TextEditor::markerAreaContextMenu(int line, QContextMenuEvent *event)
 
 void TextEditor::drawMarker(int line, int x, int y, QPainter* p)
 {
-    Q_UNUSED(line); 
-    Q_UNUSED(x); 
-    Q_UNUSED(y); 
-    Q_UNUSED(p); 
+    Q_UNUSED(line)
+    Q_UNUSED(x)
+    Q_UNUSED(y)
+    Q_UNUSED(p)
 }
 
 //void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
@@ -348,7 +348,7 @@ void TextEditor::keyPressEvent (QKeyEvent * e)
 
     if ( e->key() == Qt::Key_Tab ) {
         ParameterGrp::handle hPrefGrp = getWindowParameter();
-        int indent = hPrefGrp->GetInt( "IndentSize", 4 );
+        int indent = static_cast<int>(hPrefGrp->GetInt("IndentSize", 4));
         bool space = hPrefGrp->GetBool( "Spaces", false );
         QString ch = space ? QString(indent, QLatin1Char(' '))
                            : QString::fromLatin1("\t");
@@ -405,7 +405,7 @@ void TextEditor::keyPressEvent (QKeyEvent * e)
         // If some text is selected we remove a leading tab or
         // spaces from each selected block
         ParameterGrp::handle hPrefGrp = getWindowParameter();
-        int indent = hPrefGrp->GetInt( "IndentSize", 4 );
+        int indent = static_cast<int>(hPrefGrp->GetInt("IndentSize", 4));
 
         int selStart = cursor.selectionStart();
         int selEnd = cursor.selectionEnd();
@@ -448,13 +448,13 @@ void TextEditor::keyPressEvent (QKeyEvent * e)
 /** Sets the font, font size and tab size of the editor. */  
 void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReason)
 {
-    Q_UNUSED(rCaller); 
+    Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (strcmp(sReason, "FontSize") == 0 || strcmp(sReason, "Font") == 0) {
 #ifdef FC_OS_LINUX
-        int fontSize = hPrefGrp->GetInt("FontSize", 15);
+        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 15));
 #else
-        int fontSize = hPrefGrp->GetInt("FontSize", 10);
+        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 10));
 #endif
         QString fontFamily = QString::fromLatin1(hPrefGrp->GetASCII( "Font", "Courier" ).c_str());
         
@@ -482,7 +482,7 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         }
         */
     } else if (strcmp(sReason, "TabSize") == 0 || strcmp(sReason, "FontSize") == 0) {
-        int tabWidth = hPrefGrp->GetInt("TabSize", 4);
+        int tabWidth = static_cast<int>(hPrefGrp->GetInt("TabSize", 4));
         QFontMetrics metric(font());
         int fontSize = metric.width(QLatin1String("0"));
         setTabStopWidth(tabWidth * fontSize);
@@ -586,15 +586,15 @@ bool TextEditor::event(QEvent *event)
 
 bool TextEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 {
-    Q_UNUSED(pos);
-    Q_UNUSED(textUnderPos);
+    Q_UNUSED(pos)
+    Q_UNUSED(textUnderPos)
     return false;
 }
 
 bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 {
-    Q_UNUSED(pos);
-    Q_UNUSED(line);
+    Q_UNUSED(pos)
+    Q_UNUSED(line)
     return false;
 }
 
@@ -668,8 +668,8 @@ void TextEditor::paintIndentMarkers(QPaintEvent *e)
     QPointF offset(contentOffset());
     QTextBlock block = firstVisibleBlock();
     const QRect viewportRect = viewport()->rect();
-    const int margin = document()->documentMargin();
-    const int indentSize = getWindowParameter()->GetInt( "IndentSize", 4 );
+    const int margin = static_cast<int>(document()->documentMargin());
+    const int indentSize = static_cast<int>(getWindowParameter()->GetInt( "IndentSize", 4 ));
     QString indentBlock;
     indentBlock = indentBlock.leftJustified(indentSize, QLatin1Char(' '));
     QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, indentBlock);
@@ -677,10 +677,10 @@ void TextEditor::paintIndentMarkers(QPaintEvent *e)
     const int cursorPos = textCursor().position();
 
     while(block.isValid()) {
-        const QRectF rect = blockBoundingRect(block).translated(offset);
+        const QRect rect = QRectF(blockBoundingRect(block).translated(offset)).toRect();
         if (block.isVisible()) {
             int indents = 0;
-            for (const QChar ch: block.text()) {
+            for (const QChar &ch: block.text()) {
                 if (ch == QLatin1Char(' '))
                     ++indents;
                 else if (ch == QLatin1Char('\t'))
@@ -715,15 +715,15 @@ void TextEditor::paintTextWidthMarker(QPaintEvent *e)
     QPointF offset(contentOffset());
 
     const QRect viewportRect = viewport()->rect();
-    const int margin = document()->documentMargin();
-    const int textWidth = getWindowParameter()->GetInt( "LongLineWidth", 80 );
+    const int margin = static_cast<int>(document()->documentMargin());
+    const int textWidth = static_cast<int>(getWindowParameter()->GetInt("LongLineWidth", 80));
     QString textWidthBlock;
     textWidthBlock = textWidthBlock.leftJustified(textWidth, QLatin1Char(' '));
     QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, textWidthBlock);
 
-    const QRectF rect = blockBoundingRect(firstVisibleBlock()).translated(offset);
+    const QRect rect = QRectF(blockBoundingRect(firstVisibleBlock()).translated(offset)).toRect();
     const int x0 = rect.x() + fontRect.width() + margin;
-    QRect overWidthRect(x0, rect.y(), document()->size().width() - x0, viewportRect.height());
+    QRect overWidthRect(x0, rect.y(), static_cast<int>(document()->size().width()) - x0, viewportRect.height());
     painter.drawLine(x0, overWidthRect.top(),
                      x0, overWidthRect.bottom());
     painter.setPen(Qt::NoPen);
@@ -746,16 +746,16 @@ void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
     QTextBlock block = firstVisibleBlock();
     QString dotText = QLatin1String(" ... ");
     const QRect viewportRect = viewport()->rect();
-    const int margin = document()->documentMargin();
+    const int margin = static_cast<int>(document()->documentMargin());
     const int xOffset = 10;
     const int w = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, dotText).width();
-    int h = blockBoundingRect(block).height();
+    int h = static_cast<int>(blockBoundingRect(block).height());
 
     QTextBlock prevBlock = block;
     while(block.isValid() && prevBlock.isValid()) {
         if (!block.isVisible() && prevBlock.isVisible()) {
             QRectF prevRect = blockBoundingRect(prevBlock);
-            h = prevRect.height() / prevBlock.lineCount();
+            h = static_cast<int>(prevRect.height() / prevBlock.lineCount());
             const qreal y = offset.y() - h;
             QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, prevBlock.text());
             const qreal x = fontRect.width() + margin + xOffset;
@@ -768,8 +768,8 @@ void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
 
             painter.setPen(pen);
             painter.drawRoundedRect(rectangle, radius, radius);
-
-            painter.drawText(x, y + h - radius , dotText);
+            QPointF txtPos(x, y + h -radius);
+            painter.drawText(txtPos, dotText);
         }
 
         // check so we don't go out of our visible area
@@ -832,14 +832,16 @@ void LineMarkerArea::fontSizeChanged()
 int LineMarkerArea::lineFromPos(const QPoint &pos)
 {
     QTextBlock block = d->textEditor->firstVisibleBlock();
+
     int line =  block.blockNumber(),
-        y = 0;
+        y = static_cast<int>(d->textEditor->contentOffset().y());
+
     while (block.isValid()) {
         QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
-        y += rowSize.height();
+        y += static_cast<int>(rowSize.height());
         ++line;
         if (pos.y() <= y) {
-            qDebug() << QLatin1String("line:") << line << endl;
+            //qDebug() << QLatin1String("line:") << line << endl;
             return line;
         }
 
@@ -847,24 +849,6 @@ int LineMarkerArea::lineFromPos(const QPoint &pos)
     }
 
     return 0;
-
-//    QTextBlock block = d->textEditor->firstVisibleBlock();
-//    QRectF rowSize = d->textEditor->blockBoundingGeometry(block);
-//    if (rowSize.height() > 0) {
-//        // a line might be folded, in so must iterate the real line
-//        int line = (pos.y() / rowSize.height()) + block.blockNumber() + 1;
-//        int estLine = line - block.blockNumber();
-//        do {
-//            if (block.isVisible())
-//                --estLine;
-//            else
-//                ++line;
-//            block = block.next();
-//        } while(block.isValid() && estLine > 0);
-
-//        return line;
-//    }
-//    return 0;
 }
 
 void LineMarkerArea::setLineNumbersVisible(bool active)
@@ -884,9 +868,9 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     QTextBlock block = d->textEditor->firstVisibleBlock();
     int curBlockNr = d->textEditor->textCursor().block().blockNumber();
     int blockNumber = block.blockNumber();
-    int top = (int) d->textEditor->blockBoundingGeometry(block).translated(
-                d->textEditor->contentOffset()).top();
-    int bottom = top + (int) d->textEditor->blockBoundingRect(block).height();
+    int top = static_cast<int>(d->textEditor->blockBoundingGeometry(block)
+                                .translated(d->textEditor->contentOffset()).top());
+    int bottom = top + static_cast<int>(d->textEditor->blockBoundingRect(block).height());
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (bottom >= event->rect().top()) {
@@ -949,7 +933,8 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
         // advance  top-bottom visible boundaries for next row
         if (block.isVisible() || block.next().isVisible()) {
             top = bottom;
-            bottom = top + (int) d->textEditor->blockBoundingRect(block.next()).height();
+            bottom = top + static_cast<int>(d->textEditor->
+                                            blockBoundingRect(block.next()).height());
         }
 
         block = block.next();
@@ -1196,10 +1181,11 @@ void AnnotatedScrollBar::paintEvent(QPaintEvent *e)
     QStyleOptionSlider opt;
     initStyleOption(&opt);
     QRect groove = style()->subControlRect(QStyle::CC_ScrollBar, &opt,
-                                         QStyle::SC_ScrollBarGroove, this);
+                                           QStyle::SC_ScrollBarGroove, this);
 
-    float yScale =  (float)groove.height() / (float)d->editor->document()->lineCount();
-    int x1 = groove.x() +4,
+    float yScale =  static_cast<float>(groove.height()) /
+                    static_cast<float>(d->editor->document()->lineCount());
+    int x1 = groove.x() + 4,
         x2 = groove.x() + groove.width() -4;
     QColor color;
     QMultiHash<int, QColor>::iterator it;
@@ -1210,7 +1196,7 @@ void AnnotatedScrollBar::paintEvent(QPaintEvent *e)
             painter.setPen(QPen(color, 2.0));
         }
 
-        int y = (it.key() * yScale) + groove.y();
+        int y = static_cast<int>(it.key() * yScale) + groove.y();
         painter.drawLine(x1, y, x2, y);
     }
 }
