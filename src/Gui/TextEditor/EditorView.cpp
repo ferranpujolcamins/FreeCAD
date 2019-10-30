@@ -782,6 +782,7 @@ bool EditorView::saveFile()
     file.close();
 
     editor->document()->setModified(false);
+    editor->onSave();
 
     QFileInfo fi(d->editWrapper->fileName());
     for (EditorViewWrapper *wrap : EditorViewSingleton::instance()->getWrappers(

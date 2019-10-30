@@ -51,7 +51,7 @@ class GuiExport TextEditor : public QPlainTextEdit, public WindowParameter
     Q_OBJECT
 
 public:
-    TextEditor(QWidget *parent = 0);
+    TextEditor(QWidget *parent = nullptr);
     virtual ~TextEditor();
 
     /**
@@ -70,12 +70,15 @@ public:
 
     //void lineNumberAreaPaintEvent(QPaintEvent* );
     int lineNumberAreaWidth();
-    int findAndHighlight(const QString needle, QTextDocument::FindFlags flags = 0);
+    int findAndHighlight(const QString needle, QTextDocument::FindFlags flags = nullptr);
     // highlights text such as search for
     void setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> selections);
 
     void setCompleter(QCompleter *completer) const;
     QCompleter *completer() const;
+
+public Q_SLOTS:
+    void onSave();
 
 private Q_SLOTS:
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -282,7 +285,7 @@ class AnnotatedScrollBar : public QScrollBar
 {
     Q_OBJECT
 public:
-    explicit AnnotatedScrollBar(TextEditor *parent = 0);
+    explicit AnnotatedScrollBar(TextEditor *parent = nullptr);
     virtual ~AnnotatedScrollBar();
 
     /**

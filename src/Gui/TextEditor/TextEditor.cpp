@@ -77,10 +77,13 @@ struct TextEditorP
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
     const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
+    int lastSavedRevision;
     bool showIndentMarkers,
          showLongLineMarker;
+
     TextEditorP() :
         completer(nullptr),
+        lastSavedRevision(0),
         showIndentMarkers(true),
         showLongLineMarker(false)
     {
@@ -227,6 +230,20 @@ void TextEditor::setCompleter(QCompleter *completer) const
 QCompleter *TextEditor::completer() const
 {
     return d->completer;
+}
+
+void TextEditor::onSave()
+{
+    QTextBlock block = document()->firstBlock();
+    int maxRev = 0;
+    while (block.isValid()) {
+        if (block.revision() > maxRev)
+            maxRev = block.revision();
+        block = block.next();
+    }
+
+    if (maxRev > d->lastSavedRevision)
+        d->lastSavedRevision = maxRev;
 }
 
 void TextEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
@@ -841,7 +858,7 @@ int LineMarkerArea::lineFromPos(const QPoint &pos)
         y += static_cast<int>(rowSize.height());
         ++line;
         if (pos.y() <= y) {
-            //qDebug() << QLatin1String("line:") << line << endl;
+            //qDebug() << QLatin1String("line:") << line << QLatin1String(" revision:") << block.revision() << endl;
             return line;
         }
 
@@ -889,6 +906,17 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
                                  Qt::AlignRight, number);
             }
 
+            // draw revision marker
+            if (block.isVisible() && block.revision() > 1) {
+                QColor color = block.revision() > d->textEditor->d->lastSavedRevision ?
+                                        QColor(Qt::red) : QColor(Qt::darkGreen);
+                int height = static_cast<int>(d->textEditor->blockBoundingRect(block).height());
+                QRect revRect(textWidth + 1, top, 1, height);
+                painter.setPen(color);
+                painter.setBrush(color);
+                painter.drawRect(revRect);
+            }
+
             // draw folding and bookmark
             if (block.userData()) {
                 TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
@@ -902,16 +930,16 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
 
                         if (block.next().isVisible()) {
                             const QPointF unfoldedArrow[] = {
-                                QPointF(textWidth + 3, top + 2),
-                                QPointF(textWidth + 3 + fontHeight -4, top + 2),
-                                QPointF(textWidth + 3 + ((fontHeight-4) / 2), top + (fontHeight / 2))
+                                QPointF(textWidth + 4, top + 4),
+                                QPointF(textWidth + 4 + fontHeight -4, top + 4),
+                                QPointF(textWidth + 4 + ((fontHeight-4) / 2), top + (fontHeight / 2) +2)
                             };
                             painter.drawPolygon(unfoldedArrow, 3, Qt::WindingFill);
                         } else {
                             const QPointF foldedArrow[] = {
-                                QPointF(textWidth + 3, top + 2),
-                                QPointF(textWidth + 3 + ((fontHeight-4) / 2), top + halfHeight),
-                                QPointF(textWidth + 3, top + fontHeight -2),
+                                QPointF(textWidth + 6, top + 2),
+                                QPointF(textWidth + 6 + ((fontHeight-4) / 2), top + halfHeight),
+                                QPointF(textWidth + 6, top + fontHeight -2),
                             };
                             painter.drawPolygon(foldedArrow, 3, Qt::WindingFill);
                         }
