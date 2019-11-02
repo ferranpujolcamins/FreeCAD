@@ -79,10 +79,12 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
             default:
                 paramType = "Unknown"; break;
             }
-            fprintf(m_file, "%s %s(%s)", indentStr, itm->identifierAssignment()->text().toLatin1().data(), paramType);
-
             PythonSourceIdentifierAssignment *assign = itm->identifierAssignment();
-            fprintf(m_file, " : %s\n", assign->typeInfo().typeAsStr().toLatin1().data());
+            QString txt = assign ? assign->text() : QString();
+            fprintf(m_file, "%s %s(%s)", indentStr, txt.toLatin1().data(), paramType);
+
+            QString typeInfo = assign ? assign->typeInfo().typeAsStr() : QString();
+            fprintf(m_file, " : %s\n", typeInfo.toLatin1().data());
         }
     }
 

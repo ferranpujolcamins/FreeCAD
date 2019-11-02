@@ -32,12 +32,12 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
     (void)TOKEN_INFO; \
     (void)TOKEN_SRC_LINE;
 #define DBG_TOKEN(TOKEN) if (TOKEN){\
-    strcpy(TOKEN_NAME_BUF, Syntax::tokenToCStr(TOKEN->token)); \
-    strcpy(TOKEN_INFO_BUF, (QString::fromLatin1("line:%1,start:%2,end:%3") \
+    strncpy(TOKEN_NAME_BUF, Syntax::tokenToCStr(TOKEN->token), sizeof TOKEN_NAME_BUF); \
+    strncpy(TOKEN_INFO_BUF, (QString::fromLatin1("line:%1,start:%2,end:%3") \
                     .arg(TOKEN->txtBlock()->block().blockNumber()) \
-                    .arg(TOKEN->startPos).arg(TOKEN->endPos)).toLatin1()); \
-    strcpy(TOKEN_SRC_LINE_BUF, TOKEN->txtBlock()->block().text().toLatin1()); \
-    strcpy(TOKEN_TEXT_BUF, TOKEN->text().toLatin1()); \
+                    .arg(TOKEN->startPos).arg(TOKEN->endPos)).toLatin1(), sizeof TOKEN_INFO_BUF); \
+    strncpy(TOKEN_SRC_LINE_BUF, TOKEN->txtBlock()->block().text().toLatin1(), sizeof TOKEN_SRC_LINE_BUF); \
+    strncpy(TOKEN_TEXT_BUF, TOKEN->text().toLatin1(), sizeof TOKEN_TEXT_BUF); \
 }
 #define NEXT_TOKEN(TOKEN) {\
     if (TOKEN) TOKEN = TOKEN->next(); \

@@ -462,10 +462,15 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
             highlighter->rehighlight();
         else {
             // find first token, first row might be empty
-            PythonToken *tok = txtData->tokens()[0];
-            if (tok) {
-                DBG_TOKEN(tok)
-                mod->scanFrame(tok);
+            while(txtData->tokens().empty() &&
+                  (txtData = txtData->next()))
+                ;
+            if (txtData) {
+                PythonToken *tok = txtData->tokens()[0];
+                if (tok) {
+                    DBG_TOKEN(tok)
+                    mod->scanFrame(tok);
+                }
             }
         }
     }
