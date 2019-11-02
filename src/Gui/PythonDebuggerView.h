@@ -304,7 +304,7 @@ class WatchModel : public VarTreeModelBase
 {
     Q_OBJECT
 public:
-    WatchModel(QObject *parent = 0),
+    WatchModel(QObject *parent = nullptr);
     ~WatchModel();
 
     void addItem(QString name);

@@ -65,6 +65,16 @@
 
 /* TRANSLATOR Gui::DockWnd::PythonDebuggerView */
 
+static ParameterGrp::handle _GetParam() {
+    static ParameterGrp::handle hGrp;
+    if(!hGrp) {
+        hGrp = App::GetApplication().GetParameterGroupByPath(
+                "User parameter:BaseApp/Preferences/PythonDebuggerView");
+    }
+    return hGrp;
+}
+
+
 namespace Gui {
 namespace DockWnd {
 
@@ -183,9 +193,9 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
     setLayout(vLayout);
 
     // raise the tab page set in the preferences
-    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("DebugView");
-    d->m_stackTabWgt->setCurrentIndex(hGrp->GetInt("AutoloadStackViewTab", 0));
-    d->m_varTabWgt->setCurrentIndex(hGrp->GetInt("AutoloadVarViewTab", 0));
+    ParameterGrp::handle hGrp = _GetParam()->GetGroup("DebugView");
+    d->m_stackTabWgt->setCurrentIndex(static_cast<int>(hGrp->GetInt("AutoloadStackViewTab", 0)));
+    d->m_varTabWgt->setCurrentIndex(static_cast<int>(hGrp->GetInt("AutoloadVarViewTab", 0)));
 
 
     // restore header data such column width etc
@@ -212,7 +222,7 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
 PythonDebuggerView::~PythonDebuggerView()
 {
     // save currently viewed tab
-    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("DebugView");
+    ParameterGrp::handle hGrp = _GetParam()->GetGroup("DebugView");
     hGrp->SetInt("AutoloadStackViewTab", d->m_stackTabWgt->currentIndex());
     hGrp->SetInt("AutoloadVarViewTab", d->m_varTabWgt->currentIndex());
 
@@ -311,7 +321,7 @@ void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
 void PythonDebuggerView::breakpointViewCurrentChanged(const QModelIndex &current,
                                                       const QModelIndex &previous)
 {
-    Q_UNUSED(previous);
+    Q_UNUSED(previous)
     App::BreakpointLine *bpl = App::PythonDebugger::instance()->
                                         getBreakpointLineFromIdx(current.row());
     if (!bpl)
@@ -322,7 +332,7 @@ void PythonDebuggerView::breakpointViewCurrentChanged(const QModelIndex &current
 
 void PythonDebuggerView::issuesViewCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-    Q_UNUSED(previous);
+    Q_UNUSED(previous)
     QAbstractItemModel *model = d->m_issuesView->model();
     QModelIndex idxLine = model->index(current.row(), 0);
     QModelIndex idxFile = model->index(current.row(), 1);
@@ -589,13 +599,13 @@ StackFramesModel::~StackFramesModel()
 
 int StackFramesModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return App::PythonDebugger::instance()->callDepth(m_currentFrame);
 }
 
 int StackFramesModel::columnCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return colCount +1;
 }
 
@@ -616,7 +626,7 @@ QVariant StackFramesModel::data(const QModelIndex &index, int role) const
     int i = 0,
         j = App::PythonDebugger::instance()->callDepth(m_currentFrame);
 
-    while (NULL != frame) {
+    while (nullptr != frame) {
         if (i == index.row()) {
             switch(index.column()) {
             case 0:
@@ -724,13 +734,13 @@ PythonBreakpointModel::~PythonBreakpointModel()
 
 int PythonBreakpointModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return App::PythonDebugger::instance()->breakpointCount();
 }
 
 int PythonBreakpointModel::columnCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return colCount +1;
 }
 
@@ -780,8 +790,6 @@ QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
     default:
         return QVariant();
     }
-
-    return QVariant();
 }
 
 QVariant PythonBreakpointModel::headerData(int section,
@@ -805,7 +813,7 @@ QVariant PythonBreakpointModel::headerData(int section,
 
 void PythonBreakpointModel::added(const App::BreakpointLine *bp)
 {
-    Q_UNUSED(bp);
+    Q_UNUSED(bp)
     int count = rowCount();
     beginInsertRows(QModelIndex(), count, count);
     endInsertRows();
@@ -821,7 +829,7 @@ void PythonBreakpointModel::changed(const App::BreakpointLine *bp)
 
 void PythonBreakpointModel::removed(int idx, const App::BreakpointLine *bpl)
 {
-    Q_UNUSED(bpl);
+    Q_UNUSED(bpl)
     beginRemoveRows(QModelIndex(), idx, idx);
     endRemoveRows();
 }
@@ -856,13 +864,13 @@ IssuesModel::~IssuesModel()
 
 int IssuesModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return m_exceptions.size();
 }
 
 int IssuesModel::columnCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return colCount;
 }
 
@@ -921,8 +929,6 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
     default:
         return QVariant();
     }
-
-    return QVariant();
 }
 
 QVariant IssuesModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -946,7 +952,7 @@ QVariant IssuesModel::headerData(int section, Qt::Orientation orientation, int r
 
 bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     beginRemoveRows(QModelIndex(), row, count -1);
     for (int i = row; i < row + count; ++i) {
         m_exceptions.removeAt(i);
