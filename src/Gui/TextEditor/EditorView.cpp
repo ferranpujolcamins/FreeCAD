@@ -705,6 +705,11 @@ QString EditorView::fileName() const
     return d->editWrapper->fileName();
 }
 
+void EditorView::setFileName(QString fileName)
+{
+    d->editWrapper->setFileName(fileName);
+}
+
 void EditorView::setTopbar(EditorViewTopBar *topBar)
 {
     d->topBar = topBar;

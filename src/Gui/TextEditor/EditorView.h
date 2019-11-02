@@ -97,6 +97,7 @@ public:
     QStringList undoActions() const;
     QStringList redoActions() const;
     QString fileName() const;
+    void setFileName(QString fileName);
 
     // sets a topbar widget
     void setTopbar(EditorViewTopBar *topBar);
