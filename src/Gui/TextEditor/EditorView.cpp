@@ -466,10 +466,14 @@ void EditorView::setDisplayName(EditorView::DisplayName type)
 /**
  * Saves the content of the editor to a file specified by the appearing file dialog.
  */
-bool EditorView::saveAs(void)
+bool EditorView::saveAs(QString fn)
 {
-    QString fn = FileDialog::getSaveFileName(this, QObject::tr("Save Macro"),
-        QString::null, QString::fromLatin1("%1 (*.FCMacro);;Python (*.py);;all files (*.*)").arg(tr("FreeCAD macro")));
+    if (fn.isEmpty()) {
+        fn = FileDialog::getSaveFileName(this, QObject::tr("Save file"),
+                                    QString::null,
+                                    QString::fromLatin1("%1 (*.FCMacro);;Python (*.py);;all files (*.*)")
+                                                       .arg(tr("FreeCAD macro")));
+    }
     if (fn.isEmpty())
         return false;
 
@@ -554,6 +558,13 @@ bool EditorView::open(const QString& fileName)
     Q_EMIT switchedFile(fileName);
     setCurrentFileName(fileName);
     return true;
+}
+
+bool EditorView::save()
+{
+    if (fileName().isEmpty())
+        return saveAs();
+    return saveFile();
 }
 
 /**

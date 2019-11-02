@@ -62,7 +62,7 @@ private:
     void readSettings();
     void writeSettings();
     bool maybeSave();
-    bool saveFile(const QString &fileName);
+    //bool saveFile(const QString &fileName);
     void createDockWindows();
     QString strippedName(const QString &fullFileName);
 

@@ -80,7 +80,8 @@ public:
     /** @name Standard actions of the editor */
     //@{
     virtual bool open   (const QString &f);
-    virtual bool saveAs ();
+    virtual bool save   ();
+    virtual bool saveAs (const QString fileName = QString());
     virtual void cut    ();
     virtual void copy   ();
     virtual void paste  ();

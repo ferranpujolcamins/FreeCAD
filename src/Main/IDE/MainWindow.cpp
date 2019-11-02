@@ -84,21 +84,20 @@ void MainWindow::open()
 
 bool MainWindow::save()
 {
-    if (curFile.isEmpty()) {
-        return saveAs();
-    } else {
-        return saveFile(curFile);
-    }
+    if (!editorView->save())
+        return false;
+
+    statusBar()->showMessage(tr("File saved"), 2000);
+    return true;
 }
 
 bool MainWindow::saveAs()
 {
-    QFileDialog dialog(this);
-    dialog.setWindowModality(Qt::WindowModal);
-    dialog.setAcceptMode(QFileDialog::AcceptSave);
-    if (dialog.exec() != QDialog::Accepted)
+    if (!editorView->saveAs())
         return false;
-    return saveFile(dialog.selectedFiles().first());
+
+    statusBar()->showMessage(tr("File saved"), 2000);
+    return true;
 }
 
 void MainWindow::about()
@@ -270,6 +269,7 @@ void MainWindow::loadFile(const QString &fileName)
     statusBar()->showMessage(tr("File loaded"), 2000);
 }
 
+/*
 bool MainWindow::saveFile(const QString &fileName)
 {
     QFile file(fileName);
@@ -281,10 +281,11 @@ bool MainWindow::saveFile(const QString &fileName)
         return false;
     }
 
-    editorView->setFileName(fileName);
+    editorView->saveAs(fileName);
     statusBar()->showMessage(tr("File saved"), 2000);
     return true;
 }
+*/
 
 QString MainWindow::strippedName(const QString &fullFileName)
 {
