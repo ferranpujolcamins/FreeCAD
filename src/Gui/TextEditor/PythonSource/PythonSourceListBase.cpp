@@ -291,8 +291,8 @@ int PythonSourceListParentBase::compare(const PythonSourceListNodeBase *left,
     if (!left || ! right || !left->token() || !right->token())
         return 0;
     if (*left->token() > *right->token())
-        return +1;
-    else if (*left->token() < *right->token())
         return -1;
+    else if (*left->token() < *right->token())
+        return +1;
     return 0;
 }

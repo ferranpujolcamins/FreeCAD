@@ -58,7 +58,7 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
         return ind; // is invalid here
 
     // push the root indentblock
-    ind.pushFrameBlock(0, 0);
+    ind.pushFrameBlock(-1, 0);
 
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const PythonToken *beginTok = frm->token() ? frm->token() : tok;
@@ -75,6 +75,7 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
     //beginTok = tok;
     DBG_TOKEN(beginTok)
 
+    QList<int> traversedBlocks;
     // rationale here is to back up until we find a line with less indent
     // def func(arg1):     <- frameIndent
     //     var1 = None     <- previousBlockIndent
@@ -98,9 +99,11 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
                     {
                         break; // goto parent loop, do previous line
                     } else if (beginTok->token == PythonSyntaxHighlighter::T_BlockStart) {
+                        traversedBlocks.push_back(txtData->indent());
                         guard = -1; break;
                     } else if (beginTok->isCode()) {
                         insertBlockStart(colonTok);
+                        traversedBlocks.push_back(txtData->indent());
                         guard = -1;
                         break;
                     } else if(beginTok->token == PythonSyntaxHighlighter::T_DelimiterNewLine) {
@@ -122,14 +125,18 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
     if (guard < 0) {
         // we found it
         currentIndent = _currentBlockIndent(beginTok);
+        if (currentIndent > -1)
+            traversedBlocks.push_back(currentIndent);
     } else {
         if (guard == 0)
             qDebug() << QLatin1String("scanFrame loopguard") << endl;
         // we dind't find any ':', must be in root frame
         assert(frm->parentFrame() == nullptr && frameIndent == 0 && "Should be in root frame here!");
     }
-    if (frameIndent > 0 || currentIndent > 0)
-        ind.pushFrameBlock(frameIndent, currentIndent);
+    if (frameIndent > 0 || traversedBlocks.size() > 0){
+        for(int indnt : traversedBlocks)
+            ind.pushFrameBlock(frameIndent, indnt);
+    }
     return ind;
 }
 

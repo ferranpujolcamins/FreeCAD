@@ -46,7 +46,8 @@ public:
     int framePopCnt() const { return m_framePopCnt; }
     int framePopCntDecr();
 
-
+    /// returns true if line pointed to by tok is valid, ie: no comment string etc
+    bool validIndentLine(PythonToken *tok);
 private:
     QList<Indent> m_indentStack;
     Indent _current() const;

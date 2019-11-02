@@ -139,7 +139,11 @@ public:
 
 
 private:
-    // moves token til next line with tokens
+    /// starts a new frame
+    PythonToken *startSubFrame(PythonToken *tok, PythonSourceIndent &indent,
+                               PythonSourceRoot::DataTypes type);
+
+    /// moves token til next line with tokens
     PythonToken *gotoNextLine(PythonToken *tok);
 
     /**

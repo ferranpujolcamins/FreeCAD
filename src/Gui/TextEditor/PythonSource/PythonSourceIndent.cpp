@@ -59,11 +59,13 @@ bool PythonSourceIndent::isValid() const {
     if (m_indentStack.size() < 1)
         return false;
     const Indent ind = m_indentStack[m_indentStack.size()-1];
-    return ind.currentBlockIndent > -1 && ind.frameIndent > -1;
+    return ind.currentBlockIndent > -1 || ind.frameIndent > -1;
 }
 
 void PythonSourceIndent::pushFrameBlock(int frmIndent, int currentIndent)
 {
+    // insert a framestarter
+    assert(frmIndent <= currentIndent && "frmIndent must be less or equal to currentIndent");
     Indent ind(frmIndent, currentIndent);
     m_indentStack.push_back(ind);
 }
@@ -76,11 +78,15 @@ void PythonSourceIndent::pushBlock(int currentIndent)
 
 void PythonSourceIndent::popBlock()
 {
-    if (m_indentStack.isEmpty())
+    if (m_indentStack.size() < 2)
         return;
-    Indent ind = m_indentStack.takeLast();
-    if (ind.frameIndent >= m_indentStack.last().currentBlockIndent)
+    m_indentStack.pop_back();
+    Indent ind = m_indentStack.last();
+    if (ind.frameIndent >= ind.currentBlockIndent) {
+        // pop a framestarter
+        m_indentStack.pop_back();
         ++m_framePopCnt; // store that we have popped a frame
+    }
 }
 
 int PythonSourceIndent::framePopCntDecr()
@@ -88,6 +94,30 @@ int PythonSourceIndent::framePopCntDecr()
     if (framePopCnt() > 0)
         --m_framePopCnt;
     return m_framePopCnt;
+}
+
+
+bool PythonSourceIndent::validIndentLine(PythonToken *tok)
+{
+    DEFINE_DBG_VARS
+
+    // make sure we don't dedent on a comment or a string
+    for(PythonToken *tmpTok : tok->txtBlock()->tokens()) {
+        DBG_TOKEN(tmpTok)
+        switch (tmpTok->token) {
+        case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:
+        case PythonSyntaxHighlighter::T_LiteralBlockSglQuote:
+        case PythonSyntaxHighlighter::T_LiteralDblQuote:
+        case PythonSyntaxHighlighter::T_LiteralSglQuote:
+        case PythonSyntaxHighlighter::T_Comment: // fallthrough
+            return false;// ignore indents if we are at a multiline string
+        default:
+            if (tmpTok->isCode())
+                return true;
+        }
+    }
+
+    return true;
 }
 
 PythonSourceIndent::Indent PythonSourceIndent::_current() const
