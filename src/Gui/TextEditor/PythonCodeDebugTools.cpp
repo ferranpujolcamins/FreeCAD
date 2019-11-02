@@ -420,7 +420,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
     }
     // root element, number of rows
     if (parent.row() < 0)
-        return m_editor->document()->blockCount();
+        return m_editor->document()->lineCount();
     return 0;
 }
 
