@@ -253,9 +253,9 @@ PythonEditor::PythonEditor(QWidget* parent)
     setStyleSheet(QLatin1String("QToolTip {font-size:12pt; font-family:'DejaVu Sans Mono', Courier; }"));
 
     // code analyzer
-    ParameterGrp::handle hPrefGrp = getWindowParameter();
-    if (hPrefGrp->GetBool("EnableCodeAnalyzer", true))
-        d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
+    //ParameterGrp::handle hPrefGrp = getWindowParameter();
+    //if (hPrefGrp->GetBool("EnableCodeAnalyzer", true))
+    //    d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
 }
 
 /** Destroys the object and frees any allocated resources */
