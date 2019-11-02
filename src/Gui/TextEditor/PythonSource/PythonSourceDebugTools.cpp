@@ -15,6 +15,18 @@ DumpModule::DumpModule(PythonSourceModule *module, const char *outfile) :
     DumpToFileBaseClass(outfile),
     m_module(module)
 {
+    create();
+}
+
+DumpModule::DumpModule(PythonSourceModule *module, FILE *fp) :
+    DumpToFileBaseClass(fp),
+    m_module(module)
+{
+    create();
+}
+
+void DumpModule::create()
+{
     fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
 
     const PythonSourceFrame *rootFrm =  m_module->rootFrame();
@@ -51,7 +63,7 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
             frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->token) : "-1",
             frm->lastToken() ? frm->lastToken()->line() +1 : -1);
 
-    DBG_TOKEN(frm->lastToken());
+    DBG_TOKEN(frm->lastToken())
 
     fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
                                                     frm->isClass());

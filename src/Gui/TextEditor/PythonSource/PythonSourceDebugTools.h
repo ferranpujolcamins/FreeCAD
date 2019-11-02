@@ -13,11 +13,13 @@ class DumpModule : public DumpToFileBaseClass
 {
 public:
     explicit DumpModule(PythonSourceModule *module, const char *outfile = "stdout");
+    explicit DumpModule(PythonSourceModule *module, FILE *fp);
     ~DumpModule();
 
     void dumpFrame(const PythonSourceFrame *frm, int indent);
 private:
     PythonSourceModule *m_module;
+    void create();
 };
 
 } // namespace Gui

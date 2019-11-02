@@ -32,10 +32,12 @@ QT_BEGIN_NAMESPACE
 class QTextDocument;
 class QTabWidget;
 class QTreeView;
+class QPlainTextEdit;
 QT_END_NAMESPACE
 
 namespace Gui {
 class TextEditor;
+class PythonEditor;
 namespace Syntax {
 
 const char* tokenToCStr(PythonSyntaxHighlighter::Tokens tok);
@@ -47,7 +49,7 @@ class TokenModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    explicit TokenModel(const TextEditor *editor, QObject *parent = 0);
+    explicit TokenModel(const PythonEditor *editor, QObject *parent = 0);
     virtual ~TokenModel();
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
@@ -64,7 +66,7 @@ public Q_SLOTS:
 
 private:
     const PythonTextBlockData *getTextBlock(long line) const;
-    const TextEditor *m_editor;
+    const PythonEditor *m_editor;
 };
 
 // -------------------------------------------------------------
@@ -73,14 +75,18 @@ class DebugWindow : public QWidget
 {
     Q_OBJECT
 public:
-    explicit DebugWindow(TextEditor *editor);
+    explicit DebugWindow(PythonEditor *editor);
     virtual ~DebugWindow();
 
+private Q_SLOTS:
+    void dumpFrames();
+
 private:
-    TextEditor *m_editor;
+    PythonEditor *m_editor;
     QTabWidget *m_tabWgt;
     TokenModel *m_tokModel;
     QTreeView  *m_tokTree;
+    QPlainTextEdit *m_frameDumpEdit;
 };
 
 } // namespace Syntax
@@ -91,6 +97,7 @@ class DumpToFileBaseClass
 {
 public:
     explicit DumpToFileBaseClass(const char *outfile = "stdout");
+    explicit DumpToFileBaseClass(FILE *fp);
     virtual ~DumpToFileBaseClass();
 
     const char *datetimeStr();

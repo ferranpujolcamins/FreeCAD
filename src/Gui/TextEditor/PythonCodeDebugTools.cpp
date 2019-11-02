@@ -26,6 +26,9 @@
 #include "PythonCodeDebugTools.h"
 #include "PythonCode.h"
 #include <PythonSource/PythonSource.h>
+#include <PythonSource/PythonSourceRoot.h>
+#include "PythonSource/PythonSourceDebugTools.h"
+#include "PythonEditor.h"
 #include <QTextBlock>
 #include <QTextBlockUserData>
 #include <QFileInfo>
@@ -218,6 +221,11 @@ DumpToFileBaseClass::DumpToFileBaseClass(const char *outfile)
     }
 }
 
+DumpToFileBaseClass::DumpToFileBaseClass(FILE *fp) :
+    m_file(fp)
+{
+}
+
 DumpToFileBaseClass::~DumpToFileBaseClass()
 {
     if (m_file && m_file != stdout && m_file != stderr)
@@ -268,7 +276,7 @@ static const std::intptr_t SRC_ROW_FLAG = (1 << 7),
                            SRC_ROW_MASK = 0xFFFFFFFFFFFFFF00,
                            TOK_ROW_MASK = 0x00000000000000FF;
 
-TokenModel::TokenModel(const TextEditor *editor, QObject *parent) :
+TokenModel::TokenModel(const PythonEditor *editor, QObject *parent) :
     QAbstractItemModel(parent),
     m_editor(editor)
 {
@@ -440,7 +448,7 @@ const PythonTextBlockData *TokenModel::getTextBlock(long line) const
 
 // -----------------------------------------------------------------------
 
-DebugWindow::DebugWindow(TextEditor *editor) :
+DebugWindow::DebugWindow(PythonEditor *editor) :
     QWidget(),
     m_editor(editor),
     m_tabWgt(nullptr), m_tokModel(nullptr), m_tokTree(nullptr)
@@ -467,6 +475,25 @@ DebugWindow::DebugWindow(TextEditor *editor) :
     tokLayout->addWidget(m_tokTree);
 
     m_tabWgt->addTab(tokPage, QLatin1String("Tokens"));
+
+
+    // framedump
+    QWidget *frameDump = new QWidget(this);
+    QVBoxLayout *frameDumpLayout = new QVBoxLayout();
+    frameDump->setLayout(frameDumpLayout);
+
+    m_frameDumpEdit = new QPlainTextEdit(this);
+    m_frameDumpEdit->setReadOnly(true);
+
+    QPushButton *frameDumpRefresh = new QPushButton(QLatin1String("refresh"));
+    connect(frameDumpRefresh, SIGNAL(clicked()), this, SLOT(dumpFrames()));
+
+    frameDumpLayout->addWidget(frameDumpRefresh);
+    frameDumpLayout->addWidget(m_frameDumpEdit);
+
+    m_tabWgt->addTab(frameDump, QLatin1String("frames"));
+
+    dumpFrames();
 }
 
 DebugWindow::~DebugWindow()
@@ -474,6 +501,29 @@ DebugWindow::~DebugWindow()
     delete m_tokTree;
     delete m_tokModel;
     delete m_tabWgt;
+}
+
+void DebugWindow::dumpFrames()
+{
+    FILE *tmpFilePtr;
+
+    tmpFilePtr = tmpfile();
+
+    //DumpSyntaxTokens dump(document()->begin());
+    QString fileName = m_editor->fileName();
+    PythonSourceModule *module = PythonSourceRoot::instance()->moduleFromPath(fileName);
+    DumpModule dMod(module, tmpFilePtr);
+
+    rewind(tmpFilePtr);
+
+    QByteArray textBytes;
+    while(!feof(tmpFilePtr)) {
+        char c = fgetc(tmpFilePtr);
+        textBytes.append(c);
+    }
+
+    m_frameDumpEdit->setPlainText(QString::fromLatin1(textBytes));
+
 }
 
 
