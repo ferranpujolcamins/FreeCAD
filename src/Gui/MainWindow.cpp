@@ -521,14 +521,16 @@ MainWindow::MainWindow(QWidget * parent, Qt::WindowFlags f)
 #endif
 
 //    // PythonDebugger view
-    Gui::DockWnd::PythonDebuggerView* pcDebugger = new PythonDebuggerView(this);
-    pcDebugger->setObjectName
-        (QString::fromLatin1(QT_TRANSLATE_NOOP("QDockWidget","Debugger view")));
-    pDockMgr->registerDockWindow("Std_PythonDebuggerView", pcDebugger);
+    if (hiddenDockWindows.find("Std_PythonDebuggerView") == std::string::npos) {
+        Gui::DockWnd::PythonDebuggerView* pcDebugger = new PythonDebuggerView(this);
+        pcDebugger->setObjectName
+            (QString::fromLatin1(QT_TRANSLATE_NOOP("QDockWidget","Debugger view")));
+        pDockMgr->registerDockWindow("Std_PythonDebuggerView", pcDebugger);
 
-    // accept drops on the window, get handled in dropEvent, dragEnterEvent
-    setAcceptDrops(true);
-    statusBar()->showMessage(tr("Ready"), 2001);
+        // accept drops on the window, get handled in dropEvent, dragEnterEvent
+        setAcceptDrops(true);
+        statusBar()->showMessage(tr("Ready"), 2001);
+    }
 }
 
 MainWindow::~MainWindow()
