@@ -864,6 +864,10 @@ PythonToken *PythonSourceFrame::scanImports(PythonToken *tok)
                 m_module->setSyntaxError(tok, QString::fromLatin1("Parsed as Alias but analyzer disagrees. '%1'").arg(text));
             goto set_identifier;
         default:
+            if (tok->token == PythonSyntaxHighlighter::T_DelimiterPeriod &&
+                tok->previous() && tok->previous()->isImport())
+                break; // might be "import foo.bar ..."
+                       //                     ^
             if (tok->isCode())
                 m_module->setSyntaxError(tok, QString::fromLatin1("Unexpected token '%1'").arg(text));
             break;
@@ -1226,6 +1230,13 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
             case PythonSyntaxHighlighter::T_BlockStart:
                 indent.pushBlock(ind);
                 prev = nullptr; // break while loop
+                break;
+            case PythonSyntaxHighlighter::T_Comment:
+            case PythonSyntaxHighlighter::T_LiteralDblQuote:
+            case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:
+            case PythonSyntaxHighlighter::T_LiteralSglQuote:
+            case PythonSyntaxHighlighter::T_LiteralBlockSglQuote:
+                PREV_TOKEN(prev)
                 break;
             default:
                 if (!prev->isCode()) {
