@@ -1,6 +1,9 @@
 #add_defintions(-D_FC_GUI_ENABLED_)
 #add_defintions(-DFREECADMAINPY)
 
+add_subdirectory(IDE)
+
+
 if(BUILD_GUI)
     include_directories(
         ${Boost_INCLUDE_DIRS}

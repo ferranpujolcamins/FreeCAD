@@ -1,5 +1,6 @@
 add_subdirectory(PythonSource)
 
+
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 SET(EditorLibName TextEditor)
