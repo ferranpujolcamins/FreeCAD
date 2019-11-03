@@ -217,6 +217,8 @@ public:
         T_IdentifierNone,                    // The None keyword
         T_IdentifierTrue,                    // The bool True
         T_IdentifierFalse,                   // The bool False
+        T_IdentifierInvalid,                 // The identifier could not be bound to any other variable
+                                             // or it has some error, such as calling a non callable
         T__IdentifierDeclarationEnd,
         T__IdentifierEnd = T__IdentifierDeclarationEnd,
 
@@ -359,8 +361,8 @@ struct PythonToken
         return startPos > rhs.startPos;
     }
     bool operator < (const PythonToken &rhs) const { return (rhs > *this); }
-    bool operator <= (const PythonToken &rhs) const { return !(rhs > *this); }
-    bool operator >= (const PythonToken &rhs) const { return !(*this > rhs); }
+    bool operator <= (const PythonToken &rhs) const { return !(rhs < *this); }
+    bool operator >= (const PythonToken &rhs) const { return !(*this < rhs); }
 
     /// for traversing tokens in document
     /// returns token or nullptr if at end/begin
@@ -435,6 +437,12 @@ public:
      * @brief tokens all PythonTokens for this row
      */
     const tokens_t &tokens() const;
+
+    /**
+     * @brief undeterminedTokens
+     * @return all undetermined tokens for this txtblockdata
+     */
+    const tokens_t undeterminedTokens() const;
 
     PythonTextBlockData *next() const;
     PythonTextBlockData *previous() const;
@@ -605,6 +613,9 @@ private:
     QHash<const PythonToken*, QTextCharFormat> m_reformats;
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    QString m_text;
+#endif
 
     friend class PythonSyntaxHighlighter; // in order to hide some api
 };

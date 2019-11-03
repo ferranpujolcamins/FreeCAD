@@ -114,9 +114,8 @@ public:
     bool isClass() const { return m_isClass; }
 
     /// looks up name among identifiers (variables/constants)
-    const PythonSourceIdentifier *getIdentifier(const QString name) const {
-        return m_identifiers.getIdentifier(name);
-    }
+    const PythonSourceIdentifier *getIdentifier(const QString name) const;
+
     /// get reference to all identifiers within this frame
     const PythonSourceIdentifierList &identifiers() const { return m_identifiers; }
 
@@ -129,6 +128,7 @@ public:
 
     /// the token (unindent) that ends this frame
     const PythonToken *lastToken() const { return m_lastToken.token(); }
+    void setLastToken(PythonToken *tok) { m_lastToken.setToken(tok); }
 
     // scan* functions might mutate PythonToken, ie change from Undetermined -> determined etc.
     /// on complete rescan, returns lastToken->next()
@@ -158,6 +158,10 @@ private:
 
     // set identifier and sets up reference to RValue
     PythonToken *scanIdentifier(PythonToken *tok);
+
+    /// looks up a previously defined identifier with same name
+    const PythonSourceIdentifier *lookupIdentifierReference(PythonToken *tok);
+
     // scans the RValue ie after '='
     // or scans type hint ie after :
     PythonToken *scanRValue(PythonToken *tok,

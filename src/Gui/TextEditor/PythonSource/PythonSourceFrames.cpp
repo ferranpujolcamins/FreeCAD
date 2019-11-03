@@ -286,12 +286,22 @@ PythonSourceRoot::TypeInfo PythonSourceFrame::returnTypeHint() const
     */
 }
 
+const PythonSourceIdentifier *PythonSourceFrame::getIdentifier(const QString name) const {
+    const PythonSourceIdentifier *ident = m_identifiers.getIdentifier(name);
+    if (ident)
+        return ident;
+    // recurse upwards to lookup
+    if (!m_parentFrame)
+        return nullptr;
+    return parentFrame()->getIdentifier(name);
+}
+
 PythonToken *PythonSourceFrame::scanFrame(PythonToken *startToken, PythonSourceIndent &indent)
 {
     DEFINE_DBG_VARS
-    DBG_TOKEN(startToken)
+            DBG_TOKEN(startToken)
 
-    if (!startToken)
+            if (!startToken)
         return startToken;
 
     // freshly created frame?
@@ -491,25 +501,26 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
                 noConstModule->setFormatToken(tok);
                 continue; // switch on new token state
             }
-            tok->token = PythonSyntaxHighlighter::T_IdentifierFunction;
+            const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_IdentifierFunction;
             noConstModule->setFormatToken(tok);
             continue; // switch on new token state
-        } break;
+        }
         case PythonSyntaxHighlighter::T_IdentifierClass: {
-
+            PythonSourceRoot::TypeInfo tpInfo(PythonSourceRoot::ClassType);
+            m_identifiers.setIdentifier(tok, tpInfo);
             tok = startSubFrame(tok, indent, PythonSourceRoot::ClassType);
             DBG_TOKEN(tok)
             if (indent.framePopCnt()> 0)
                 return tok;
             continue;
-        } break;
+        }
         case PythonSyntaxHighlighter::T_IdentifierFunction: {
             tok = startSubFrame(tok, indent, PythonSourceRoot::FunctionType);
             DBG_TOKEN(tok)
             if (indent.framePopCnt()> 0)
                 return tok;
             continue;
-        } break;
+        }
         case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
             if (isClass() &&
                 tok->text() == QLatin1String("__init__"))
@@ -530,7 +541,7 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             if (indent.framePopCnt()> 0)
                 return tok;
             continue;
-        } break;
+        }
         default:
             if (tok->isImport()) {
                 tok = scanImports(tok);
@@ -616,6 +627,38 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             typeInfo.type = PythonSourceRoot::NoneType;
             m_identifiers.setIdentifier(tok, typeInfo);
             break;
+        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+            if (identifierTok) {
+                if (identifierTok->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
+                    const PythonSourceIdentifier *tmpIdent = lookupIdentifierReference(identifierTok);
+
+                    // default to invalid
+                    identifierTok->token = PythonSyntaxHighlighter::T_IdentifierInvalid;
+
+                    if (tmpIdent && !tmpIdent->isCallable(identifierTok)) {
+                        m_module->setLookupError(identifierTok, QString::fromLatin1("Calling '%1' is a non callable")
+                                                 .arg(identifierTok->text()));
+                    }
+
+                } else if (identifierTok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
+                    PythonSourceRoot::TypeInfoPair tpPair =
+                            PythonSourceRoot::instance()->builtinType(identifierTok, this);
+                   if (!tpPair.thisType.isCallable())
+                       m_module->setLookupError(identifierTok, QString::fromLatin1("Calling builtin '%1' is a non callable")
+                                                                 .arg(identifierTok->text()));
+                }
+
+            }
+            return tok;
+            //break;
+        case PythonSyntaxHighlighter::T_DelimiterPeriod:
+            break;
+        case PythonSyntaxHighlighter::T_IdentifierBuiltin: {
+            PythonSourceRoot::TypeInfoPair tpPair =
+                    PythonSourceRoot::instance()->builtinType(tok, this);
+            m_identifiers.setIdentifier(tok, tpPair.thisType);
+            identifierTok = tok;
+        }   break;
         case PythonSyntaxHighlighter::T_OperatorEqual:
             // assigment
             if (!identifierTok) {
@@ -654,6 +697,9 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             assert(!tok->isImport() && "Should never get a import in scanIdentifier");
             if (tok->isIdentifierVariable())
                 identifierTok = tok;
+            else if (tok->isDelimiter()) {
+                lookupIdentifierReference(identifierTok);
+            }
             break;
         }
 
@@ -662,6 +708,36 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
     }
 
     return tok;
+}
+
+const PythonSourceIdentifier *PythonSourceFrame::lookupIdentifierReference(PythonToken *tok)
+{
+    const PythonSourceIdentifier *tmpIdent = nullptr;
+    if (tok && tok->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
+        PythonSourceRoot::TypeInfo typeInfo;
+        tmpIdent = getIdentifier(tok->text());
+
+        // default to invalid
+        tok->token = PythonSyntaxHighlighter::T_IdentifierInvalid;
+
+        if (!tmpIdent) {
+            m_module->setLookupError(tok);
+        } else {
+            PythonSourceIdentifierAssignment *assign = tmpIdent->getFromPos(tok);
+            if (assign && assign->typeInfo().isValid()) {
+                tok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
+                if (tmpIdent->isImported(tok))
+                    typeInfo.type = PythonSourceRoot::ReferenceImportType;
+                else if (tmpIdent->isCallable(tok))
+                    typeInfo.type = PythonSourceRoot::ReferenceCallableType;
+                else
+                    typeInfo.type = PythonSourceRoot::ReferenceType;
+                m_identifiers.setIdentifier(tok, typeInfo);
+            }
+        }
+        m_module->setFormatToken(tok);
+    }
+    return tmpIdent;
 }
 
 PythonToken *PythonSourceFrame::scanRValue(PythonToken *tok,

@@ -49,15 +49,41 @@ public:
         VoidType,
 
         // reference types
-        ReferenceType, // references another variable
-        ReferenceArgumentType,  // is a function/method argument
-        ReferenceBuiltInType, // references a builtin identifier
-        // import statements
-        ReferenceImportUndeterminedType, // identifier is imported into current frame,
-                                          // not sure yet if it's a py module or C
-        ReferenceImportErrorType,   // module could not be found
-        ReferenceImportPythonType, // identifier is imported into current frame, is a Py module
-        ReferenceImportBuiltInType, // identifier is imported into current frame, is C module
+        /// references another variable
+        /// ie. "var1 = var" where var is also a reference type
+        ReferenceType,
+        /// references a callable type
+        /// ie. "def func():"
+        ///     " ...."
+        ///     "func()" func here in this line is a ReferenceCallableType
+        ReferenceCallableType,
+        /// references a argument in this function/method arguments list
+        /// ie. "def func(arg1)" arg1 is a ReferenceArgument
+        ReferenceArgumentType,
+        /// is a ref. to builtin function/method identifier
+        /// ie. "var1=print" var1 references builtin print
+        ReferenceBuiltInType,
+        /*
+        /// is a ref to a import statements
+        /// identifier is imported into current frame,
+        /// not sure yet if it's a py module or C
+        /// ie. "import foo"
+        ///     "foo ..." foo is now a ReferenceImportUndetermined
+        ReferenceImportUndeterminedType,
+        /// is a ref to a import that could not be found
+        /// ie. "import baz" and baz wasnt found it is now  a ReferenceImportErrorType
+        ReferenceImportErrorType,
+        /// identifier is imported into current frame, is a Py module
+        /// ie. "import myPy" myPy is a regular python script (module)
+        ReferenceImportPythonType,
+        /// identifier is imported into current frame, is C module
+        /// ie. "import fastModule" fastModule is a C module
+        ReferenceImportBuiltInType,
+        */
+        /// identifier is imported into current frame
+        /// ie. "import fastModule" fastModule is a module
+        ReferenceImportType,
+
 
         // standard builtin types
         // https://docs.python.org/3/library/types.html
@@ -129,15 +155,19 @@ public:
             referenceName = other.referenceName;
             return *this;
         }
-        /// refernces another variable
+        /// references another variable
         bool isReference() const {
-            return type >= ReferenceType && type <= ReferenceImportBuiltInType;
+            return type >= ReferenceType && type <= ReferenceImportType;
         }
+
         /// imported as into current frame
         bool isReferenceImported() const {
-            return type >= ReferenceImportUndeterminedType &&
-                   type <= ReferenceImportBuiltInType;
+            return type >= ReferenceImportType;
+
+            //return type >= ReferenceImportUndeterminedType &&
+            //       type <= ReferenceImportBuiltInType;
         }
+
         /// if you can call this type
         bool isCallable() const {
             switch (type) {

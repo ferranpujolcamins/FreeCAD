@@ -19,7 +19,8 @@ PythonSourceImportModule::PythonSourceImportModule(PythonSourceImportPackage *pa
                                                    PythonSourceFrame *frame,
                                                    QString alias) :
     PythonSourceListNodeBase(parent),
-    m_frame(frame), m_aliasName(alias), m_type()
+    m_frame(frame), m_aliasName(alias),
+    m_type(PythonSourceRoot::ReferenceImportType)
 {
 
 }

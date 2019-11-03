@@ -56,7 +56,9 @@ void PythonSourceModule::scanLine(PythonToken *tok)
     const QTextDocument *doc = tok->txtBlock()->block().document();
     while (!m_rehighlightRows.isEmpty()) {
         int row = m_rehighlightRows.takeFirst();
-        m_highlighter->rehighlightBlock(doc->findBlockByNumber(row));
+        QTextBlock bl = doc->findBlockByNumber(row);
+        bl.setUserState(bl.userState() | PythonSyntaxHighlighter::PreventTokenize);
+        m_highlighter->rehighlightBlock(bl);
     }
 }
 
@@ -232,18 +234,41 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     if (parentFrame->empty())
         return parentFrame; // we have no children, this is it!
 
-    const PythonSourceFrame *childFrm = nullptr;
+    PythonSourceFrame *childFrm = nullptr;
     PythonSourceListNodeBase *itm = nullptr;
 
     for (itm = parentFrame->begin();
          itm != parentFrame->end();
          itm = itm->next())
     {
-        childFrm = dynamic_cast<const PythonSourceFrame*>(itm);
+        childFrm = dynamic_cast<PythonSourceFrame*>(itm);
         assert(childFrm != nullptr && "Wrong datatype stored in PythonSourceFrame");
-        if (!childFrm->token() || !childFrm->lastToken())
+        if (!childFrm->token())
+            continue;
+        if (!childFrm->lastToken()) {
+            // end token have been deleted, re-parse end token
+            int ind = childFrm->token()->txtBlock()->indent();
+            PythonTextBlockData *txtData = childFrm->token()->txtBlock();
+            while ((txtData = txtData->next())) {
+                if (txtData->isCodeLine() && txtData->indent() <= ind) {
+                    while((txtData = txtData->previous())) {
+                        if (txtData->isCodeLine()) {
+                            childFrm->setLastToken(txtData->tokens().last());
+                            break;
+                        }
+                    }
+                    break;
+                } else if (!txtData->next())
+                    childFrm->setLastToken(txtData->tokens().last());
+            }
+        }
+        // we might have not found it
+        if (!childFrm->lastToken())
             continue;
 
+        qDebug() << tok->line() << QLatin1String(">=") << childFrm->token()->line()<<endl;
+        qDebug() << tok->line() << QLatin1String(">=") << childFrm->lastToken()->line()<<endl;
+        qDebug() << "------" <<endl;
         if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken())
         {
             // find recursivly

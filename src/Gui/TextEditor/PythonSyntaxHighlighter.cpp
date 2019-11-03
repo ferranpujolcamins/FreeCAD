@@ -87,13 +87,11 @@ public:
 
     QStringList keywords;
     QStringList builtins;
+    QString filePath;
+    QTimer sourceScanTmr;
     PythonSyntaxHighlighter::Tokens endStateOfLastPara;
     PythonTextBlockData *activeBlock,
                         *srcScanBlock;
-    QString filePath;
-    QTimer sourceScanTmr;
-
-
 };
 
 
@@ -142,8 +140,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             if (!d->activeBlock)
                 return;
             // clear prevent tokenize flag
-            curState |= Rehighlighted;
-            //curState &= ~PreventTokenize;
+            curState &= ~PreventTokenize;
             setCurrentBlockState(curState);
 
             // set reformats again
@@ -183,30 +180,14 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
             d->activeBlock->allReformats().clear();
 
-            /*
-            // iterate through all formats
-            auto formats = d->activeBlock->allReformats();
-            for (const PythonToken *tok : formats.keys()) {
-                if (tok->txtBlock()->scanInfo())
-                    qDebug() << tok->line() << QLatin1String(" ") <<
-                            &formats[tok] <<
-                            QLatin1String(" ") << tok->txtBlock()->scanInfo()->parseMessage(tok) <<  endl;
-                QTextCharFormat format;
-                format.setUnderlineColor(QColor(3,45,240));
-                format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-                format.setFontUnderline(true);
-                setFormat(tok->startPos, tok->endPos -tok->startPos, format);
-                //setFormatToken(tok);
-                //setFormat(tok->startPos, tok->endPos - tok->startPos, formats[tok]);
-            }
-            formats.clear();
-            */
+            // prevent reparse of this block
+            if (d->srcScanBlock == d->activeBlock)
+                d->srcScanBlock = nullptr;
+
         }
-    } else if (curState != -1 && curState & Rehighlighted) {
-        curState &= ~(PreventTokenize & Rehighlighted);
-        setCurrentBlockState(curState);
     } else {
         // Normally we end up here
+        d->sourceScanTmr.stop();
 
         // create new userData, copy bookmark etc
         PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock());
@@ -215,6 +196,10 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             txtBlock->copyBlock(*d->activeBlock);
         d->activeBlock = txtBlock;
         setCurrentBlockUserData(d->activeBlock);
+
+ #ifdef BUILD_PYTHON_DEBUGTOOLS
+        txtBlock->m_text = text;
+#endif
 
         int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
         bool isParamLine  = prevState & ParamLineMASK;
@@ -232,6 +217,8 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
         setCurrentBlockState(prevState);
         d->srcScanBlock = d->activeBlock;
+        if (d->activeBlock->m_undeterminedIndexes.size() > 0)
+            d->sourceScanTmr.start();
         d->activeBlock = nullptr;
     }
 
@@ -949,7 +936,10 @@ QTextCharFormat PythonSyntaxHighlighter::getFormatToken(const PythonToken *token
         format.setFontWeight(QFont::Bold);
         colorIdx = SyntaxHighlighter::Keyword;
         break;
-
+    case T_IdentifierInvalid:
+        format.setFontItalic(true);
+        colorIdx = SyntaxHighlighter::IdentifierUnknown;
+        break;
     case T_MetaData:
         colorIdx = SyntaxHighlighter::MetaData; break;
     default:
@@ -1507,6 +1497,15 @@ const PythonTextBlockData::tokens_t &PythonTextBlockData::tokens() const
     return m_tokens;
 }
 
+const PythonTextBlockData::tokens_t PythonTextBlockData::undeterminedTokens() const
+{
+    tokens_t uTokens;
+    for(int idx : m_undeterminedIndexes)
+        uTokens.push_back(m_tokens[idx]);
+
+    return uTokens;
+}
+
 PythonTextBlockData *PythonTextBlockData::next() const
 {
     return dynamic_cast<PythonTextBlockData*>(TextEditBlockData::next());
@@ -1919,7 +1918,7 @@ void PythonMatchingChars::cursorPositionChange()
             PythonSyntaxHighlighter::T_DelimiterCloseParen
     };
 
-    bool forward;
+    bool forward = false;
     if (textData->isMatchAt(linePos, openTokens)) {
         // look in front as in cursor here ->#(blah)
         triggerObj = textData->tokenAt(linePos);

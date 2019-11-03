@@ -94,6 +94,14 @@ public:
     PythonSourceIdentifierAssignment *getFromPos(int line, int pos) const;
     PythonSourceIdentifierAssignment *getFromPos(const PythonToken *tok) const;
 
+    /// returns true if identifier is callable from line
+    bool isCallable(const PythonToken *tok) const;
+    bool isCallable(int line, int pos) const;
+
+    /// returns true if identifier is imported
+    bool isImported(const PythonToken *tok) const;
+    bool isImported(int line, int pos) const;
+
     /// get the name of identifier
     QString name() const;
 
@@ -132,7 +140,13 @@ public:
     const PythonSourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
     const PythonSourceIdentifier *getIdentifier(const QString name) const;
+    const PythonSourceIdentifier *getIdentifier(const PythonToken *tok) const {
+        return getIdentifier(tok->text());
+    }
     bool hasIdentifier(const QString name) const { return getIdentifier(name) != nullptr; }
+    bool hasIdentifier(const PythonToken *tok) const {
+        return getIdentifier(tok->text()) == nullptr;
+    }
     /// sets a new assignment, creates identifier if not exists
     PythonSourceIdentifier *setIdentifier(PythonToken *tok,
                                           PythonSourceRoot::TypeInfo typeInfo);
@@ -145,7 +159,7 @@ public:
     ///     var2 = var1 <- getIdentifierReferencedBy(var2token) returns var1
     ///     var3 = var2 <- getIdentifierReferencedBy(var3token) returns var1
     ///     var4 = var3 <- getIdentifierReferencedBy(var4token) also returns var1
-    ///     var5 = var4 <- getIdentifierReferencedBy(var5token, limitChain = 1) returns var4
+    ///     var5 = var4 <- getIdentifierReferencedBy(var5token, limitChain = 1) returns var4 due to limitChain
     const PythonSourceIdentifier *getIdentifierReferencedBy(const PythonToken *tok,
                                                             int limitChain = 10) const;
     const PythonSourceIdentifier *getIdentifierReferencedBy(const PythonSourceIdentifier *ident,
@@ -158,7 +172,9 @@ public:
                                                              int limitChain = 10) const;
 
     const PythonSourceIdentifierList getIdentifierDependants(const PythonToken *tok,
-                                                             int limitChain = 10) const;protected:
+                                                             int limitChain = 10) const;
+
+protected:
     int compare(const PythonSourceListNodeBase *left,
                 const PythonSourceListNodeBase *right) const;
 };

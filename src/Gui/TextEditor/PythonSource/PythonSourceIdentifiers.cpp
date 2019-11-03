@@ -86,6 +86,43 @@ PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(const Pytho
     return getFromPos(tok->line(), tok->startPos);
 }
 
+bool PythonSourceIdentifier::isCallable(const PythonToken *tok) const
+{
+    return isCallable(tok->line(), tok->startPos);
+}
+
+bool PythonSourceIdentifier::isCallable(int line, int pos) const
+{
+    const PythonSourceIdentifierAssignment *assign =
+            getTypeHintAssignment(line);
+
+    // try with ordinary assignments ie "var=1"
+    if (!assign) {
+        assign = getFromPos(line, pos);
+    }
+
+    if (!assign)
+        return false;
+
+    return assign->typeInfo().isCallable();
+}
+
+bool PythonSourceIdentifier::isImported(const PythonToken *tok) const
+{
+    return isImported(tok->line(), tok->startPos);
+}
+
+bool PythonSourceIdentifier::isImported(int line, int pos) const
+{
+    const PythonSourceIdentifierAssignment *assign =
+            getFromPos(line, pos);
+
+    if (!assign)
+        return false;
+
+    return assign->token()->isImport();
+}
+
 QString PythonSourceIdentifier::name() const
 {
     if (m_first)
@@ -102,7 +139,7 @@ PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(co
 PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(int line) const
 {
     for (PythonSourceListNodeBase *lstElem = m_typeHint.last();
-         lstElem != end();
+         lstElem != nullptr;
          lstElem = lstElem->previous())
     {
         if (lstElem->token()->line() <= line)
@@ -175,7 +212,7 @@ const PythonSourceFrame *PythonSourceIdentifierList::frame() const {
 const PythonSourceIdentifier *PythonSourceIdentifierList::getIdentifier(const QString name) const
 {
     for (PythonSourceIdentifier *itm = dynamic_cast<PythonSourceIdentifier*>(m_first);
-         itm != end();
+         itm != nullptr;
          itm = dynamic_cast<PythonSourceIdentifier*>(itm->next()))
     {
         QString itmName = itm->name();

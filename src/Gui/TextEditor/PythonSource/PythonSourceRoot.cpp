@@ -369,7 +369,7 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *
         } else if (text == QLatin1String("zip")) {
             tp.returnType.type = IterableType;
         } else if (text == QLatin1String("__import__")) {
-            tp.returnType.type = ReferenceImportBuiltInType;
+            tp.returnType.type = ReferenceImportType;
 
         // handle @methods
         } else if (tok->token == PythonSyntaxHighlighter::T_IdentifierDecorator) {
@@ -772,9 +772,11 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
     case PythonSourceRoot::VoidType:            typeAsStr = "VoidType"; break;
 
     case PythonSourceRoot::ReferenceType:       typeAsStr = "ReferenceType"; break;
+    case PythonSourceRoot::ReferenceCallableType:
+                                                typeAsStr = "ReferenceCallableType"; break;
     case PythonSourceRoot::ReferenceArgumentType:typeAsStr = "ReferenceArgumentType"; break;
     case PythonSourceRoot::ReferenceBuiltInType:typeAsStr = "ReferenceBuiltInType"; break;
-
+/*
     case PythonSourceRoot::ReferenceImportUndeterminedType:
                                                 typeAsStr = "ReferenceImportUndeterminedType"; break;
     case PythonSourceRoot::ReferenceImportErrorType:
@@ -783,6 +785,8 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
                                                 typeAsStr = "ReferenceImportPythonType"; break;
     case PythonSourceRoot::ReferenceImportBuiltInType:
                                                 typeAsStr = "ReferenceImportBuiltInType"; break;
+*/
+    case PythonSourceRoot::ReferenceImportType: typeAsStr = "ReferenceImportType"; break;
 
 
     case PythonSourceRoot::FunctionType:        typeAsStr = "FunctionType"; break;
