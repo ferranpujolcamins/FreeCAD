@@ -496,26 +496,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             continue; // switch on new token state
         } break;
         case PythonSyntaxHighlighter::T_IdentifierClass: {
-            /*
-            // first handle indents to get de-dent
-            tok = handleIndent(tok, indent, -1);
-            if (indent.framePopCnt())
-                return tok->previous();
-
-            // store this as a class identifier
-            PythonSourceRoot::TypeInfo typeInfo;
-            typeInfo.type = PythonSourceRoot::DataTypes::ClassType;
-            m_identifiers.setIdentifier(tok, typeInfo);
-
-            // add class frame
-            PythonSourceFrame *clsFrm = new PythonSourceFrame(this, m_module, this, true);
-            clsFrm->setToken(tok);
-            insert(clsFrm);
-            tok = clsFrm->scanFrame(tok, indent);
-            DBG_TOKEN(tok)
-            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
-                m_lastToken.setToken(tok);
-            */
 
             tok = startSubFrame(tok, indent, PythonSourceRoot::ClassType);
             DBG_TOKEN(tok)
@@ -524,26 +504,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             continue;
         } break;
         case PythonSyntaxHighlighter::T_IdentifierFunction: {
-            /*
-            // first handle indents to get de-dent
-            tok = handleIndent(tok, indent, -1);
-            if (indent.framePopCnt())
-                return tok->previous();
-
-            // store this as a function identifier
-            PythonSourceRoot::TypeInfo typeInfo;
-            typeInfo.type = PythonSourceRoot::DataTypes::FunctionType;
-            m_identifiers.setIdentifier(tok, typeInfo);
-
-            // add function frame
-            PythonSourceFrame *funcFrm = new PythonSourceFrame(this, m_module, this, false);
-            funcFrm->setToken(tok);
-            insert(funcFrm);
-            tok = funcFrm->scanFrame(tok, indent);
-            DBG_TOKEN(tok)
-            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
-                m_lastToken.setToken(tok);
-            */
             tok = startSubFrame(tok, indent, PythonSourceRoot::FunctionType);
             DBG_TOKEN(tok)
             if (indent.framePopCnt()> 0)
@@ -565,26 +525,6 @@ PythonToken *PythonSourceFrame::scanLine(PythonToken *startToken,
             if (!isClass())
                 m_module->setSyntaxError(tok, QLatin1String("Method without class"));
 
-            /*
-            tok = handleIndent(tok, indent, -1);
-            if (indent.framePopCnt())
-                return tok->previous();
-
-            PythonSourceRoot::TypeInfo typeInfo;
-            typeInfo.type = PythonSourceRoot::DataTypes::MethodType;
-            m_identifiers.setIdentifier(tok, typeInfo);
-
-            // add method frame
-            PythonSourceFrame *frm = new PythonSourceFrame(this, m_module, this, false);
-            frm->setToken(tok);
-            insert(frm);
-            tok = frm->scanFrame(tok, indent);
-            DBG_TOKEN(tok)
-
-            // should we exit this frame also?
-            if (tok && m_lastToken.token() && (*m_lastToken.token() < *tok))
-                m_lastToken.setToken(tok);
-            */
             tok = startSubFrame(tok, indent, PythonSourceRoot::MethodType);
             DBG_TOKEN(tok)
             if (indent.framePopCnt()> 0)
@@ -686,7 +626,7 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             }
             if (identifierTok && identifierTok->token == PythonSyntaxHighlighter::T_IdentifierUnknown) {
                 identifierTok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
-                m_module->setFormatToken(tok);
+                m_module->setFormatToken(identifierTok);
             }
             break;
         case PythonSyntaxHighlighter::T_DelimiterColon:
@@ -1293,6 +1233,11 @@ PythonToken *PythonSourceFrame::handleIndent(PythonToken *tok,
                     PREV_TOKEN(prev)
                     break;
                 }
+                uint userState = static_cast<uint>(prev->txtBlock()->block().userState());
+                uint parenCnt = (userState & PythonSyntaxHighlighter::ParenCntMASK) >>
+                                          PythonSyntaxHighlighter::ParenCntShiftPos;
+                if (parenCnt != 0)
+                    return tok;
                 // syntax error
                 m_module->setSyntaxError(tok, QLatin1String("Blockstart without ':'"));
                 if (direction > 0)

@@ -236,6 +236,17 @@ public:
         T_PythonConsoleError      = 1001
     };
 
+    /// masks for decoding userState()
+    enum {
+        ParamLineShiftPos = 17,
+        ParenCntShiftPos  = 28,
+        TokensMASK      = 0x0000FFFF,
+        ParamLineMASK   = 0x00010000, // when we are whithin a function parameter line
+        ParenCntMASK    = 0xF0000000, // how many parens we have open from previous block
+        PreventTokenize = 0x00020000, // prevents this call from running tokenize, used to repaint this block
+        Rehighlighted   = 0x00040000, // used to determine if we already have rehighlighted
+    };
+
     /// returns the format to color this token
     QTextCharFormat getFormatToken(const PythonToken *token) const;
 
@@ -245,7 +256,7 @@ public:
 
 protected:
     // tokenizes block, called by highlightBlock when text have changed
-    int tokenize(const QString &text);
+    int tokenize(const QString &text, int &parenCnt, bool &isParamLine);
 
     /// sets (re-colors) txt contained from token
     void setFormatToken(const PythonToken *tok);

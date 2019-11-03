@@ -22,6 +22,9 @@ PythonSourceModule::~PythonSourceModule()
 
 void PythonSourceModule::scanFrame(PythonToken *tok)
 {
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
     PythonSourceIndent indent = currentBlockIndent(tok);
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanFrame(tok, indent);
@@ -29,12 +32,20 @@ void PythonSourceModule::scanFrame(PythonToken *tok)
     const QTextDocument *doc = tok->txtBlock()->block().document();
     while (!m_rehighlightRows.isEmpty()) {
         int row = m_rehighlightRows.takeFirst();
-        m_highlighter->rehighlightBlock(doc->findBlockByLineNumber(row));
+        QTextBlock block = doc->findBlockByNumber(row);
+#if DEBUG_TOKENS == 1
+        tok = dynamic_cast<PythonTextBlockData*>(block.userData())->tokenAt(0);
+        DBG_TOKEN(tok)
+#endif
+        m_highlighter->rehighlightBlock(block);
     }
 }
 
 void PythonSourceModule::scanLine(PythonToken *tok)
 {
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
     if (!tok)
         return;
 
@@ -45,13 +56,14 @@ void PythonSourceModule::scanLine(PythonToken *tok)
     const QTextDocument *doc = tok->txtBlock()->block().document();
     while (!m_rehighlightRows.isEmpty()) {
         int row = m_rehighlightRows.takeFirst();
-        m_highlighter->rehighlightBlock(doc->findBlockByLineNumber(row));
+        m_highlighter->rehighlightBlock(doc->findBlockByNumber(row));
     }
 }
 
 PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok) const
 {
     DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
 
     PythonSourceIndent ind;
     if (!tok)
@@ -176,6 +188,9 @@ int PythonSourceModule::_currentBlockIndent(const PythonToken *tok) const
 
 void PythonSourceModule::setFormatToken(const PythonToken *tok, QTextCharFormat format)
 {
+    DEFINE_DBG_VARS
+    DBG_TOKEN(tok)
+
     if (tok->txtBlock()->setReformat(tok, format)) {
         int row = tok->txtBlock()->block().blockNumber();
         if (!m_rehighlightRows.contains(row))

@@ -21,13 +21,6 @@
 using namespace Gui;
 
 
-static const int ParamLineShiftPos = 17,
-                 ParenCntShiftPos  = 28;
-static const int TokensMASK      = 0x0000FFFF,
-                 ParamLineMASK   = 0x00010000, // when we are whithin a function parameter line
-                 ParenCntMASK    = 0xF0000000, // how many parens we have open from previous block
-                 PreventTokenize = 0x00020000; // prevents this call from running tokenize, used to repaint this block
-
 
 namespace Gui {
 class PythonSyntaxHighlighterP
@@ -138,8 +131,10 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
     if (d->endStateOfLastPara < T_Undetermined)
         d->endStateOfLastPara = T_Undetermined;
 
+    d->sourceScanTmr.blockSignals(true);
+
     int curState = currentBlockState();
-    if (curState != -1 &&  curState & PreventTokenize) {
+    if (curState != -1 &&  static_cast<uint>(curState) & PreventTokenize) {
         // only paint this block, already tokenized
         QTextBlockUserData *userBlock = currentBlockUserData();
         if (userBlock) {
@@ -147,7 +142,8 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             if (!d->activeBlock)
                 return;
             // clear prevent tokenize flag
-            curState &= ~PreventTokenize;
+            curState |= Rehighlighted;
+            //curState &= ~PreventTokenize;
             setCurrentBlockState(curState);
 
             // set reformats again
@@ -206,10 +202,11 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
             formats.clear();
             */
         }
+    } else if (curState != -1 && curState & Rehighlighted) {
+        curState &= ~(PreventTokenize & Rehighlighted);
+        setCurrentBlockState(curState);
     } else {
         // Normally we end up here
-
-        d->sourceScanTmr.stop(); // schedule source scanner for this row
 
         // create new userData, copy bookmark etc
         PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock());
@@ -223,7 +220,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         bool isParamLine  = prevState & ParamLineMASK;
 
         // scans this line
-        int i = tokenize(text);
+        int i = tokenize(text, parenCnt, isParamLine);
 
         // Insert new line token
         if (d->activeBlock->block().next().isValid())
@@ -232,23 +229,20 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
 
         prevState = static_cast<int>(d->endStateOfLastPara);
         prevState |= parenCnt << ParenCntShiftPos;
-        prevState |= (int)isParamLine << ParamLineShiftPos;
+        prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
         setCurrentBlockState(prevState);
         d->srcScanBlock = d->activeBlock;
         d->activeBlock = nullptr;
-
-        d->sourceScanTmr.start();
     }
 
+    d->sourceScanTmr.blockSignals(false);
 }
 
-int PythonSyntaxHighlighter::tokenize(const QString &text)
+int PythonSyntaxHighlighter::tokenize(const QString &text, int &parenCnt, bool &isParamLine)
 {
-    int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
+    //int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
     bool isModuleLine = false;
-    bool isParamLine  = prevState & ParamLineMASK;
     int prefixLen = 0;
-    int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
 
     int i = 0, lastI = 0;
     QChar prev, ch;
@@ -281,9 +275,9 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
                 // Begin either string literal or block string
                 char compare = thisCh;
                 QString endMarker(ch);
-                int startStrPos;
+                int startStrPos = 0;
                 Tokens token = T_Undetermined;
-                int len;
+                int len = 0;
 
                 if (nextCh == compare && thirdCh == compare) {
                     // block string
@@ -496,7 +490,7 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
                 break;
             case '(':
                 setDelimiter(i, 1, T_DelimiterOpenParen);
-                if (isParamLine)
+                //if (isParamLine)
                     ++parenCnt;
                 break;
             case '\r':
@@ -520,11 +514,11 @@ int PythonSyntaxHighlighter::tokenize(const QString &text)
                 break;
             case ')':
                 setDelimiter(i, 1, T_DelimiterCloseParen);
-                if (isParamLine) {
+                //if (isParamLine) {
                     --parenCnt;
                     if (parenCnt == 0)
                         isParamLine = false;
-                }
+                //}
                 break;
             case ']':
                 setDelimiter(i, 1, T_DelimiterCloseBracket);
@@ -1551,7 +1545,7 @@ bool PythonTextBlockData::setReformat(const PythonToken *tok, QTextCharFormat fo
     if (!m_tokens.contains(const_cast<PythonToken*>(tok)))
         return false;
     int state = m_block.userState();
-    state |= PreventTokenize;
+    state |= PythonSyntaxHighlighter::PreventTokenize;
     m_block.setUserState(state);
     m_reformats.insertMulti(tok, format);
     return true;
