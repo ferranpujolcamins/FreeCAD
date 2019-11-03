@@ -419,6 +419,10 @@ struct PythonToken
 private:
     QList<PythonSourceListNodeBase*> m_srcLstNodes;
     PythonTextBlockData *m_txtBlock;
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    QString m_nameDbg;
+#endif
 };
 
 // -----------------------------------------------------------------------
@@ -614,7 +618,7 @@ private:
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    QString m_text;
+    QString m_textDbg;
 #endif
 
     friend class PythonSyntaxHighlighter; // in order to hide some api

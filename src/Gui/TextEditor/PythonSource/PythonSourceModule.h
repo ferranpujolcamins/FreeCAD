@@ -83,6 +83,7 @@ protected:
 
 private:
     int _currentBlockIndent(const PythonToken *tok) const;
+    void reHighLight(const PythonToken *tok);
 };
 
 // --------------------------------------------------------------------------

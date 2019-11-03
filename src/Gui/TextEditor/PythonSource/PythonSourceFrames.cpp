@@ -576,16 +576,16 @@ PythonToken *PythonSourceFrame::startSubFrame(PythonToken *tok,
     if (indent.framePopCnt())
         return tok->previous();
 
-    // store this as a function identifier
-    PythonSourceRoot::TypeInfo typeInfo;
-    typeInfo.type = type;
-    m_identifiers.setIdentifier(tok, typeInfo);
-
     // add function frame
     bool classFrm = type == PythonSourceRoot::ClassType;
     PythonSourceFrame *funcFrm = new PythonSourceFrame(this, m_module, this, classFrm);
     funcFrm->setToken(tok);
     insert(funcFrm);
+
+    // store this as a function identifier
+    PythonSourceRoot::TypeInfo typeInfo;
+    typeInfo.type = type;
+    m_identifiers.setIdentifier(tok, typeInfo);
 
     // scan this frame
     int lineIndent = tok->txtBlock()->indent();
@@ -607,13 +607,13 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
 
     int guard = 20;
     PythonSourceIdentifier *ident = nullptr;
+    const PythonSourceIdentifier *parentIdent = nullptr;
     PythonToken *identifierTok = nullptr; // the identifier that gets assigned
     PythonSourceRoot::TypeInfo typeInfo;
 
     while (tok && (guard--)) {
         // TODO figure out how to do tuple assignment
-        if (!tok->isCode())
-            return tok;
+
         switch (tok->token) {
         case PythonSyntaxHighlighter::T_IdentifierFalse:
             typeInfo.type = PythonSourceRoot::BoolType;
@@ -652,6 +652,22 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             return tok;
             //break;
         case PythonSyntaxHighlighter::T_DelimiterPeriod:
+            if (identifierTok) {
+                if (parentIdent)
+                    goto parent_check;
+                else if (identifierTok->token == PythonSyntaxHighlighter::T_IdentifierUnknown)
+                    parentIdent = lookupIdentifierReference(identifierTok);
+                else
+                    parentIdent = getIdentifier(tok->text());
+
+                if (!parentIdent) {
+                    identifierTok->token = PythonSyntaxHighlighter::T_IdentifierInvalid;
+                    m_module->setLookupError(identifierTok);
+                }
+            } else {
+                module()->setSyntaxError(tok, QLatin1String("Unexpected '.'"));
+                return tok;
+            }
             break;
         case PythonSyntaxHighlighter::T_IdentifierBuiltin: {
             PythonSourceRoot::TypeInfoPair tpPair =
@@ -695,14 +711,35 @@ PythonToken *PythonSourceFrame::scanIdentifier(PythonToken *tok)
             break;
         default:
             assert(!tok->isImport() && "Should never get a import in scanIdentifier");
-            if (tok->isIdentifierVariable())
-                identifierTok = tok;
-            else if (tok->isDelimiter()) {
-                lookupIdentifierReference(identifierTok);
+parent_check:
+            if (parentIdent && identifierTok) {
+                const PythonSourceFrame *frm = parentIdent->callFrame(tok->previous());
+                if (frm) {
+                    parentIdent = frm->getIdentifier(parentIdent->name());
+                    if (!parentIdent) {
+                        identifierTok->token = PythonSyntaxHighlighter::T_IdentifierInvalid;
+                        m_module->setLookupError(tok->previous());
+                    } else {
+                        identifierTok->token = PythonSyntaxHighlighter::T_IdentifierDefined;
+                    }
+                    m_module->setFormatToken(identifierTok);
+                }
             }
+
+            if (!tok->isCode()) {
+                if (identifierTok && !parentIdent)
+                    lookupIdentifierReference(identifierTok);
+                return tok;
+            } else if (tok->isDelimiter() &&
+                       tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod)
+            {
+                lookupIdentifierReference(identifierTok);
+                return tok;
+            } else if (tok->isIdentifierVariable())
+                identifierTok = tok;
+
             break;
         }
-
 
         NEXT_TOKEN(tok)
     }

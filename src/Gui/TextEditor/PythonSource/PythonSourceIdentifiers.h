@@ -98,6 +98,9 @@ public:
     bool isCallable(const PythonToken *tok) const;
     bool isCallable(int line, int pos) const;
 
+    /// returns the frame assosiated with this identifier
+    const PythonSourceFrame *callFrame(const PythonToken *tok) const;
+
     /// returns true if identifier is imported
     bool isImported(const PythonToken *tok) const;
     bool isImported(int line, int pos) const;

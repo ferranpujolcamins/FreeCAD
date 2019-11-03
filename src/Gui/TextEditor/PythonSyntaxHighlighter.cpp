@@ -198,7 +198,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString & text)
         setCurrentBlockUserData(d->activeBlock);
 
  #ifdef BUILD_PYTHON_DEBUGTOOLS
-        txtBlock->m_text = text;
+        txtBlock->m_textDbg = text;
 #endif
 
         int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
@@ -1240,6 +1240,9 @@ PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, in
     token(token), startPos(startPos), endPos(endPos),
     m_txtBlock(block)
 {
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    m_nameDbg = text();
+#endif
 }
 
 PythonToken::~PythonToken()

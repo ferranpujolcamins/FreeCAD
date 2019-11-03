@@ -107,6 +107,20 @@ bool PythonSourceIdentifier::isCallable(int line, int pos) const
     return assign->typeInfo().isCallable();
 }
 
+const PythonSourceFrame *PythonSourceIdentifier::callFrame(const PythonToken *tok) const
+{
+    // should be directly callable, not a typehint
+    // try with ordinary assignments ie "var=1"
+    const PythonSourceIdentifierAssignment *assign = getFromPos(tok);
+
+    if (!assign)
+        return nullptr;
+
+    if (assign->typeInfo().isCallable())
+        return m_module->getFrameForToken(tok, m_module->rootFrame());
+    return nullptr;
+}
+
 bool PythonSourceIdentifier::isImported(const PythonToken *tok) const
 {
     return isImported(tok->line(), tok->startPos);

@@ -28,17 +28,7 @@ void PythonSourceModule::scanFrame(PythonToken *tok)
     PythonSourceIndent indent = currentBlockIndent(tok);
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanFrame(tok, indent);
-
-    const QTextDocument *doc = tok->txtBlock()->block().document();
-    while (!m_rehighlightRows.isEmpty()) {
-        int row = m_rehighlightRows.takeFirst();
-        QTextBlock block = doc->findBlockByNumber(row);
-#if DEBUG_TOKENS == 1
-        tok = dynamic_cast<PythonTextBlockData*>(block.userData())->tokenAt(0);
-        DBG_TOKEN(tok)
-#endif
-        m_highlighter->rehighlightBlock(block);
-    }
+    reHighLight(tok);
 }
 
 void PythonSourceModule::scanLine(PythonToken *tok)
@@ -52,14 +42,7 @@ void PythonSourceModule::scanLine(PythonToken *tok)
     PythonSourceIndent indent = currentBlockIndent(tok);
     const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<PythonSourceFrame*>(frm)->scanLine(tok, indent);
-
-    const QTextDocument *doc = tok->txtBlock()->block().document();
-    while (!m_rehighlightRows.isEmpty()) {
-        int row = m_rehighlightRows.takeFirst();
-        QTextBlock bl = doc->findBlockByNumber(row);
-        bl.setUserState(bl.userState() | PythonSyntaxHighlighter::PreventTokenize);
-        m_highlighter->rehighlightBlock(bl);
-    }
+    reHighLight(tok);
 }
 
 PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok) const
@@ -188,6 +171,17 @@ int PythonSourceModule::_currentBlockIndent(const PythonToken *tok) const
     return 0;
 }
 
+void PythonSourceModule::reHighLight(const PythonToken *tok)
+{
+    const QTextDocument *doc = tok->txtBlock()->block().document();
+    while (!m_rehighlightRows.isEmpty()) {
+        int row = m_rehighlightRows.takeFirst();
+        QTextBlock bl = doc->findBlockByNumber(row);
+        bl.setUserState(bl.userState() | PythonSyntaxHighlighter::PreventTokenize);
+        m_highlighter->rehighlightBlock(bl);
+    }
+}
+
 void PythonSourceModule::setFormatToken(const PythonToken *tok, QTextCharFormat format)
 {
     DEFINE_DBG_VARS
@@ -258,8 +252,14 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
                         }
                     }
                     break;
-                } else if (!txtData->next())
-                    childFrm->setLastToken(txtData->tokens().last());
+                } else if (!txtData->next()) {
+                    // we might be at a row with no tokens
+                    while(txtData->tokens().empty())
+                        txtData = txtData->previous();
+                    if (txtData && txtData->tokens().size())
+                        childFrm->setLastToken(txtData->tokens().last());
+                    break;
+                }
             }
         }
         // we might have not found it
