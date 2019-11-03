@@ -27,12 +27,14 @@ DumpModule::DumpModule(PythonSourceModule *module, FILE *fp) :
 
 void DumpModule::create()
 {
-    fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
+    if (m_module) {
+        fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
 
-    const PythonSourceFrame *rootFrm =  m_module->rootFrame();
-    fprintf(m_file, "Startframe->isModule:%d\n", rootFrm->isModule());
+        const PythonSourceFrame *rootFrm =  m_module->rootFrame();
+        fprintf(m_file, "Startframe->isModule:%d\n", rootFrm->isModule());
 
-    dumpFrame(rootFrm, 0);
+        dumpFrame(rootFrm, 0);
+    }
 }
 
 DumpModule::~DumpModule()
