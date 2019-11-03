@@ -244,6 +244,8 @@ void TextEditor::onSave()
 
     if (maxRev > d->lastSavedRevision)
         d->lastSavedRevision = maxRev;
+
+    repaint();
 }
 
 void TextEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
