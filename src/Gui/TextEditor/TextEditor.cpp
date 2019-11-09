@@ -712,7 +712,7 @@ void TextEditor::paintIndentMarkers(QPaintEvent *e)
                 const int x0 = rect.x() + (indBlockWidth * counts) + margin;
                 if (block.position() + i != cursorPos)
                     painter.drawLine(x0, rect.top(), x0,
-                                     rect.top() + rect.height() / block.lineCount() - 1);// rect.bottom() - 1);
+                                     rect.top() + (rect.height() - (rect.height() * (block.lineCount() - 1))));// rect.bottom() - 1);
             }
         }
         offset.ry() += rect.height();
@@ -1004,27 +1004,34 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 
 void LineMarkerArea::foldingClicked(int line)
 {
+    // hide or show lines below that was previously folded
     QTextBlock block = d->textEditor->document()->findBlockByNumber(line -1);
     if (block.isValid() && block.isVisible()) {
         TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
         if (userData && userData->blockState() > 0) {
             // we have a blockstarter line!
-            bool show = !block.next().isVisible();
-
+            int curBlockCnt = userData->blockState(),
+                direction   = 0;
             block = block.next();
-            int blockCnt = userData->blockState();
 
-            while(blockCnt > 0 && block.isValid()) {
+            while(curBlockCnt > 0 && block.isValid()) {
                 userData = dynamic_cast<TextEditBlockData*>(block.userData());
-                if (userData)
-                    blockCnt += userData->blockState();
-                block.setVisible(show);
+                curBlockCnt += userData->blockState();
+                if (direction == 0)
+                    direction = userData->isFolded() ? -1 : 1; // first loop determine fold or unfold
+
+                if (direction > 0)  // fold
+                    userData->foldBlockEvt();
+                else // unfold
+                    userData->unfoldedEvt();
                 block = block.next();
             }
 
             // re-render
-            d->textEditor->viewport()->update();
-            repaint();
+            if (direction != 0) {
+                d->textEditor->viewport()->update();
+                repaint();
+            }
         }
     }
 
@@ -1036,7 +1043,8 @@ TextEditBlockData::TextEditBlockData(QTextBlock block) :
     m_block(block),
     m_scanInfo(nullptr),
     m_bookmarkSet(false),
-    m_blockStateCnt(0)
+    m_blockStateCnt(0),
+    m_foldCnt(0)
 {
 }
 
@@ -1044,7 +1052,8 @@ TextEditBlockData::TextEditBlockData(const TextEditBlockData &other):
     m_block(other.m_block),
     m_scanInfo(other.m_scanInfo),
     m_bookmarkSet(other.m_bookmarkSet),
-    m_blockStateCnt(other.m_blockStateCnt)
+    m_blockStateCnt(other.m_blockStateCnt),
+    m_foldCnt(other.m_foldCnt)
 {
 }
 
@@ -1086,6 +1095,20 @@ void TextEditBlockData::copyBlock(const TextEditBlockData &other)
 {
     m_bookmarkSet = other.m_bookmarkSet;
     m_blockStateCnt = other.m_blockStateCnt;
+}
+
+void TextEditBlockData::foldBlockEvt()
+{
+    ++m_foldCnt;
+    m_block.setVisible(false);
+}
+
+void TextEditBlockData::unfoldedEvt()
+{
+    if (m_foldCnt > 0)
+        --m_foldCnt;
+
+    m_block.setVisible(m_foldCnt < 1);
 }
 
 // ------------------------------------------------------------------------------------

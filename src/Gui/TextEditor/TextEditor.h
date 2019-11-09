@@ -46,6 +46,7 @@ class SyntaxHighlighter;
 
 class LineMarkerArea;
 class SyntaxHighlighter;
+class TextEditBlockData;
 class GuiExport TextEditor : public QPlainTextEdit, public WindowParameter
 {
     Q_OBJECT
@@ -99,6 +100,7 @@ protected:
     virtual bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
     /// creates a Menu to use when a contextMenu event occurs
     virtual void setUpMarkerAreaContextMenu(int line);
+    /// after contextmenu for marker area has finished
     virtual void handleMarkerAreaContextMenu(QAction *res, int line);
 
     /// these types are valid contextMenu types
@@ -197,6 +199,19 @@ public:
     int incBlockState() { return ++m_blockStateCnt; }
     int decBlockState() { return --m_blockStateCnt; }
 
+    /**
+     * @brief foldBlockEvt folds (makes invisible) this block and increments foldCounter
+     */
+    void foldBlockEvt();
+    /**
+     * @brief unfoldedEvt, decreases foldCounter nad if it reaches 0 makes this block visible again
+     */
+    void unfoldedEvt();
+
+    bool isFolded() const { return m_foldCnt > 0; }
+
+
+
     static TextEditBlockData *blockDataFromCursor(const QTextCursor &cursor);
 
     const QTextBlock &block() const;
@@ -227,7 +242,8 @@ protected:
     QTextBlock m_block;
     TextEditBlockScanInfo *m_scanInfo;
     bool m_bookmarkSet;
-    int m_blockStateCnt; // +1 = new Block, -1 pop a block
+    int m_blockStateCnt, // +1 = new Block, -1 pop a block
+        m_foldCnt;       // indicates if we have folded this textBlock
 };
 
 // --------------------------------------------------------------------------------
