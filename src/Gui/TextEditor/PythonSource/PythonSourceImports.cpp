@@ -15,21 +15,21 @@ using namespace Gui;
 // ----------------------------------------------------------------------------
 
 
-PythonSourceImportModule::PythonSourceImportModule(PythonSourceImportPackage *parent,
-                                                   PythonSourceFrame *frame,
-                                                   QString alias) :
-    PythonSourceListNodeBase(parent),
+Python::SourceImportModule::SourceImportModule(Python::SourceImportPackage *parent,
+                                               Python::SourceFrame *frame,
+                                               QString alias) :
+    Python::SourceListNodeBase(parent),
     m_frame(frame), m_aliasName(alias),
-    m_type(PythonSourceRoot::ReferenceImportType)
+    m_type(Python::SourceRoot::ReferenceImportType)
 {
 
 }
 
-PythonSourceImportModule::~PythonSourceImportModule()
+Python::SourceImportModule::~SourceImportModule()
 {
 }
 
-QString PythonSourceImportModule::name() const
+QString Python::SourceImportModule::name() const
 {
     if (!m_aliasName.isEmpty())
         return m_aliasName;
@@ -38,41 +38,41 @@ QString PythonSourceImportModule::name() const
     return fi.baseName();
 }
 
-void PythonSourceImportModule::load()
+void Python::SourceImportModule::load()
 {
-    // FIXME implement this in PythonSourceRoot as many opened files might require the same module
+    // FIXME implement this in Python::SourceRoot as many opened files might require the same module
 }
 
-bool PythonSourceImportModule::isBuiltIn() const
+bool Python::SourceImportModule::isBuiltIn() const
 {
-    // FIXME implement this in PythonSourceRoot as many opened files might require the same module
+    // FIXME implement this in Python::SourceRoot as many opened files might require the same module
     return false;
 }
 
 // -----------------------------------------------------------------------------
 
-PythonSourceImportPackage::PythonSourceImportPackage(PythonSourceImportPackage *parent,
-                                                     QString name,
-                                                     const PythonSourceModule *ownerModule) :
-    PythonSourceListParentBase(parent),
+Python::SourceImportPackage::SourceImportPackage(Python::SourceImportPackage *parent,
+                                                 QString name,
+                                                 const Python::SourceModule *ownerModule) :
+    Python::SourceListParentBase(parent),
     m_name(name),
     m_ownerModule(ownerModule)
 {
-    // FIXME resolve path in PythonSourceRoot
+    // FIXME resolve path in Python::SourceRoot
     m_packagePath = name;
 }
 
-PythonSourceImportPackage::~PythonSourceImportPackage()
+Python::SourceImportPackage::~SourceImportPackage()
 {
 }
 
-PythonSourceImportPackage *PythonSourceImportPackage::getImportPackagePath(QString filePath)
+Python::SourceImportPackage *Python::SourceImportPackage::getImportPackagePath(QString filePath)
 {
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        Python::SourceImportPackage *pkg = dynamic_cast<Python::SourceImportPackage*>(itm);
         if (pkg && pkg->path() == filePath)
             return pkg;
     }
@@ -80,13 +80,13 @@ PythonSourceImportPackage *PythonSourceImportPackage::getImportPackagePath(QStri
     return nullptr;
 }
 
-PythonSourceImportPackage *PythonSourceImportPackage::getImportPackage(QString name)
+Python::SourceImportPackage *Python::SourceImportPackage::getImportPackage(QString name)
 {
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        Python::SourceImportPackage *pkg = dynamic_cast<Python::SourceImportPackage*>(itm);
         if (pkg && pkg->name() == name)
             return pkg;
     }
@@ -94,13 +94,13 @@ PythonSourceImportPackage *PythonSourceImportPackage::getImportPackage(QString n
     return nullptr;
 }
 
-PythonSourceImportModule *PythonSourceImportPackage::getImportModulePath(QString filePath)
+Python::SourceImportModule *Python::SourceImportPackage::getImportModulePath(QString filePath)
 {
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        PythonSourceImportModule *mod = dynamic_cast<PythonSourceImportModule*>(itm);
+        Python::SourceImportModule *mod = dynamic_cast<Python::SourceImportModule*>(itm);
         if (mod && mod->path() == filePath)
             return mod;
     }
@@ -108,13 +108,13 @@ PythonSourceImportModule *PythonSourceImportPackage::getImportModulePath(QString
     return nullptr;
 }
 
-PythonSourceImportModule *PythonSourceImportPackage::getImportModule(QString name)
+Python::SourceImportModule *Python::SourceImportPackage::getImportModule(QString name)
 {
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        PythonSourceImportModule *mod = dynamic_cast<PythonSourceImportModule*>(itm);
+        Python::SourceImportModule *mod = dynamic_cast<Python::SourceImportModule*>(itm);
         if (mod && mod->name() == name)
             return mod;
     }
@@ -122,42 +122,42 @@ PythonSourceImportModule *PythonSourceImportPackage::getImportModule(QString nam
     return nullptr;
 }
 
-PythonSourceImportModule *PythonSourceImportPackage::setModule(QString name,
+Python::SourceImportModule *Python::SourceImportPackage::setModule(QString name,
                                                                QString alias,
-                                                               PythonSourceFrame *frame)
+                                                               Python::SourceFrame *frame)
 {
     QString importName = alias.isEmpty() ? name : alias;
-    PythonSourceImportModule *mod = getImportModule(importName);
+    Python::SourceImportModule *mod = getImportModule(importName);
 
     if (mod)
         return mod;
 
     // not yet in list
-    mod = new PythonSourceImportModule(this, frame, alias);
+    mod = new Python::SourceImportModule(this, frame, alias);
     insert(mod);
     return mod;
 }
 
-PythonSourceImportPackage *PythonSourceImportPackage::setPackage(QString name)
+Python::SourceImportPackage *Python::SourceImportPackage::setPackage(QString name)
 {
-    PythonSourceImportPackage *pkg = getImportPackage(name);
+    Python::SourceImportPackage *pkg = getImportPackage(name);
     if (pkg)
         return pkg;
 
-    pkg = new PythonSourceImportPackage(this, name, m_ownerModule);
+    pkg = new Python::SourceImportPackage(this, name, m_ownerModule);
     insert(pkg);
     return pkg;
 }
 
-int PythonSourceImportPackage::compare(const PythonSourceListNodeBase *left,
-                                       const PythonSourceListNodeBase *right) const
+int Python::SourceImportPackage::compare(const Python::SourceListNodeBase *left,
+                                       const Python::SourceListNodeBase *right) const
 {
     QString lName, rName;
-    const PythonSourceImportModule *lm = dynamic_cast<const PythonSourceImportModule*>(left),
-                                   *rm = dynamic_cast<const PythonSourceImportModule*>(right);
+    const Python::SourceImportModule *lm = dynamic_cast<const Python::SourceImportModule*>(left),
+                                   *rm = dynamic_cast<const Python::SourceImportModule*>(right);
 
-    const PythonSourceImportPackage *lp = dynamic_cast<const PythonSourceImportPackage*>(left),
-                                    *rp = dynamic_cast<const PythonSourceImportPackage*>(right);
+    const Python::SourceImportPackage *lp = dynamic_cast<const Python::SourceImportPackage*>(left),
+                                    *rp = dynamic_cast<const Python::SourceImportPackage*>(right);
     if (lm)
         lName = lm->name();
     else if(lp)
@@ -183,19 +183,19 @@ int PythonSourceImportPackage::compare(const PythonSourceListNodeBase *left,
 // ----------------------------------------------------------------------------
 
 
-PythonSourceImportList::PythonSourceImportList(PythonSourceFrame *owner,
-                                               const PythonSourceModule *ownerModule) :
-    PythonSourceImportPackage(this, QLatin1String(""), ownerModule),
+Python::SourceImportList::SourceImportList(Python::SourceFrame *owner,
+                                               const Python::SourceModule *ownerModule) :
+    Python::SourceImportPackage(this, QLatin1String(""), ownerModule),
     m_frame(owner)
 {
     m_preventAutoRemoveMe = true;
 }
 
-PythonSourceImportList::~PythonSourceImportList()
+Python::SourceImportList::~SourceImportList()
 {
 }
 
-PythonSourceImportModule *PythonSourceImportList::getImportModulePath(QString filePath)
+Python::SourceImportModule *Python::SourceImportList::getImportModulePath(QString filePath)
 {
     QFileInfo fi(filePath);
     QDir dir = fi.dir();
@@ -203,16 +203,16 @@ PythonSourceImportModule *PythonSourceImportList::getImportModulePath(QString fi
     return getImportModule(dir.dirName(), fi.baseName());
 }
 
-PythonSourceImportModule *PythonSourceImportList::getImportModule(QString rootPackage, QString name)
+Python::SourceImportModule *Python::SourceImportList::getImportModule(QString rootPackage, QString name)
 {
-    PythonSourceImportPackage *pkg = getImportPackage(QString(), rootPackage);
+    Python::SourceImportPackage *pkg = getImportPackage(QString(), rootPackage);
     if (pkg)
         return pkg->getImportModule(name);
 
     return nullptr;
 }
 
-PythonSourceImportModule *PythonSourceImportList::getImportModule(QStringList modInheritance)
+Python::SourceImportModule *Python::SourceImportList::getImportModule(QStringList modInheritance)
 {
     if (empty() || modInheritance.size() < 1)
         return nullptr;
@@ -223,14 +223,14 @@ PythonSourceImportModule *PythonSourceImportList::getImportModule(QStringList mo
         return getImportModule(QString(), modName);
 
     // get root package by slicing QStringList
-    PythonSourceImportPackage *pkg = getImportPackage(QString(), modInheritance.last());
+    Python::SourceImportPackage *pkg = getImportPackage(QString(), modInheritance.last());
     if (pkg)
         return pkg->getImportModule(modName);
 
     return nullptr;
 }
 
-PythonSourceImportPackage *PythonSourceImportList::getImportPackagePath(QString filePath)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackagePath(QString filePath)
 {
     QFileInfo fi(filePath);
     QDir dir = fi.dir();
@@ -238,13 +238,13 @@ PythonSourceImportPackage *PythonSourceImportList::getImportPackagePath(QString 
     return getImportPackage(dir.dirName(), fi.baseName());
 }
 
-PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QString rootPackage, QString name)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QString rootPackage, QString name)
 {
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        PythonSourceImportPackage *pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        Python::SourceImportPackage *pkg = dynamic_cast<Python::SourceImportPackage*>(itm);
         // lookup among packages, all modules are stored in packages
         if (pkg) {
             if (!rootPackage.isEmpty()) {
@@ -260,7 +260,7 @@ PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QString root
     return nullptr;
 }
 
-PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QStringList modInheritance)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QStringList modInheritance)
 {
     if (empty() || modInheritance.size() < 1)
         return nullptr;
@@ -270,15 +270,15 @@ PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QStringList 
         return getImportPackage(QString(), modInheritance[0]);
 
     // package.module.... like import sys.path.join
-    PythonSourceImportPackage *pkg = nullptr;
+    Python::SourceImportPackage *pkg = nullptr;
     QString curName = modInheritance.takeLast();
 
     // first find our root package
-    for (PythonSourceListNodeBase *itm = begin();
+    for (Python::SourceListNodeBase *itm = begin();
          itm != end();
          itm = itm->next())
     {
-        pkg = dynamic_cast<PythonSourceImportPackage*>(itm);
+        pkg = dynamic_cast<Python::SourceImportPackage*>(itm);
         if (pkg && pkg->name() == curName) {
             // found our root package
             while(pkg &&
@@ -296,11 +296,11 @@ PythonSourceImportPackage *PythonSourceImportList::getImportPackage(QStringList 
     return nullptr;
 }
 
-PythonSourceImportModule *PythonSourceImportList::setModule(QStringList rootPackage,
+Python::SourceImportModule *Python::SourceImportList::setModule(QStringList rootPackage,
                                                             QString module, QString alias)
 {
-    PythonSourceImportModule *mod = nullptr;
-    PythonSourceImportPackage *rootPkg = getImportPackage(rootPackage);
+    Python::SourceImportModule *mod = nullptr;
+    Python::SourceImportPackage *rootPkg = getImportPackage(rootPackage);
 
     if (!rootPkg)
         rootPkg = setPackage(rootPackage);
@@ -318,13 +318,13 @@ PythonSourceImportModule *PythonSourceImportList::setModule(QStringList rootPack
     return nullptr;
 }
 
-PythonSourceImportPackage *PythonSourceImportList::setPackage(QStringList rootPackage)
+Python::SourceImportPackage *Python::SourceImportList::setPackage(QStringList rootPackage)
 {
-    PythonSourceImportPackage *rootPkg = nullptr;
+    Python::SourceImportPackage *rootPkg = nullptr;
 
     // no rootPackages
     if (rootPackage.size() < 1) {
-       rootPkg = PythonSourceImportPackage::setPackage(QLatin1String(""));
+       rootPkg = Python::SourceImportPackage::setPackage(QLatin1String(""));
        return rootPkg;
     }
 
@@ -340,9 +340,9 @@ PythonSourceImportPackage *PythonSourceImportList::setPackage(QStringList rootPa
     return rootPkg;
 }
 
-PythonSourceModule *PythonSourceImportList::setModuleGlob(QStringList rootPackage)
+Python::SourceModule *Python::SourceImportList::setModuleGlob(QStringList rootPackage)
 {
     // FIXME implement
-    Q_UNUSED(rootPackage);
+    Q_UNUSED(rootPackage)
     return nullptr;
 }

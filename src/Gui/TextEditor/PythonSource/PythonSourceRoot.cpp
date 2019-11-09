@@ -1,11 +1,12 @@
 #include "PythonSourceRoot.h"
 #include "PythonSource.h"
+#include "PythonSourceModule.h"
 
 
 #include <FCConfig.h>
 #include "Base/Interpreter.h"
-#include "PythonSourceModule.h"
-#include <TextEditor/PythonCode.h>
+//#include <TextEditor/PythonCode.h>
+#include <TextEditor/PythonSyntaxHighlighter.h>
 #include <QDebug>
 #include <QFileInfo>
 #include <QTextDocument>
@@ -18,38 +19,38 @@ using namespace Gui;
 // Begin Python Code AST methods (allthough no tree as we constantly keep changing src in editor)
 // ------------------------------------------------------------------------
 
-PythonSourceRoot::PythonSourceRoot() :
+Python::SourceRoot::SourceRoot() :
     m_uniqueCustomTypeNames(-1),
     m_modules(nullptr)
 {
-    m_modules = new PythonSourceModuleList();
+    m_modules = new Python::SourceModuleList();
 }
 
-PythonSourceRoot::~PythonSourceRoot()
+Python::SourceRoot::~SourceRoot()
 {
     delete m_modules;
 }
 
 // static
-PythonSourceRoot *PythonSourceRoot::instance()
+Python::SourceRoot *Python::SourceRoot::instance()
 {
     if (m_instance == nullptr)
-        m_instance = new PythonSourceRoot;
+        m_instance = new Python::SourceRoot;
     return m_instance;
 
 }
 
-QStringList PythonSourceRoot::modulesNames() const
+QStringList Python::SourceRoot::modulesNames() const
 {
     QStringList ret;
     if (!m_modules)
         return ret;
 
-    for(PythonSourceListNodeBase *itm = m_modules->begin();
+    for(Python::SourceListNodeBase *itm = m_modules->begin();
         itm != m_modules->end();
         itm->next())
     {
-        PythonSourceModule *module = dynamic_cast<PythonSourceModule*>(itm);
+        Python::SourceModule *module = dynamic_cast<Python::SourceModule*>(itm);
         if (module)
             ret << module->moduleName();
     }
@@ -57,15 +58,15 @@ QStringList PythonSourceRoot::modulesNames() const
     return ret;
 }
 
-QStringList PythonSourceRoot::modulesPaths() const
+QStringList Python::SourceRoot::modulesPaths() const
 {
     QStringList ret;
 
-    for(PythonSourceListNodeBase *itm = m_modules->begin();
+    for(Python::SourceListNodeBase *itm = m_modules->begin();
         itm != m_modules->end();
         itm->next())
     {
-        PythonSourceModule *module = dynamic_cast<PythonSourceModule*>(itm);
+        Python::SourceModule *module = dynamic_cast<Python::SourceModule*>(itm);
         if (module)
             ret << module->filePath();
     }
@@ -73,20 +74,20 @@ QStringList PythonSourceRoot::modulesPaths() const
     return ret;
 }
 
-int PythonSourceRoot::modulesCount() const
+int Python::SourceRoot::modulesCount() const
 {
     return m_modules->size();
 }
 
-PythonSourceModule *PythonSourceRoot::moduleAt(int idx) const
+Python::SourceModule *Python::SourceRoot::moduleAt(int idx) const
 {
     if (idx < 0)
         idx = m_modules->size() - idx; // reverse so -1 becomes last
     int i = 0;
-    PythonSourceListNodeBase *mod = m_modules->begin();
+    Python::SourceListNodeBase *mod = m_modules->begin();
     while(mod) {
         if (++i == idx)
-            return dynamic_cast<PythonSourceModule*>(mod);
+            return dynamic_cast<Python::SourceModule*>(mod);
         mod = mod->next();
     }
 
@@ -94,13 +95,13 @@ PythonSourceModule *PythonSourceRoot::moduleAt(int idx) const
 
 }
 
-PythonSourceModule *PythonSourceRoot::moduleFromPath(QString filePath) const
+Python::SourceModule *Python::SourceRoot::moduleFromPath(QString filePath) const
 {
-    for (PythonSourceListNodeBase *itm = m_modules->begin();
+    for (Python::SourceListNodeBase *itm = m_modules->begin();
          itm != m_modules->end();
          itm = itm->next())
     {
-        PythonSourceModule *module = dynamic_cast<PythonSourceModule*>(itm);
+        Python::SourceModule *module = dynamic_cast<Python::SourceModule*>(itm);
         if (module && module->filePath() == filePath)
             return module;
     }
@@ -108,9 +109,9 @@ PythonSourceModule *PythonSourceRoot::moduleFromPath(QString filePath) const
     return nullptr;
 }
 
-PythonSourceRoot *PythonSourceRoot::m_instance = nullptr;
+Python::SourceRoot *Python::SourceRoot::m_instance = nullptr;
 
-PythonSourceRoot::DataTypes PythonSourceRoot::mapMetaDataType(const QString typeAnnotation) const
+Python::SourceRoot::DataTypes Python::SourceRoot::mapMetaDataType(const QString typeAnnotation) const
 {
     // try to determine type form type annotaion
     // more info at:
@@ -144,50 +145,50 @@ PythonSourceRoot::DataTypes PythonSourceRoot::mapMetaDataType(const QString type
     return CustomType;
 }
 
-PythonSourceRoot::TypeInfoPair PythonSourceRoot::identifierType(const PythonToken *tok,
-                                                                const PythonSourceFrame *frame) const
+Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python::Token *tok,
+                                                                const Python::SourceFrame *frame) const
 {
     TypeInfoPair tp;
     if (tok || !tok->isIdentifier())
         return tp;
 
     switch (tok->token) {
-    case PythonSyntaxHighlighter::T_IdentifierBuiltin:
+    case Python::Token::T_IdentifierBuiltin:
         return builtinType(tok, frame);
-    case PythonSyntaxHighlighter::T_IdentifierClass:
+    case Python::Token::T_IdentifierClass:
         tp.thisType.type = ClassType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierDecorator:
+    case Python::Token::T_IdentifierDecorator:
         tp.thisType.type = MethodDescriptorType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierDefined: // fallthrough
-    case PythonSyntaxHighlighter::T_IdentifierDefUnknown:
+    case Python::Token::T_IdentifierDefined: // fallthrough
+    case Python::Token::T_IdentifierDefUnknown:
         tp.thisType.type = FunctionType; // method or function not known yet
         tp.returnType.type = UnknownType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierTrue: // fallthrough
-    case PythonSyntaxHighlighter::T_IdentifierFalse:
+    case Python::Token::T_IdentifierTrue: // fallthrough
+    case Python::Token::T_IdentifierFalse:
         tp.thisType.type = BoolType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierFunction:
+    case Python::Token::T_IdentifierFunction:
         // figure out how to lookp function return statments
-    case PythonSyntaxHighlighter::T_IdentifierMethod:
+    case Python::Token::T_IdentifierMethod:
         // figure out how to lookp function return statments
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierModule:
-    case PythonSyntaxHighlighter::T_IdentifierModuleAlias:
-    case PythonSyntaxHighlighter::T_IdentifierModuleGlob:
-    case PythonSyntaxHighlighter::T_IdentifierModulePackage:
+    case Python::Token::T_IdentifierModule:
+    case Python::Token::T_IdentifierModuleAlias:
+    case Python::Token::T_IdentifierModuleGlob:
+    case Python::Token::T_IdentifierModulePackage:
         //tp.thisType.type = ; // how do we lookup modules?
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierNone:
+    case Python::Token::T_IdentifierNone:
         tp.thisType.type = NoneType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierSelf:
+    case Python::Token::T_IdentifierSelf:
         tp.thisType.type = ReferenceArgumentType;
         return tp;
-    case PythonSyntaxHighlighter::T_IdentifierSuperMethod:
-    case PythonSyntaxHighlighter::T_IdentifierUnknown:
+    case Python::Token::T_IdentifierSuperMethod:
+    case Python::Token::T_IdentifierUnknown:
         tp.thisType.type = UnknownType;
         return tp;
     default:
@@ -195,7 +196,7 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::identifierType(const PythonToke
         qDebug() << QString::fromLatin1("Invalid token: id:%1 with text:%2")
                             .arg(QString::number(tok->token)).arg(tok->text()) << endl;
 #ifdef DEBUG_TOKENS
-        assert(tp.thisType.type != PythonSourceRoot::InValidType && "Invalid Token!");
+        assert(tp.thisType.type != Python::SourceRoot::InValidType && "Invalid Token!");
 #endif
         break;
     }
@@ -203,12 +204,12 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::identifierType(const PythonToke
     return tp;
 }
 
-PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *tok, const PythonSourceFrame *frame) const
+Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::Token *tok, const Python::SourceFrame *frame) const
 {
     Q_UNUSED(frame);
     TypeInfoPair tp;
 
-    if (tok && tok->token == PythonSyntaxHighlighter::T_IdentifierBuiltin) {
+    if (tok && tok->token == Python::Token::T_IdentifierBuiltin) {
         QString text = tok->text();
         // handle built in functions
 
@@ -372,7 +373,7 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *
             tp.returnType.type = ReferenceImportType;
 
         // handle @methods
-        } else if (tok->token == PythonSyntaxHighlighter::T_IdentifierDecorator) {
+        } else if (tok->token == Python::Token::T_IdentifierDecorator) {
             if (text == QLatin1String("@classmethod")) {
                 tp.returnType.type = ClassMethodDescriptorType;
             }
@@ -381,70 +382,70 @@ PythonSourceRoot::TypeInfoPair PythonSourceRoot::builtinType(const PythonToken *
     return tp;
 }
 
-PythonSourceRoot::DataTypes PythonSourceRoot::numberType(const PythonToken *tok) const
+Python::SourceRoot::DataTypes Python::SourceRoot::numberType(const Python::Token *tok) const
 {
     switch (tok->token) {
-    case PythonSyntaxHighlighter::T_NumberFloat:
+    case Python::Token::T_NumberFloat:
         return FloatType;
-    case PythonSyntaxHighlighter::T_NumberBinary:
-    case PythonSyntaxHighlighter::T_NumberDecimal:
-    case PythonSyntaxHighlighter::T_NumberHex: // falltrough
-    case PythonSyntaxHighlighter::T_NumberOctal:
+    case Python::Token::T_NumberBinary:
+    case Python::Token::T_NumberDecimal:
+    case Python::Token::T_NumberHex: // falltrough
+    case Python::Token::T_NumberOctal:
         return IntType;
     default:
         return InValidType;
     }
 }
 
-bool PythonSourceRoot::isLineEscaped(const PythonToken *tok) const {
+bool Python::SourceRoot::isLineEscaped(const Python::Token *tok) const {
     DEFINE_DBG_VARS
     PREV_TOKEN(tok)
     int guard = 40;
     bool escaped = false;
     while (tok && (guard--)) {
-        if (tok->token == PythonSyntaxHighlighter::T_DelimiterLineContinue)
+        if (tok->token == Python::Token::T_DelimiterLineContinue)
             escaped = true;
         else
             escaped = false;
-        if (tok->token == PythonSyntaxHighlighter::T_DelimiterNewLine)
+        if (tok->token == Python::Token::T_DelimiterNewLine)
             break;
         NEXT_TOKEN(tok)
     }
     return escaped;
 }
 
-QString PythonSourceRoot::customTypeNameFor(PythonSourceRoot::CustomNameIdx_t customIdx)
+QString Python::SourceRoot::customTypeNameFor(Python::SourceRoot::CustomNameIdx_t customIdx)
 {
     return m_customTypeNames[customIdx];
 }
 
-PythonSourceRoot::CustomNameIdx_t PythonSourceRoot::addCustomTypeName(const QString name)
+Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::addCustomTypeName(const QString name)
 {
     m_customTypeNames[++m_uniqueCustomTypeNames] = name;
     return m_uniqueCustomTypeNames;
 }
 
-PythonSourceRoot::CustomNameIdx_t PythonSourceRoot::indexOfCustomTypeName(const QString name)
+Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(const QString name)
 {
     if (m_customTypeNames.values().contains(QString(name)))
         return m_customTypeNames.key(QString(name));
     return -1;
 }
 
-PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
-                                                         PythonSyntaxHighlighter *highlighter)
+Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString filePath,
+                                                         Python::SyntaxHighlighter *highlighter)
 {
     DEFINE_DBG_VARS
 
     // delete old data
-    PythonSourceModule *mod = moduleFromPath(filePath);
+    Python::SourceModule *mod = moduleFromPath(filePath);
     if (mod) {
         m_modules->remove(mod, true);
         mod = nullptr;
     }
 
     // create a new module
-    mod = new PythonSourceModule(this, highlighter);
+    mod = new Python::SourceModule(this, highlighter);
     mod->setFilePath(filePath);
     QFileInfo fi(filePath);
     mod->setModuleName(fi.baseName());
@@ -454,9 +455,9 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
     // firstline might be empty
     if (highlighter && highlighter->document()) {
         QTextBlock block = highlighter->document()->begin();
-        const PythonTextBlockData *txtData = nullptr;
+        const Python::TextBlockData *txtData = nullptr;
         if (block.isValid())
-            txtData = dynamic_cast<PythonTextBlockData*>(block.userData());
+            txtData = dynamic_cast<Python::TextBlockData*>(block.userData());
 
         if (!txtData)
             highlighter->rehighlight();
@@ -466,7 +467,7 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
                   (txtData = txtData->next()))
                 ;
             if (txtData) {
-                PythonToken *tok = txtData->tokens()[0];
+                Python::Token *tok = txtData->tokens()[0];
                 if (tok) {
                     DBG_TOKEN(tok)
                     mod->scanFrame(tok);
@@ -478,14 +479,14 @@ PythonSourceModule *PythonSourceRoot::scanCompleteModule(const QString filePath,
     return mod;
 }
 
-PythonSourceModule *PythonSourceRoot::scanSingleRowModule(const QString filePath,
-                                                          PythonTextBlockData *row,
-                                                          PythonSyntaxHighlighter *highlighter)
+Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const QString filePath,
+                                                          Python::TextBlockData *row,
+                                                          Python::SyntaxHighlighter *highlighter)
 {
-    PythonSourceModule *mod = moduleFromPath(filePath);
+    Python::SourceModule *mod = moduleFromPath(filePath);
     if (!mod) {
         // create a new module
-        mod = new PythonSourceModule(this, highlighter);
+        mod = new Python::SourceModule(this, highlighter);
         mod->setFilePath(filePath);
         QFileInfo fi(filePath);
         mod->setModuleName(fi.baseName());
@@ -511,9 +512,9 @@ PythonSourceModule *PythonSourceRoot::scanSingleRowModule(const QString filePath
 // var2[var4]  <- unknown same as above
 // var1.attr   <- lookup identifiers 'var1' and 'attr' to determine this type, limit in lookup chain
 // var3 += 2   <- int due to '2'
-PythonSourceRoot::TypeInfo
-PythonSourceRoot::statementResultType(const PythonToken *startToken,
-                                      const PythonSourceFrame *frame) const
+Python::SourceRoot::TypeInfo
+Python::SourceRoot::statementResultType(const Python::Token *startToken,
+                                      const Python::SourceFrame *frame) const
 {
     DEFINE_DBG_VARS
 
@@ -529,12 +530,12 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
         bracketCloseCnt = 0;
 
 
-    const PythonToken *tok = startToken;
+    const Python::Token *tok = startToken;
     DBG_TOKEN(tok)
 
     // first we scan to end of statement
     // then operate on that list
-    QList<const PythonToken*> allTokens;
+    QList<const Python::Token*> allTokens;
     QList<int> parenPos;
 
 
@@ -542,7 +543,7 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
     int pos = 0; // use as guard for max tokens and parenPos
     do {
         switch (tok->token) {
-        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+        case Python::Token::T_DelimiterOpenParen:
             if (parenOpenCnt != parenCloseCnt) {
                 frame->module()->setSyntaxError(tok, QString::fromLatin1("Parens mismatch '('..')' in statement"));
                 return typeInfo;
@@ -550,7 +551,7 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
             parenPos.push_front(pos);
             parenOpenCnt++;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+        case Python::Token::T_DelimiterCloseParen:
             parenPos.push_front(pos);
             parenCloseCnt++;
             if (parenOpenCnt != parenCloseCnt) {
@@ -558,35 +559,35 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
                 return typeInfo;
             }
             break;
-        case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+        case Python::Token::T_DelimiterOpenBrace:
             if (braceOpenCnt != braceCloseCnt) {
                 frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
                 return typeInfo;
             }
             braceOpenCnt++;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterCloseBrace:
+        case Python::Token::T_DelimiterCloseBrace:
             braceCloseCnt++;
             if (braceOpenCnt != braceCloseCnt) {
                 frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
                 return typeInfo;
             }
             break;
-        case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+        case Python::Token::T_DelimiterOpenBracket:
             if (bracketOpenCnt != bracketCloseCnt) {
                 frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
                 return typeInfo;
             }
             bracketOpenCnt++;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+        case Python::Token::T_DelimiterCloseBracket:
             bracketCloseCnt++;
             if (bracketOpenCnt != bracketCloseCnt) {
                 frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
                 return typeInfo;
             }
             break;
-        case PythonSyntaxHighlighter::T_DelimiterSemiColon:
+        case Python::Token::T_DelimiterSemiColon:
             pos = 0;  break; // break do while loop
         default:
             allTokens.push_back(tok);
@@ -608,7 +609,7 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
         return typeInfo;
 
     // split on paren sub statements ie var1 * (var2 +1)
-    QList<QList<const PythonToken*> > subStatements;
+    QList<QList<const Python::Token*> > subStatements;
     int endPos = 0;
     for (int pos : parenPos) {
         // close paren is stored first ie even pos
@@ -630,16 +631,16 @@ PythonSourceRoot::statementResultType(const PythonToken *startToken,
     return tpNext;
 }
 
-const PythonToken
-*PythonSourceRoot::computeStatementResultType(const PythonSourceFrame *frame,
-                                              const PythonToken *startTok,
+const Python::Token
+*Python::SourceRoot::computeStatementResultType(const Python::SourceFrame *frame,
+                                              const Python::Token *startTok,
                                               TypeInfo &typeInfo) const
 {
     DEFINE_DBG_VARS
     // first look for encapsulating brackets and parens ie '[..]' or '(..)'
     // a '{..}' is a dict and retuned as that, advances startToken
 
-    const PythonToken *tok = startTok;
+    const Python::Token *tok = startTok;
 
     int guard = 10;
 
@@ -648,37 +649,37 @@ const PythonToken
 
     while(tok && (guard--)) {
         switch (tok->token) {
-        case PythonSyntaxHighlighter::T_DelimiterOpenParen:
+        case Python::Token::T_DelimiterOpenParen:
  //           ++parenCnt;
             // recurse into this '(..)'
             return computeStatementResultType(frame, tok->next(), typeInfo);
 //            goto next_loop;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterCloseParen:
+        case Python::Token::T_DelimiterCloseParen:
 //            --parenCnt;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterOpenBracket:
+        case Python::Token::T_DelimiterOpenBracket:
             // recurese into '[..]'
 //            ++bracketCnt;
             return computeStatementResultType(frame, tok->next(), typeInfo);
 //            goto next_loop;
-        case PythonSyntaxHighlighter::T_DelimiterCloseBracket:
+        case Python::Token::T_DelimiterCloseBracket:
 //            --bracketCnt;
             break;
-        case PythonSyntaxHighlighter::T_DelimiterOpenBrace:
+        case Python::Token::T_DelimiterOpenBrace:
             typeInfo.type = DictType;
             // TODO go to end of dict
             break;
-        case PythonSyntaxHighlighter::T_DelimiterSemiColon:
+        case Python::Token::T_DelimiterSemiColon:
             // end of statement
             return tok;
-        case PythonSyntaxHighlighter::T_DelimiterNewLine:
+        case Python::Token::T_DelimiterNewLine:
             if (!isLineEscaped(tok))
                 return tok;
             break;
         default: {
-            const PythonSourceIdentifier *ident = nullptr;
-            PythonSourceIdentifierAssignment *assign = nullptr;
+            const Python::SourceIdentifier *ident = nullptr;
+            Python::SourceIdentifierAssignment *assign = nullptr;
             if (tok->isIdentifierVariable()) {
                 ident = frame->getIdentifier(tok->text());
                 if (ident) {
@@ -704,14 +705,14 @@ const PythonToken
                                 return tok;
                             // if this callable has muliple return types we can't determine which
                             // so we bail out
-                            PythonSourceFrameReturnType *frmType = dynamic_cast<PythonSourceFrameReturnType*>(ident->frame()->returnTypes().begin());
+                            Python::SourceFrameReturnType *frmType = dynamic_cast<Python::SourceFrameReturnType*>(ident->frame()->returnTypes().begin());
                             if (frmType)
                                 typeInfo.type = frmType->typeInfo().type;
 
                             return tok;
                         }
                         // not callable,
-                        const PythonSourceFrame *frm = ident->module()->getFrameForToken(assign->token(), ident->module()->rootFrame());
+                        const Python::SourceFrame *frm = ident->module()->getFrameForToken(assign->token(), ident->module()->rootFrame());
                         TypeInfoPair typePair = identifierType(assign->token(), frm);
                         typeInfo = typePair.thisType;
                     }
@@ -735,20 +736,20 @@ const PythonToken
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// this struct is contained by PythonSourceRoot
-PythonSourceRoot::TypeInfo::TypeInfo() :
-    type(PythonSourceRoot::InValidType),
+// this struct is contained by Python::SourceRoot
+Python::SourceRoot::TypeInfo::TypeInfo() :
+    type(Python::SourceRoot::InValidType),
     customNameIdx(-1)
 {
 }
 
-PythonSourceRoot::TypeInfo::TypeInfo(PythonSourceRoot::DataTypes type) :
+Python::SourceRoot::TypeInfo::TypeInfo(Python::SourceRoot::DataTypes type) :
     type(type),
     customNameIdx(-1)
 {
 }
 
-PythonSourceRoot::TypeInfo::TypeInfo(const PythonSourceRoot::TypeInfo &other) :
+Python::SourceRoot::TypeInfo::TypeInfo(const Python::SourceRoot::TypeInfo &other) :
     type(other.type),
     customNameIdx(other.customNameIdx),
     referenceName(other.referenceName)
@@ -756,78 +757,78 @@ PythonSourceRoot::TypeInfo::TypeInfo(const PythonSourceRoot::TypeInfo &other) :
 }
 
 
-PythonSourceRoot::TypeInfo::~TypeInfo()
+Python::SourceRoot::TypeInfo::~TypeInfo()
 {
 }
 
-QString PythonSourceRoot::TypeInfo::typeAsStr() const
+QString Python::SourceRoot::TypeInfo::typeAsStr() const
 {
     const char *typeAsStr;
     static const char *errStr = "<Typename lookup error>";
 
     switch (type) {
-    case PythonSourceRoot::InValidType:         typeAsStr = "InValidType"; break;
-    case PythonSourceRoot::UnknownType:         typeAsStr = "UnknownType"; break;
+    case Python::SourceRoot::InValidType:         typeAsStr = "InValidType"; break;
+    case Python::SourceRoot::UnknownType:         typeAsStr = "UnknownType"; break;
     // when no return value
-    case PythonSourceRoot::VoidType:            typeAsStr = "VoidType"; break;
+    case Python::SourceRoot::VoidType:            typeAsStr = "VoidType"; break;
 
-    case PythonSourceRoot::ReferenceType:       typeAsStr = "ReferenceType"; break;
-    case PythonSourceRoot::ReferenceCallableType:
+    case Python::SourceRoot::ReferenceType:       typeAsStr = "ReferenceType"; break;
+    case Python::SourceRoot::ReferenceCallableType:
                                                 typeAsStr = "ReferenceCallableType"; break;
-    case PythonSourceRoot::ReferenceArgumentType:typeAsStr = "ReferenceArgumentType"; break;
-    case PythonSourceRoot::ReferenceBuiltInType:typeAsStr = "ReferenceBuiltInType"; break;
+    case Python::SourceRoot::ReferenceArgumentType:typeAsStr = "ReferenceArgumentType"; break;
+    case Python::SourceRoot::ReferenceBuiltInType:typeAsStr = "ReferenceBuiltInType"; break;
 /*
-    case PythonSourceRoot::ReferenceImportUndeterminedType:
+    case Python::SourceRoot::ReferenceImportUndeterminedType:
                                                 typeAsStr = "ReferenceImportUndeterminedType"; break;
-    case PythonSourceRoot::ReferenceImportErrorType:
+    case Python::SourceRoot::ReferenceImportErrorType:
                                                 typeAsStr = "ReferenceImportErrorType"; break;
-    case PythonSourceRoot::ReferenceImportPythonType:
+    case Python::SourceRoot::ReferenceImportPythonType:
                                                 typeAsStr = "ReferenceImportPythonType"; break;
-    case PythonSourceRoot::ReferenceImportBuiltInType:
+    case Python::SourceRoot::ReferenceImportBuiltInType:
                                                 typeAsStr = "ReferenceImportBuiltInType"; break;
 */
-    case PythonSourceRoot::ReferenceImportType: typeAsStr = "ReferenceImportType"; break;
+    case Python::SourceRoot::ReferenceImportType: typeAsStr = "ReferenceImportType"; break;
 
 
-    case PythonSourceRoot::FunctionType:        typeAsStr = "FunctionType"; break;
-    case PythonSourceRoot::LambdaType:          typeAsStr = "LambdaType";   break;
-    case PythonSourceRoot::GeneratorType:       typeAsStr = "GeneratorType";break;
-    case PythonSourceRoot::CoroutineType:       typeAsStr = "CoroutineType";break;
-    case PythonSourceRoot::CodeType:            typeAsStr = "CodeType";     break;
-    case PythonSourceRoot::MethodType:          typeAsStr = "MethodType";   break;
-    case PythonSourceRoot::BuiltinFunctionType: typeAsStr = "BuiltinFunctionType"; break;
-    case PythonSourceRoot::BuiltinMethodType:   typeAsStr = "BuiltinMethodType"; break;
-    case PythonSourceRoot::WrapperDescriptorType: typeAsStr = "WrapperDescriptorType"; break;
-    case PythonSourceRoot::MethodWrapperType:   typeAsStr = "MethodWrapperType"; break;
-    case PythonSourceRoot::MethodDescriptorType:typeAsStr = "MethodDescriptorType"; break;
-    case PythonSourceRoot::ClassMethodDescriptorType: typeAsStr = "ClassMethodDescriptorType"; break;
-    case PythonSourceRoot::ModuleType:          typeAsStr = "ModuleType"; break;// is root frame for file
-    case PythonSourceRoot::TracebackType:       typeAsStr = "TracebackType"; break;
-    case PythonSourceRoot::FrameType:           typeAsStr = "FrameType";   break;
-    case PythonSourceRoot::GetSetDescriptorType:typeAsStr = "GetSetDescriptorType"; break;
-    case PythonSourceRoot::MemberDescriptorType:typeAsStr = "MemberDescriptorType"; break;
-    case PythonSourceRoot::MappingProxyType:    typeAsStr = "MappingProxyType";   break;
+    case Python::SourceRoot::FunctionType:        typeAsStr = "FunctionType"; break;
+    case Python::SourceRoot::LambdaType:          typeAsStr = "LambdaType";   break;
+    case Python::SourceRoot::GeneratorType:       typeAsStr = "GeneratorType";break;
+    case Python::SourceRoot::CoroutineType:       typeAsStr = "CoroutineType";break;
+    case Python::SourceRoot::CodeType:            typeAsStr = "CodeType";     break;
+    case Python::SourceRoot::MethodType:          typeAsStr = "MethodType";   break;
+    case Python::SourceRoot::BuiltinFunctionType: typeAsStr = "BuiltinFunctionType"; break;
+    case Python::SourceRoot::BuiltinMethodType:   typeAsStr = "BuiltinMethodType"; break;
+    case Python::SourceRoot::WrapperDescriptorType: typeAsStr = "WrapperDescriptorType"; break;
+    case Python::SourceRoot::MethodWrapperType:   typeAsStr = "MethodWrapperType"; break;
+    case Python::SourceRoot::MethodDescriptorType:typeAsStr = "MethodDescriptorType"; break;
+    case Python::SourceRoot::ClassMethodDescriptorType: typeAsStr = "ClassMethodDescriptorType"; break;
+    case Python::SourceRoot::ModuleType:          typeAsStr = "ModuleType"; break;// is root frame for file
+    case Python::SourceRoot::TracebackType:       typeAsStr = "TracebackType"; break;
+    case Python::SourceRoot::FrameType:           typeAsStr = "FrameType";   break;
+    case Python::SourceRoot::GetSetDescriptorType:typeAsStr = "GetSetDescriptorType"; break;
+    case Python::SourceRoot::MemberDescriptorType:typeAsStr = "MemberDescriptorType"; break;
+    case Python::SourceRoot::MappingProxyType:    typeAsStr = "MappingProxyType";   break;
 
-    case PythonSourceRoot::TypeObjectType:      typeAsStr = "TypeObjectType"; break;
-    case PythonSourceRoot::ObjectType:          typeAsStr = "ObjectType";   break;
-    case PythonSourceRoot::NoneType:            typeAsStr = "NoneType";     break;
-    case PythonSourceRoot::BoolType:            typeAsStr = "BoolType";     break;
-    case PythonSourceRoot::IntType:             typeAsStr = "IntType";      break;
-    case PythonSourceRoot::FloatType:           typeAsStr = "FloatType";    break;
-    case PythonSourceRoot::StringType:          typeAsStr = "StringType";   break;
-    case PythonSourceRoot::BytesType:           typeAsStr = "BytesType";    break;
-    case PythonSourceRoot::ListType:            typeAsStr = "ListType";     break;
-    case PythonSourceRoot::TupleType:           typeAsStr = "TupleType";    break;
-    case PythonSourceRoot::SetType:             typeAsStr = "SetType";      break;
-    case PythonSourceRoot::FrozenSetType:       typeAsStr = "FrozensetType";break;
-    case PythonSourceRoot::RangeType:           typeAsStr = "RangeType";    break;
-    case PythonSourceRoot::DictType:            typeAsStr = "DictType";     break;
-    case PythonSourceRoot::ClassType:           typeAsStr = "ClassType";    break;
-    case PythonSourceRoot::ComplexType:         typeAsStr = "ComplexType";  break;
-    case PythonSourceRoot::EnumerateType:       typeAsStr = "EnumerateType";break;
-    case PythonSourceRoot::IterableType:        typeAsStr = "IterableType"; break;
-    case PythonSourceRoot::FileType:            typeAsStr = "FileType";     break;
-    case PythonSourceRoot::CustomType:
+    case Python::SourceRoot::TypeObjectType:      typeAsStr = "TypeObjectType"; break;
+    case Python::SourceRoot::ObjectType:          typeAsStr = "ObjectType";   break;
+    case Python::SourceRoot::NoneType:            typeAsStr = "NoneType";     break;
+    case Python::SourceRoot::BoolType:            typeAsStr = "BoolType";     break;
+    case Python::SourceRoot::IntType:             typeAsStr = "IntType";      break;
+    case Python::SourceRoot::FloatType:           typeAsStr = "FloatType";    break;
+    case Python::SourceRoot::StringType:          typeAsStr = "StringType";   break;
+    case Python::SourceRoot::BytesType:           typeAsStr = "BytesType";    break;
+    case Python::SourceRoot::ListType:            typeAsStr = "ListType";     break;
+    case Python::SourceRoot::TupleType:           typeAsStr = "TupleType";    break;
+    case Python::SourceRoot::SetType:             typeAsStr = "SetType";      break;
+    case Python::SourceRoot::FrozenSetType:       typeAsStr = "FrozensetType";break;
+    case Python::SourceRoot::RangeType:           typeAsStr = "RangeType";    break;
+    case Python::SourceRoot::DictType:            typeAsStr = "DictType";     break;
+    case Python::SourceRoot::ClassType:           typeAsStr = "ClassType";    break;
+    case Python::SourceRoot::ComplexType:         typeAsStr = "ComplexType";  break;
+    case Python::SourceRoot::EnumerateType:       typeAsStr = "EnumerateType";break;
+    case Python::SourceRoot::IterableType:        typeAsStr = "IterableType"; break;
+    case Python::SourceRoot::FileType:            typeAsStr = "FileType";     break;
+    case Python::SourceRoot::CustomType:
         if (customNameIdx > -1) {
             return customName();
         }
@@ -840,10 +841,10 @@ QString PythonSourceRoot::TypeInfo::typeAsStr() const
     return QLatin1String(typeAsStr);
 }
 
-QString PythonSourceRoot::TypeInfo::customName() const
+QString Python::SourceRoot::TypeInfo::customName() const
 {
     if (customNameIdx > -1) {
-        return PythonSourceRoot::instance()->customTypeNameFor(customNameIdx);
+        return Python::SourceRoot::instance()->customTypeNameFor(customNameIdx);
     }
     return QString();
 }

@@ -79,6 +79,7 @@ SET(TextEditor_CPP_SRCS
     PythonCode.cpp
     PythonEditor.cpp
     PythonSyntaxHighlighter.cpp
+    PythonToken.cpp
     SyntaxHighlighter.cpp
     TextEditor.cpp
 )
@@ -88,6 +89,7 @@ SET(TextEditor_HPP_SRCS
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h
+    PythonToken.h
     SyntaxHighlighter.h
     TextEditor.h
 )
@@ -97,6 +99,7 @@ SET(TextEditor_MOC_HDRS
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h
+    PythonToken.h
     SyntaxHighlighter.h
     TextEditor.h
 )

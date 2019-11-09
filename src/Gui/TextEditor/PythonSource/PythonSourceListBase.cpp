@@ -5,7 +5,7 @@ DBG_TOKEN_FILE
 
 using namespace Gui;
 
-PythonSourceListNodeBase::PythonSourceListNodeBase(PythonSourceListParentBase *owner) :
+Python::SourceListNodeBase::SourceListNodeBase(Python::SourceListParentBase *owner) :
     m_previous(nullptr), m_next(nullptr),
     m_owner(owner), m_token(nullptr)
 {
@@ -13,44 +13,44 @@ PythonSourceListNodeBase::PythonSourceListNodeBase(PythonSourceListParentBase *o
     //assert(owner != this && "Can't own myself");
 }
 
-PythonSourceListNodeBase::PythonSourceListNodeBase(const PythonSourceListNodeBase &other) :
+Python::SourceListNodeBase::SourceListNodeBase(const Python::SourceListNodeBase &other) :
     m_previous(nullptr), m_next(nullptr),
     m_owner(other.m_owner), m_token(other.m_token)
 {
-    assert(other.m_owner != nullptr && "Trying to copy PythonSourceListNodeBase with null as owner");
+    assert(other.m_owner != nullptr && "Trying to copy Python::SourceListNodeBase with null as owner");
     m_token->attachReference(this);
 }
 
-PythonSourceListNodeBase::~PythonSourceListNodeBase()
+Python::SourceListNodeBase::~SourceListNodeBase()
 {
     if (m_token)
-        const_cast<PythonToken*>(m_token)->detachReference(this);
+        const_cast<Python::Token*>(m_token)->detachReference(this);
     if (m_owner && m_owner != this)
         m_owner->remove(this);
 }
 
-void PythonSourceListNodeBase::setToken(PythonToken *token) {
+void Python::SourceListNodeBase::setToken(Python::Token *token) {
     if (m_token)
-        const_cast<PythonToken*>(m_token)->detachReference(this);
+        const_cast<Python::Token*>(m_token)->detachReference(this);
     token->attachReference(this);
     m_token = token;
 }
 
-QString PythonSourceListNodeBase::text() const
+QString Python::SourceListNodeBase::text() const
 {
     if (m_token)
         return m_token->text();
     return QString();
 }
 
-void PythonSourceListNodeBase::setOwner(PythonSourceListParentBase *owner)
+void Python::SourceListNodeBase::setOwner(Python::SourceListParentBase *owner)
 {
     //assert(owner != this && "Can't own myself");
     m_owner = owner;
 }
 
 // this should only be called from PythonToken destructor when it gets destroyed
-void PythonSourceListNodeBase::tokenDeleted()
+void Python::SourceListNodeBase::tokenDeleted()
 {
     m_token = nullptr;
     if (m_owner && m_owner != this)
@@ -60,24 +60,24 @@ void PythonSourceListNodeBase::tokenDeleted()
 // -------------------------------------------------------------------------
 
 
-PythonSourceListParentBase::PythonSourceListParentBase(PythonSourceListParentBase *owner) :
-    PythonSourceListNodeBase(owner),
+Python::SourceListParentBase::SourceListParentBase(Python::SourceListParentBase *owner) :
+    Python::SourceListNodeBase(owner),
     m_first(nullptr), m_last(nullptr),
     m_preventAutoRemoveMe(false)
 {
 }
 
-PythonSourceListParentBase::PythonSourceListParentBase(const PythonSourceListParentBase &other) :
-    PythonSourceListNodeBase(this),
+Python::SourceListParentBase::SourceListParentBase(const Python::SourceListParentBase &other) :
+    Python::SourceListNodeBase(this),
     m_first(other.m_first), m_last(other.m_last),
     m_preventAutoRemoveMe(other.m_preventAutoRemoveMe)
 {
 }
 
-PythonSourceListParentBase::~PythonSourceListParentBase()
+Python::SourceListParentBase::~SourceListParentBase()
 {
     // delete all children
-    PythonSourceListNodeBase *n = m_first,
+    Python::SourceListNodeBase *n = m_first,
                              *tmp = nullptr;
     while(n) {
         n->setOwner(nullptr);
@@ -87,7 +87,7 @@ PythonSourceListParentBase::~PythonSourceListParentBase()
     }
 }
 
-void PythonSourceListParentBase::insert(PythonSourceListNodeBase *node)
+void Python::SourceListParentBase::insert(Python::SourceListNodeBase *node)
 {
     DEFINE_DBG_VARS
     assert(node->next() == nullptr && "Node already owned");
@@ -95,7 +95,7 @@ void PythonSourceListParentBase::insert(PythonSourceListNodeBase *node)
     assert(contains(node) == false && "Node already stored");
     if (m_last) {
         // look up the place for this
-        PythonSourceListNodeBase *n = m_last,
+        Python::SourceListNodeBase *n = m_last,
                                  *tmp = nullptr;
         while (n != nullptr) {
             int res = compare(node, n);
@@ -129,7 +129,7 @@ void PythonSourceListParentBase::insert(PythonSourceListNodeBase *node)
     }
 }
 
-bool PythonSourceListParentBase::remove(PythonSourceListNodeBase *node, bool deleteNode)
+bool Python::SourceListParentBase::remove(Python::SourceListNodeBase *node, bool deleteNode)
 {
     if (contains(node)) {
         // remove from list
@@ -160,11 +160,11 @@ bool PythonSourceListParentBase::remove(PythonSourceListNodeBase *node, bool del
     return false;
 }
 
-bool PythonSourceListParentBase::contains(PythonSourceListNodeBase *node) const
+bool Python::SourceListParentBase::contains(Python::SourceListNodeBase *node) const
 {
     DEFINE_DBG_VARS
-    PythonSourceListNodeBase *f = m_first,
-                             *l = m_last;
+    Python::SourceListNodeBase *f = m_first,
+                               *l = m_last;
     // we search front and back to be 1/2 n at worst lookup time
     while(f && l) {
         DBG_TOKEN(f->token())
@@ -178,16 +178,16 @@ bool PythonSourceListParentBase::contains(PythonSourceListNodeBase *node) const
     return false;
 }
 
-bool PythonSourceListParentBase::empty() const
+bool Python::SourceListParentBase::empty() const
 {
     return m_first == nullptr && m_last == nullptr;
 }
 
-std::size_t PythonSourceListParentBase::size() const
+int32_t Python::SourceListParentBase::size() const
 {
     DEFINE_DBG_VARS
-    PythonSourceListNodeBase *f = m_first;
-    std::size_t cnt = 0;
+    Python::SourceListNodeBase *f = m_first;
+    int32_t cnt = 0;
     while(f) {
         DBG_TOKEN(f->token())
         ++cnt;
@@ -197,10 +197,10 @@ std::size_t PythonSourceListParentBase::size() const
     return cnt;
 }
 
-std::size_t PythonSourceListParentBase::indexOf(PythonSourceListNodeBase *node) const
+int32_t Python::SourceListParentBase::indexOf(Python::SourceListNodeBase *node) const
 {
-    std::size_t idx = -1;
-    PythonSourceListNodeBase *f = m_first;
+    int32_t idx = -1;
+    Python::SourceListNodeBase *f = m_first;
     while (f) {
         ++idx;
         if (f == node)
@@ -211,9 +211,9 @@ std::size_t PythonSourceListParentBase::indexOf(PythonSourceListNodeBase *node) 
     return idx;
 }
 
-PythonSourceListNodeBase *PythonSourceListParentBase::operator [](std::size_t idx) const
+Python::SourceListNodeBase *Python::SourceListParentBase::operator [](std::size_t idx) const
 {
-    PythonSourceListNodeBase *n = m_first;
+    Python::SourceListNodeBase *n = m_first;
     for (std::size_t i = 0; i < idx; ++i) {
         if (n == nullptr)
             return nullptr;
@@ -222,10 +222,10 @@ PythonSourceListNodeBase *PythonSourceListParentBase::operator [](std::size_t id
     return n;
 }
 
-PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToken *tok) const
+Python::SourceListNodeBase *Python::SourceListParentBase::findExact(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
-    for (PythonSourceListNodeBase *node = m_first;
+    for (Python::SourceListNodeBase *node = m_first;
          node != nullptr;
          node = node->next())
     {
@@ -237,14 +237,14 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findExact(const PythonToke
     return nullptr;
 }
 
-PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHighlighter::Tokens token) const
+Python::SourceListNodeBase *Python::SourceListParentBase::findFirst(Python::Token::Tokens token) const
 {
     DEFINE_DBG_VARS
 
     if (!token)
         return nullptr;
 
-    for (PythonSourceListNodeBase *node = m_first;
+    for (Python::SourceListNodeBase *node = m_first;
          node != nullptr;
          node = node->next())
     {
@@ -256,11 +256,11 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findFirst(PythonSyntaxHigh
     return nullptr;
 }
 
-PythonSourceListNodeBase *PythonSourceListParentBase::findLast(PythonSyntaxHighlighter::Tokens token) const
+Python::SourceListNodeBase *Python::SourceListParentBase::findLast(Python::Token::Tokens token) const
 {
     DEFINE_DBG_VARS
 
-    for (PythonSourceListNodeBase *node = m_last;
+    for (Python::SourceListNodeBase *node = m_last;
          node != nullptr;
          node = node->previous())
     {
@@ -272,9 +272,9 @@ PythonSourceListNodeBase *PythonSourceListParentBase::findLast(PythonSyntaxHighl
     return nullptr;
 }
 
-bool PythonSourceListParentBase::hasOtherTokens(PythonSyntaxHighlighter::Tokens token) const
+bool Python::SourceListParentBase::hasOtherTokens(Python::Token::Tokens token) const
 {
-    for (PythonSourceListNodeBase *node = m_last;
+    for (Python::SourceListNodeBase *node = m_last;
          node != nullptr;
          node = node->previous())
     {
@@ -285,8 +285,8 @@ bool PythonSourceListParentBase::hasOtherTokens(PythonSyntaxHighlighter::Tokens 
     return false;
 }
 
-int PythonSourceListParentBase::compare(const PythonSourceListNodeBase *left,
-                                        const PythonSourceListNodeBase *right) const
+int Python::SourceListParentBase::compare(const Python::SourceListNodeBase *left,
+                                          const Python::SourceListNodeBase *right) const
 {
     if (!left || ! right || !left->token() || !right->token())
         return 0;

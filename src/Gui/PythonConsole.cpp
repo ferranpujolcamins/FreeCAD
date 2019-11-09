@@ -91,7 +91,7 @@ struct PythonConsoleP
     PyObject *_stdoutPy, *_stderrPy, *_stdinPy, *_stdin;
     InteractiveInterpreter* interpreter;
     CallTipsList* callTipsList;
-    PythonMatchingChars* matchingChars;
+    Python::MatchingChars* matchingChars;
     ConsoleHistory history;
     QString output, error, info, historyFile;
     QStringList statements;
@@ -720,7 +720,7 @@ PythonConsole::PythonConsole(QWidget *parent)
     .arg(QString::fromLatin1(version), QString::fromLatin1(platform));
     d->output = d->info;
     printPrompt(PythonConsole::Complete);
-    d->matchingChars = new PythonMatchingChars(this);
+    d->matchingChars = new Python::MatchingChars(this);
     loadHistory();
 }
 
@@ -970,13 +970,13 @@ void PythonConsole::printPrompt(PythonConsole::Prompt mode)
 {
     // write normal messages
     if (!d->output.isEmpty()) {
-        appendOutput(d->output, (int)PythonSyntaxHighlighter::T_PythonConsoleOutput);
+        appendOutput(d->output, (int)Python::Token::T_PythonConsoleOutput);
         d->output = QString::null;
     }
 
     // write error messages
     if (!d->error.isEmpty()) {
-        appendOutput(d->error, (int)PythonSyntaxHighlighter::T_PythonConsoleError);
+        appendOutput(d->error, (int)Python::Token::T_PythonConsoleError);
         d->error = QString::null;
     }
 
@@ -1678,7 +1678,7 @@ void PythonConsole::saveHistory() const
 // ---------------------------------------------------------------------
 
 PythonConsoleHighlighter::PythonConsoleHighlighter(QObject* parent)
-  : PythonSyntaxHighlighter(parent)
+  : Python::SyntaxHighlighter(parent)
 {
 }
 
@@ -1688,8 +1688,8 @@ PythonConsoleHighlighter::~PythonConsoleHighlighter()
 
 void PythonConsoleHighlighter::highlightBlock(const QString& text)
 {
-    const int ErrorOutput   = (int)T_PythonConsoleError;
-    const int MessageOutput = (int)T_PythonConsoleOutput;
+    const int ErrorOutput   = (int)Python::Token::T_PythonConsoleError;
+    const int MessageOutput = (int)Python::Token::T_PythonConsoleOutput;
 
     // Get user state to re-highlight the blocks in the appropriate format
     int stateOfPara = currentBlockState();
@@ -1713,7 +1713,7 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
         }   break;
     default:
         {
-            PythonSyntaxHighlighter::highlightBlock(text);
+            Python::SyntaxHighlighter::highlightBlock(text);
         }   break;
     }
 }

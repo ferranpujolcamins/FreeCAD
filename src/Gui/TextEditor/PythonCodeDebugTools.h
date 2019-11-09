@@ -40,7 +40,7 @@ class TextEditor;
 class PythonEditor;
 namespace Syntax {
 
-const char* tokenToCStr(PythonSyntaxHighlighter::Tokens tok);
+const char* tokenToCStr(Python::Token::Tokens tok);
 
 
 // -----------------------------------------------------------------------------
@@ -49,8 +49,8 @@ class TokenModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    explicit TokenModel(const PythonEditor *editor, QObject *parent = 0);
-    virtual ~TokenModel();
+    explicit TokenModel(const PythonEditor *editor, QObject *parent = nullptr);
+    virtual ~TokenModel() override;
     QVariant data(const QModelIndex &index, int role) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     QVariant headerData(int section, Qt::Orientation orientation,
@@ -65,7 +65,7 @@ public Q_SLOTS:
     void refreshAll();
 
 private:
-    const PythonTextBlockData *getTextBlock(long line) const;
+    const Python::TextBlockData *getTextBlock(long line) const;
     const PythonEditor *m_editor;
 };
 

@@ -1,5 +1,6 @@
 #include "PythonSourceModule.h"
 #include <TextEditor/PythonCode.h>
+#include <TextEditor/PythonSyntaxHighlighter.h>
 #include <QDebug>
 
 DBG_TOKEN_FILE
@@ -7,31 +8,31 @@ DBG_TOKEN_FILE
 using namespace Gui;
 
 
-PythonSourceModule::PythonSourceModule(PythonSourceRoot *root,
-                                       PythonSyntaxHighlighter *highlighter) :
-    PythonSourceListParentBase(this),
+Python::SourceModule::SourceModule(Python::SourceRoot *root,
+                                   Python::SyntaxHighlighter *highlighter) :
+    Python::SourceListParentBase(this),
     m_root(root),
     m_rootFrame(this, this),
     m_highlighter(highlighter)
 {
 }
 
-PythonSourceModule::~PythonSourceModule()
+Python::SourceModule::~SourceModule()
 {
 }
 
-void PythonSourceModule::scanFrame(PythonToken *tok)
+void Python::SourceModule::scanFrame(Python::Token *tok)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
 
-    PythonSourceIndent indent = currentBlockIndent(tok);
-    const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
-    const_cast<PythonSourceFrame*>(frm)->scanFrame(tok, indent);
+    Python::SourceIndent indent = currentBlockIndent(tok);
+    const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
+    const_cast<Python::SourceFrame*>(frm)->scanFrame(tok, indent);
     reHighLight(tok);
 }
 
-void PythonSourceModule::scanLine(PythonToken *tok)
+void Python::SourceModule::scanLine(Python::Token *tok)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
@@ -39,26 +40,26 @@ void PythonSourceModule::scanLine(PythonToken *tok)
     if (!tok)
         return;
 
-    PythonSourceIndent indent = currentBlockIndent(tok);
-    const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
-    const_cast<PythonSourceFrame*>(frm)->scanLine(tok, indent);
+    Python::SourceIndent indent = currentBlockIndent(tok);
+    const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
+    const_cast<Python::SourceFrame*>(frm)->scanLine(tok, indent);
     reHighLight(tok);
 }
 
-PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok) const
+Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
 
-    PythonSourceIndent ind;
+    Python::SourceIndent ind;
     if (!tok)
         return ind; // is invalid here
 
     // push the root indentblock
     ind.pushFrameBlock(-1, 0);
 
-    const PythonSourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
-    const PythonToken *beginTok = frm->token() ? frm->token() : tok;
+    const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
+    const Python::Token *beginTok = frm->token() ? frm->token() : tok;
 
     int frameIndent = 0,
         currentIndent = 0;
@@ -78,24 +79,24 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
     //     var1 = None     <- previousBlockIndent
     //     if (arg1):      <- triggers change in currentBlockIndent
     //         var1 = arg1 <- currentBlockIndent
-    PythonTextBlockData *txtData = tok->txtBlock();
+    Python::TextBlockData *txtData = tok->txtBlock();
     int indent = txtData->indent();
     int guard = 1000;
     while (txtData && (guard--) > 0) {
         if (!txtData->isEmpty()){
             if (indent >= txtData->indent()) {
                 // look for ':' if not found its a syntax error unless its a comment
-                beginTok = txtData->findToken(PythonSyntaxHighlighter::T_DelimiterColon, -1);
+                beginTok = txtData->findToken(Python::Token::T_DelimiterColon, -1);
                 DBG_TOKEN(beginTok)
-                const PythonToken *colonTok = beginTok;
+                const Python::Token *colonTok = beginTok;
                 while (beginTok && (guard--) > 0) {
                     PREV_TOKEN(beginTok)
                     // make sure isn't a comment line
-                    if (!beginTok || beginTok->token == PythonSyntaxHighlighter::T_Comment ||
+                    if (!beginTok || beginTok->token == Python::Token::T_Comment ||
                         beginTok->txtBlock() != txtData)
                     {
                         break; // goto parent loop, do previous line
-                    } else if (beginTok->token == PythonSyntaxHighlighter::T_BlockStart) {
+                    } else if (beginTok->token == Python::Token::T_BlockStart) {
                         traversedBlocks.push_back(txtData->indent());
                         guard = -1; break;
                     } else if (beginTok->isCode()) {
@@ -103,7 +104,7 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
                         traversedBlocks.push_back(txtData->indent());
                         guard = -1;
                         break;
-                    } else if(beginTok->token == PythonSyntaxHighlighter::T_DelimiterNewLine) {
+                    } else if(beginTok->token == Python::Token::T_DelimiterNewLine) {
                         guard = -2; // exit parent loop
                         break;
                     }
@@ -137,27 +138,27 @@ PythonSourceIndent PythonSourceModule::currentBlockIndent(const PythonToken *tok
     return ind;
 }
 
-int PythonSourceModule::_currentBlockIndent(const PythonToken *tok) const
+int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
 
-    const PythonToken *beginTok = tok;
+    const Python::Token *beginTok = tok;
     DBG_TOKEN(beginTok)
 
     // get indent of first line after newline at frame start
     int newLines = 0;
     while(beginTok && newLines < 2) {
         switch (beginTok->token){
-        case PythonSyntaxHighlighter::T_DelimiterLineContinue:
+        case Python::Token::T_DelimiterLineContinue:
             --newLines; // newline escaped
             break;
-        case PythonSyntaxHighlighter::T_DelimiterColon:
+        case Python::Token::T_DelimiterColon:
             insertBlockStart(beginTok);
             break;
-        case PythonSyntaxHighlighter::T_DelimiterNewLine:
+        case Python::Token::T_DelimiterNewLine:
             ++newLines;
             break;
-        case PythonSyntaxHighlighter::T_Comment:
+        case Python::Token::T_Comment:
             if (newLines)
                 --newLines; // don't count a comment as a indent
             break;
@@ -171,18 +172,18 @@ int PythonSourceModule::_currentBlockIndent(const PythonToken *tok) const
     return 0;
 }
 
-void PythonSourceModule::reHighLight(const PythonToken *tok)
+void Python::SourceModule::reHighLight(const Python::Token *tok)
 {
     const QTextDocument *doc = tok->txtBlock()->block().document();
     while (!m_rehighlightRows.isEmpty()) {
         int row = m_rehighlightRows.takeFirst();
         QTextBlock bl = doc->findBlockByNumber(row);
-        bl.setUserState(bl.userState() | PythonSyntaxHighlighter::PreventTokenize);
+        bl.setUserState(bl.userState() | Python::SyntaxHighlighter::PreventTokenize);
         m_highlighter->rehighlightBlock(bl);
     }
 }
 
-void PythonSourceModule::setFormatToken(const PythonToken *tok, QTextCharFormat format)
+void Python::SourceModule::setFormatToken(const Python::Token *tok, QTextCharFormat format)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
@@ -195,17 +196,17 @@ void PythonSourceModule::setFormatToken(const PythonToken *tok, QTextCharFormat 
     }
 }
 
-void PythonSourceModule::setFormatToken(const PythonToken *tok)
+void Python::SourceModule::setFormatToken(const Python::Token *tok)
 {
     setFormatToken(tok, m_highlighter->getFormatToken(tok));
 }
 
-int PythonSourceModule::compare(const PythonSourceListNodeBase *left,
-                                const PythonSourceListNodeBase *right)
+int Python::SourceModule::compare(const Python::SourceListNodeBase *left,
+                                const Python::SourceListNodeBase *right)
 {
-    const PythonSourceModule *l = dynamic_cast<const PythonSourceModule*>(left),
-                             *r = dynamic_cast<const PythonSourceModule*>(right);
-    assert(l != nullptr && r != nullptr && "Invalid class stored as PythonSourceModule");
+    const Python::SourceModule *l = dynamic_cast<const Python::SourceModule*>(left),
+                             *r = dynamic_cast<const Python::SourceModule*>(right);
+    assert(l != nullptr && r != nullptr && "Invalid class stored as Python::SourceModule");
     if (l->moduleName() < r->moduleName())
         return +1;
     else if (l->moduleName() > r->moduleName())
@@ -219,8 +220,8 @@ int PythonSourceModule::compare(const PythonSourceListNodeBase *left,
     }
 }
 
-const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken *tok,
-                                                        const PythonSourceFrame *parentFrame) const
+const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::Token *tok,
+                                                        const Python::SourceFrame *parentFrame) const
 {
     DEFINE_DBG_VARS
 
@@ -228,21 +229,21 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     if (parentFrame->empty())
         return parentFrame; // we have no children, this is it!
 
-    PythonSourceFrame *childFrm = nullptr;
-    PythonSourceListNodeBase *itm = nullptr;
+    Python::SourceFrame *childFrm = nullptr;
+    Python::SourceListNodeBase *itm = nullptr;
 
     for (itm = parentFrame->begin();
          itm != parentFrame->end();
          itm = itm->next())
     {
-        childFrm = dynamic_cast<PythonSourceFrame*>(itm);
-        assert(childFrm != nullptr && "Wrong datatype stored in PythonSourceFrame");
+        childFrm = dynamic_cast<Python::SourceFrame*>(itm);
+        assert(childFrm != nullptr && "Wrong datatype stored in Python::SourceFrame");
         if (!childFrm->token())
             continue;
         if (!childFrm->lastToken()) {
             // end token have been deleted, re-parse end token
             int ind = childFrm->token()->txtBlock()->indent();
-            PythonTextBlockData *txtData = childFrm->token()->txtBlock();
+            Python::TextBlockData *txtData = childFrm->token()->txtBlock();
             while ((txtData = txtData->next())) {
                 if (txtData->isCodeLine() && txtData->indent() <= ind) {
                     while((txtData = txtData->previous())) {
@@ -273,7 +274,7 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
         {
             // find recursivly
             if (!childFrm->empty())
-                return getFrameForToken(tok, dynamic_cast<const PythonSourceFrame*>(childFrm));
+                return getFrameForToken(tok, dynamic_cast<const Python::SourceFrame*>(childFrm));
             // no childs, return ourself
             return childFrm;
         }
@@ -282,21 +283,21 @@ const PythonSourceFrame *PythonSourceModule::getFrameForToken(const PythonToken 
     return parentFrame;
 }
 
-void PythonSourceModule::insertBlockStart(const PythonToken *colonTok) const
+void Python::SourceModule::insertBlockStart(const Python::Token *colonTok) const
 {
-    if (colonTok->next() && colonTok->next()->token != PythonSyntaxHighlighter::T_BlockStart) {
-        colonTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockStart,
+    if (colonTok->next() && colonTok->next()->token != Python::Token::T_BlockStart) {
+        colonTok->txtBlock()->insertToken(Python::Token::T_BlockStart,
                                           colonTok->startPos, 0);
         colonTok->txtBlock()->incBlockState();
     }
 }
 
-PythonToken *PythonSourceModule::insertBlockEnd(const PythonToken *newLineTok) const
+Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLineTok) const
 {
     if (newLineTok->previous() &&
-        newLineTok->previous()->token != PythonSyntaxHighlighter::T_BlockEnd)
+        newLineTok->previous()->token != Python::Token::T_BlockEnd)
     {
-        PythonToken *blkEndTok = newLineTok->txtBlock()->insertToken(PythonSyntaxHighlighter::T_BlockEnd,
+        Python::Token *blkEndTok = newLineTok->txtBlock()->insertToken(Python::Token::T_BlockEnd,
                                                                newLineTok->previous()->startPos, 0);
         newLineTok->txtBlock()->decBlockState();
         return blkEndTok;
@@ -305,25 +306,25 @@ PythonToken *PythonSourceModule::insertBlockEnd(const PythonToken *newLineTok) c
 }
 
 
-void PythonSourceModule::setSyntaxError(const PythonToken *tok, QString parseMessage) const
+void Python::SourceModule::setSyntaxError(const Python::Token *tok, QString parseMessage) const
 {
     DEFINE_DBG_VARS
 
-    PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
     if (!scanInfo) {
-        scanInfo = new PythonTextBlockScanInfo();
+        scanInfo = new Python::TextBlockScanInfo();
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
     scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::SyntaxError);
 
     // create format with default format for syntax error
-    const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_SyntaxError;
+    const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
     QColor lineColor = m_highlighter->colorByType(SyntaxHighlighter::SyntaxError);
 
     // set text underline of all text in here
     // move to beginning of text
-    const PythonToken *startTok = tok;
+    const Python::Token *startTok = tok;
     DBG_TOKEN(startTok)
 
     // first move up to end of code if its a whitespace
@@ -346,7 +347,7 @@ void PythonSourceModule::setSyntaxError(const PythonToken *tok, QString parseMes
         QTextCharFormat format = m_highlighter->getFormatToken(tok);
         format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
         format.setUnderlineColor(lineColor);
-        const_cast<PythonSourceModule*>(this)->setFormatToken(tok, format);
+        const_cast<Python::SourceModule*>(this)->setFormatToken(tok, format);
 
         // previous token
         if (startTok->previous()) {
@@ -356,36 +357,36 @@ void PythonSourceModule::setSyntaxError(const PythonToken *tok, QString parseMes
     }
 }
 
-void PythonSourceModule::setIndentError(const PythonToken *tok) const
+void Python::SourceModule::setIndentError(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
-    PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
     if (!scanInfo) {
-        scanInfo = new PythonTextBlockScanInfo();
+        scanInfo = new Python::TextBlockScanInfo();
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
     scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), TextEditBlockScanInfo::IndentError);
 
     // create format with default format for syntax error
-    const_cast<PythonToken*>(tok)->token = PythonSyntaxHighlighter::T_SyntaxError;
+    const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
     QColor lineColor = m_highlighter->colorByType(SyntaxHighlighter::SyntaxError);
 
     QTextCharFormat format = m_highlighter->getFormatToken(tok);
     format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
     format.setUnderlineColor(lineColor);
-    const_cast<PythonSourceModule*>(this)->setFormatToken(tok, format);
+    const_cast<Python::SourceModule*>(this)->setFormatToken(tok, format);
 }
 
-void PythonSourceModule::setLookupError(const PythonToken *tok, QString parseMessage) const
+void Python::SourceModule::setLookupError(const Python::Token *tok, QString parseMessage) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
 
-    PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
     if (!scanInfo) {
-        scanInfo = new PythonTextBlockScanInfo();
+        scanInfo = new Python::TextBlockScanInfo();
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
@@ -395,34 +396,34 @@ void PythonSourceModule::setLookupError(const PythonToken *tok, QString parseMes
     scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::LookupError);
 }
 
-void PythonSourceModule::setMessage(const PythonToken *tok, QString parseMessage) const
+void Python::SourceModule::setMessage(const Python::Token *tok, QString parseMessage) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
-    PythonTextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
     if (!scanInfo) {
-        scanInfo = new PythonTextBlockScanInfo();
+        scanInfo = new Python::TextBlockScanInfo();
         tok->txtBlock()->setScanInfo(scanInfo);
     }
 
-    scanInfo->setParseMessage(tok, parseMessage, PythonTextBlockScanInfo::Message);
+    scanInfo->setParseMessage(tok, parseMessage, Python::TextBlockScanInfo::Message);
 }
 
 
 
 // -----------------------------------------------------------------------
 
-PythonSourceModuleList::PythonSourceModuleList() :
-    PythonSourceListParentBase(this),
+Python::SourceModuleList::SourceModuleList() :
+    Python::SourceListParentBase(this),
     m_main(nullptr)
 {
 }
 
-PythonSourceModuleList::~PythonSourceModuleList()
+Python::SourceModuleList::~SourceModuleList()
 {
 }
 
-void PythonSourceModuleList::setMain(PythonSourceModule *main)
+void Python::SourceModuleList::setMain(Python::SourceModule *main)
 {
     if (!contains(main))
         insert(main);
@@ -430,10 +431,10 @@ void PythonSourceModuleList::setMain(PythonSourceModule *main)
     m_main = main;
 }
 
-bool PythonSourceModuleList::remove(PythonSourceListNodeBase *node, bool deleteNode)
+bool Python::SourceModuleList::remove(Python::SourceListNodeBase *node, bool deleteNode)
 {
     if (node == m_main)
         m_main = nullptr;
 
-    return PythonSourceListParentBase::remove(node, deleteNode);
+    return Python::SourceListParentBase::remove(node, deleteNode);
 }

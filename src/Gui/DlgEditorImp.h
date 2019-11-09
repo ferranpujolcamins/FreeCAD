@@ -30,7 +30,9 @@
 #include <TextEditor/SyntaxHighlighter.h>
 
 namespace Gui {
-class PythonSyntaxHighlighter;
+namespace Python {
+    class SyntaxHighlighter;
+}
 
 namespace Dialog {
 

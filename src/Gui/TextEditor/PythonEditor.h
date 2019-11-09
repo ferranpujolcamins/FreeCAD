@@ -49,8 +49,8 @@ class BreakpointLine;
 
 namespace Gui {
 
-class PythonSyntaxHighlighter;
-class PythonSyntaxHighlighterP;
+class SyntaxHighlighter;
+class SyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
 class PythonEditorCodeAnalyzer;
 class PythonDebugger;
@@ -64,7 +64,7 @@ class GuiExport PythonEditor : public TextEditor
     Q_OBJECT
 
 public:
-    PythonEditor(QWidget *parent = 0);
+    PythonEditor(QWidget *parent = nullptr);
     ~PythonEditor();
     const QString &fileName() const;
     PythonEditorCodeAnalyzer *codeAnalyzer() const;

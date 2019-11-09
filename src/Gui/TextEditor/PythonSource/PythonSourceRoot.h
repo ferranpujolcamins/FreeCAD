@@ -10,33 +10,34 @@
 #include <QHash>
 
 namespace Gui {
+namespace Python {
 
 // Begin AST Python source code introspection
 // -------------------------------------------------------------------
 
-//class PythonSourceListParentBase;
-//class PythonSourceIdentifierAssignment;
-//class PythonSourceIdentifier;
-//class PythonSourceIdentifierList;
-//class PythonSourceTypeHint;
-class PythonSourceFrame;
-class PythonSourceModule;
-class PythonSourceModuleList;
-//class PythonSourceParameter;
-//class PythonSourceParameterList;
-//class PythonSourceImportPackage;
-//class PythonSourceImportModule;
-//class PythonSourceImportList;
-class PythonSyntaxHighlighter;
-class PythonToken;
-class PythonTextBlockData;
+//class SourceListParentBase;
+//class SourceIdentifierAssignment;
+//class SourceIdentifier;
+//class SourceIdentifierList;
+//class SourceTypeHint;
+class SourceFrame;
+class SourceModule;
+class SourceModuleList;
+//class SourceParameter;
+//class SourceParameterList;
+//class SourceImportPackage;
+//class SourceImportModule;
+//class SourceImportList;
+class SyntaxHighlighter;
+class Token;
+class TextBlockData;
 
 /**
  * @brief The PythonCodeTree class hold all frames, vars and other identifiers
  * used to get info about src
  * Is intended as a singleton!
  */
-class PythonSourceRoot : public QObject
+class SourceRoot : public QObject
 {
     Q_OBJECT
 public:
@@ -133,10 +134,10 @@ public:
     /// for a identifier type
     struct TypeInfo {
         explicit TypeInfo();
-        explicit TypeInfo(PythonSourceRoot::DataTypes type);
+        explicit TypeInfo(Python::SourceRoot::DataTypes type);
         TypeInfo(const TypeInfo &other);
         ~TypeInfo();
-        PythonSourceRoot::DataTypes type;
+        Python::SourceRoot::DataTypes type;
         CustomNameIdx_t customNameIdx;
         QString referenceName;
         QString typeAsStr() const;
@@ -190,11 +191,11 @@ public:
     };
 
     // please not that it must be a singleton!
-    explicit PythonSourceRoot();
-    virtual ~PythonSourceRoot();
+    explicit SourceRoot();
+    virtual ~SourceRoot();
 
     /// get a global reference to our singleton instance
-    static PythonSourceRoot *instance();
+    static Python::SourceRoot *instance();
 
     /// Gets a stringlist of all loaded modules names
     QStringList modulesNames() const;
@@ -203,27 +204,27 @@ public:
     /// gets modules count, -1 if none yet
     int modulesCount() const;
     /// get Module at idx, nullptr if not found
-    PythonSourceModule *moduleAt(int idx) const;
+    Python::SourceModule *moduleAt(int idx) const;
     /// get Module from path
-    PythonSourceModule *moduleFromPath(QString filePath) const;
+    Python::SourceModule *moduleFromPath(QString filePath) const;
     /// get reference to our modules collection
-    const PythonSourceModuleList *modules() const { return m_modules; }
+    const Python::SourceModuleList *modules() const { return m_modules; }
 
     /// map typestr from metadata Type annotation, ie x: int
     DataTypes mapMetaDataType(const QString typeAnnotation) const;
 
     /// get the type for this token, token must be a Identifier
     /// else it returns a inValid TypeInfo
-    TypeInfoPair identifierType(const PythonToken *tok,
-                                const PythonSourceFrame *frame) const;
-    TypeInfoPair builtinType(const PythonToken *tok,
-                             const PythonSourceFrame *frame) const;
+    TypeInfoPair identifierType(const Python::Token *tok,
+                                const Python::SourceFrame *frame) const;
+    TypeInfoPair builtinType(const Python::Token *tok,
+                             const Python::SourceFrame *frame) const;
 
     /// get the type of number of this token
-    DataTypes numberType(const PythonToken *tok) const;
+    DataTypes numberType(const Python::Token *tok) const;
 
     /// true if tok is a newline and previous token was a escape char
-    bool isLineEscaped(const PythonToken *tok) const;
+    bool isLineEscaped(const Python::Token *tok) const;
 
     // typename database for custom types
     QString customTypeNameFor(CustomNameIdx_t customIdx);
@@ -231,32 +232,34 @@ public:
     CustomNameIdx_t indexOfCustomTypeName(const QString name);
 
     /// scans complete filePath, clears all old and re-doe it
-    PythonSourceModule *scanCompleteModule(const QString filePath,
-                                           PythonSyntaxHighlighter *highlighter);
+    Python::SourceModule *scanCompleteModule(const QString filePath,
+                                             Python::SyntaxHighlighter *highlighter);
     /// re-scan a single QTextBlock, as in we are typing
-    PythonSourceModule *scanSingleRowModule(const QString filePath,
-                                            PythonTextBlockData *row,
-                                            PythonSyntaxHighlighter *highlighter);
+    Python::SourceModule *scanSingleRowModule(const QString filePath,
+                                              Python::TextBlockData *row,
+                                              Python::SyntaxHighlighter *highlighter);
 
     /// computes the return type of statement pointed to by startToken
     /// NOTE it has limitations, it isn' a fullblown interpreter
-    TypeInfo statementResultType(const PythonToken *startToken, const PythonSourceFrame *frame) const;
+    TypeInfo statementResultType(const Python::Token *startToken,
+                                 const Python::SourceFrame *frame) const;
 
 
 private:
     QHash<CustomNameIdx_t, QString> m_customTypeNames;
     CustomNameIdx_t m_uniqueCustomTypeNames;
-    PythonSourceModuleList *m_modules;
-    static PythonSourceRoot *m_instance;
+    Python::SourceModuleList *m_modules;
+    static Python::SourceRoot *m_instance;
 
-    const PythonToken *computeStatementResultType(const PythonSourceFrame *frame,
-                                                  const PythonToken *startTok,
-                                                  TypeInfo &typeInfo) const;
+    const Python::Token *computeStatementResultType(const Python::SourceFrame *frame,
+                                                    const Python::Token *startTok,
+                                                    TypeInfo &typeInfo) const;
 
-    //PythonToken *splitStmtParts(PythonToken, );
+    //Python::Token *splitStmtParts(PythonToken, );
 
 };
 
+} // namespace Python
 } // namespace Gui
 
 #endif // PYTHONSOURCEROOT_H

@@ -6,22 +6,24 @@
 #include "PythonSourceRoot.h"
 
 namespace Gui {
-class PythonSourceImportPackage;
-class PythonSourceFrame;
+namespace Python {
+
+class SourceImportPackage;
+class SourceFrame;
 
 // a single import module, not a package
-class PythonSourceImportModule : public PythonSourceListNodeBase
+class SourceImportModule : public Python::SourceListNodeBase
 {
-    PythonSourceFrame *m_frame;
+    Python::SourceFrame *m_frame;
     QString m_modulePath; // filepath to python file
     QString m_aliasName; // alias name in: import something as other <- other is alias
-    PythonSourceRoot::TypeInfo m_type;
+    Python::SourceRoot::TypeInfo m_type;
 
 public:
-    explicit PythonSourceImportModule(PythonSourceImportPackage *parent,
-                                      PythonSourceFrame *frame,
-                                      QString alias);
-    ~PythonSourceImportModule();
+    explicit SourceImportModule(Python::SourceImportPackage *parent,
+                                Python::SourceFrame *frame,
+                                QString alias);
+    ~SourceImportModule();
 
     /// returns the name as used when lookup, ie baseName or alias if present
     QString name() const;
@@ -37,96 +39,97 @@ public:
     /// false when import couldn't find file
     bool isValid() const;
 
-    PythonSourceRoot::TypeInfo type() const { return m_type; }
-    void setType(PythonSourceRoot::TypeInfo typeInfo) {
+    Python::SourceRoot::TypeInfo type() const { return m_type; }
+    void setType(Python::SourceRoot::TypeInfo typeInfo) {
         if (typeInfo.isReferenceImported())
             m_type = typeInfo;
     }
 
-    const PythonSourceFrame *frame() const { return m_frame; }
+    const Python::SourceFrame *frame() const { return m_frame; }
 };
 
 // ---------------------------------------------------------------------
 
-class PythonSourceImportPackage : public PythonSourceListParentBase
+class SourceImportPackage : public Python::SourceListParentBase
 {
     QString m_packagePath; // filepath to folder for this package
     QString m_name;
-    const PythonSourceModule *m_ownerModule;
+    const Python::SourceModule *m_ownerModule;
 public:
-    explicit PythonSourceImportPackage(PythonSourceImportPackage *parent,
-                                       QString name, const PythonSourceModule *ownerModule);
-    ~PythonSourceImportPackage();
+    explicit SourceImportPackage(Python::SourceImportPackage *parent,
+                                 QString name, const Python::SourceModule *ownerModule);
+    ~SourceImportPackage();
 
     /// get import package from filePath
-    virtual PythonSourceImportPackage *getImportPackagePath(QString filePath);
+    virtual Python::SourceImportPackage *getImportPackagePath(QString filePath);
     /// get import instance from name (basename of filepath or alias)
-    virtual PythonSourceImportPackage *getImportPackage(QString name);
+    virtual Python::SourceImportPackage *getImportPackage(QString name);
 
     /// get import module instance from filePath
-    virtual PythonSourceImportModule *getImportModulePath(QString filePath);
+    virtual Python::SourceImportModule *getImportModulePath(QString filePath);
     /// get import module instance from name (basename of filepath or alias)
-    virtual PythonSourceImportModule *getImportModule(QString name);
+    virtual Python::SourceImportModule *getImportModule(QString name);
 
 
     /// lookup module and return it
     /// if not stored in list it creates it
-    virtual PythonSourceImportModule *setModule(QString name, QString alias,
-                                        PythonSourceFrame *frame);
+    virtual Python::SourceImportModule *setModule(QString name, QString alias,
+                                                  Python::SourceFrame *frame);
 
-    virtual PythonSourceImportPackage *setPackage(QString name);
+    virtual Python::SourceImportPackage *setPackage(QString name);
 
     QString name() const { return m_name; }
     QString path() const { return m_packagePath;}
 
 protected:
-    int compare(const PythonSourceListNodeBase *left,
-                const PythonSourceListNodeBase *right) const;
+    int compare(const Python::SourceListNodeBase *left,
+                const Python::SourceListNodeBase *right) const;
 };
 
 // ---------------------------------------------------------------------
 
-class PythonSourceImportList : public PythonSourceImportPackage
+class SourceImportList : public Python::SourceImportPackage
 {
-    PythonSourceFrame *m_frame;
+    Python::SourceFrame *m_frame;
 public:
-    explicit PythonSourceImportList(PythonSourceFrame *owner,
-                                    const PythonSourceModule *ownerModule);
-    ~PythonSourceImportList();
+    explicit SourceImportList(Python::SourceFrame *owner,
+                              const Python::SourceModule *ownerModule);
+    ~SourceImportList();
 
     /// returns package instance stored in 'filePath' from list
-    PythonSourceImportModule *getImportModulePath(QString filePath);
+    Python::SourceImportModule *getImportModulePath(QString filePath);
     /// returns module instance from list with 'name' in 'rootPackage'
     /// rootPackage might be empty, ie: 'import file2' <- here rootPackage is empty
-    PythonSourceImportModule *getImportModule(QString rootPackage, QString name);
+    Python::SourceImportModule *getImportModule(QString rootPackage, QString name);
     /// returns module instance form list with module paths as QStingList
     ///  ie: import sys.path.sub
-    PythonSourceImportModule *getImportModule(QStringList modInheritance);
+    Python::SourceImportModule *getImportModule(QStringList modInheritance);
 
     /// returns package instance stored in 'filePath' from list
-    PythonSourceImportPackage *getImportPackagePath(QString filePath);
+    Python::SourceImportPackage *getImportPackagePath(QString filePath);
     /// returns package instance from list with 'name' in rootPackage
     /// rootPackage might be empty, ie: import sys <- here rootPackage is empty
-    PythonSourceImportPackage *getImportPackage(QString rootPackage, QString name);
+    Python::SourceImportPackage *getImportPackage(QString rootPackage, QString name);
     /// returns package instance form list with module paths as QStringList
     ///  ie: import sys.path.sub
-    PythonSourceImportPackage *getImportPackage(QStringList modInheritance);
+    Python::SourceImportPackage *getImportPackage(QStringList modInheritance);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    PythonSourceImportModule *setModule(QStringList rootPackage,
-                                        QString module,
-                                        QString alias = QString());
+    Python::SourceImportModule *setModule(QStringList rootPackage,
+                                          QString module,
+                                          QString alias = QString());
 
-    PythonSourceImportPackage *setPackage(QStringList rootPackage);
+    Python::SourceImportPackage *setPackage(QStringList rootPackage);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    PythonSourceModule *setModuleGlob(QStringList rootPackage);
+    Python::SourceModule *setModuleGlob(QStringList rootPackage);
 };
 
+} // namespace Python
 } // namespace Gui
 
 #endif // PYTHONSOURCEIMPORTS_H

@@ -6,21 +6,28 @@ DBG_TOKEN_FILE
 
 using namespace Gui;
 
-PythonSourceIndent::PythonSourceIndent():
+Python::SourceIndent::SourceIndent():
     m_framePopCnt(0)
 {
 }
 
-PythonSourceIndent::~PythonSourceIndent()
+Python::SourceIndent::SourceIndent(const SourceIndent &other) :
+    m_indentStack(other.m_indentStack),
+    m_framePopCnt(other.m_framePopCnt)
 {
 }
 
-PythonSourceIndent PythonSourceIndent::operator =(const PythonSourceIndent &other) {
+
+Python::SourceIndent::~SourceIndent()
+{
+}
+
+Python::SourceIndent &Python::SourceIndent::operator =(const SourceIndent &other) {
     m_indentStack = other.m_indentStack;
     return *this;
 }
 
-bool PythonSourceIndent::operator ==(const PythonSourceIndent &other) {
+bool Python::SourceIndent::operator ==(const Python::SourceIndent &other) {
     if (m_indentStack.size() != other.m_indentStack.size())
         return false;
     for (int i = 0; i < m_indentStack.size(); ++i){
@@ -36,17 +43,17 @@ bool PythonSourceIndent::operator ==(const PythonSourceIndent &other) {
     return true;
 }
 
-int PythonSourceIndent::frameIndent() const
+int Python::SourceIndent::frameIndent() const
 {
     return _current().frameIndent;
 }
 
-int PythonSourceIndent::currentBlockIndent() const
+int Python::SourceIndent::currentBlockIndent() const
 {
     return _current().currentBlockIndent;
 }
 
-int PythonSourceIndent::previousBlockIndent() const
+int Python::SourceIndent::previousBlockIndent() const
 {
     if (m_indentStack.empty())
         return 0;
@@ -55,14 +62,14 @@ int PythonSourceIndent::previousBlockIndent() const
     return m_indentStack[m_indentStack.size()-1].currentBlockIndent;
 }
 
-bool PythonSourceIndent::isValid() const {
+bool Python::SourceIndent::isValid() const {
     if (m_indentStack.size() < 1)
         return false;
     const Indent ind = m_indentStack[m_indentStack.size()-1];
     return ind.currentBlockIndent > -1 || ind.frameIndent > -1;
 }
 
-void PythonSourceIndent::pushFrameBlock(int frmIndent, int currentIndent)
+void Python::SourceIndent::pushFrameBlock(int frmIndent, int currentIndent)
 {
     // insert a framestarter
     assert(frmIndent <= currentIndent && "frmIndent must be less or equal to currentIndent");
@@ -70,13 +77,13 @@ void PythonSourceIndent::pushFrameBlock(int frmIndent, int currentIndent)
     m_indentStack.push_back(ind);
 }
 
-void PythonSourceIndent::pushBlock(int currentIndent)
+void Python::SourceIndent::pushBlock(int currentIndent)
 {
     Indent ind(_current().frameIndent, currentIndent);
     m_indentStack.push_back(ind);
 }
 
-void PythonSourceIndent::popBlock()
+void Python::SourceIndent::popBlock()
 {
     if (m_indentStack.size() < 2)
         return;
@@ -89,7 +96,7 @@ void PythonSourceIndent::popBlock()
     }
 }
 
-int PythonSourceIndent::framePopCntDecr()
+int Python::SourceIndent::framePopCntDecr()
 {
     if (framePopCnt() > 0)
         --m_framePopCnt;
@@ -97,19 +104,19 @@ int PythonSourceIndent::framePopCntDecr()
 }
 
 
-bool PythonSourceIndent::validIndentLine(PythonToken *tok)
+bool Python::SourceIndent::validIndentLine(Python::Token *tok)
 {
     DEFINE_DBG_VARS
 
     // make sure we don't dedent on a comment or a string
-    for(PythonToken *tmpTok : tok->txtBlock()->tokens()) {
+    for(Python::Token *tmpTok : tok->txtBlock()->tokens()) {
         DBG_TOKEN(tmpTok)
         switch (tmpTok->token) {
-        case PythonSyntaxHighlighter::T_LiteralBlockDblQuote:
-        case PythonSyntaxHighlighter::T_LiteralBlockSglQuote:
-        case PythonSyntaxHighlighter::T_LiteralDblQuote:
-        case PythonSyntaxHighlighter::T_LiteralSglQuote:
-        case PythonSyntaxHighlighter::T_Comment: // fallthrough
+        case Python::Token::T_LiteralBlockDblQuote:
+        case Python::Token::T_LiteralBlockSglQuote:
+        case Python::Token::T_LiteralDblQuote:
+        case Python::Token::T_LiteralSglQuote:
+        case Python::Token::T_Comment: // fallthrough
             return false;// ignore indents if we are at a multiline string
         default:
             if (tmpTok->isCode())
@@ -120,7 +127,7 @@ bool PythonSourceIndent::validIndentLine(PythonToken *tok)
     return true;
 }
 
-PythonSourceIndent::Indent PythonSourceIndent::_current() const
+Python::SourceIndent::Indent Python::SourceIndent::_current() const
 {
     if (m_indentStack.size() < 1)
         return Indent();

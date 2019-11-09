@@ -8,27 +8,29 @@
 #include <QList>
 
 namespace Gui {
-class PythonSourceRoot;
-class PythonSourceIndent;
+namespace Python {
+
+class SourceRoot;
+class SourceIndent;
 
 /// for modules contains module global identifiers and methods
-/// Don't confuse with PythonSourceImport that stares each import in code
-class PythonSourceModule : public PythonSourceListParentBase
+/// Don't confuse with Python::SourceImport that stares each import in code
+class SourceModule : public Python::SourceListParentBase
 {
-    PythonSourceRoot *m_root;
-    PythonSourceFrame m_rootFrame;
+    Python::SourceRoot *m_root;
+    Python::SourceFrame m_rootFrame;
     QString m_filePath;
     QString m_moduleName;
-    PythonSyntaxHighlighter *m_highlighter;
+    Python::SyntaxHighlighter *m_highlighter;
     QList<int> m_rehighlightRows;
 public:
 
-    explicit PythonSourceModule(PythonSourceRoot *root,
-                                PythonSyntaxHighlighter *highlighter);
-    ~PythonSourceModule();
+    explicit SourceModule(Python::SourceRoot *root,
+                                Python::SyntaxHighlighter *highlighter);
+    ~SourceModule();
 
-    PythonSourceRoot *root() const { return m_root; }
-    const PythonSourceFrame *rootFrame() const { return &m_rootFrame; }
+    Python::SourceRoot *root() const { return m_root; }
+    const Python::SourceFrame *rootFrame() const { return &m_rootFrame; }
 
     /// filepath for this module
     QString filePath() const { return m_filePath; }
@@ -39,69 +41,70 @@ public:
     void setModuleName(QString moduleName) { m_moduleName = moduleName; }
 
     /// rescans all lines in frame that encapsulates tok
-    void scanFrame(PythonToken *tok);
+    void scanFrame(Python::Token *tok);
     /// rescans a single row
-    void scanLine(PythonToken *tok);
+    void scanLine(Python::Token *tok);
 
     bool shouldRehighlight() const { return m_rehighlightRows.size() > 0; }
 
     /// returns indent info for block where tok is
-    PythonSourceIndent currentBlockIndent(const PythonToken *tok) const;
+    Python::SourceIndent currentBlockIndent(const Python::Token *tok) const;
 
     // syntax highlighter stuff
-    PythonSyntaxHighlighter *highlighter() const { return m_highlighter; }
-    void setFormatToken(const PythonToken *tok, QTextCharFormat format);
-    void setFormatToken(const PythonToken *tok);
+    Python::SyntaxHighlighter *highlighter() const { return m_highlighter; }
+    void setFormatToken(const Python::Token *tok, QTextCharFormat format);
+    void setFormatToken(const Python::Token *tok);
 
     /// stores a syntax error at tok with message and sets up for repaint
-    void setSyntaxError(const PythonToken *tok, QString parseMessage) const;
+    void setSyntaxError(const Python::Token *tok, QString parseMessage) const;
 
     /// sets a indenterror (sets token to indentError and sets up for style document)
-    void setIndentError(const PythonToken *tok) const;
+    void setIndentError(const Python::Token *tok) const;
 
     /// sets a lookup error (variable not found) with message, or default message
-    void setLookupError(const PythonToken *tok, QString parseMessage = QString()) const;
+    void setLookupError(const Python::Token *tok, QString parseMessage = QString()) const;
 
     /// stores a message at tok
-    void setMessage(const PythonToken *tok, QString parseMessage) const;
+    void setMessage(const Python::Token *tok, QString parseMessage) const;
 
     /// returns the frame for given token
-    const PythonSourceFrame *getFrameForToken(const PythonToken *tok,
-                                              const PythonSourceFrame *parentFrame) const;
+    const Python::SourceFrame *getFrameForToken(const Python::Token *tok,
+                                              const Python::SourceFrame *parentFrame) const;
 
 
     /// inserts a blockStartTok after colonTok
-    void insertBlockStart(const PythonToken *colonTok) const;
+    void insertBlockStart(const Python::Token *colonTok) const;
     /// inserts a blockEnd token before newLineTok
-    PythonToken *insertBlockEnd(const PythonToken *newLineTok) const;
+    Python::Token *insertBlockEnd(const Python::Token *newLineTok) const;
 
 
 protected:
-    int compare(const PythonSourceListNodeBase *left,
-                const PythonSourceListNodeBase *right);
+    int compare(const Python::SourceListNodeBase *left,
+                const Python::SourceListNodeBase *right);
 
 
 private:
-    int _currentBlockIndent(const PythonToken *tok) const;
-    void reHighLight(const PythonToken *tok);
+    int _currentBlockIndent(const Python::Token *tok) const;
+    void reHighLight(const Python::Token *tok);
 };
 
 // --------------------------------------------------------------------------
 
 /// collection class for all modules
-class PythonSourceModuleList : public PythonSourceListParentBase
+class SourceModuleList : public Python::SourceListParentBase
 {
-    PythonSourceModule *m_main;
+    Python::SourceModule *m_main;
 public:
-    explicit PythonSourceModuleList();
-    ~PythonSourceModuleList();
+    explicit SourceModuleList();
+    ~SourceModuleList();
 
-    PythonSourceModule *main() const { return m_main; }
-    void setMain(PythonSourceModule *main);
-    virtual bool remove(PythonSourceListNodeBase *node, bool deleteNode = false);
+    Python::SourceModule *main() const { return m_main; }
+    void setMain(Python::SourceModule *main);
+    virtual bool remove(Python::SourceListNodeBase *node, bool deleteNode = false);
 };
 
 
+} // namespace Python
 } // namespace Gui
 
 #endif // PYTHONSOURCEMODULE_H

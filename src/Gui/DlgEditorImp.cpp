@@ -48,7 +48,7 @@ struct DlgSettingsEditorP
             delete pythonSyntax;
     }
 
-    Gui::PythonSyntaxHighlighter* pythonSyntax;
+    Gui::Python::SyntaxHighlighter* pythonSyntax;
     DlgSettingsColorModel colormodel;
 };
 
@@ -72,7 +72,7 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
     d = new DlgSettingsEditorP();
 
 
-    d->pythonSyntax = new PythonSyntaxHighlighter(textEdit1);
+    d->pythonSyntax = new Python::SyntaxHighlighter(textEdit1);
     d->pythonSyntax->setDocument(textEdit1->document());
 
     // get default colors from SyntaxHighlighter

@@ -73,26 +73,29 @@ DBG_TOKEN_FILE
 
 
 namespace Gui {
-struct PythonCodeP
+namespace Python {
+class CodeP
 {
-    PythonCodeP()
+public:
+    CodeP()
     {  }
-    ~PythonCodeP()
+    ~CodeP()
     {  }
 };
 
+} // namespace Python
 } // namespace Gui
 
 
 using namespace Gui;
 
 
-PythonCode::PythonCode(QObject *parent) :
-    QObject(parent), d(new PythonCodeP)
+Python::Code::Code(QObject *parent) :
+    QObject(parent), d(new CodeP)
 {
 }
 
-PythonCode::~PythonCode()
+Python::Code::~Code()
 {
     delete d;
 }
@@ -102,7 +105,7 @@ PythonCode::~PythonCode()
  * @param obj to deep copy
  * @return the new obj, borrowed ref
  */
-PyObject *PythonCode::deepCopy(PyObject *obj)
+PyObject *Python::Code::deepCopy(PyObject *obj)
 {
     Base::PyGILStateLocker lock;
     PyObject *deepCopyPtr = nullptr, *args = nullptr, *result = nullptr;
@@ -139,7 +142,7 @@ out:
 // get thee root of the parent identifier ie os.path.join
 //                                                    ^
 // must traverse from os, then os.path before os.path.join
-QString PythonCode::findFromCurrentFrame(const PythonToken *tok)
+QString Python::Code::findFromCurrentFrame(const Python::Token *tok)
 {
     Base::PyGILStateLocker locker;
     PyFrameObject *frame = App::PythonDebugger::instance()->currentFrame();
@@ -202,7 +205,7 @@ QString PythonCode::findFromCurrentFrame(const PythonToken *tok)
  * @param key: name of var to find
  * @return Obj if found or nullptr
  */
-PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
+PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needleTok,
                                     QString &foundKey)
 {
     DEFINE_DBG_VARS
@@ -210,9 +213,9 @@ PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
     Base::PyGILStateLocker locker;
     PyObject *keyObj = nullptr, *tmp = nullptr, *outObj = obj;
 
-    QList<const PythonToken*> chain;
-    const PythonToken *tok = needleTok;
-    bool lookupSubItm = needleTok->token == PythonSyntaxHighlighter::T_DelimiterOpenBracket;
+    QList<const Python::Token*> chain;
+    const Python::Token *tok = needleTok;
+    bool lookupSubItm = needleTok->token == Python::Token::T_DelimiterOpenBracket;
     if (lookupSubItm)
         PREV_TOKEN(tok)
     // search up to root ie cls.attr.dict[stringVariable]
@@ -222,7 +225,7 @@ PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
     while (tok){
         if (tok->isIdentifierVariable()) {
             chain.prepend(tok);
-        } else if (tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod)
+        } else if (tok->token != Python::Token::T_DelimiterPeriod)
             break;
         PREV_TOKEN(tok)
     }
@@ -268,7 +271,7 @@ PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
         DBG_TOKEN(tok)
         // move to last code before next ']' etc
         while(tok) {
-            if (tok->token == PythonSyntaxHighlighter::T_DelimiterOpenBracket) {
+            if (tok->token == Python::Token::T_DelimiterOpenBracket) {
                 NEXT_TOKEN(tok)
                 needle = getDeepObject(outObj, tok, tmp);
                 break;
@@ -279,7 +282,7 @@ PyObject *PythonCode::getDeepObject(PyObject *obj, const PythonToken *needleTok,
                 needle = PY_LONG_FROM_STRING(tok->text().toLatin1().data(), nullptr, 0);
                 if (!needle)
                     PyErr_Clear();
-            } else if (tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod) {
+            } else if (tok->token != Python::Token::T_DelimiterPeriod) {
                 break;
             }
             NEXT_TOKEN(tok)

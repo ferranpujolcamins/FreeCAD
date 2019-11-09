@@ -78,10 +78,10 @@ struct PythonEditorP
     QPixmap debugMarker;
     QString filename;
     App::PythonDebugger* debugger;
-    PythonCode *pythonCode;
+    Python::Code *pythonCode;
     QHash <int, Base::PyExceptionInfo> exceptions;
     //CallTipsList* callTipsList;
-    PythonMatchingChars* matchingChars;
+    Python::MatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     PythonEditorCodeAnalyzer *codeAnalyzer;
@@ -90,7 +90,7 @@ struct PythonEditorP
           codeAnalyzer(nullptr)
     {
         debugger = Application::Instance->macroManager()->debugger();
-        pythonCode = new PythonCode();
+        pythonCode = new Python::Code();
     }
     ~PythonEditorP()
     {
@@ -198,7 +198,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     d = new PythonEditorP();
     d->loadIcons(fontMetrics().height());
 
-    PythonSyntaxHighlighter *hl = new PythonSyntaxHighlighter(this);
+    Python::SyntaxHighlighter *hl = new Python::SyntaxHighlighter(this);
     setSyntaxHighlighter(hl);
     hl->loadSettings();
 
@@ -241,7 +241,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
             this, SLOT(exception(Base::PyExceptionInfo*)));
 
-    d->matchingChars = new PythonMatchingChars(this);
+    d->matchingChars = new Python::MatchingChars(this);
 
     // tooltips on this widget must use a monospaced font to display code info correctly
     setStyleSheet(QLatin1String("QToolTip {font-size:12pt; font-family:'DejaVu Sans Mono', Courier; }"));
@@ -292,7 +292,7 @@ void PythonEditor::setFileName(const QString& fn)
         Q_EMIT fileNameChanged(fn);
 
         // rescan
-        PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
+        Python::SyntaxHighlighter *ps = dynamic_cast<Python::SyntaxHighlighter*>(syntaxHighlighter());
         if (ps)
             ps->setFilePath(fn);
     }
@@ -399,12 +399,12 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
     QTextBlock block = document()->findBlockByNumber(line-1);
     if (block.isValid()) {
         // we are at the correct line
-        PythonTextBlockData *blockData = dynamic_cast<PythonTextBlockData*>(block.userData());
+        Python::TextBlockData *blockData = dynamic_cast<Python::TextBlockData*>(block.userData());
         if (blockData) {
             TextEditBlockScanInfo *scanInfo = blockData->scanInfo();
             if (scanInfo) {
                 // we have scaninfo on this line (parsemessages)
-                for (const TextEditBlockScanInfo::ParseMsg msg : scanInfo->allMessages()) {
+                for (const TextEditBlockScanInfo::ParseMsg &msg : scanInfo->allMessages()) {
                     const char *iconFile = nullptr;
                     switch (msg.type) {
                     case TextEditBlockScanInfo::LookupError: // fallthrough
@@ -720,11 +720,11 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     tooltipPos.rx() += lineNumberAreaWidth();
 
     QTextCursor cursor = cursorForPosition(pos);
-    PythonTextBlockData *textData = PythonTextBlockData::pyBlockDataFromCursor(cursor);
+    Python::TextBlockData *textData = Python::TextBlockData::pyBlockDataFromCursor(cursor);
     if (!textData)
         return false;
 
-    const PythonToken *tok = textData->tokenAt(cursor);
+    const Python::Token *tok = textData->tokenAt(cursor);
     if (!tok)
         return false;
 
@@ -775,20 +775,20 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
             }
         }
 
-        PythonSourceModule *mod = PythonSourceRoot::instance()->
+        Python::SourceModule *mod = Python::SourceRoot::instance()->
                                             moduleFromPath(d->filename);
         if (!mod)
             return false;
 
-        const PythonSourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
+        const Python::SourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
         if (!frm)
             return false;
 
-        const PythonSourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
+        const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
         if (!ident)
             return false;
 
-        const  PythonSourceIdentifierAssignment *assign = ident->getFromPos(tok);
+        const  Python::SourceIdentifierAssignment *assign = ident->getFromPos(tok);
         if (!assign)
             return false;
 
@@ -831,13 +831,13 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
     } else {
 
         // parse errors
-        PythonTextBlockData *textData = dynamic_cast<PythonTextBlockData*>(document()->findBlockByNumber(line-1).userData());
+        Python::TextBlockData *textData = dynamic_cast<Python::TextBlockData*>(document()->findBlockByNumber(line-1).userData());
         if (textData) {
             TextEditBlockScanInfo *scanInfo = textData->scanInfo();
             if (scanInfo) {
                 QStringList tooltipTxt;
                 const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-                for (const TextEditBlockScanInfo::ParseMsg msg : msgTypes) {
+                for (const TextEditBlockScanInfo::ParseMsg &msg : msgTypes) {
                     switch (msg.type) {
                     case TextEditBlockScanInfo::IndentError:
                         tooltipTxt << QLatin1String("indenterr: ") + msg.message;
@@ -973,7 +973,7 @@ void PythonEditor::breakpointChanged(const App::BreakpointLine *bpl)
 
 void PythonEditor::breakpointRemoved(int idx, const App::BreakpointLine *bpl)
 {
-    Q_UNUSED(idx);
+    Q_UNUSED(idx)
 
     if (bpl->parent()->fileName() != d->filename)
         return;
@@ -1353,7 +1353,7 @@ JediScript_ptr_t PythonEditorCodeAnalyzer::currentScriptObj() const
 void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
                                         const char *rcReason)
 {
-    Q_UNUSED(rCaller);
+    Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (strcmp(rcReason, "EnableCodeAnalyzer") == 0) {
         if (hPrefGrp->GetBool("EnableCodeAnalyzer", true)) {
@@ -1588,16 +1588,16 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     // check if this is a token we care about
     if (!cursor.block().isValid())
         return false;
-    PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(
-                                                    cursor.block().userData());
+    Python::TextBlockData *textData = reinterpret_cast<Python::TextBlockData*>(
+                                                cursor.block().userData());
     if (!textData)
         return false;
-    const PythonToken *tok = textData->tokenAt(posInLine - 1);
-    if (!tok || tok->token == PythonSyntaxHighlighter::T_Comment ||
-         tok->token == PythonSyntaxHighlighter::T_LiteralBlockDblQuote ||
-         tok->token == PythonSyntaxHighlighter::T_LiteralBlockSglQuote ||
-         tok->token == PythonSyntaxHighlighter::T_LiteralDblQuote ||
-         tok->token == PythonSyntaxHighlighter::T_LiteralSglQuote)
+    const Python::Token *tok = textData->tokenAt(posInLine - 1);
+    if (!tok || tok->token == Python::Token::T_Comment ||
+         tok->token == Python::Token::T_LiteralBlockDblQuote ||
+         tok->token == Python::Token::T_LiteralBlockSglQuote ||
+         tok->token == Python::Token::T_LiteralDblQuote ||
+         tok->token == Python::Token::T_LiteralSglQuote)
     {
         return false;  // not a token we care about
     }

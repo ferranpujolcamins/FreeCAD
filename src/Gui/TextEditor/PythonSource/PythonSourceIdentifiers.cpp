@@ -9,10 +9,10 @@ using namespace Gui;
 
 DBG_TOKEN_FILE
 
-PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
-                                                                   PythonToken *startToken,
-                                                                   PythonSourceRoot::TypeInfo typeInfo) :
-    PythonSourceListNodeBase(owner)
+Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceIdentifier *owner,
+                                                                   Python::Token *startToken,
+                                                                   Python::SourceRoot::TypeInfo typeInfo) :
+    Python::SourceListNodeBase(owner)
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
@@ -20,10 +20,10 @@ PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceI
     m_token->attachReference(this);
 }
 
-PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceTypeHint *owner,
-                                                                   PythonToken *startToken,
-                                                                   PythonSourceRoot::TypeInfo typeInfo) :
-        PythonSourceListNodeBase(owner)
+Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceTypeHint *owner,
+                                                                   Python::Token *startToken,
+                                                                   Python::SourceRoot::TypeInfo typeInfo) :
+        Python::SourceListNodeBase(owner)
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
@@ -31,49 +31,49 @@ PythonSourceIdentifierAssignment::PythonSourceIdentifierAssignment(PythonSourceT
     m_token->attachReference(this);
 }
 
-PythonSourceIdentifierAssignment::~PythonSourceIdentifierAssignment()
+Python::SourceIdentifierAssignment::~SourceIdentifierAssignment()
 {
 }
 
-int PythonSourceIdentifierAssignment::linenr() const
+int Python::SourceIdentifierAssignment::linenr() const
 {
     return m_token->line();
 }
 
-int PythonSourceIdentifierAssignment::position() const
+int Python::SourceIdentifierAssignment::position() const
 {
     return m_token->startPos;
 }
 
 // --------------------------------------------------------------------------------
 
-PythonSourceIdentifier::PythonSourceIdentifier(PythonSourceListParentBase *owner,
-                                               const PythonSourceModule *module) :
-    PythonSourceListParentBase(owner),
+Python::SourceIdentifier::SourceIdentifier(Python::SourceListParentBase *owner,
+                                               const Python::SourceModule *module) :
+    Python::SourceListParentBase(owner),
     m_module(module),
     m_typeHint(this, this, module)
 {
     assert(m_module != nullptr && "Must have a valid module");
 }
 
-PythonSourceIdentifier::~PythonSourceIdentifier()
+Python::SourceIdentifier::~SourceIdentifier()
 {
 }
 
-const PythonSourceFrame *PythonSourceIdentifier::frame() const {
+const Python::SourceFrame *Python::SourceIdentifier::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(int line, int pos) const
+Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(int line, int pos) const
 {
-    for (PythonSourceListNodeBase *lstElem = last();
+    for (Python::SourceListNodeBase *lstElem = last();
          lstElem != end();
          lstElem = lstElem->previous())
     {
         if ((lstElem->token()->line() == line && lstElem->token()->endPos < pos) ||
             (lstElem->token()->line() < line))
         {
-            return dynamic_cast<PythonSourceIdentifierAssignment*>(lstElem);
+            return dynamic_cast<Python::SourceIdentifierAssignment*>(lstElem);
         }
     }
 
@@ -81,19 +81,19 @@ PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(int line, i
     return nullptr;
 }
 
-PythonSourceIdentifierAssignment *PythonSourceIdentifier::getFromPos(const PythonToken *tok) const
+Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(const Python::Token *tok) const
 {
     return getFromPos(tok->line(), tok->startPos);
 }
 
-bool PythonSourceIdentifier::isCallable(const PythonToken *tok) const
+bool Python::SourceIdentifier::isCallable(const Python::Token *tok) const
 {
     return isCallable(tok->line(), tok->startPos);
 }
 
-bool PythonSourceIdentifier::isCallable(int line, int pos) const
+bool Python::SourceIdentifier::isCallable(int line, int pos) const
 {
-    const PythonSourceIdentifierAssignment *assign =
+    const Python::SourceIdentifierAssignment *assign =
             getTypeHintAssignment(line);
 
     // try with ordinary assignments ie "var=1"
@@ -107,11 +107,11 @@ bool PythonSourceIdentifier::isCallable(int line, int pos) const
     return assign->typeInfo().isCallable();
 }
 
-const PythonSourceFrame *PythonSourceIdentifier::callFrame(const PythonToken *tok) const
+const Python::SourceFrame *Python::SourceIdentifier::callFrame(const Python::Token *tok) const
 {
     // should be directly callable, not a typehint
     // try with ordinary assignments ie "var=1"
-    const PythonSourceIdentifierAssignment *assign = getFromPos(tok);
+    const Python::SourceIdentifierAssignment *assign = getFromPos(tok);
 
     if (!assign)
         return nullptr;
@@ -121,14 +121,14 @@ const PythonSourceFrame *PythonSourceIdentifier::callFrame(const PythonToken *to
     return nullptr;
 }
 
-bool PythonSourceIdentifier::isImported(const PythonToken *tok) const
+bool Python::SourceIdentifier::isImported(const Python::Token *tok) const
 {
     return isImported(tok->line(), tok->startPos);
 }
 
-bool PythonSourceIdentifier::isImported(int line, int pos) const
+bool Python::SourceIdentifier::isImported(int line, int pos) const
 {
-    const PythonSourceIdentifierAssignment *assign =
+    const Python::SourceIdentifierAssignment *assign =
             getFromPos(line, pos);
 
     if (!assign)
@@ -137,7 +137,7 @@ bool PythonSourceIdentifier::isImported(int line, int pos) const
     return assign->token()->isImport();
 }
 
-QString PythonSourceIdentifier::name() const
+QString Python::SourceIdentifier::name() const
 {
     if (m_first)
         return m_first->text();
@@ -145,33 +145,33 @@ QString PythonSourceIdentifier::name() const
     return QLatin1String("<lookup error>");
 }
 
-PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(const PythonToken *tok) const
+Python::SourceTypeHintAssignment *Python::SourceIdentifier::getTypeHintAssignment(const Python::Token *tok) const
 {
     return getTypeHintAssignment(tok->line());
 }
 
-PythonSourceTypeHintAssignment *PythonSourceIdentifier::getTypeHintAssignment(int line) const
+Python::SourceTypeHintAssignment *Python::SourceIdentifier::getTypeHintAssignment(int line) const
 {
-    for (PythonSourceListNodeBase *lstElem = m_typeHint.last();
+    for (Python::SourceListNodeBase *lstElem = m_typeHint.last();
          lstElem != nullptr;
          lstElem = lstElem->previous())
     {
         if (lstElem->token()->line() <= line)
-            return dynamic_cast<PythonSourceTypeHintAssignment*>(lstElem);
+            return dynamic_cast<Python::SourceTypeHintAssignment*>(lstElem);
     }
 
     return nullptr;
 }
 
-bool PythonSourceIdentifier::hasTypeHint(int line) const {
+bool Python::SourceIdentifier::hasTypeHint(int line) const {
     return getTypeHintAssignment(line) != nullptr;
 }
 
 
-PythonSourceTypeHintAssignment *PythonSourceIdentifier::setTypeHint(PythonToken *tok,
-                                                                    PythonSourceRoot::TypeInfo typeInfo)
+Python::SourceTypeHintAssignment *Python::SourceIdentifier::setTypeHint(Python::Token *tok,
+                                                                    Python::SourceRoot::TypeInfo typeInfo)
 {
-    PythonSourceTypeHintAssignment *typeHint = getTypeHintAssignment(tok->line());
+    Python::SourceTypeHintAssignment *typeHint = getTypeHintAssignment(tok->line());
     if (typeHint) {
         // we found the last declared type hint, update type
         typeHint->setType(typeInfo);
@@ -179,18 +179,18 @@ PythonSourceTypeHintAssignment *PythonSourceIdentifier::setTypeHint(PythonToken 
     }
 
     // create new assigment
-    typeHint = new PythonSourceTypeHintAssignment(&m_typeHint, tok, typeInfo);
+    typeHint = new Python::SourceTypeHintAssignment(&m_typeHint, tok, typeInfo);
     m_typeHint.insert(typeHint);
     return typeHint;
 }
 
-int PythonSourceIdentifier::compare(const PythonSourceListNodeBase *left,
-                                    const PythonSourceListNodeBase *right) const
+int Python::SourceIdentifier::compare(const Python::SourceListNodeBase *left,
+                                    const Python::SourceListNodeBase *right) const
 {
     // should sort by linenr and (if same line also token startpos)
-    const PythonSourceIdentifierAssignment *l = dynamic_cast<const PythonSourceIdentifierAssignment*>(left),
-                                           *r = dynamic_cast<const PythonSourceIdentifierAssignment*>(right);
-    assert(l != nullptr && r != nullptr && "PythonSourceIdentifier stored non compatible node");
+    const Python::SourceIdentifierAssignment *l = dynamic_cast<const Python::SourceIdentifierAssignment*>(left),
+                                           *r = dynamic_cast<const Python::SourceIdentifierAssignment*>(right);
+    assert(l != nullptr && r != nullptr && "Python::SourceIdentifier stored non compatible node");
     if (l->linenr() > r->linenr()) {
         return -1;
     } else if (l->linenr() < r->linenr()) {
@@ -207,27 +207,27 @@ int PythonSourceIdentifier::compare(const PythonSourceListNodeBase *left,
 // -------------------------------------------------------------------------------
 
 
-PythonSourceIdentifierList::PythonSourceIdentifierList(const PythonSourceModule *module):
-    PythonSourceListParentBase(this),
+Python::SourceIdentifierList::SourceIdentifierList(const Python::SourceModule *module):
+    Python::SourceListParentBase(this),
     m_module(module)
 {
     m_preventAutoRemoveMe = true;
     assert(module != nullptr && "Must have a valid module");
 }
 
-PythonSourceIdentifierList::~PythonSourceIdentifierList()
+Python::SourceIdentifierList::~SourceIdentifierList()
 {
 }
 
-const PythonSourceFrame *PythonSourceIdentifierList::frame() const {
+const Python::SourceFrame *Python::SourceIdentifierList::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-const PythonSourceIdentifier *PythonSourceIdentifierList::getIdentifier(const QString name) const
+const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(const QString name) const
 {
-    for (PythonSourceIdentifier *itm = dynamic_cast<PythonSourceIdentifier*>(m_first);
+    for (Python::SourceIdentifier *itm = dynamic_cast<Python::SourceIdentifier*>(m_first);
          itm != nullptr;
-         itm = dynamic_cast<PythonSourceIdentifier*>(itm->next()))
+         itm = dynamic_cast<Python::SourceIdentifier*>(itm->next()))
     {
         QString itmName = itm->name();
         if (itmName == name)
@@ -236,9 +236,9 @@ const PythonSourceIdentifier *PythonSourceIdentifierList::getIdentifier(const QS
     return nullptr;
 }
 
-PythonSourceIdentifier
-*PythonSourceIdentifierList::setIdentifier(PythonToken *tok,
-                                           PythonSourceRoot::TypeInfo typeInfo)
+Python::SourceIdentifier
+*Python::SourceIdentifierList::setIdentifier(Python::Token *tok,
+                                           Python::SourceRoot::TypeInfo typeInfo)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
@@ -246,15 +246,15 @@ PythonSourceIdentifier
     assert(tok && "Expected a valid pointer");
     QString name = tok->text();
 
-    PythonSourceIdentifier *identifier = nullptr;
-    PythonSourceIdentifierAssignment *assign = nullptr;
+    Python::SourceIdentifier *identifier = nullptr;
+    Python::SourceIdentifierAssignment *assign = nullptr;
 
     // find in our list
-    for(PythonSourceListNodeBase *itm = begin();
+    for(Python::SourceListNodeBase *itm = begin();
         itm != nullptr;
         itm = itm->next())
     {
-        PythonSourceIdentifier *ident = dynamic_cast<PythonSourceIdentifier*>(itm);
+        Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
         if (ident && ident->name() == name) {
             identifier = ident;
             break;
@@ -264,9 +264,9 @@ PythonSourceIdentifier
     // new indentifier
     if (identifier) {
         // check so we don't double insert
-        PythonSourceListNodeBase *itm = identifier->getFromPos(tok);
+        Python::SourceListNodeBase *itm = identifier->getFromPos(tok);
         if (itm) {
-            assign = dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
+            assign = dynamic_cast<Python::SourceIdentifierAssignment*>(itm);
             assert(assign != nullptr && "Stored value was not a assignment");
             if (assign->typeInfo() == typeInfo)
                 return identifier; // already have this one and it is equal
@@ -274,19 +274,19 @@ PythonSourceIdentifier
                 // type differ, create new assignment
         }
         // create new assigment
-        assign = new PythonSourceIdentifierAssignment(identifier, tok, typeInfo);
+        assign = new Python::SourceIdentifierAssignment(identifier, tok, typeInfo);
         identifier->insert(assign);
         return identifier;
     }
 
     // create identifier
-    identifier = new PythonSourceIdentifier(this, m_module);
+    identifier = new Python::SourceIdentifier(this, m_module);
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     identifier->m_name = tok->text();
 #endif
 
     // create new assigment
-    assign = new PythonSourceIdentifierAssignment(identifier, tok, typeInfo);
+    assign = new Python::SourceIdentifierAssignment(identifier, tok, typeInfo);
     identifier->insert(assign);
 
     // must have a assignment before we insert
@@ -294,42 +294,42 @@ PythonSourceIdentifier
     return identifier;
 }
 
-const PythonSourceIdentifier
-*PythonSourceIdentifierList::getIdentifierReferencedBy(const PythonToken *tok,
+const Python::SourceIdentifier
+*Python::SourceIdentifierList::getIdentifierReferencedBy(const Python::Token *tok,
                                                        int limitChain) const
 {
     if (tok->isIdentifier()) {
         // TODO builtin identifiers and modules lookup
-        const PythonSourceIdentifier *ident = getIdentifier(tok->text());
+        const Python::SourceIdentifier *ident = getIdentifier(tok->text());
         return getIdentifierReferencedBy(ident, tok->line(), tok->startPos, limitChain);
     }
 
     return nullptr;
 }
 
-const PythonSourceIdentifier
-*PythonSourceIdentifierList::getIdentifierReferencedBy(const PythonSourceIdentifier *ident,
+const Python::SourceIdentifier
+*Python::SourceIdentifierList::getIdentifierReferencedBy(const Python::SourceIdentifier *ident,
                                                        int line, int pos, int limitChain) const
 {
     if (!ident || limitChain <= 0)
         return nullptr;
 
-    const PythonSourceIdentifier *startIdent = ident;
+    const Python::SourceIdentifier *startIdent = ident;
 
     // lookup nearest assignment
-    const PythonSourceIdentifierAssignment *assign = ident->getFromPos(line, pos);
+    const Python::SourceIdentifierAssignment *assign = ident->getFromPos(line, pos);
     if (!assign)
         return startIdent;
 
     // is this assignment also referenced?
     switch (assign->typeInfo().type) {
-    case PythonSourceRoot::ReferenceType:
+    case Python::SourceRoot::ReferenceType:
         // lookup recursive
         ident = getIdentifierReferencedBy(ident, line, pos -1, limitChain -1);
         if (!ident)
             return startIdent;
         return ident;
-    // case PythonSourceRoot::ReferenceBuiltinType: // not sure if we need this specialcase?
+    // case Python::SourceRoot::ReferenceBuiltinType: // not sure if we need this specialcase?
     default:
         if (assign->typeInfo().isReferenceImported())
             return ident;
@@ -339,12 +339,12 @@ const PythonSourceIdentifier
     return ident;
 }
 
-int PythonSourceIdentifierList::compare(const PythonSourceListNodeBase *left,
-                                        const PythonSourceListNodeBase *right) const
+int Python::SourceIdentifierList::compare(const Python::SourceListNodeBase *left,
+                                        const Python::SourceListNodeBase *right) const
 {
-    const PythonSourceIdentifier *l = dynamic_cast<const PythonSourceIdentifier*>(left),
-                                 *r = dynamic_cast<const PythonSourceIdentifier*>(right);
-    assert(l != nullptr && r != nullptr && "PythonSourceIdentifiers contained invalid nodes");
+    const Python::SourceIdentifier *l = dynamic_cast<const Python::SourceIdentifier*>(left),
+                                 *r = dynamic_cast<const Python::SourceIdentifier*>(right);
+    assert(l != nullptr && r != nullptr && "Python::SourceIdentifiers contained invalid nodes");
     if (l->name() > r->name())
         return -1;
     else if (r->name() > l->name())
@@ -355,33 +355,33 @@ int PythonSourceIdentifierList::compare(const PythonSourceListNodeBase *left,
 
 // ---------------------------------------------------------------------------------
 
-PythonSourceTypeHint::PythonSourceTypeHint(PythonSourceListParentBase *owner,
-                                           const PythonSourceIdentifier *identifer,
-                                           const PythonSourceModule *module) :
-    PythonSourceListParentBase(owner),
+Python::SourceTypeHint::SourceTypeHint(Python::SourceListParentBase *owner,
+                                           const Python::SourceIdentifier *identifer,
+                                           const Python::SourceModule *module) :
+    Python::SourceListParentBase(owner),
     m_module(module),
     m_identifer(identifer)
 {
 }
 
-PythonSourceTypeHint::~PythonSourceTypeHint()
+Python::SourceTypeHint::~SourceTypeHint()
 {
 }
 
-const PythonSourceFrame *PythonSourceTypeHint::frame() const {
+const Python::SourceFrame *Python::SourceTypeHint::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-PythonSourceTypeHintAssignment *PythonSourceTypeHint::getFromPos(int line, int pos) const
+Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(int line, int pos) const
 {
-    for (PythonSourceListNodeBase *lstElem = last();
+    for (Python::SourceListNodeBase *lstElem = last();
          lstElem != end();
          lstElem = lstElem->previous())
     {
         if ((lstElem->token()->line() == line && lstElem->token()->endPos < pos) ||
             (lstElem->token()->line() < line))
         {
-            return dynamic_cast<PythonSourceTypeHintAssignment*>(lstElem);
+            return dynamic_cast<Python::SourceTypeHintAssignment*>(lstElem);
         }
     }
 
@@ -389,22 +389,22 @@ PythonSourceTypeHintAssignment *PythonSourceTypeHint::getFromPos(int line, int p
     return nullptr;
 }
 
-PythonSourceTypeHintAssignment *PythonSourceTypeHint::getFromPos(const PythonToken *tok) const
+Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(const Python::Token *tok) const
 {
     return getFromPos(tok->line(), tok->startPos);
 }
 
-QString PythonSourceTypeHint::name() const
+QString Python::SourceTypeHint::name() const
 {
     return m_type.typeAsStr();
 }
 
-int PythonSourceTypeHint::compare(const PythonSourceListNodeBase *left, const PythonSourceListNodeBase *right) const
+int Python::SourceTypeHint::compare(const Python::SourceListNodeBase *left, const Python::SourceListNodeBase *right) const
 {
     // should sort by linenr and (if same line also token startpos)
-    const PythonSourceTypeHintAssignment *l = dynamic_cast<const PythonSourceTypeHintAssignment*>(left),
-                                         *r = dynamic_cast<const PythonSourceTypeHintAssignment*>(right);
-    assert(l != nullptr && r != nullptr && "PythonSourceTypeHint stored non compatible node");
+    const Python::SourceTypeHintAssignment *l = dynamic_cast<const Python::SourceTypeHintAssignment*>(left),
+                                         *r = dynamic_cast<const Python::SourceTypeHintAssignment*>(right);
+    assert(l != nullptr && r != nullptr && "Python::SourceTypeHint stored non compatible node");
 
     if (l->linenr() > r->linenr()) {
         return -1;

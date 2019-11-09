@@ -36,39 +36,37 @@
 class QEventLoop;
 
 namespace Gui {
-
-class PythonSyntaxHighlighter;
-class PythonSyntaxHighlighterP;
-class PythonEditorBreakpointDlg;
-class PythonCodeP;
-class PythonTextBlockData;
-class PythonToken;
 class TextEdit;
+//class PythonEditorBreakpointDlg;
+namespace Python {
+class CodeP;
+class TextBlockData;
+class Token;
 
 
 /**
  * @brief Handles code inspection from the python engine internals
  */
-class PythonCode : QObject
+class Code : QObject
 {
     Q_OBJECT
 public:
-    PythonCode(QObject *parent = 0);
-    virtual ~PythonCode();
+    Code(QObject *parent = nullptr);
+    virtual ~Code();
 
 
     // copies object and all subobjects
     PyObject* deepCopy(PyObject *obj);
 
-    QString findFromCurrentFrame(const PythonToken *tok);
+    QString findFromCurrentFrame(const Python::Token *tok);
 
     // get the root of the parent identifier ie os.path.join
     //                                                    ^
     // must traverse from os, then os.path before os.path.join
-    PyObject *getDeepObject(PyObject *obj, const PythonToken *needleTok, QString &foundKey);
+    PyObject *getDeepObject(PyObject *obj, const Python::Token *needleTok, QString &foundKey);
 
 private:
-    PythonCodeP *d;
+    Python::CodeP *d;
 };
 
 
@@ -76,6 +74,7 @@ private:
 // ----------------------------------------------------------------------
 
 
+} // namespace Python
 } // namespace Gui
 
 

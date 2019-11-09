@@ -10,63 +10,66 @@
 #include <TextEditor/PythonSyntaxHighlighter.h>
 
 namespace Gui {
-class PythonSourceImports;
-class PythonSourceModule;
-class PythonSourceIdentifier;
-class PythonSourceTypeHint;
+namespace Python {
+
+
+class SourceImports;
+class SourceModule;
+class SourceIdentifier;
+class SourceTypeHint;
 
 /// a class for each assignment within frame (variable type might mutate)
-class PythonSourceIdentifierAssignment : public PythonSourceListNodeBase {
-    PythonSourceRoot::TypeInfo m_type;
+class SourceIdentifierAssignment : public Python::SourceListNodeBase {
+    Python::SourceRoot::TypeInfo m_type;
 public:
-    explicit PythonSourceIdentifierAssignment(PythonSourceIdentifier *owner,
-                                              PythonToken *startToken,
-                                              PythonSourceRoot::TypeInfo typeInfo);
-    explicit PythonSourceIdentifierAssignment(PythonSourceTypeHint *owner,
-                                              PythonToken *startToken,
-                                              PythonSourceRoot::TypeInfo typeInfo);
-    ~PythonSourceIdentifierAssignment();
-    PythonSourceRoot::TypeInfo typeInfo() const { return m_type; }
-    void setType(PythonSourceRoot::TypeInfo &type) { m_type = type; } // type is implicitly copied
+    explicit SourceIdentifierAssignment(Python::SourceIdentifier *owner,
+                                        Python::Token *startToken,
+                                        Python::SourceRoot::TypeInfo typeInfo);
+    explicit SourceIdentifierAssignment(Python::SourceTypeHint *owner,
+                                        Python::Token *startToken,
+                                        Python::SourceRoot::TypeInfo typeInfo);
+    ~SourceIdentifierAssignment();
+    Python::SourceRoot::TypeInfo typeInfo() const { return m_type; }
+    void setType(Python::SourceRoot::TypeInfo &type) { m_type = type; } // type is implicitly copied
     int linenr() const;
     int position() const; // as in pos in document line
 };
 // --------------------------------------------------------------------
 
-typedef PythonSourceIdentifierAssignment PythonSourceTypeHintAssignment;
+typedef Python::SourceIdentifierAssignment SourceTypeHintAssignment;
 
 // --------------------------------------------------------------------
 
 
-class PythonSourceTypeHint : public PythonSourceListParentBase
+class SourceTypeHint : public Python::SourceListParentBase
 {
-    const PythonSourceModule *m_module;
-    const PythonSourceIdentifier *m_identifer;
-    PythonSourceRoot::TypeInfo m_type;
+    const Python::SourceModule *m_module;
+    const Python::SourceIdentifier *m_identifer;
+    Python::SourceRoot::TypeInfo m_type;
 public:
-    explicit PythonSourceTypeHint(PythonSourceListParentBase *owner,
-                                  const PythonSourceIdentifier *identifer,
-                                  const PythonSourceModule *module);
-    ~PythonSourceTypeHint();
+    explicit SourceTypeHint(Python::SourceListParentBase *owner,
+                            const Python::SourceIdentifier *identifer,
+                            const Python::SourceModule *module);
+    ~SourceTypeHint();
 
-    const PythonSourceModule *module() const { return m_module; }
-    const PythonSourceFrame *frame() const;
-    const PythonSourceIdentifier *identifier() const { return m_identifer; }
+    const Python::SourceModule *module() const { return m_module; }
+    const Python::SourceFrame *frame() const;
+    const Python::SourceIdentifier *identifier() const { return m_identifer; }
 
     /// gets last typehint assignment up til line and pos in document
     /// or nullptr if not found
-    PythonSourceTypeHintAssignment *getFromPos(int line, int pos) const;
-    PythonSourceTypeHintAssignment *getFromPos(const PythonToken *tok) const;
+    Python::SourceTypeHintAssignment *getFromPos(int line, int pos) const;
+    Python::SourceTypeHintAssignment *getFromPos(const Python::Token *tok) const;
 
     /// get name of typeHint
     QString name() const;
 
     /// get the type of typeHint
-    PythonSourceRoot::TypeInfo type() const { return m_type; }
+    Python::SourceRoot::TypeInfo type() const { return m_type; }
 
 protected:
-    int compare(const PythonSourceListNodeBase *left,
-                const PythonSourceListNodeBase *right) const;
+    int compare(const Python::SourceListNodeBase *left,
+                const Python::SourceListNodeBase *right) const;
 };
 
 // ---------------------------------------------------------------------
@@ -75,52 +78,52 @@ protected:
 // ----------------------------------------------------------------------
 
 /// identifierClass, one for each variable in each frame
-class PythonSourceIdentifier : public PythonSourceListParentBase
+class SourceIdentifier : public Python::SourceListParentBase
 {
-    const PythonSourceModule *m_module;
-    PythonSourceTypeHint m_typeHint;
+    const Python::SourceModule *m_module;
+    Python::SourceTypeHint m_typeHint;
 public:
-    explicit PythonSourceIdentifier(PythonSourceListParentBase *owner,
-                                    const PythonSourceModule *module);
-    ~PythonSourceIdentifier();
+    explicit SourceIdentifier(Python::SourceListParentBase *owner,
+                              const Python::SourceModule *module);
+    ~SourceIdentifier();
 
     /// module for this identifier
-    const PythonSourceModule *module() const { return m_module; }
+    const Python::SourceModule *module() const { return m_module; }
     /// frame for this identifier
-    const PythonSourceFrame *frame() const;
+    const Python::SourceFrame *frame() const;
 
     /// get the last assigment up til line and pos in document
     /// or nullptr if not found
-    PythonSourceIdentifierAssignment *getFromPos(int line, int pos) const;
-    PythonSourceIdentifierAssignment *getFromPos(const PythonToken *tok) const;
+    Python::SourceIdentifierAssignment *getFromPos(int line, int pos) const;
+    Python::SourceIdentifierAssignment *getFromPos(const Python::Token *tok) const;
 
     /// returns true if identifier is callable from line
-    bool isCallable(const PythonToken *tok) const;
+    bool isCallable(const Python::Token *tok) const;
     bool isCallable(int line, int pos) const;
 
     /// returns the frame assosiated with this identifier
-    const PythonSourceFrame *callFrame(const PythonToken *tok) const;
+    const Python::SourceFrame *callFrame(const Python::Token *tok) const;
 
     /// returns true if identifier is imported
-    bool isImported(const PythonToken *tok) const;
+    bool isImported(const Python::Token *tok) const;
     bool isImported(int line, int pos) const;
 
     /// get the name of identifier
     QString name() const;
 
     /// get last inserted TypeHint for identifier up to including line
-    PythonSourceTypeHintAssignment *getTypeHintAssignment(const PythonToken *tok) const;
-    PythonSourceTypeHintAssignment *getTypeHintAssignment(int line) const;
+    Python::SourceTypeHintAssignment *getTypeHintAssignment(const Python::Token *tok) const;
+    Python::SourceTypeHintAssignment *getTypeHintAssignment(int line) const;
     /// returns true if identifier has a typehint up to including line
     bool hasTypeHint(int line) const;
     /// set typeHint
-    PythonSourceTypeHintAssignment *setTypeHint(PythonToken *tok,
-                                                PythonSourceRoot::TypeInfo typeInfo);
+    Python::SourceTypeHintAssignment *setTypeHint(Python::Token *tok,
+                                                Python::SourceRoot::TypeInfo typeInfo);
 
 protected:
     // should sort by linenr and (if same line also token startpos)
-    int compare(const PythonSourceListNodeBase *left,
-                const PythonSourceListNodeBase *right) const;
+    int compare(const Python::SourceListNodeBase *left,
+                const Python::SourceListNodeBase *right) const;
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 public:
@@ -130,29 +133,29 @@ public:
 
 // ----------------------------------------------------------------------------
 /// a root container for all identifiers
-class PythonSourceIdentifierList : public PythonSourceListParentBase
+class SourceIdentifierList : public Python::SourceListParentBase
 {
-    const PythonSourceModule *m_module;
+    const Python::SourceModule *m_module;
 public:
-    explicit PythonSourceIdentifierList(const PythonSourceModule *module);
-    ~PythonSourceIdentifierList();
+    explicit SourceIdentifierList(const Python::SourceModule *module);
+    ~SourceIdentifierList();
 
     /// get the module for this identifierList
-    const PythonSourceModule *module() const { return m_module; }
+    const Python::SourceModule *module() const { return m_module; }
     /// get the frame contained for these collections
-    const PythonSourceFrame *frame() const;
+    const Python::SourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
-    const PythonSourceIdentifier *getIdentifier(const QString name) const;
-    const PythonSourceIdentifier *getIdentifier(const PythonToken *tok) const {
+    const Python::SourceIdentifier *getIdentifier(const QString name) const;
+    const Python::SourceIdentifier *getIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->text());
     }
     bool hasIdentifier(const QString name) const { return getIdentifier(name) != nullptr; }
-    bool hasIdentifier(const PythonToken *tok) const {
+    bool hasIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->text()) == nullptr;
     }
     /// sets a new assignment, creates identifier if not exists
-    PythonSourceIdentifier *setIdentifier(PythonToken *tok,
-                                          PythonSourceRoot::TypeInfo typeInfo);
+    Python::SourceIdentifier *setIdentifier(Python::Token *tok,
+                                            Python::SourceRoot::TypeInfo typeInfo);
 
     /// get the identifier that is pointed to by token
     /// This traverses chain upwards until it finds identifier
@@ -163,25 +166,26 @@ public:
     ///     var3 = var2 <- getIdentifierReferencedBy(var3token) returns var1
     ///     var4 = var3 <- getIdentifierReferencedBy(var4token) also returns var1
     ///     var5 = var4 <- getIdentifierReferencedBy(var5token, limitChain = 1) returns var4 due to limitChain
-    const PythonSourceIdentifier *getIdentifierReferencedBy(const PythonToken *tok,
-                                                            int limitChain = 10) const;
-    const PythonSourceIdentifier *getIdentifierReferencedBy(const PythonSourceIdentifier *ident,
-                                                            int line, int pos,
-                                                            int limitChain = 10) const;
+    const Python::SourceIdentifier *getIdentifierReferencedBy(const Python::Token *tok,
+                                                              int limitChain = 10) const;
+    const Python::SourceIdentifier *getIdentifierReferencedBy(const Python::SourceIdentifier *ident,
+                                                              int line, int pos,
+                                                              int limitChain = 10) const;
 
     /// returns a list containing all identifiers dependent on
-    const PythonSourceIdentifierList getIdentifierDependants(const PythonSourceIdentifier *ident,
-                                                             int line, int pos,
-                                                             int limitChain = 10) const;
+    const Python::SourceIdentifierList getIdentifierDependants(const Python::SourceIdentifier *ident,
+                                                               int line, int pos,
+                                                               int limitChain = 10) const;
 
-    const PythonSourceIdentifierList getIdentifierDependants(const PythonToken *tok,
-                                                             int limitChain = 10) const;
+    const Python::SourceIdentifierList getIdentifierDependants(const Python::Token *tok,
+                                                               int limitChain = 10) const;
 
 protected:
-    int compare(const PythonSourceListNodeBase *left,
-                const PythonSourceListNodeBase *right) const;
+    int compare(const Python::SourceListNodeBase *left,
+                const Python::SourceListNodeBase *right) const;
 };
 
+} // namespace Python
 } // namespace Gui
 
 #endif // PYTHONSOURCEIDENTIFIERS_H

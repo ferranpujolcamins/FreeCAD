@@ -11,40 +11,40 @@ DBG_TOKEN_FILE
 using namespace Gui;
 
 
-PythonSourceParameter::PythonSourceParameter(PythonSourceParameterList *parent, PythonToken *tok) :
-    PythonSourceListNodeBase(parent),
+Python::SourceParameter::SourceParameter(Python::SourceParameterList *parent, Python::Token *tok) :
+    Python::SourceListNodeBase(parent),
     m_paramType(InValid)
 {
     setToken(tok);
 }
 
-PythonSourceParameter::~PythonSourceParameter()
+Python::SourceParameter::~SourceParameter()
 {
 }
 
-const PythonSourceFrame *PythonSourceParameter::frame() const
+const Python::SourceFrame *Python::SourceParameter::frame() const
 {
-    PythonSourceParameterList *parentList = dynamic_cast<PythonSourceParameterList*>(m_owner);
+    Python::SourceParameterList *parentList = dynamic_cast<Python::SourceParameterList*>(m_owner);
     if (!parentList)
         return nullptr;
     return parentList->frame();
 }
 
-PythonSourceIdentifierAssignment *PythonSourceParameter::identifierAssignment() const
+Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignment() const
 {
     // lookup with same token
-    const PythonSourceFrame *frm = frame();
-    assert(frm != nullptr && "Expected a PythonSourceFrame as parent to PythonSourceParameterList");
-    assert(m_token != nullptr && "A non valid token stored to PythonSourceParameter");
+    const Python::SourceFrame *frm = frame();
+    assert(frm != nullptr && "Expected a Python::SourceFrame as parent to Python::SourceParameterList");
+    assert(m_token != nullptr && "A non valid token stored to Python::SourceParameter");
 
-    PythonSourceListNodeBase *itm = nullptr;
+    Python::SourceListNodeBase *itm = nullptr;
     for (itm = frm->identifiers().begin();
          itm != frm->identifiers().end();
          itm = itm->next())
     {
-        PythonSourceIdentifier *ident = dynamic_cast<PythonSourceIdentifier*>(itm);
+        Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
         if (ident && ident->name() == m_token->text()) {
-            return dynamic_cast<PythonSourceIdentifierAssignment*>(ident->findExact(m_token));
+            return dynamic_cast<Python::SourceIdentifierAssignment*>(ident->findExact(m_token));
         }
     }
 
@@ -54,44 +54,44 @@ PythonSourceIdentifierAssignment *PythonSourceParameter::identifierAssignment() 
 // -----------------------------------------------------------------------------
 
 
-PythonSourceParameterList::PythonSourceParameterList(PythonSourceFrame *frame) :
-    PythonSourceListParentBase(frame),
+Python::SourceParameterList::SourceParameterList(Python::SourceFrame *frame) :
+    Python::SourceListParentBase(frame),
     m_frame(frame)
 {
     m_preventAutoRemoveMe = true;
 }
 
-PythonSourceParameterList::~PythonSourceParameterList()
+Python::SourceParameterList::~SourceParameterList()
 {
 }
 
-const PythonSourceParameter *PythonSourceParameterList::getParameter(const QString name) const
+const Python::SourceParameter *Python::SourceParameterList::getParameter(const QString name) const
 {
-    for (PythonSourceListNodeBase *itm = m_first;
+    for (Python::SourceListNodeBase *itm = m_first;
          itm != nullptr;
          itm->next())
     {
         if (itm->text() == name)
-            return dynamic_cast<PythonSourceParameter*>(itm);
+            return dynamic_cast<Python::SourceParameter*>(itm);
     }
     return nullptr;
 }
 
-PythonSourceParameter *PythonSourceParameterList::setParameter(PythonToken *tok,
-                                                                PythonSourceRoot::TypeInfo typeInfo,
-                                                                PythonSourceParameter::ParameterType paramType)
+Python::SourceParameter *Python::SourceParameterList::setParameter(Python::Token *tok,
+                                                                Python::SourceRoot::TypeInfo typeInfo,
+                                                                Python::SourceParameter::ParameterType paramType)
 {
     assert(tok && "Expected a valid pointer");
     QString name = tok->text();
 
-    PythonSourceParameter *parameter = nullptr;
+    Python::SourceParameter *parameter = nullptr;
 
     // find in our list
-    for(PythonSourceListNodeBase *itm = begin();
+    for(Python::SourceListNodeBase *itm = begin();
         itm != nullptr;
         itm = itm->next())
     {
-        PythonSourceParameter *param = dynamic_cast<PythonSourceParameter*>(itm);
+        Python::SourceParameter *param = dynamic_cast<Python::SourceParameter*>(itm);
         if (param->text() == name) {
             parameter = param;
             break;
@@ -100,7 +100,7 @@ PythonSourceParameter *PythonSourceParameterList::setParameter(PythonToken *tok,
 
     // create new parameter
     if (!parameter) {
-        parameter = new PythonSourceParameter(this, tok);
+        parameter = new Python::SourceParameter(this, tok);
         insert(parameter);
     }
 
@@ -112,12 +112,12 @@ PythonSourceParameter *PythonSourceParameterList::setParameter(PythonToken *tok,
    return parameter; // already have this one and it is equal
 }
 
-int PythonSourceParameterList::compare(const PythonSourceListNodeBase *left,
-                                       const PythonSourceListNodeBase *right) const
+int Python::SourceParameterList::compare(const Python::SourceListNodeBase *left,
+                                       const Python::SourceListNodeBase *right) const
 {
-    const PythonSourceParameter *l = dynamic_cast<const PythonSourceParameter*>(left),
-                                *r = dynamic_cast<const PythonSourceParameter*>(right);
-    assert(l != nullptr && r != nullptr && "Non PythonSourceArgument items in agrmumentslist");
+    const Python::SourceParameter *l = dynamic_cast<const Python::SourceParameter*>(left),
+                                *r = dynamic_cast<const Python::SourceParameter*>(right);
+    assert(l != nullptr && r != nullptr && "Non Python::SourceArgument items in agrmumentslist");
     if (*l->token() < *r->token())
         return +1;
     return -1; // r must be bigger

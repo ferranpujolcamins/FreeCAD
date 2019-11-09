@@ -809,7 +809,7 @@ bool EditorView::saveFile()
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             //DumpSyntaxTokens tok(editor->document()->begin());
-            DumpModule dMod(PythonSourceRoot::instance()->moduleFromPath(d->editWrapper->fileName()));
+            Python::DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(d->editWrapper->fileName()));
         }
 #endif
     return true;

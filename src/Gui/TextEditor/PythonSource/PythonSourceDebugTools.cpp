@@ -10,15 +10,16 @@
 DBG_TOKEN_FILE
 
 using namespace Gui;
+using namespace Python;
 
-DumpModule::DumpModule(PythonSourceModule *module, const char *outfile) :
+DumpModule::DumpModule(Python::SourceModule *module, const char *outfile) :
     DumpToFileBaseClass(outfile),
     m_module(module)
 {
     create();
 }
 
-DumpModule::DumpModule(PythonSourceModule *module, FILE *fp) :
+DumpModule::DumpModule(Python::SourceModule *module, FILE *fp) :
     DumpToFileBaseClass(fp),
     m_module(module)
 {
@@ -30,7 +31,7 @@ void DumpModule::create()
     if (m_module) {
         fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
 
-        const PythonSourceFrame *rootFrm =  m_module->rootFrame();
+        const Python::SourceFrame *rootFrm =  m_module->rootFrame();
         fprintf(m_file, "Startframe->isModule:%d\n", rootFrm->isModule());
 
         dumpFrame(rootFrm, 0);
@@ -41,7 +42,7 @@ DumpModule::~DumpModule()
 {
 }
 
-void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
+void DumpModule::dumpFrame(const Python::SourceFrame *frm, int indent)
 {
     DEFINE_DBG_VARS
 
@@ -69,31 +70,31 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
 
     fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
                                                     frm->isClass());
-    fprintf(m_file, "%ssubframes count:%lu\n", indentStr, frm->size());
+    fprintf(m_file, "%ssubframes count:%x\n", indentStr, frm->size());
 
     // parameters
     fprintf(m_file, "%sFrame parameters:\n", indentStr);
     if (!frm->isModule()) {
-        for (PythonSourceParameter *itm = dynamic_cast<PythonSourceParameter*>(frm->parameters().begin());
+        for (Python::SourceParameter *itm = dynamic_cast<Python::SourceParameter*>(frm->parameters().begin());
              itm != frm->parameters().end();
-             itm = dynamic_cast<PythonSourceParameter*>(itm->next()))
+             itm = dynamic_cast<Python::SourceParameter*>(itm->next()))
         {
             const char *paramType = nullptr;
             switch(itm->parameterType()){
-            case PythonSourceParameter::Positional:
+            case Python::SourceParameter::Positional:
                 paramType = "Positional"; break;
-            case PythonSourceParameter::PositionalDefault:
+            case Python::SourceParameter::PositionalDefault:
                 paramType = "PositionalDefault"; break;
-            case PythonSourceParameter::Keyword:
+            case Python::SourceParameter::Keyword:
                 paramType = "KeyWord"; break;
-            case PythonSourceParameter::Variable:
+            case Python::SourceParameter::Variable:
                 paramType = "Variable"; break;
-            case PythonSourceParameter::InValid:
+            case Python::SourceParameter::InValid:
                 paramType = "InValid"; break;
             default:
                 paramType = "Unknown"; break;
             }
-            PythonSourceIdentifierAssignment *assign = itm->identifierAssignment();
+            Python::SourceIdentifierAssignment *assign = itm->identifierAssignment();
             QString txt = assign ? assign->text() : QString();
             fprintf(m_file, "%s %s(%s)", indentStr, txt.toLatin1().data(), paramType);
 
@@ -103,9 +104,9 @@ void DumpModule::dumpFrame(const PythonSourceFrame *frm, int indent)
     }
 
     // iterate through subFrames, recursive
-    for(PythonSourceFrame *subFrm = dynamic_cast<PythonSourceFrame*>(frm->begin());
+    for(Python::SourceFrame *subFrm = dynamic_cast<Python::SourceFrame*>(frm->begin());
         subFrm != frm->end();
-        subFrm = dynamic_cast<PythonSourceFrame*>(subFrm->next()))
+        subFrm = dynamic_cast<Python::SourceFrame*>(subFrm->next()))
     {
         dumpFrame(subFrm, indent + 4);
     }

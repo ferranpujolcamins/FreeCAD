@@ -4,26 +4,33 @@
 #include "PythonSourceRoot.h"
 
 namespace Gui {
+namespace Python {
 
 // used as a message parsing between functions
-class PythonSourceIndent {
+class SourceIndent {
     struct Indent {
         int frameIndent,
             currentBlockIndent;
-        explicit Indent(int frmInd = -1, int curInd = -1):
+        Indent(int frmInd = -1, int curInd = -1):
             frameIndent(frmInd), currentBlockIndent(curInd)
         {}
         Indent(const Indent &other):
             frameIndent(other.frameIndent),
             currentBlockIndent(other.currentBlockIndent)
         {}
+        Indent &operator =(const Indent &other) {
+            frameIndent = other.frameIndent;
+            currentBlockIndent =  other.currentBlockIndent;
+            return *this;
+        }
         ~Indent() {}
     };
 public:
-    explicit PythonSourceIndent();
-    ~PythonSourceIndent();
-    PythonSourceIndent operator =(const PythonSourceIndent &other);
-    bool operator == (const PythonSourceIndent &other);
+    explicit SourceIndent();
+    SourceIndent(const Python::SourceIndent &other);
+    ~SourceIndent();
+    SourceIndent &operator =(const Python::SourceIndent &other);
+    bool operator == (const Python::SourceIndent &other);
     /// returns the number of pushed block -1, invalid == -1
     int atIndentBlock() const { return m_indentStack.size() -1; }
 
@@ -47,13 +54,14 @@ public:
     int framePopCntDecr();
 
     /// returns true if line pointed to by tok is valid, ie: no comment string etc
-    bool validIndentLine(PythonToken *tok);
+    bool validIndentLine(Python::Token *tok);
 private:
     QList<Indent> m_indentStack;
     Indent _current() const;
     int m_framePopCnt;
 };
 
+} // namespace Python
 } // namespace Gui
 
 #endif // PYTHONSOURCEINDENT_H
