@@ -422,6 +422,7 @@ private:
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QString m_nameDbg;
+    int m_lineDbg;
 #endif
 };
 

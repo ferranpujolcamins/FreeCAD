@@ -1242,6 +1242,7 @@ PythonToken::PythonToken(PythonSyntaxHighlighter::Tokens token, int startPos, in
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     m_nameDbg = text();
+    m_lineDbg = block->block().blockNumber();
 #endif
 }
 
