@@ -730,7 +730,7 @@ parent_check:
                 if (identifierTok && !parentIdent)
                     lookupIdentifierReference(identifierTok);
                 return tok;
-            } else if (tok->isDelimiter() &&
+            } else if (!tok->isIdentifierVariable() &&
                        tok->token != PythonSyntaxHighlighter::T_DelimiterPeriod)
             {
                 lookupIdentifierReference(identifierTok);

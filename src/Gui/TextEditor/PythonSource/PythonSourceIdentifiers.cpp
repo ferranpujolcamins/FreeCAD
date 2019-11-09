@@ -264,15 +264,19 @@ PythonSourceIdentifier
     // new indentifier
     if (identifier) {
         // check so we don't double insert
-        PythonSourceListNodeBase *itm = identifier->findExact(tok);
+        PythonSourceListNodeBase *itm = identifier->getFromPos(tok);
         if (itm) {
             assign = dynamic_cast<PythonSourceIdentifierAssignment*>(itm);
             assert(assign != nullptr && "Stored value was not a assignment");
             if (assign->typeInfo() == typeInfo)
                 return identifier; // already have this one and it is equal
             //else
-            //  type differ, create new assignment
+                // type differ, create new assignment
         }
+        // create new assigment
+        assign = new PythonSourceIdentifierAssignment(identifier, tok, typeInfo);
+        identifier->insert(assign);
+        return identifier;
     }
 
     // create identifier
