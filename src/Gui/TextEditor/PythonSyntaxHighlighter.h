@@ -53,6 +53,17 @@ public:
     /// returns the format to color this token
     QTextCharFormat getFormatToken(const Python::Token *token) const;
 
+    /// update how this token is rendered
+    void updateFormatToken(const Python::Token *tok) const;
+
+    /// these formats a line in a predefined maner to to highlight were the error occured
+    void setMessage(const Python::Token *tok) const;
+    void setIndentError(const Python::Token *tok) const;
+    void setSyntaxError(const Python::Token *tok) const;
+
+    /// inserts a new format for token
+    void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
+
     // used by code analyzer, set by editor
     void setFilePath(QString filePath);
     QString filePath() const;
@@ -294,18 +305,6 @@ public:
      */
     void setScanInfo(Python::TextBlockScanInfo *scanInfo);
 
-
-    /**
-     * @brief setReformat sets up token to be repainted by format
-     *        We must later call PythonSyntaxHiglighter::rehighlight(this.block())
-     * @param tok PythonToken to be reformated, must be stored in this instance
-     * @param format QTextCharFormat to use
-     * @return true if token was stored in here
-     */
-    bool setReformat(const Python::Token *tok, QTextCharFormat format);
-
-    QHash<const Python::Token*, QTextCharFormat> &allReformats() { return m_reformats; }
-
 protected:
     /**
      * @brief insert should only be used by PythonSyntaxHighlighter
@@ -329,7 +328,6 @@ private:
     tokens_t m_tokens;
     QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
-    QHash<const Python::Token*, QTextCharFormat> m_reformats;
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS

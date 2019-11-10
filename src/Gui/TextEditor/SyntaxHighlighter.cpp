@@ -256,7 +256,7 @@ QList<QString> SyntaxHighlighterP::aliased;
 struct SyntaxHighlighter::ColorDataP
 {
     ColorDataP() :
-        customTranslateName(0), rgbAsULong(0)
+        customTranslateName(nullptr), rgbAsULong(0)
     { }
     QString key;
     const char *customTranslateName;
@@ -320,7 +320,7 @@ QColor SyntaxHighlighter::color(const QString& type) const
 QMap<QString, SyntaxHighlighter::ColorData> SyntaxHighlighter::allColors() const
 {
     QMap<QString, ColorData> colors;
-    for (const QString key : d->keyToIdx.keys()) {
+    for (const QString &key : d->keyToIdx.keys()) {
         if (!d->aliased.contains(key)) {
             ColorData colorInfo(key, d->colorArray[d->keyToIdx[key]]);
             colors[key] = colorInfo;
@@ -332,7 +332,7 @@ QMap<QString, SyntaxHighlighter::ColorData> SyntaxHighlighter::allColors() const
 
 void SyntaxHighlighter::setBatchOfColors(QMap<QString, ColorData> colors)
 {
-    for (const QString key : colors.keys()) {
+    for (const QString &key : colors.keys()) {
         if (d->keyToIdx.keys().contains(key))
             d->colorArray[d->keyToIdx[key]] = colors[key].color();
     }
@@ -345,7 +345,7 @@ void SyntaxHighlighter::loadSettings()
     // restore colormap from settings
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
 
-    for (const QString key : d->keyToIdx.keys()) {
+    for (const QString &key : d->keyToIdx.keys()) {
         QColor col_d = d->colorArray[d->keyToIdx[key]];
         unsigned long defaultCol = ((col_d.red() << 24) | (col_d.green() << 16) | (col_d.blue() << 8) | 0xFF);
         unsigned long col = hGrp->GetUnsigned(key.toLatin1(), defaultCol);
@@ -364,10 +364,59 @@ QColor SyntaxHighlighter::colorByType(SyntaxHighlighter::TColor type) const
     return QColor();
 }
 
+void SyntaxHighlighter::updateFormat(QTextBlock block, int startPos, int length, QTextCharFormat format) const
+{
+    QTextDocument *doc = document();
+    if (doc == block.document() && block.isValid()) {
+        QTextLayout *layout = block.layout();
+        if (layout) {
+            QVector<QTextLayout::FormatRange> ranges = layout->formats();
+            for(QTextLayout::FormatRange &range : ranges) {
+                if (range.start == startPos &&
+                    range.length == length)
+                {
+                    range.format = format;
+                    layout->setFormats(ranges);
+                    doc->markContentsDirty(block.position() + startPos, length);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+void SyntaxHighlighter::addFormat(QTextBlock block, int startPos, int length, QTextCharFormat format) const
+{
+    QTextDocument *doc = document();
+    if (doc == block.document() && block.isValid()) {
+        QTextLayout *layout = block.layout();
+        if (layout) {
+            QVector<QTextLayout::FormatRange> ranges = layout->formats();
+            QTextLayout::FormatRange newRange;
+            newRange.start = startPos;
+            newRange.length = length;
+            newRange.format = format;
+            ranges << newRange;
+            layout->setFormats(ranges);
+            doc->markContentsDirty(block.position() + startPos, length);
+        }
+    }
+}
+
+void SyntaxHighlighter::setMessageFormat(QTextBlock block, int startPos, int length,
+                                   QTextCharFormat format /*= QTextCharFormat()*/) const
+{
+    if (!format.isValid()) {
+        format.setUnderlineColor(QColor(210, 247, 64));
+        format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    }
+    addFormat(block, startPos, length, format);
+}
+
 void SyntaxHighlighter::colorChanged(const QString& type, const QColor& col)
 {
-    Q_UNUSED(type); 
-    Q_UNUSED(col);
+    Q_UNUSED(type)
+    Q_UNUSED(col)
     d->rehighlightTmr.start();
 }
 

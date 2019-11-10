@@ -22,7 +22,6 @@ class SourceModule : public Python::SourceListParentBase
     QString m_filePath;
     QString m_moduleName;
     Python::SyntaxHighlighter *m_highlighter;
-    QList<int> m_rehighlightRows;
 public:
 
     explicit SourceModule(Python::SourceRoot *root,
@@ -45,15 +44,13 @@ public:
     /// rescans a single row
     void scanLine(Python::Token *tok);
 
-    bool shouldRehighlight() const { return m_rehighlightRows.size() > 0; }
-
     /// returns indent info for block where tok is
     Python::SourceIndent currentBlockIndent(const Python::Token *tok) const;
 
     // syntax highlighter stuff
     Python::SyntaxHighlighter *highlighter() const { return m_highlighter; }
-    void setFormatToken(const Python::Token *tok, QTextCharFormat format);
-    void setFormatToken(const Python::Token *tok);
+    void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
+    void updateFormatToken(const Python::Token *tok) const;
 
     /// stores a syntax error at tok with message and sets up for repaint
     void setSyntaxError(const Python::Token *tok, QString parseMessage) const;
@@ -85,7 +82,6 @@ protected:
 
 private:
     int _currentBlockIndent(const Python::Token *tok) const;
-    void reHighLight(const Python::Token *tok);
 };
 
 // --------------------------------------------------------------------------

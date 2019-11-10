@@ -24,6 +24,7 @@
 #ifndef GUI_SYNTAXHIGHLIGHTER_H
 #define GUI_SYNTAXHIGHLIGHTER_H
 
+#include "PreCompiled.h"
 #include <QSyntaxHighlighter>
 #include <Base/Parameter.h>
 
@@ -156,6 +157,17 @@ public:
 
     /// returns the color assosiated with type
     QColor colorByType(TColor type) const;
+
+    /// replaces first found previously set format at startPos with length
+    void updateFormat(QTextBlock block, int startPos, int length, QTextCharFormat format) const;
+
+    /// adds another format to this block
+    void addFormat(QTextBlock block, int startPos, int length, QTextCharFormat format) const;
+
+    /// adds special format to block at startPos with length
+    /// default is to waveunderline
+    void setMessageFormat(QTextBlock block, int startPos, int length,
+                    QTextCharFormat format = QTextCharFormat()) const;
 
 protected:
     virtual void colorChanged(const QString& type, const QColor& col);

@@ -29,7 +29,6 @@ void Python::SourceModule::scanFrame(Python::Token *tok)
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<Python::SourceFrame*>(frm)->scanFrame(tok, indent);
-    reHighLight(tok);
 }
 
 void Python::SourceModule::scanLine(Python::Token *tok)
@@ -43,7 +42,6 @@ void Python::SourceModule::scanLine(Python::Token *tok)
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<Python::SourceFrame*>(frm)->scanLine(tok, indent);
-    reHighLight(tok);
 }
 
 Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Token *tok) const
@@ -172,33 +170,16 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
     return 0;
 }
 
-void Python::SourceModule::reHighLight(const Python::Token *tok)
+void Python::SourceModule::newFormatToken(const Python::Token *tok, QTextCharFormat format) const
 {
-    const QTextDocument *doc = tok->txtBlock()->block().document();
-    while (!m_rehighlightRows.isEmpty()) {
-        int row = m_rehighlightRows.takeFirst();
-        QTextBlock bl = doc->findBlockByNumber(row);
-        bl.setUserState(bl.userState() | Python::SyntaxHighlighter::PreventTokenize);
-        m_highlighter->rehighlightBlock(bl);
-    }
+    if (m_highlighter)
+        m_highlighter->newFormatToken(tok, format);
 }
 
-void Python::SourceModule::setFormatToken(const Python::Token *tok, QTextCharFormat format)
+void Python::SourceModule::updateFormatToken(const Python::Token *tok) const
 {
-    DEFINE_DBG_VARS
-    DBG_TOKEN(tok)
-
-    if (tok->txtBlock()->setReformat(tok, format)) {
-        int row = tok->txtBlock()->block().blockNumber();
-        if (!m_rehighlightRows.contains(row))
-            m_rehighlightRows.append(row); // only re-highlight if we succeed
-
-    }
-}
-
-void Python::SourceModule::setFormatToken(const Python::Token *tok)
-{
-    setFormatToken(tok, m_highlighter->getFormatToken(tok));
+    if (m_highlighter)
+        m_highlighter->updateFormatToken(tok);
 }
 
 int Python::SourceModule::compare(const Python::SourceListNodeBase *left,
@@ -320,7 +301,8 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, QString pars
 
     // create format with default format for syntax error
     const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
-    QColor lineColor = m_highlighter->colorByType(SyntaxHighlighter::SyntaxError);
+    if (m_highlighter)
+        m_highlighter->updateFormatToken(tok);
 
     // set text underline of all text in here
     // move to beginning of text
@@ -336,18 +318,18 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, QString pars
             if (!startTok)
                 break;
             if (hasCode) {
-                if (!startTok->isCode())
+                if (!startTok->isCode()) {
+                    PREV_TOKEN(startTok)
                     break;
+                }
             } else
                 hasCode = startTok->isCode();
         }
     }
     // then move down the line til first whitespace
     while(startTok && startTok->isCode()) {
-        QTextCharFormat format = m_highlighter->getFormatToken(tok);
-        format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-        format.setUnderlineColor(lineColor);
-        const_cast<Python::SourceModule*>(this)->setFormatToken(tok, format);
+        if (m_highlighter)
+            m_highlighter->setSyntaxError(tok);
 
         // previous token
         if (startTok->previous()) {
@@ -369,14 +351,11 @@ void Python::SourceModule::setIndentError(const Python::Token *tok) const
 
     scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), TextEditBlockScanInfo::IndentError);
 
-    // create format with default format for syntax error
     const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
-    QColor lineColor = m_highlighter->colorByType(SyntaxHighlighter::SyntaxError);
+    updateFormatToken(tok);
 
-    QTextCharFormat format = m_highlighter->getFormatToken(tok);
-    format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-    format.setUnderlineColor(lineColor);
-    const_cast<Python::SourceModule*>(this)->setFormatToken(tok, format);
+    if (m_highlighter)
+        m_highlighter->setIndentError(tok);
 }
 
 void Python::SourceModule::setLookupError(const Python::Token *tok, QString parseMessage) const
@@ -407,6 +386,9 @@ void Python::SourceModule::setMessage(const Python::Token *tok, QString parseMes
     }
 
     scanInfo->setParseMessage(tok, parseMessage, Python::TextBlockScanInfo::Message);
+
+    if (m_highlighter)
+        m_highlighter->setMessage(tok);
 }
 
 

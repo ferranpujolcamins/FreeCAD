@@ -134,97 +134,40 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
         d->endStateOfLastPara = Python::Token::T_Undetermined;
 
     d->sourceScanTmr.blockSignals(true);
+    d->sourceScanTmr.stop();
 
-    int curState = currentBlockState();
-    if (curState != -1 &&  static_cast<uint>(curState) & PreventTokenize) {
-        // only paint this block, already tokenized
-        QTextBlockUserData *userBlock = currentBlockUserData();
-        if (userBlock) {
-            d->activeBlock = dynamic_cast<TextBlockData*>(userBlock);
-            if (!d->activeBlock)
-                return;
-            // clear prevent tokenize flag
-            curState &= ~PreventTokenize;
-            setCurrentBlockState(curState);
+    // create new userData, copy bookmark etc
+    Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock());
+    d->activeBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
+    if (d->activeBlock)
+        txtBlock->copyBlock(*d->activeBlock);
+    d->activeBlock = txtBlock;
+    setCurrentBlockUserData(d->activeBlock);
 
-            // set reformats again
-            for ( const Python::Token *tok : d->activeBlock->tokens()) {
-                QTextCharFormat format;
-                if (d->activeBlock->allReformats().keys().contains(tok)) {
-                    format = d->activeBlock->allReformats()[tok];
-                } else {
-                    format = getFormatToken(tok);
-                }
-
-                Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
-                if (scanInfo) {
-                    const Python::TextBlockScanInfo::ParseMsg *parseMsg = scanInfo->getParseMessage(tok);
-                    if (parseMsg) {
-                        switch (parseMsg->type) {
-                        case Python::TextBlockScanInfo::IndentError:
-                            format.setUnderlineColor(QColor(244, 143, 66));
-                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-                            break;
-                        case Python::TextBlockScanInfo::SyntaxError:
-                            format.setUnderlineColor(colorByType(SyntaxError));
-                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-                            break;
-                        case Python::TextBlockScanInfo::Message:
-                            format.setUnderlineColor(QColor(210, 247, 64));
-                            format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-                            break;
-                        default: break; // nothing
-                        }
-                    }
-                }
-
-                // set the format
-                setFormat(tok->startPos, tok->endPos - tok->startPos, format);
-            }
-
-            d->activeBlock->allReformats().clear();
-
-            // prevent reparse of this block
-            if (d->srcScanBlock == d->activeBlock)
-                d->srcScanBlock = nullptr;
-
-        }
-    } else {
-        // Normally we end up here
-        d->sourceScanTmr.stop();
-
-        // create new userData, copy bookmark etc
-        Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock());
-        d->activeBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
-        if (d->activeBlock)
-            txtBlock->copyBlock(*d->activeBlock);
-        d->activeBlock = txtBlock;
-        setCurrentBlockUserData(d->activeBlock);
-
- #ifdef BUILD_PYTHON_DEBUGTOOLS
-        txtBlock->m_textDbg = text;
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    txtBlock->m_textDbg = text;
 #endif
 
-        int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
-        bool isParamLine  = prevState & ParamLineMASK;
+    int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
+    bool isParamLine  = prevState & ParamLineMASK;
 
-        // scans this line
-        int i = tokenize(text, parenCnt, isParamLine);
+    // scans this line
+    int i = tokenize(text, parenCnt, isParamLine);
 
-        // Insert new line token
-        if (d->activeBlock->block().next().isValid())
-            d->activeBlock->setDeterminedToken(Python::Token::T_DelimiterNewLine, i, 0);
+    // Insert new line token
+    if (d->activeBlock->block().next().isValid())
+        d->activeBlock->setDeterminedToken(Python::Token::T_DelimiterNewLine, i, 0);
 
 
-        prevState = static_cast<int>(d->endStateOfLastPara);
-        prevState |= parenCnt << ParenCntShiftPos;
-        prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
-        setCurrentBlockState(prevState);
-        d->srcScanBlock = d->activeBlock;
-        if (d->activeBlock->m_undeterminedIndexes.size() > 0)
-            d->sourceScanTmr.start();
-        d->activeBlock = nullptr;
-    }
+    prevState = static_cast<int>(d->endStateOfLastPara);
+    prevState |= parenCnt << ParenCntShiftPos;
+    prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
+    setCurrentBlockState(prevState);
+    d->srcScanBlock = d->activeBlock;
+    if (d->activeBlock->m_undeterminedIndexes.size() > 0)
+        d->sourceScanTmr.start();
+    d->activeBlock = nullptr;
+
 
     d->sourceScanTmr.blockSignals(false);
 }
@@ -969,6 +912,60 @@ QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *t
     return format;
 }
 
+void Python::SyntaxHighlighter::updateFormatToken(const Python::Token *tok) const
+{
+    Python::TextBlockData *txtBlock = tok->txtBlock();
+    if (!txtBlock || !txtBlock->block().isValid())
+        return;
+
+    updateFormat(txtBlock->block(), tok->startPos, tok->textLength(), getFormatToken(tok));
+}
+
+void Python::SyntaxHighlighter::setMessage(const Python::Token *tok) const
+{
+    Python::TextBlockData *txtData = tok->txtBlock();
+    if (!txtData || !txtData->block().isValid())
+        return;
+
+    QTextCharFormat format;
+    format.setUnderlineColor(QColor(210, 247, 64));
+    format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    setMessageFormat(txtData->block(), tok->startPos, tok->textLength(), format);
+}
+
+void Python::SyntaxHighlighter::setIndentError(const Python::Token *tok) const
+{
+    Python::TextBlockData *txtData = tok->txtBlock();
+    if (!txtData || !txtData->block().isValid())
+        return;
+
+    QTextCharFormat format;
+    format.setUnderlineColor(QColor(244, 143, 66));
+    format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    setMessageFormat(txtData->block(), tok->startPos, tok->textLength(), format);
+}
+
+void Python::SyntaxHighlighter::setSyntaxError(const Python::Token *tok) const
+{
+    Python::TextBlockData *txtData = tok->txtBlock();
+    if (!txtData || !txtData->block().isValid())
+        return;
+
+    QTextCharFormat format;
+    format.setUnderlineColor(colorByType(SyntaxError));
+    format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+    setMessageFormat(txtData->block(), tok->startPos, tok->textLength(), format);
+}
+
+void Python::SyntaxHighlighter::newFormatToken(const Python::Token *tok, QTextCharFormat format) const
+{
+    Python::TextBlockData *txtBlock = tok->txtBlock();
+    if (!txtBlock || !txtBlock->block().isValid())
+        return;
+
+    addFormat(txtBlock->block(), tok->startPos, tok->textLength(), format);
+}
+
 void Python::SyntaxHighlighter::setFormatToken(const Python::Token *tok)
 {
     int pos = tok->startPos;
@@ -1252,10 +1249,9 @@ Python::TextBlockData::TextBlockData(const Python::TextBlockData &other) :
     Gui::TextEditBlockData(other),
     m_tokens(other.m_tokens),
     m_undeterminedIndexes(other.m_undeterminedIndexes),
-    m_reformats(other.m_reformats),
     m_indentCharCount(other.m_indentCharCount)
 {
-    // FIXME ! handle tokens cpoying mer gracefully
+    // FIXME ! handle tokens copying mer gracefully
     // Should probably make a deep copy here
 }
 
@@ -1314,17 +1310,6 @@ const Python::Token *Python::TextBlockData::setUndeterminedToken(Python::Token::
 void Python::TextBlockData::setIndentCount(int count)
 {
     m_indentCharCount = count;
-}
-
-bool Python::TextBlockData::setReformat(const Python::Token *tok, QTextCharFormat format)
-{
-    if (!m_tokens.contains(const_cast<Python::Token*>(tok)))
-        return false;
-    int state = m_block.userState();
-    state |= Python::SyntaxHighlighter::PreventTokenize;
-    m_block.setUserState(state);
-    m_reformats.insertMulti(tok, format);
-    return true;
 }
 
 const Python::Token *Python::TextBlockData::findToken(Python::Token::Tokens token,

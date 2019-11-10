@@ -245,6 +245,8 @@ public:
     int startPos;
     int endPos;
 
+    int textLength() const { return endPos - startPos; }
+
     /// pointer to our father textBlockData
     Python::TextBlockData *txtBlock() const { return m_txtBlock; }
     QString text() const;

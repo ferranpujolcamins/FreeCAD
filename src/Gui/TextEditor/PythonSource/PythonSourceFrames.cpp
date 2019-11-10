@@ -498,11 +498,11 @@ Python::Token *Python::SourceFrame::scanLine(Python::Token *startToken,
                 } else {
                     const_cast<Python::Token*>(tok)->token = Python::Token::T_IdentifierMethod;
                 }
-                noConstModule->setFormatToken(tok);
+                noConstModule->updateFormatToken(tok);
                 continue; // switch on new token state
             }
             const_cast<Python::Token*>(tok)->token = Python::Token::T_IdentifierFunction;
-            noConstModule->setFormatToken(tok);
+            noConstModule->updateFormatToken(tok);
             continue; // switch on new token state
         }
         case Python::Token::T_IdentifierClass: {
@@ -685,7 +685,7 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
             }
             if (identifierTok && identifierTok->token == Python::Token::T_IdentifierUnknown) {
                 identifierTok->token = Python::Token::T_IdentifierDefined;
-                m_module->setFormatToken(identifierTok);
+                m_module->updateFormatToken(identifierTok);
             }
             break;
         case Python::Token::T_DelimiterColon:
@@ -722,7 +722,7 @@ parent_check:
                     } else {
                         identifierTok->token = Python::Token::T_IdentifierDefined;
                     }
-                    m_module->setFormatToken(identifierTok);
+                    m_module->updateFormatToken(identifierTok);
                 }
             }
 
@@ -772,7 +772,7 @@ const Python::SourceIdentifier *Python::SourceFrame::lookupIdentifierReference(P
                 m_identifiers.setIdentifier(tok, typeInfo);
             }
         }
-        m_module->setFormatToken(tok);
+        m_module->updateFormatToken(tok);
     }
     return tmpIdent;
 }
@@ -879,7 +879,7 @@ Python::Token *Python::SourceFrame::scanRValue(Python::Token *tok,
                             typeInfo.referenceName = text;
                             if (tok->token == Python::Token::T_IdentifierUnknown) {
                                 tok->token = Python::Token::T_IdentifierDefined;
-                                m_module->setFormatToken(tok);
+                                m_module->updateFormatToken(tok);
                             }
                         } else if (isTypeHint)
                             m_module->setLookupError(tok, QString::fromLatin1("Unknown type '%1'").arg(text));
@@ -1212,7 +1212,7 @@ Python::Token *Python::SourceFrame::scanParameter(Python::Token *paramToken, int
                     }
 
                     // repaint in highligher
-                    const_cast<Python::SourceModule*>(m_module)->setFormatToken(paramToken);
+                    const_cast<Python::SourceModule*>(m_module)->updateFormatToken(paramToken);
 
                 } else if(paramType != Python::SourceParameter::InValid) {
                     m_module->setSyntaxError(paramToken, QString::fromLatin1("Expected identifier, got '%1'")
