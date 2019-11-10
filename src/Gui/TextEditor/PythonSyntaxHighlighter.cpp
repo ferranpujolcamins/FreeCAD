@@ -31,8 +31,7 @@ class SyntaxHighlighterP
 public:
     explicit SyntaxHighlighterP():
         endStateOfLastPara(Python::Token::T_Undetermined),
-        activeBlock(nullptr),
-        srcScanBlock(nullptr)
+        activeBlock(nullptr)
     {
 
         { // GIL lock code block
@@ -93,8 +92,8 @@ public:
     QString filePath;
     QTimer sourceScanTmr;
     Python::Token::Tokens endStateOfLastPara;
-    Python::TextBlockData *activeBlock,
-                          *srcScanBlock;
+    Python::TextBlockData *activeBlock;
+    QList<int> srcScanBlocks;
 };
 
 } // namespace Python
@@ -158,17 +157,14 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     if (d->activeBlock->block().next().isValid())
         d->activeBlock->setDeterminedToken(Python::Token::T_DelimiterNewLine, i, 0);
 
-
     prevState = static_cast<int>(d->endStateOfLastPara);
     prevState |= parenCnt << ParenCntShiftPos;
     prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
     setCurrentBlockState(prevState);
-    d->srcScanBlock = d->activeBlock;
-    if (d->activeBlock->m_undeterminedIndexes.size() > 0)
-        d->sourceScanTmr.start();
+    d->srcScanBlocks.push_back(d->activeBlock->block().blockNumber());
     d->activeBlock = nullptr;
 
-
+    d->sourceScanTmr.start();
     d->sourceScanTmr.blockSignals(false);
 }
 
@@ -974,8 +970,15 @@ void Python::SyntaxHighlighter::setFormatToken(const Python::Token *tok)
 }
 
 void Python::SyntaxHighlighter::sourceScanTmrCallback() {
-    if (d->srcScanBlock)
-        Python::SourceRoot::instance()->scanSingleRowModule(d->filePath, d->srcScanBlock, this);
+    for(int row : d->srcScanBlocks) {
+        QTextBlock block = document()->findBlockByNumber(row);
+        if (block.isValid()) {
+            Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(block.userData());
+            if (txtData)
+                Python::SourceRoot::instance()->scanSingleRowModule(d->filePath, txtData, this);
+        }
+    }
+    d->srcScanBlocks.clear();
 }
 
 void Python::SyntaxHighlighter::setFilePath(QString filePath)
@@ -983,6 +986,7 @@ void Python::SyntaxHighlighter::setFilePath(QString filePath)
     d->filePath = filePath;
 
     Python::SourceRoot::instance()->scanCompleteModule(filePath, this);
+    d->srcScanBlocks.clear();
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             //DumpSyntaxTokens dump(document()->begin());

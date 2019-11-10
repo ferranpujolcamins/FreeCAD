@@ -42,6 +42,7 @@ void Python::SourceModule::scanLine(Python::Token *tok)
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<Python::SourceFrame*>(frm)->scanLine(tok, indent);
+    qDebug() << QLatin1String("scanline:") << tok->line() << endl;
 }
 
 Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Token *tok) const
