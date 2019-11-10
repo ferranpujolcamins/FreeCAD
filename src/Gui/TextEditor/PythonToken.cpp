@@ -10,12 +10,20 @@ using namespace Gui;
 Python::Token::Token(Python::Token::Tokens token, int startPos, int endPos,
              Python::TextBlockData *block) :
     token(token), startPos(startPos), endPos(endPos),
-    m_txtBlock(block)
+    m_txtBlock(block),
+    m_next(nullptr), m_previous(nullptr)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     m_nameDbg = text();
     m_lineDbg = block->block().blockNumber();
 #endif
+}
+
+Python::Token::Token(const Python::Token &other) :
+    token(other.token), startPos(other.startPos), endPos(other.endPos),
+    m_txtBlock(other.m_txtBlock),
+    m_next(other.m_next), m_previous(other.m_previous)
+{
 }
 
 Python::Token::~Token()
@@ -240,3 +248,220 @@ void Python::Token::detachReference(Python::SourceListNodeBase *srcListNode)
 }
 
 // -------------------------------------------------------------------------------------------
+
+Python::TokenList::TokenList() :
+    m_first(nullptr), m_last(nullptr),
+    m_current(nullptr), m_insertPos(nullptr),
+    m_line(0)
+{
+}
+
+Python::TokenList::TokenList(const Python::TokenList &other) :
+    m_first(other.m_first), m_last(other.m_last),
+    m_current(other.m_current), m_insertPos(other.m_insertPos),
+    m_line(other.m_line)
+{
+}
+
+Python::TokenList::~TokenList()
+{
+    clear();
+}
+
+Python::Token *Python::TokenList::begin(){
+    m_current = m_first;
+    return m_first;
+}
+
+Python::Token *Python::TokenList::rbegin() {
+    m_current = m_last;
+    return  m_last;
+}
+
+Python::Token *Python::TokenList::next()
+{
+    if (!m_current)
+        return nullptr;
+
+    return m_current = m_current->m_next;
+}
+
+Python::Token *Python::TokenList::previous()
+{
+    if (!m_current)
+        return nullptr;
+
+    return m_current = m_current->m_previous;
+}
+
+int32_t Python::TokenList::count() const
+{
+    int siz = -1;
+    for (Python::Token *iter = m_first;
+         iter != nullptr;
+         iter = iter->m_next)
+    {
+        ++siz;
+    }
+    return siz;
+}
+
+void Python::TokenList::clear()
+{
+    Python::Token *iter = m_first,
+                  *last = nullptr;
+
+    for(;iter != nullptr;
+        iter = iter->m_next)
+    {
+        if (last) {
+            delete last;
+            last = nullptr;
+        }
+        last = iter;
+    }
+
+    // delete the last item
+    if (last)
+        delete last;
+
+    m_insertPos = m_current = m_first = m_last = nullptr;
+}
+
+void Python::TokenList::push_back(Python::Token *tok)
+{
+    if (m_last) {
+        m_last->m_next = tok;
+        tok->m_previous = m_last;
+    }
+
+    m_last = tok;
+
+    if (!m_first)
+        m_first = m_last;
+}
+
+void Python::TokenList::push_front(Python::Token *tok)
+{
+    if (m_first) {
+        m_first->m_previous = tok;
+        tok->m_next = m_first;
+    }
+
+    m_first = tok;
+
+    if (!m_last)
+        m_last = m_first;
+}
+
+Python::Token *Python::TokenList::pop_back()
+{
+    Python::Token *tok = m_last;
+    if (tok){
+        m_last = tok->m_previous;
+        tok->m_next = tok->m_previous = nullptr;
+    }
+    return nullptr;
+}
+
+Python::Token *Python::TokenList::pop_front()
+{
+    Python::Token *tok = m_first;
+    if (tok) {
+        m_first = tok->m_next;
+        tok->m_next = tok->m_previous = nullptr;
+    }
+    return nullptr;
+}
+
+bool Python::TokenList::insert(Python::Token *tok)
+{
+    // move to correct pos up
+    while (m_insertPos && m_insertPos->startPos < tok->startPos)
+        m_insertPos = m_insertPos->m_next;
+    // move to correct pos down
+    while (m_insertPos && m_insertPos->startPos > tok->startPos)
+        m_insertPos = m_insertPos->m_previous;
+
+    if (m_insertPos) {
+        // move to last token with the same startPos
+        while (m_insertPos && m_insertPos->m_next &&
+               m_insertPos->m_next->startPos == tok->startPos)
+        {
+            m_insertPos = m_insertPos->m_next;
+        }
+
+        // insert token into list
+        if (m_insertPos) {
+            tok->m_next = m_insertPos->m_next;
+            tok->m_previous = m_insertPos;
+            m_insertPos->m_next = tok;
+            if (m_insertPos->m_next)
+                m_insertPos->m_next->m_previous = tok;
+        }
+    }
+    if (m_first && m_first->startPos > tok->startPos) {
+        // at beginning
+        push_front(tok);
+        return true;
+    } else if (m_last && m_last->startPos < tok->startPos) {
+        // at end
+        push_back(tok);
+        return true;
+    }
+    return false;
+}
+
+void Python::TokenList::remove(Python::Token *tok, bool deleteTok)
+{
+    if (!tok)
+        return;
+
+    if (m_current == tok)
+        m_current = tok->m_next;
+    if (m_insertPos == tok)
+        m_insertPos = tok->m_next;
+
+    if (tok->m_previous)
+        tok->m_previous->m_next = tok->m_next;
+    if (tok->m_next)
+        tok->m_next->m_previous = tok->m_previous;
+
+    if (deleteTok)
+        delete tok;
+}
+
+void Python::TokenList::remove(Python::Token *tok, Python::Token *endTok, bool deleteTok)
+{
+    if (!tok || !endTok)
+        return;
+
+    if (tok->m_previous)
+        tok->m_previous->m_next = endTok;
+    if (endTok->m_previous) {
+        endTok->m_previous->m_next = nullptr;
+        endTok->m_previous = tok->m_previous;
+    }
+    tok->m_previous = nullptr;
+
+    Python::Token *last = nullptr;
+    for (Python::Token *iter = tok;
+         iter != endTok && iter != nullptr;
+         iter = iter->m_next)
+    {
+        if (m_current == iter)
+            m_current = endTok;
+        if (m_insertPos == iter)
+            m_insertPos = endTok;
+
+        if (deleteTok) {
+            if (last)
+                delete last;
+            last = iter;
+        }
+    }
+
+    // delete the very last element
+    if (last)
+        delete last;
+}

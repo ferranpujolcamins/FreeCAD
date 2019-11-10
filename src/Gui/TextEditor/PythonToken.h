@@ -216,7 +216,8 @@ public:
     };
 
     explicit Token(Tokens token, int startPos, int endPos,
-                         Python::TextBlockData *block);
+                         Python::TextBlockData *block = nullptr);
+    Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
     {
@@ -293,11 +294,60 @@ private:
     QList<Python::SourceListNodeBase*> m_srcLstNodes;
     Python::TextBlockData *m_txtBlock;
 
+    Token *m_next,
+          *m_previous;
+
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QString m_nameDbg;
     int m_lineDbg;
 #endif
+    friend class TokenList;
 };
+
+// ----------------------------------------------------------------------------------------
+
+
+class TokenList {
+    Python::Token *m_first,
+                  *m_last,
+                  *m_current,
+                  *m_insertPos;
+    int m_line;
+public:
+    explicit TokenList();
+    explicit TokenList(const TokenList &other);
+    virtual ~TokenList();
+    Python::Token *front() const { return m_first; }
+    Python::Token *back() const { return m_last; }
+    Python::Token *end() const { return nullptr; }
+    Python::Token *rend() const { return nullptr; }
+    Python::Token *begin();
+    Python::Token *rbegin();
+    Python::Token *next();
+    Python::Token *rnext() { return previous(); }
+    Python::Token *previous();
+    bool empty() const { return m_first != nullptr && m_last != nullptr; }
+    int32_t count() const;
+    void clear();
+    void push_back(Python::Token *tok);
+    void push_front(Python::Token *tok);
+    Python::Token *pop_back();
+    Python::Token *pop_front();
+    /// inserts token into list
+    bool insert(Python::Token *tok);
+
+    /// removes tok from list
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    void remove(Python::Token *tok, bool deleteTok = true);
+
+    /// removes tokens from list
+    /// removes from from tok up til endTok, endTok is the first token not removed
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    void remove(Python::Token *tok,
+                Python::Token *endTok,
+                bool deleteTok = true);
+};
+
 
 } // namespace Python
 } // namespace Gui

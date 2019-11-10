@@ -1,6 +1,7 @@
 #include "PythonSourceRoot.h"
 #include "PythonSource.h"
 #include "PythonSourceModule.h"
+#include "PythonSourceDebugTools.h"
 
 
 #include <FCConfig.h>
@@ -475,7 +476,12 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString fileP
             }
         }
     }
-
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    {
+        //DumpSyntaxTokens dump(document()->begin());
+        DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(filePath));
+    }
+#endif
     return mod;
 }
 
