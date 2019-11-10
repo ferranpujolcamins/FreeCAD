@@ -8,6 +8,8 @@ namespace Python {
 
 class SourceListNodeBase; // in code analyzer
 class TextBlockData;
+class TokenList;
+class TokenLine;
 
 class Token
 {
@@ -238,8 +240,8 @@ public:
 
     /// for traversing tokens in document
     /// returns token or nullptr if at end/begin
-    Token *next() const;
-    Token *previous() const;
+    Token *next() const { return m_next; }
+    Token *previous() const { return m_previous; }
 
     // public properties
     Tokens token;
@@ -250,6 +252,8 @@ public:
 
     /// pointer to our father textBlockData
     Python::TextBlockData *txtBlock() const { return m_txtBlock; }
+    Python::TokenList *ownerList() const;
+    Python::TokenLine *ownerLine() const { return m_ownerLine; }
     QString text() const;
     int line() const;
 
@@ -296,27 +300,37 @@ private:
 
     Token *m_next,
           *m_previous;
+    TokenLine *m_ownerLine;
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QString m_nameDbg;
     int m_lineDbg;
 #endif
-    friend class TokenList;
+    friend class Python::TokenList;
+    friend class Python::TokenLine;
 };
 
 // ----------------------------------------------------------------------------------------
 
-
+/// Handles all tokens for a single file
+/// implements logic for 2 linked lists, Tokens and TokenLines
+/// TokenList is container for each token in each row
 class TokenList {
     Python::Token *m_first,
                   *m_last,
                   *m_current,
                   *m_insertPos;
+    Python::TokenLine *m_firstLine,
+                      *m_lastLine,
+                      *m_currentLine;
+    uint32_t m_size, m_currentIdx, m_insertIdx;
     int m_line;
 public:
     explicit TokenList();
     explicit TokenList(const TokenList &other);
     virtual ~TokenList();
+
+    // accessor methods
     Python::Token *front() const { return m_first; }
     Python::Token *back() const { return m_last; }
     Python::Token *end() const { return nullptr; }
@@ -326,8 +340,14 @@ public:
     Python::Token *next();
     Python::Token *rnext() { return previous(); }
     Python::Token *previous();
+    Python::Token *operator[] (int32_t idx);
+
+    // info
     bool empty() const { return m_first != nullptr && m_last != nullptr; }
-    int32_t count() const;
+    uint32_t count() const;
+    uint32_t max_size() const { return 20000000u; }
+
+    // modifiers
     void clear();
     void push_back(Python::Token *tok);
     void push_front(Python::Token *tok);
@@ -346,6 +366,52 @@ public:
     void remove(Python::Token *tok,
                 Python::Token *endTok,
                 bool deleteTok = true);
+private:
+    friend class Python::TokenLine;
+};
+
+// -------------------------------------------------------------------------------------------
+
+class TokenLine {
+    Python::TokenList *m_ownerList;
+    Python::Token *m_startTok;
+    Python::TokenLine *m_nextLine, *m_previousLine;
+    QString m_text;
+public:
+    explicit TokenLine(Python::TokenList *ownerList,
+                       Python::Token *startTok,
+                       const QString &text);
+    ~TokenLine();
+
+    Python::TokenList *ownerList() const { return m_ownerList; }
+
+
+    /// returns this lines linenr, 0 based
+    uint32_t lineNr() const;
+    /// returns this lines text content (without line ending chars)
+    QString text() const { return m_text; }
+
+    /// returns the number of tokens
+    uint count() const;
+    bool empty() const { return m_startTok != nullptr; }
+
+    /// returns the token at idx position
+    Python::Token *operator[] (int idx);
+
+
+    /// removes tok from list
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    void remove(Python::Token *tok, bool deleteTok = true);
+
+    /// removes tokens from list
+    /// removes from from tok up til endTok, endTok is the first token not removed
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    void remove(Python::Token *tok,
+                Python::Token *endTok,
+                bool deleteTok = true);
+
+private:
+    friend class Python::TokenList;
 };
 
 
