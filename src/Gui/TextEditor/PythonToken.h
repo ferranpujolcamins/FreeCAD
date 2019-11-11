@@ -217,8 +217,7 @@ public:
         T_PythonConsoleError      = 1001
     };
 
-    explicit Token(Tokens token, int startPos, int endPos,
-                         Python::TextBlockData *block = nullptr);
+    explicit Token(Tokens token, int startPos, int endPos, Python::TokenLine *line = nullptr);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
@@ -296,7 +295,6 @@ public:
 
 private:
     QList<Python::SourceListNodeBase*> m_srcLstNodes;
-    Python::TextBlockData *m_txtBlock;
 
     Token *m_next,
           *m_previous;
@@ -304,7 +302,7 @@ private:
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QString m_nameDbg;
-    int m_lineDbg;
+    uint m_lineDbg;
 #endif
     friend class Python::TokenList;
     friend class Python::TokenLine;
@@ -317,14 +315,10 @@ private:
 /// TokenList is container for each token in each row
 class TokenList {
     Python::Token *m_first,
-                  *m_last,
-                  *m_current,
-                  *m_insertPos;
+                  *m_last;
     Python::TokenLine *m_firstLine,
-                      *m_lastLine,
-                      *m_currentLine;
-    uint32_t m_size, m_currentIdx, m_insertIdx;
-    int m_line;
+                      *m_lastLine;
+    uint32_t m_size;
 public:
     explicit TokenList();
     explicit TokenList(const TokenList &other);
@@ -335,11 +329,6 @@ public:
     Python::Token *back() const { return m_last; }
     Python::Token *end() const { return nullptr; }
     Python::Token *rend() const { return nullptr; }
-    Python::Token *begin();
-    Python::Token *rbegin();
-    Python::Token *next();
-    Python::Token *rnext() { return previous(); }
-    Python::Token *previous();
     Python::Token *operator[] (int32_t idx);
 
     // info
@@ -353,19 +342,58 @@ public:
     void push_front(Python::Token *tok);
     Python::Token *pop_back();
     Python::Token *pop_front();
-    /// inserts token into list
-    bool insert(Python::Token *tok);
+    /// inserts token into list, list takes ownership and may delete token
+    void insert(Token *previousTok, Python::Token *insertTok);
 
     /// removes tok from list
     /// if deleteTok is true it also deletes these tokens (mem. free)
-    void remove(Python::Token *tok, bool deleteTok = true);
+    /// else caller must delete tok
+    bool remove(Python::Token *tok, bool deleteTok = true);
 
     /// removes tokens from list
     /// removes from from tok up til endTok, endTok is the first token not removed
     /// if deleteTok is true it also deletes these tokens (mem. free)
-    void remove(Python::Token *tok,
+    /// else caller must delete tok
+    bool remove(Python::Token *tok,
                 Python::Token *endTok,
                 bool deleteTok = true);
+
+    //lines
+    /// get the first line for this list/document
+    Python::TokenLine *firstLine() const { return m_firstLine; }
+    /// get the last line for this list/document
+    Python::TokenLine *lastLine() const { return m_lastLine; }
+    /// get the line at lineNr, might be negative for reverse. ie: -1 == lastLine
+    /// lineNr is 0 based (ie. first row == 0), lastRow == -1
+    Python::TokenLine *lineAt(int32_t lineNr) const;
+    /// get total number of lines
+    uint32_t lineCount() const;
+
+    /// swap line, old line is deleted with all it containing tokens
+    /// lineNr is 0 based (ie. first row == 0), lastRow == -1
+    void swapLine(int32_t lineNr, Python::TokenLine *swapIn);
+
+    /// swap line, old line is deleted with all it containing tokens
+    /// list takes ownership of swapInLine and its tokens
+    void swapLine(Python::TokenLine *swapOut, Python::TokenLine *swapIn);
+
+    /// insert line at lineNr, list takes ownership of line and its tokens
+    /// lineNr is 0 based (ie. first row == 0), last row == -1
+    void insertLine(int32_t lineNr, Python::TokenLine *insertLine);
+    /// insert line directly after previousLine, list takes ownership of line and its tokens
+    void insertLine(Python::TokenLine *previousLine, Python::TokenLine *insertLine);
+
+    /// inserts line at end of lines list
+    /// list takes ownership of line and its tokens
+    void appendLine(Python::TokenLine *lineToPush);
+
+    /// remove line at lineNr and deletes the line
+    /// lineNr is 0 based (ie. first row == 0), last row == -1
+    void removeLine(int32_t lineNr);
+    /// remove line from this list and deletes the line
+    void removeLine(Python::TokenLine *lineToRemove);
+
+
 private:
     friend class Python::TokenLine;
 };
@@ -377,10 +405,11 @@ class TokenLine {
     Python::Token *m_startTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
     QString m_text;
+    Python::TextBlockData *m_txtBlock;
 public:
     explicit TokenLine(Python::TokenList *ownerList,
                        Python::Token *startTok,
-                       const QString &text);
+                       const QString &text, TextBlockData *txtBlock = nullptr);
     ~TokenLine();
 
     Python::TokenList *ownerList() const { return m_ownerList; }
@@ -391,22 +420,41 @@ public:
     /// returns this lines text content (without line ending chars)
     QString text() const { return m_text; }
 
+    Python::TextBlockData *txtBlock() const { return m_txtBlock; }
+
     /// returns the number of tokens
     uint count() const;
     bool empty() const { return m_startTok != nullptr; }
 
+    Python::Token *front() const { return m_startTok; }
+    Python::Token *back() const;
+    Python::Token *end() const;
+    Python::Token *rend() const;
+    Python::TokenLine *nextLine() const { return m_nextLine; }
+    Python::TokenLine *previousLine() const { return m_previousLine; }
     /// returns the token at idx position
     Python::Token *operator[] (int idx);
 
 
+    void push_back(Python::Token *tok);
+    void push_front(Python::Token *tok);
+    /// removes last token in this line
+    /// caller taken ownership and must delete token
+    Python::Token *pop_back();
+    /// removes first token in this line
+    /// caller taken ownership and must delete token
+    Python::Token *pop_front();
+    /// inserts token into list
+    void insert(Python::Token *tok);
+
     /// removes tok from list
     /// if deleteTok is true it also deletes these tokens (mem. free)
-    void remove(Python::Token *tok, bool deleteTok = true);
+    bool remove(Python::Token *tok, bool deleteTok = true);
 
     /// removes tokens from list
     /// removes from from tok up til endTok, endTok is the first token not removed
     /// if deleteTok is true it also deletes these tokens (mem. free)
-    void remove(Python::Token *tok,
+    bool remove(Python::Token *tok,
                 Python::Token *endTok,
                 bool deleteTok = true);
 
