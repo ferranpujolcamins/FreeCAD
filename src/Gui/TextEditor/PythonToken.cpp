@@ -41,8 +41,19 @@ Python::Token::~Token()
         m_ownerLine->remove(this, false);
 }
 
-Python::TokenList *Python::Token::ownerList() const {
+Python::TextBlockData *Python::Token::txtBlock() const
+{
+    return m_ownerLine->txtBlock();
+}
+
+Python::TokenList *Python::Token::ownerList() const
+{
     return m_ownerLine->ownerList();
+}
+
+Python::TokenLine *Python::Token::ownerLine() const
+{
+    return m_ownerLine;
 }
 
 QString Python::Token::text() const
@@ -270,6 +281,7 @@ uint32_t Python::TokenList::count() const
         iter = iter->m_next;
         ++siz;
     }
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
     return siz; */
 }
 
@@ -389,7 +401,7 @@ bool Python::TokenList::remove(Python::Token *tok, Python::Token *endTok, bool d
     }
     tok->m_previous = nullptr;
 
-    uint32_t guard = 20000000; // 100k rows with 20 tokens each row is max allowed
+    uint32_t guard = max_size();
 
     Python::Token *iter = tok;
     while (iter && guard--) {
@@ -407,6 +419,8 @@ bool Python::TokenList::remove(Python::Token *tok, Python::Token *endTok, bool d
         else
             tmp->m_ownerLine = nullptr;
     }
+
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
     return true;
 }
 
@@ -442,6 +456,7 @@ uint32_t Python::TokenList::lineCount() const
     {
         ++cnt;
     }
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
     return cnt;
 }
 
@@ -519,12 +534,12 @@ void Python::TokenList::appendLine(Python::TokenLine *lineToPush)
     lineToPush->m_ownerList = this;
 }
 
-void Python::TokenList::removeLine(int32_t lineNr)
+void Python::TokenList::removeLine(int32_t lineNr, bool deleteLine)
 {
-    removeLine(lineAt(lineNr));
+    removeLine(lineAt(lineNr), deleteLine);
 }
 
-void Python::TokenList::removeLine(Python::TokenLine *lineToRemove)
+void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteLine)
 {
     assert(lineToRemove);
     assert(lineToRemove->m_ownerList == this && "lineToRemove not contained in this list");
@@ -538,7 +553,8 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove)
     if (lineToRemove->m_nextLine)
         lineToRemove->m_nextLine->m_previousLine = lineToRemove->m_previousLine;
 
-    delete lineToRemove;
+    if (deleteLine)
+        delete lineToRemove;
 }
 
 // ----------------------------------------------------------------------------------------
@@ -557,6 +573,19 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
         m_text = text.left(lineEndingPos);
     else
         m_text = text;
+}
+
+Python::TokenLine::~TokenLine()
+{
+    m_ownerList->removeLine(this, false);
+
+    Python::Token *tok = m_startTok;
+    while (tok && tok->m_ownerLine == this)
+    {
+        Python::Token *tmp = tok;
+        tok = tok->m_next;
+        delete tmp;
+    }
 }
 
 uint32_t Python::TokenLine::lineNr() const
@@ -583,6 +612,7 @@ uint Python::TokenLine::count() const
         iter = iter->m_next;
     }
 
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
     return cnt;
 }
 
@@ -620,6 +650,7 @@ Python::Token *Python::TokenLine::operator[](int idx)
             return iter;
         iter = iter->m_next;
     }
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
 
     return nullptr;
 }
@@ -703,8 +734,15 @@ bool Python::TokenLine::remove(Python::Token *tok, Python::Token *endTok, bool d
     if (tok->m_ownerLine != this || endTok->m_ownerLine != this)
         return false;
 
-    if (tok == m_startTok && count() > 1)
+    if (tok == m_startTok) {
+        if (count() > 1)
             m_startTok = m_startTok->m_next;
+        else
+            m_startTok = nullptr;
+    }
 
-    return m_ownerList->remove(tok, deleteTok);
+    bool ret = m_ownerList->remove(tok, deleteTok);
+    if (!m_startTok)
+        delete this; // delete me
+    return ret;
 }

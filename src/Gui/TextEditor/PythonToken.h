@@ -217,7 +217,7 @@ public:
         T_PythonConsoleError      = 1001
     };
 
-    explicit Token(Tokens token, int startPos, int endPos, Python::TokenLine *line = nullptr);
+    explicit Token(Tokens token, int startPos, int endPos, Python::TokenLine *line);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
@@ -227,9 +227,10 @@ public:
     }
     bool operator > (const Token &rhs) const
     {
-        if (line() > rhs.line())
+        int myLine = line(), rhsLine = rhs.line();
+        if (myLine > rhsLine)
             return true;
-        if (line() < rhs.line())
+        if (myLine < rhsLine)
             return false;
         return startPos > rhs.startPos;
     }
@@ -250,9 +251,9 @@ public:
     int textLength() const { return endPos - startPos; }
 
     /// pointer to our father textBlockData
-    Python::TextBlockData *txtBlock() const { return m_txtBlock; }
+    Python::TextBlockData *txtBlock() const;
     Python::TokenList *ownerList() const;
-    Python::TokenLine *ownerLine() const { return m_ownerLine; }
+    Python::TokenLine *ownerLine() const;
     QString text() const;
     int line() const;
 
@@ -389,9 +390,9 @@ public:
 
     /// remove line at lineNr and deletes the line
     /// lineNr is 0 based (ie. first row == 0), last row == -1
-    void removeLine(int32_t lineNr);
+    void removeLine(int32_t lineNr, bool deleteLine = true);
     /// remove line from this list and deletes the line
-    void removeLine(Python::TokenLine *lineToRemove);
+    void removeLine(Python::TokenLine *lineToRemove, bool deleteLine = true);
 
 
 private:
@@ -410,7 +411,7 @@ public:
     explicit TokenLine(Python::TokenList *ownerList,
                        Python::Token *startTok,
                        const QString &text, TextBlockData *txtBlock = nullptr);
-    ~TokenLine();
+    virtual ~TokenLine();
 
     Python::TokenList *ownerList() const { return m_ownerList; }
 
