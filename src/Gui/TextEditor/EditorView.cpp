@@ -286,7 +286,7 @@ QPlainTextEdit* EditorView::getEditor() const
 
 void EditorView::OnChange(Base::Subject<const char*> &rCaller,const char* rcReason)
 {
-    Q_UNUSED(rCaller); 
+    Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (strcmp(rcReason, "EnableLineNumber") == 0) {
         //bool show = hPrefGrp->GetBool( "EnableLineNumber", true );
@@ -809,7 +809,8 @@ bool EditorView::saveFile()
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             //DumpSyntaxTokens tok(editor->document()->begin());
-            Python::DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(d->editWrapper->fileName()));
+            Python::DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(
+                                        d->editWrapper->fileName().toStdString()));
         }
 #endif
     return true;

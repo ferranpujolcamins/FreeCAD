@@ -401,12 +401,13 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
         // we are at the correct line
         Python::TextBlockData *blockData = dynamic_cast<Python::TextBlockData*>(block.userData());
         if (blockData) {
-            TextEditBlockScanInfo *scanInfo = blockData->scanInfo();
-            if (scanInfo) {
+            if (blockData->scanInfo()) {
                 // we have scaninfo on this line (parsemessages)
-                for (const TextEditBlockScanInfo::ParseMsg &msg : scanInfo->allMessages()) {
+                for (const TextEditBlockScanInfo::ParseMsg &msg :
+                     blockData->scanInfo()->allMessages())
+                {
                     const char *iconFile = nullptr;
-                    switch (msg.type) {
+                    switch (msg.type()) {
                     case TextEditBlockScanInfo::LookupError: // fallthrough
                     case TextEditBlockScanInfo::IndentError:
                         iconFile = "parse_info_warning"; break;
@@ -415,7 +416,28 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
                     case TextEditBlockScanInfo::SyntaxError:
                         iconFile = "parse_info_error";  break;
                     default:
-                        continue; /* next for loop */ break;
+                        continue; /* next for loop */
+                    }
+                    if (iconFile) {
+                        QIcon icon = BitmapFactory().iconFromTheme(iconFile);
+                        p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
+                    }
+                }
+            } else if (blockData->tokenScanInfo()) {
+                // we have python specific scaninfo on this line
+                for (auto &msg : blockData->tokenScanInfo()->allMessages()) {
+                    const char *iconFile = nullptr;
+                    switch (msg->type()) {
+                    case Python::TokenScanInfo::Issue: // not sure what icon to use here yet
+                    case Python::TokenScanInfo::LookupError: // fallthrough
+                    case Python::TokenScanInfo::IndentError:
+                        iconFile = "parse_info_warning"; break;
+                    case Python::TokenScanInfo::Message:
+                        iconFile = "parse_info_message"; break;
+                    case Python::TokenScanInfo::SyntaxError:
+                        iconFile = "parse_info_error";  break;
+                    default:
+                        continue; /* next for loop */
                     }
                     if (iconFile) {
                         QIcon icon = BitmapFactory().iconFromTheme(iconFile);
@@ -557,7 +579,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         if (hPrefGrp->GetBool( "EnableAutoIndent", true)) {
             cursor.beginEditBlock();
-            int indent = hPrefGrp->GetInt( "IndentSize", 4 );
+            int indent = static_cast<int>(hPrefGrp->GetInt( "IndentSize", 4 ));
             bool space = hPrefGrp->GetBool( "Spaces", false );
             QString ch = space ? QString(indent, QLatin1Char(' '))
                                : QString::fromLatin1("\t");
@@ -616,6 +638,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         }
 
     } // intentional fallthrough
+    BOOST_FALLTHROUGH;
     default:
     {
         // auto insert closing char
@@ -747,27 +770,11 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         if (scanInfo) {
             QStringList tooltipTxt;
             const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-            for (const TextEditBlockScanInfo::ParseMsg msg : msgTypes) {
-                if (msg.startPos > tok->startPos || msg.endPos < tok->endPos)
+            for (const TextEditBlockScanInfo::ParseMsg &msg : msgTypes) {
+                if (msg.startPos() > tok->startPosInt() || msg.endPos() < tok->endPosInt())
                     continue; // not for this token
 
-                switch (msg.type) {
-                case TextEditBlockScanInfo::LookupError:
-                    tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
-                    break;
-                case TextEditBlockScanInfo::IndentError:
-                    tooltipTxt << QLatin1String("indenterr: ") + msg.message;
-                    break;
-                case TextEditBlockScanInfo::SyntaxError:
-                    tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
-                    break;
-                case TextEditBlockScanInfo::Message:
-                    tooltipTxt << QLatin1String("") + msg.message;
-                    break;
-                default:
-                    tooltipTxt << QLatin1String("?: ") + msg.message;
-                    break;
-                }
+                tooltipTxt << msg.msgTypeAsString() + QLatin1String(": ") + msg.message();
             }
             if (tooltipTxt.size()) {
                 QToolTip::showText(tooltipPos, tooltipTxt.join(QLatin1String("\n")));
@@ -776,7 +783,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         }
 
         Python::SourceModule *mod = Python::SourceRoot::instance()->
-                                            moduleFromPath(d->filename);
+                                            moduleFromPath(d->filename.toStdString());
         if (!mod)
             return false;
 
@@ -793,7 +800,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
             return false;
 
         QString displayStr = QString(QLatin1String("%1 set at line: %2 col: %3"))
-                .arg(assign->typeInfo().typeAsStr())
+                .arg(QString::fromStdString(assign->typeInfo().typeAsStr()))
                 .arg(assign->linenr()+1)
                 .arg(assign->position());
         QToolTip::showText(tooltipPos, displayStr);
@@ -833,33 +840,19 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
         // parse errors
         Python::TextBlockData *textData = dynamic_cast<Python::TextBlockData*>(document()->findBlockByNumber(line-1).userData());
         if (textData) {
-            TextEditBlockScanInfo *scanInfo = textData->scanInfo();
-            if (scanInfo) {
-                QStringList tooltipTxt;
-                const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-                for (const TextEditBlockScanInfo::ParseMsg &msg : msgTypes) {
-                    switch (msg.type) {
-                    case TextEditBlockScanInfo::IndentError:
-                        tooltipTxt << QLatin1String("indenterr: ") + msg.message;
-                        break;
-                    case TextEditBlockScanInfo::SyntaxError:
-                        tooltipTxt << QLatin1String("syntaxerr: ") + msg.message;
-                        break;
-                    case TextEditBlockScanInfo::Message:
-                        tooltipTxt << QLatin1String("") + msg.message;
-                        break;
-                    case TextEditBlockScanInfo::LookupError:
-                        tooltipTxt << QLatin1String("lookuperr: ") + msg.message;
-                        break;
-                    default:
-                        tooltipTxt << QLatin1String("?: ") + msg.message;
-                        break;
-                    }
-                }
-                if (tooltipTxt.size()) {
-                    QToolTip::showText(pos, tooltipTxt.join(QLatin1String("\n")));
-                    return true;
-                }
+            QStringList tooltipTxt;
+            if (textData->scanInfo()) {
+                for (auto &msg : textData->scanInfo()->allMessages())
+                    tooltipTxt << msg.msgTypeAsString() + QLatin1String(": ") + msg.message();
+            }
+            if (textData->tokenScanInfo()) {
+                for (auto &msg : textData->tokenScanInfo()->allMessages())
+                    tooltipTxt << QString::fromStdString(msg->msgTypeAsString())
+                                  + QLatin1String(": ") + QString::fromStdString(msg->message());
+            }
+            if (tooltipTxt.size()) {
+                QToolTip::showText(pos, tooltipTxt.join(QLatin1String("\n")));
+                return true;
             }
         } else {
             QToolTip::hideText();
@@ -1157,7 +1150,7 @@ void PythonEditor::onAutoIndent()
     int mCommentIndents = 0;
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
-    int indentSize = hPrefGrp->GetInt( "IndentSize", 4 );
+    int indentSize = static_cast<int>(hPrefGrp->GetInt( "IndentSize", 4 ));
     bool useSpaces = hPrefGrp->GetBool( "Spaces", false );
     QString space = useSpaces ? QString(indentSize, QLatin1Char(' '))
                        : QString::fromLatin1("\t");
@@ -1180,7 +1173,7 @@ void PythonEditor::onAutoIndent()
                 if (block.text().size() > i + 2 &&
                     block.text()[i +1] == ch && block.text()[i +2] == ch)
                 {
-                    if (mCommentChr == 0) {
+                    if (mCommentChr.isNull()) {
                         mCommentChr = ch;// start a multiline comment
                     } else if (mCommentChr == ch) {
                         mCommentChr = 0;// end multiline comment
@@ -1207,7 +1200,7 @@ void PythonEditor::onAutoIndent()
         while (indentLevel.size() > 0 && chrCount <= indentLevel.last()){
             // stop current indent block
             indentLevel.removeLast();
-            if (mCommentChr != 0)
+            if (!mCommentChr.isNull())
                 --mCommentIndents;
         }
 
@@ -1216,7 +1209,7 @@ void PythonEditor::onAutoIndent()
         if (mayIndent && reNewBlock.indexIn(txt) > -1) {
             indentLevel.append(chrCount);
             blockIndent = -1; // don't indent this row
-            if (mCommentChr != 0)
+            if (!mCommentChr.isNull())
                 ++mCommentIndents;
         }
 
@@ -1376,7 +1369,7 @@ void PythonEditorCodeAnalyzer::OnChange(Base::Subject<const char *> &rCaller,
             d->editor->removeEventFilter(this);
         }
     } else if(strcmp(rcReason, "PopupTimeoutTime") == 0) {
-        d->parseTimeoutMs = hPrefGrp->GetInt("PopupTimeoutTime", 300);
+        d->parseTimeoutMs = static_cast<int>(hPrefGrp->GetInt("PopupTimeoutTime", 300));
     }
 }
 
@@ -1593,11 +1586,11 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (!textData)
         return false;
     const Python::Token *tok = textData->tokenAt(posInLine - 1);
-    if (!tok || tok->type == Python::Token::T_Comment ||
-         tok->type == Python::Token::T_LiteralBlockDblQuote ||
-         tok->type == Python::Token::T_LiteralBlockSglQuote ||
-         tok->type == Python::Token::T_LiteralDblQuote ||
-         tok->type == Python::Token::T_LiteralSglQuote)
+    if (!tok || tok->type() == Python::Token::T_Comment ||
+         tok->type() == Python::Token::T_LiteralBlockDblQuote ||
+         tok->type() == Python::Token::T_LiteralBlockSglQuote ||
+         tok->type() == Python::Token::T_LiteralDblQuote ||
+         tok->type() == Python::Token::T_LiteralSglQuote)
     {
         return false;  // not a token we care about
     }

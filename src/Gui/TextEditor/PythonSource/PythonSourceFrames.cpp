@@ -978,7 +978,7 @@ store_module:
             imp = m_imports.setModule(all, modules.front());
         }
         Python::SourceRoot::TypeInfo typeInfo(imp->type());
-        m_identifiers.setIdentifier(aliasTok, typeInfo);
+        m_identifiers.setIdentifier(aliasTok ? aliasTok : moduleTok, typeInfo);
 
         alias.clear();
         importPackages.clear();

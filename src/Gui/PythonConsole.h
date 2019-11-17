@@ -257,12 +257,13 @@ class GuiExport PythonConsoleHighlighter : public Python::SyntaxHighlighter
 {
 public:
     PythonConsoleHighlighter(QObject* parent);
-    ~PythonConsoleHighlighter();
+    ~PythonConsoleHighlighter() override;
 
-    void highlightBlock (const QString & text);
+    void highlightBlock (const QString & text) override;
 
 protected:
-    void colorChanged(const QString& type, const QColor& col);
+    void colorChanged(const QString& type, const QColor& col) override;
+    Python::Token::Type unhandledState(uint &pos, int state, const std::string &text) override;
 };
 
 } // namespace Gui

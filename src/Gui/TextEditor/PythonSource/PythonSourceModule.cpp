@@ -9,11 +9,11 @@ using namespace Gui;
 
 
 Python::SourceModule::SourceModule(Python::SourceRoot *root,
-                                   Python::SyntaxHighlighter *highlighter) :
+                                   Tokenizer *tokenizer) :
     Python::SourceListParentBase(this),
     m_root(root),
     m_rootFrame(this, this),
-    m_highlighter(highlighter)
+    m_tokenizer(tokenizer)
 {
 }
 
@@ -173,12 +173,12 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
 
 void Python::SourceModule::tokenTypeChanged(const Python::Token *tok) const
 {
-    if (m_highlighter)
-        m_highlighter->tokenTypeChanged(tok);
+    if (m_tokenizer)
+        m_tokenizer->tokenTypeChanged(tok);
 }
 
 int Python::SourceModule::compare(const Python::SourceListNodeBase *left,
-                                const Python::SourceListNodeBase *right)
+                                const Python::SourceListNodeBase *right) const
 {
     const Python::SourceModule *l = dynamic_cast<const Python::SourceModule*>(left),
                              *r = dynamic_cast<const Python::SourceModule*>(right);
@@ -289,18 +289,12 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::s
 {
     DEFINE_DBG_VARS
 
-    Python::TextBlockScanInfo *scanInfo = tok->ownerLine()->scanInfo();
-    if (!scanInfo) {
-        scanInfo = new Python::TextBlockScanInfo();
-        tok->txtBlock()->setScanInfo(scanInfo);
-    }
-
-    scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::SyntaxError);
+    Python::TokenScanInfo *scanInfo = tok->ownerLine()->tokenScanInfo(true);
+    scanInfo->setParseMessage(tok, parseMessage, TokenScanInfo::SyntaxError);
 
     // create format with default format for syntax error
     const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
-    if (m_highlighter)
-        m_highlighter->tokenTypeChanged(tok);
+    m_tokenizer->tokenTypeChanged(tok);
 
     // set text underline of all text in here
     // move to beginning of text
@@ -326,8 +320,7 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::s
     }
     // then move down the line til first whitespace
     while(startTok && startTok->isCode()) {
-        if (m_highlighter)
-            m_highlighter->setSyntaxError(tok);
+        m_tokenizer->setSyntaxError(tok);
 
         // previous token
         if (startTok->previous()) {
@@ -341,19 +334,14 @@ void Python::SourceModule::setIndentError(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
-    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
-    if (!scanInfo) {
-        scanInfo = new Python::TextBlockScanInfo();
-        tok->txtBlock()->setScanInfo(scanInfo);
-    }
+    Python::TokenScanInfo *scanInfo = tok->ownerLine()->tokenScanInfo(true);
 
-    scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), TextEditBlockScanInfo::IndentError);
+    scanInfo->setParseMessage(tok, "Unexpected indent", TokenScanInfo::IndentError);
 
     const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
     tokenTypeChanged(tok);
 
-    if (m_highlighter)
-        m_highlighter->setIndentError(tok);
+    m_tokenizer->setIndentError(tok);
 }
 
 void Python::SourceModule::setLookupError(const Python::Token *tok, const std::string &parseMessage) const
@@ -361,32 +349,24 @@ void Python::SourceModule::setLookupError(const Python::Token *tok, const std::s
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
 
-    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
-    if (!scanInfo) {
-        scanInfo = new Python::TextBlockScanInfo();
-        tok->txtBlock()->setScanInfo(scanInfo);
-    }
+    Python::TokenScanInfo *scanInfo = tok->ownerLine()->tokenScanInfo(true);
 
-    if (parseMessage.isEmpty())
-        parseMessage = QString::fromLatin1("Can't lookup identifier '%1'").arg(tok->text());
-
-    scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::LookupError);
+    if (parseMessage.empty())
+        scanInfo->setParseMessage(tok, "Can't lookup identifier '" + tok->text() + "'",
+                                  TokenScanInfo::LookupError);
+    else
+        scanInfo->setParseMessage(tok, parseMessage, TokenScanInfo::LookupError);
 }
 
 void Python::SourceModule::setMessage(const Python::Token *tok, const std::string &parseMessage) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
-    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
-    if (!scanInfo) {
-        scanInfo = new Python::TextBlockScanInfo();
-        tok->txtBlock()->setScanInfo(scanInfo);
-    }
+    Python::TokenScanInfo *scanInfo = tok->ownerLine()->tokenScanInfo(true);
 
-    scanInfo->setParseMessage(tok, parseMessage, Python::TextBlockScanInfo::Message);
+    scanInfo->setParseMessage(tok, parseMessage, TokenScanInfo::Message);
 
-    if (m_highlighter)
-        m_highlighter->setMessage(tok);
+    m_tokenizer->setMessage(tok);
 }
 
 

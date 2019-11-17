@@ -1720,8 +1720,32 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
 
 void PythonConsoleHighlighter::colorChanged(const QString& type, const QColor& col)
 {
-    Q_UNUSED(type); 
-    Q_UNUSED(col); 
+    Q_UNUSED(type)
+    Q_UNUSED(col)
+}
+
+Python::Token::Type PythonConsoleHighlighter::unhandledState(uint &pos, int state,
+                                                             const std::string &text)
+{
+    // pythonCosole has some special values
+    Python::Token::Type newState = Python::Token::T_Invalid;
+    if (state == Python::Token::T_PythonConsoleError ||
+        state == Python::Token::T_PythonConsoleOutput)
+    {
+        TColor color = state == Python::Token::T_PythonConsoleOutput ?
+                                                    PythonConsoleOutput :
+                                                        PythonConsoleError;
+        if (pos == 0 && text.length() >= 4) {
+            if (text.substr(0, 4) == ">>> " ||
+                text.substr(0, 4) == "... ")
+            {
+                setFormat(0, 4, colorByType(color));
+                newState = Python::Token::T_Undetermined;
+                pos += 3;
+            }
+        }
+    }
+    return newState;
 }
 
 // ---------------------------------------------------------------------

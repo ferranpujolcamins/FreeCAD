@@ -195,9 +195,9 @@ public:
      *         such as '{' in C like languages or ':' in python
      *         +1 = blockstart, -1 = blockend, -2 = 2 blockends ie '}}'
      */
-    int blockState() const { return m_blockStateCnt; }
-    int incBlockState() { return ++m_blockStateCnt; }
-    int decBlockState() { return --m_blockStateCnt; }
+    virtual int blockState() const { return m_blockStateCnt; }
+    virtual int incBlockState() { return ++m_blockStateCnt; }
+    virtual int decBlockState() { return --m_blockStateCnt; }
 
     /**
      * @brief foldBlockEvt folds (makes invisible) this block and increments foldCounter
@@ -235,6 +235,7 @@ public:
     /**
      * @brief setScanInfo set class with parsemessages
      * @param scanInfo instance of PythonTextBlockScanInfo
+     *                 this takes ownership of scanInfo
      */
     void setScanInfo(TextEditBlockScanInfo *scanInfo) { m_scanInfo = scanInfo; }
 
@@ -257,15 +258,19 @@ class TextEditBlockScanInfo
 public:
     enum MsgType { Message, LookupError, SyntaxError, IndentError, Warning, AllMsgTypes };
     struct ParseMsg {
-        explicit ParseMsg(QString message, int start, int end, MsgType type) :
-                    message(message), startPos(start),
-                    endPos(end), type(type)
-        {}
-        ~ParseMsg() {}
-        QString message;
-        int startPos;
-        int endPos;
-        MsgType type;
+    public:
+        explicit ParseMsg(QString message, int start, int end, MsgType type);
+        ~ParseMsg();
+        QString msgTypeAsString() const;
+        QString message() const;
+        int startPos() const;
+        int endPos() const;
+        MsgType type() const;
+
+    private:
+        QString m_message;
+        int m_startPos, m_endPos;
+        MsgType m_type;
     };
     typedef QList<ParseMsg> parsemsgs_t;
     explicit TextEditBlockScanInfo();

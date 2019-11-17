@@ -57,6 +57,9 @@
 
 #include <App/Application.h>
 
+#define NOEXCEPTIONS_DEVEL_MODE 1
+
+
 using namespace Gui;
 
 GUIApplication::GUIApplication(int & argc, char ** argv)
@@ -83,12 +86,16 @@ bool GUIApplication::notify (QObject * receiver, QEvent * event)
             (int)event->type());
         return false;
     }
+#ifndef NOEXCEPTIONS_DEVEL_MODE
     try {
+#endif
         if (event->type() == Spaceball::ButtonEvent::ButtonEventType || 
             event->type() == Spaceball::MotionEvent::MotionEventType)
             return processSpaceballEvent(receiver, event);
         else
             return QApplication::notify(receiver, event);
+
+#ifndef NOEXCEPTIONS_DEVEL_MODE
     }
     catch (const Base::SystemExitException &e) {
         caughtException.reset(new Base::SystemExitException(e));
@@ -134,6 +141,7 @@ bool GUIApplication::notify (QObject * receiver, QEvent * event)
     }
 
     return true;
+#endif
 }
 
 void GUIApplication::commitData(QSessionManager &manager)

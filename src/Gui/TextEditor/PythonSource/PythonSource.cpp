@@ -1,5 +1,7 @@
 #include "PythonSource.h"
 #include <algorithm>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 DBG_TOKEN_FILE
 
@@ -17,14 +19,40 @@ Python::FileInfo::~FileInfo()
 {
 }
 
-bool Python::FileInfo::fileExists(const std::string &file)
+bool Python::FileInfo::fileExists() const
 {
-
+    return FileInfo::fileExists(m_path);
 }
 
+bool Python::FileInfo::dirExists() const
+{
+    return FileInfo::dirExists(dirName());
+}
+
+// static
+bool Python::FileInfo::fileExists(const std::string &file)
+{
+    struct stat info;
+
+    if(stat(file.c_str(), &info ) == 0 &&
+       info.st_mode & S_IFREG)
+    {
+        return true;
+    }
+    return false;
+}
+
+// static
 bool Python::FileInfo::dirExists(const std::string &dir)
 {
+    struct stat info;
 
+    if(stat(dir.c_str(), &info ) == 0 &&
+       info.st_mode & S_IFDIR)
+    {
+        return true;
+    }
+    return false;
 }
 
 std::string Python::FileInfo::baseName() const

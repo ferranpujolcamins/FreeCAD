@@ -35,9 +35,9 @@ class GuiExport SyntaxHighlighter : public Gui::SyntaxHighlighter,
     Q_OBJECT
 public:
     SyntaxHighlighter(QObject* parent);
-    virtual ~SyntaxHighlighter();
+    ~SyntaxHighlighter() override;
 
-    void highlightBlock (const QString & text);
+    void highlightBlock (const QString & text) override;
 
 
     /// masks for decoding userState()
@@ -58,9 +58,9 @@ public:
     void tokenTypeChanged(const Python::Token *tok) const override;
 
     /// these formats a line in a predefined maner to to highlight were the error occured
-    void setMessage(const Python::Token *tok) const;
-    void setIndentError(const Python::Token *tok) const;
-    void setSyntaxError(const Python::Token *tok) const;
+    void setMessage(const Python::Token *tok) const override;
+    void setIndentError(const Python::Token *tok) const override;
+    void setSyntaxError(const Python::Token *tok) const override;
 
     /// inserts a new format for token
     void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
@@ -70,11 +70,6 @@ public:
     QString filePath() const;
 
 protected:
-    // tokenizes block, called by highlightBlock when text have changed
-    //int tokenize(const QString &text, int &parenCnt, bool &isParamLine);
-
-    Python::Token::Type unhandledState(uint &pos, int state, const std::string &text) override;
-
     /// sets (re-colors) txt contained from token
     void tokenUpdated(const Python::Token *tok) override;
 
@@ -83,39 +78,6 @@ private Q_SLOTS:
 
 private:
     SyntaxHighlighterP* d;
-
-    /*
-
-    //const QString getWord(int pos, const QString &text) const;
-    int lastWordCh(int startPos, const std::string &text) const;
-    int lastNumberCh(int startPos, const std::string &text) const;
-    int lastDblQuoteStringCh(int startAt, const std::string &text) const;
-    int lastSglQuoteStringCh(int startAt, const std::string &text) const;
-    Python::Token::Type numberType(const std::string &text) const;
-
-    Token *setRestOfLine(int &pos, const std::string &text, Python::Token::Type tokType);
-    Token *scanIndentation(int &pos, const std::string &text);
-
-    Token *setWord(int &pos, int len, Python::Token::Type tokType);
-
-    Token *setIdentifier(int &pos, int len, Python::Token::Type tokType);
-    Token *setUndeterminedIdentifier(int &pos, int len, Python::Token::Type tokType);
-
-    Token *setNumber(int &pos, int len, Python::Token::Type tokType);
-
-    Token *setOperator(int &pos, int len, Python::Token::Type tokType);
-
-    Token *setDelimiter(int &pos, int len, Python::Token::Type tokType);
-
-    Token *setSyntaxError(int &pos, int len);
-
-    Token *setLiteral(int &pos, int len, Python::Token::Type tokType);
-
-    // this is special can only be one per line
-    // T_Indentation(s) token is generated related when looking at lines above as described in
-    // https://docs.python.org/3/reference/lexical_analysis.html#indentation
-    Token *setIndentation(int &pos, int len, int count);
-    */
 
 };
 
@@ -159,7 +121,6 @@ private:
 
 // -----------------------------------------------------------------------
 class TextBlockScanInfo;
-
 class TextBlockData : public Gui::TextEditBlockData,
                       public Python::TokenLine
 {
@@ -168,7 +129,7 @@ public:
     explicit TextBlockData(QTextBlock block, TokenList *tokenList,
                            Token *startTok = nullptr);
     TextBlockData(const TextBlockData &other);
-    ~TextBlockData();
+    ~TextBlockData() override;
 
     static Python::TextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
 
@@ -214,6 +175,11 @@ public:
      * @param scanInfo instance of PythonTextBlockScanInfo
      */
     void setScanInfo(Python::TextBlockScanInfo *scanInfo);
+
+
+    int blockState() const override;
+    int incBlockState() override;
+    int decBlockState() override;
 
 protected:
     /**

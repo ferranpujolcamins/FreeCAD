@@ -257,7 +257,7 @@ DumpSyntaxTokens::DumpSyntaxTokens(QTextBlock firstBlock, const char *outfile):
         if (txtData == nullptr)
             break;
         for (Python::Token *tok : txtData->tokens()) {
-            fprintf(m_file, " %s", tokenToCStr(tok->type));
+            fprintf(m_file, " %s", tokenToCStr(tok->type()));
         }
         fprintf(m_file, "¶\n");
         txtBlock = txtBlock.next();
@@ -312,22 +312,25 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
     } else {
         // its a token line, and we have parent
         int parentline = (idx & SRC_ROW_MASK) >> SRC_ROW_SHIFT;
-        int tokIdx = idx & TOK_ROW_MASK;
+        uint tokIdx = idx & TOK_ROW_MASK;
         auto txtData = getTextBlock(parentline - 1);
-        if (txtData && txtData->tokens().size() > tokIdx) {
-            const Python::Token *tok = txtData->tokens()[tokIdx];
-            if (tok) {
-                DBG_TOKEN(tok)
-                if (index.column() == 0) {
-                    if (role == Qt::ForegroundRole)
-                        return QBrush(QColor(0, 0, 170));
-                    return QString::fromLatin1("s:%1 e:%2")
-                            .arg(tok->startPos)
-                            .arg(tok->endPos);
-                } else if (index.column() == 1) {
-                    if (role == Qt::ForegroundRole)
-                        return QBrush(QColor(0, 0, 120));
-                    return QString::fromLatin1(tokenToCStr(tok->type));
+        if (txtData) {
+            const std::list<Python::Token*> &tokens = txtData->tokens();
+            if (txtData->tokens().size() > tokIdx) {
+                const Python::Token *tok = *std::next(tokens.begin(), tokIdx);
+                if (tok) {
+                    DBG_TOKEN(tok)
+                    if (index.column() == 0) {
+                        if (role == Qt::ForegroundRole)
+                            return QBrush(QColor(0, 0, 170));
+                        return QString::fromLatin1("s:%1 e:%2")
+                                .arg(tok->startPos())
+                                .arg(tok->endPos());
+                    } else if (index.column() == 1) {
+                        if (role == Qt::ForegroundRole)
+                            return QBrush(QColor(0, 0, 120));
+                        return QString::fromLatin1(tokenToCStr(tok->type()));
+                    }
                 }
             }
         }
@@ -339,7 +342,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
 Qt::ItemFlags TokenModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
-        return 0;
+        return nullptr;
 
     return QAbstractItemModel::flags(index);
 }
@@ -365,7 +368,7 @@ QModelIndex TokenModel::index(int row, int column, const QModelIndex &parent) co
         // its the tokens row
         std::intptr_t idx = reinterpret_cast<std::intptr_t>(parent.internalPointer());
         auto txtData = getTextBlock((idx >> SRC_ROW_SHIFT) -1);
-        if (txtData && row < txtData->tokens().size()){
+        if (txtData && static_cast<int>(row) < txtData->tokens().size()){
             idx = (idx & SRC_ROW_MASK) | row;
             return createIndex(row, column, reinterpret_cast<void*>(idx));
         }
@@ -413,7 +416,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
             // its a src row
             auto txtData = getTextBlock(line -1);
             if (txtData)
-                return txtData->tokens().size();
+                return static_cast<int>(txtData->tokens().size());
         }
         // its a tokens row or fail txtData
         return 0;
@@ -439,7 +442,7 @@ void TokenModel::refreshAll()
 
 const Python::TextBlockData *TokenModel::getTextBlock(long line) const
 {
-    QTextBlock block = m_editor->document()->findBlockByLineNumber(line);
+    QTextBlock block = m_editor->document()->findBlockByLineNumber(static_cast<int>(line));
     if (!block.isValid())
         return nullptr;
 
@@ -511,7 +514,8 @@ void DebugWindow::dumpFrames()
 
     //DumpSyntaxTokens dump(document()->begin());
     QString fileName = m_editor->fileName();
-    Python::SourceModule *module = Python::SourceRoot::instance()->moduleFromPath(fileName);
+    Python::SourceModule *module =
+            Python::SourceRoot::instance()->moduleFromPath(fileName.toStdString());
     Python::DumpModule dMod(module, tmpFilePtr);
 
     rewind(tmpFilePtr);

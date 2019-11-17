@@ -13,6 +13,7 @@ class TextBlockData;
 class TokenList;
 class TokenLine;
 class Tokenizer;
+class TokenScanInfo;
 
 class Token
 {
@@ -414,13 +415,13 @@ class TokenLine {
     Python::TokenList *m_ownerList;
     Python::Token *m_startTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
+    Python::TokenScanInfo *m_tokenScanInfo;
     std::string m_text;
 
     std::vector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
                                         //  (so context parser can detemine it later)
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
-    int m_parenCnt, m_bracketCnt, m_braceCnt;
-
+    int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
 
 public:
     explicit TokenLine(Python::TokenList *ownerList,
@@ -441,7 +442,7 @@ public:
     /// returns the number of tokens
     uint count() const;
     /// true if line is empty
-    bool empty() const { return m_startTok != nullptr; }
+    bool empty() const { return m_startTok == nullptr; }
 
     /// returns the number of chars that starts this line
     int indent() const;
@@ -466,6 +467,15 @@ public:
     int &bracketCntRef() { return m_bracketCnt; }
     int &braceCntRef() { return  m_braceCnt; }
 
+
+    /// blockState tells if this block starts a new block,
+    ///         such as '{' in C like languages or ':' in python
+    ///         +1 = blockstart, -1 = blockend, -2 = 2 blockends ie '}}'
+    virtual int blockState() const { return m_blockStateCnt; }
+    virtual int incBlockState() { return ++m_blockStateCnt; }
+    virtual int decBlockState() { return --m_blockStateCnt; }
+
+    bool operator== (const Python::TokenLine &rhs) const;
 
 
     // accessor methods
@@ -529,9 +539,22 @@ public:
     /// stores this token id as needing a parse tree lookup to determine the tokenType
     Python::Token *newUndeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
 
+
+    ///tokenScanInfo contains messages for a specific code line/col
+    /// if initScanInfo is true it also creates a container if not existing
+    TokenScanInfo *tokenScanInfo(bool initScanInfo = false);
+
+
 private:
     /// set indentcount
     void setIndentCount(uint count);
+
+    /// needed because offset when multiple inheritance
+    /// returns the real pointer to this instance, not to subclass
+    Python::TokenLine *instance() const {
+        return static_cast<Python::TokenLine*>(
+                    const_cast<Python::TokenLine*>(this));
+    }
 
     friend class Python::TokenList;
     friend class Python::Tokenizer;
@@ -554,6 +577,11 @@ public:
     void setFilePath(const std::string &filePath);
     const std::string &filePath() const;
 
+    /// event callbacks, subclass may override these to get info
+    virtual void setMessage(const Python::Token *tok) const { (void)tok; }
+    virtual void setIndentError(const Python::Token *tok) const { (void)tok; }
+    virtual void setSyntaxError(const Python::Token *tok) const { (void)tok; }
+
 protected:
     Python::TokenizerP *d_tok;
 
@@ -569,6 +597,7 @@ protected:
     Python::Token::Type &endStateOfLastParaRef() const;
     Python::TokenLine *activeLine() const;
     void setActiveLine(Python::TokenLine *line);
+
 
 private:
     uint lastWordCh(uint startPos, const std::string &text) const;
@@ -589,6 +618,43 @@ private:
     void setLiteral(uint &pos, uint len, Python::Token::Type tokType);
     void setIndentation(uint &pos, uint len, uint count);
 
+};
+
+// ------------------------------------------------------------------------------------------
+
+class TokenScanInfo
+{
+public:
+    enum MsgType { Message, LookupError, SyntaxError, IndentError, Warning, Issue, AllMsgTypes };
+    struct ParseMsg {
+    public:
+        explicit ParseMsg(const std::string &message, const Python::Token *tok, MsgType type);
+        ~ParseMsg();
+        const std::string msgTypeAsString() const;
+        const std::string message() const;
+        const Python::Token *token() const;
+        MsgType type() const;
+
+    private:
+        std::string m_message;
+        const Python::Token *m_token;
+        MsgType m_type;
+    };
+    explicit TokenScanInfo();
+    virtual ~TokenScanInfo();
+    /// create a new parsemsg attached to token
+    void setParseMessage(const Python::Token *tok, const std::string &msg, MsgType type);
+    /// get all parseMessage attached to token
+    /// filter by type
+    const std::list<const ParseMsg*> getParseMessages(const Python::Token *tok,
+                                                      MsgType type = AllMsgTypes) const;
+    /// remove all messages attached to tok, returns number of deleted parseMessages
+    int clearParseMessages(const Python::Token *tok);
+
+    std::list<const ParseMsg*> allMessages() const;
+
+private:
+    std::list<const ParseMsg*> m_parseMsgs;
 };
 
 

@@ -215,7 +215,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
 
     QList<const Python::Token*> chain;
     const Python::Token *tok = needleTok;
-    bool lookupSubItm = needleTok->type == Python::Token::T_DelimiterOpenBracket;
+    bool lookupSubItm = needleTok->type() == Python::Token::T_DelimiterOpenBracket;
     if (lookupSubItm)
         PREV_TOKEN(tok)
     // search up to root ie cls.attr.dict[stringVariable]
@@ -225,7 +225,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
     while (tok){
         if (tok->isIdentifierVariable()) {
             chain.prepend(tok);
-        } else if (tok->type != Python::Token::T_DelimiterPeriod)
+        } else if (tok->type() != Python::Token::T_DelimiterPeriod)
             break;
         PREV_TOKEN(tok)
     }
@@ -234,7 +234,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
         return nullptr;
 
     for (int i = 0; i < chain.size(); ++i) {
-        keyObj = PY_FROM_STRING(chain[i]->text().toLatin1().data());
+        keyObj = PY_FROM_STRING(chain[i]->text().c_str());
         if (keyObj != nullptr) {
             Py_INCREF(keyObj);
             do {
@@ -254,7 +254,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
                 // if we get here we have found what we want
                 if (i == chain.size() -1) {
                     // found the last part
-                    foundKey = chain[i]->text();
+                    foundKey = QString::fromStdString(chain[i]->text());
                 }
             } while(false); // bust of 1 time loop
 
@@ -271,7 +271,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
         DBG_TOKEN(tok)
         // move to last code before next ']' etc
         while(tok) {
-            if (tok->type == Python::Token::T_DelimiterOpenBracket) {
+            if (tok->type() == Python::Token::T_DelimiterOpenBracket) {
                 NEXT_TOKEN(tok)
                 needle = getDeepObject(outObj, tok, tmp);
                 break;
@@ -279,10 +279,10 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
                 needle = getDeepObject(outObj, tok, tmp);
                 break;
             } else if (tok->isNumber()) {
-                needle = PY_LONG_FROM_STRING(tok->text().toLatin1().data(), nullptr, 0);
+                needle = PY_LONG_FROM_STRING(tok->text().c_str(), nullptr, 0);
                 if (!needle)
                     PyErr_Clear();
-            } else if (tok->type != Python::Token::T_DelimiterPeriod) {
+            } else if (tok->type() != Python::Token::T_DelimiterPeriod) {
                 break;
             }
             NEXT_TOKEN(tok)

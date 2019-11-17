@@ -65,8 +65,10 @@ class FileInfo {
 public:
     explicit FileInfo(const std::string path);
     ~FileInfo();
-    bool fileExists(const std::string &file);
-    bool dirExists(const std::string &dir);
+    bool fileExists() const;
+    bool dirExists() const;
+    static bool fileExists(const std::string &file);
+    static bool dirExists(const std::string &dir);
     std::string baseName() const;
     std::string dirName(int parentFolderCnt = 0) const;
     inline static char dirSeparator();

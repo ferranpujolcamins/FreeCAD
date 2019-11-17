@@ -156,7 +156,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
     if (tok || !tok->isIdentifier())
         return tp;
 
-    switch (tok->type) {
+    switch (tok->type()) {
     case Python::Token::T_IdentifierBuiltin:
         return builtinType(tok, frame);
     case Python::Token::T_IdentifierClass:
@@ -197,7 +197,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
         return tp;
     default: {
         // invalid?
-        std::cout << "Invalid token: id:" + std::to_string(tok->type) +
+        std::cout << "Invalid token: id:" + std::to_string(tok->type()) +
                      " with text:" << tok->text() << std::endl;
 #ifdef DEBUG_TOKENS
         assert(tp.thisType.type != Python::SourceRoot::InValidType && "Invalid Token!");
@@ -214,7 +214,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::T
     Q_UNUSED(frame)
     TypeInfoPair tp;
 
-    if (tok && tok->type == Python::Token::T_IdentifierBuiltin) {
+    if (tok && tok->type() == Python::Token::T_IdentifierBuiltin) {
         const std::string text = tok->text();
         // handle built in functions
 
@@ -378,7 +378,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::T
             tp.returnType.type = ReferenceImportType;
 
         // handle @methods
-        } else if (tok->type == Python::Token::T_IdentifierDecorator) {
+        } else if (tok->type() == Python::Token::T_IdentifierDecorator) {
             if (text == "@classmethod") {
                 tp.returnType.type = ClassMethodDescriptorType;
             }
@@ -389,7 +389,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::T
 
 Python::SourceRoot::DataTypes Python::SourceRoot::numberType(const Python::Token *tok) const
 {
-    switch (tok->type) {
+    switch (tok->type()) {
     case Python::Token::T_NumberFloat:
         return FloatType;
     case Python::Token::T_NumberBinary:
@@ -408,11 +408,11 @@ bool Python::SourceRoot::isLineEscaped(const Python::Token *tok) const {
     int guard = 40;
     bool escaped = false;
     while (tok && (guard--)) {
-        if (tok->type == Python::Token::T_DelimiterLineContinue)
+        if (tok->type() == Python::Token::T_DelimiterLineContinue)
             escaped = true;
         else
             escaped = false;
-        if (tok->type == Python::Token::T_DelimiterNewLine)
+        if (tok->type() == Python::Token::T_DelimiterNewLine)
             break;
         NEXT_TOKEN(tok)
     }
@@ -444,9 +444,10 @@ Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(co
 }
 
 Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &filePath,
-                                                         Python::SyntaxHighlighter *highlighter)
+                                                            Python::Tokenizer *tokenizer)
 {
     DEFINE_DBG_VARS
+    assert(tokenizer != nullptr && "Must have a valid tokenizer");
 
     // delete old data
     Python::SourceModule *mod = moduleFromPath(filePath);
@@ -456,37 +457,20 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
     }
 
     // create a new module
-    mod = new Python::SourceModule(this, highlighter);
+    mod = new Python::SourceModule(this, tokenizer);
     mod->setFilePath(filePath);
     Python::FileInfo fi(filePath);
     mod->setModuleName(fi.baseName());
     m_modules->insert(mod);
 
     // find the first token of any kind
-    // firstline might be empty
-    if (highlighter && highlighter->document()) {
-        QTextBlock block = highlighter->document()->begin();
-        const Python::TokenLine *tokLine = nullptr;
-        if (block.isValid())
-            // FIXME port to tokenizer instead of document
-            tokLine = dynamic_cast<Python::TextBlockD  ata*>(block.userData());
-
-        if (!tokLine)
-            highlighter->rehighlight();
-        else {
-            // find first token, first row might be empty
-            while(tokLine->empty() &&
-                  (tokLine = tokLine->nextLine()))
-                ;
-            if (tokLine) {
-                Python::Token *tok = tokLine->front();
-                if (tok) {
-                    DBG_TOKEN(tok)
-                    mod->scanFrame(tok);
-                }
-            }
-        }
+    if (!tokenizer->list().empty()) {
+        Python::Token *tok = tokenizer->list().front();
+        assert(tok != nullptr && "Tokenizer !empty but has no front item");
+        DBG_TOKEN(tok)
+        mod->scanFrame(tok);
     }
+
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     {
         //DumpSyntaxTokens dump(document()->begin());
@@ -498,12 +482,12 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
 
 Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const std::string &filePath,
                                                           Python::TokenLine *row,
-                                                          Python::SyntaxHighlighter *highlighter)
+                                                          Python::Tokenizer *tokenizer)
 {
     Python::SourceModule *mod = moduleFromPath(filePath);
     if (!mod) {
         // create a new module
-        mod = new Python::SourceModule(this, highlighter);
+        mod = new Python::SourceModule(this, tokenizer);
         mod->setFilePath(filePath);
         Python::FileInfo fi(filePath);
         mod->setModuleName(fi.baseName());
@@ -559,7 +543,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
     static const int maxStatements = 50;
     int pos = 0; // use as guard for max tokens and parenPos
     do {
-        switch (tok->type) {
+        switch (tok->type()) {
         case Python::Token::T_DelimiterOpenParen:
             if (parenOpenCnt != parenCloseCnt) {
                 frame->module()->setSyntaxError(tok, "Parens mismatch '('..')' in statement");
@@ -665,13 +649,13 @@ const Python::Token
     DBG_TOKEN(tok)
 
     while(tok && (guard--)) {
-        switch (tok->type) {
+        switch (tok->type()) {
         case Python::Token::T_DelimiterOpenParen:
  //           ++parenCnt;
             // recurse into this '(..)'
             return computeStatementResultType(frame, tok->next(), typeInfo);
 //            goto next_loop;
-            break;
+//            break;
         case Python::Token::T_DelimiterCloseParen:
 //            --parenCnt;
             break;
@@ -855,9 +839,8 @@ const char* Python::SourceRoot::TypeInfo::typeAsCStr() const
             return customName().c_str();
         }
         return errStr;
-        break;
-    default:
-        return errStr;
+    //default:
+    //    return errStr;
     }
 
     return typeAsStr;

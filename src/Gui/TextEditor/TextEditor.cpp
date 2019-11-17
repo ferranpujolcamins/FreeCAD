@@ -91,14 +91,15 @@ struct TextEditorP
     ~TextEditorP()
     { }
 };
+
 } // namespace Gui
 
 /**
  *  Constructs a TextEditor which is a child of 'parent' and does the
- *  syntax highlighting for the Python language. 
+ *  syntax highlighting for the Python language.
  */
 TextEditor::TextEditor(QWidget* parent)
-  : QPlainTextEdit(parent), WindowParameter("Editor"), highlighter(nullptr)
+    : QPlainTextEdit(parent), WindowParameter("Editor"), highlighter(nullptr)
 {
     d = new TextEditorP();
     lineNumberArea = new LineMarkerArea(this);
@@ -894,7 +895,7 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     while (block.isValid() && top <= event->rect().bottom()) {
         if (bottom >= event->rect().top()) {
             if (d->lineNumberActive && block.isVisible()) {
-                // we should point linenumbers
+                // we should paint linenumbers
                 QString number = QString::number(blockNumber + 1);
                 QFont font = d->textEditor->font();
                 QColor color = palette().buttonText().color();
@@ -1059,6 +1060,8 @@ TextEditBlockData::TextEditBlockData(const TextEditBlockData &other):
 
 TextEditBlockData::~TextEditBlockData()
 {
+    if (m_scanInfo)
+        delete m_scanInfo;
 }
 
 TextEditBlockData *TextEditBlockData::blockDataFromCursor(const QTextCursor &cursor)
@@ -1113,6 +1116,49 @@ void TextEditBlockData::unfoldedEvt()
 
 // ------------------------------------------------------------------------------------
 
+TextEditBlockScanInfo::ParseMsg::ParseMsg(QString message, int start, int end, TextEditBlockScanInfo::MsgType type) :
+    m_message(message), m_startPos(start),
+    m_endPos(end), m_type(type)
+{}
+
+TextEditBlockScanInfo::ParseMsg::~ParseMsg()
+{
+}
+
+QString TextEditBlockScanInfo::ParseMsg::msgTypeAsString() const
+{
+    switch (m_type) {
+    case Message: return QLatin1String("Message");
+    case LookupError: return QLatin1String("LookupError");
+    case SyntaxError: return QLatin1String("SyntaxError");
+    case IndentError: return QLatin1String("IndentError");
+    case Warning: return QLatin1String("Warning");
+    //case AllMsgTypes:
+    default: return QLatin1String("UnknownError");
+    }
+}
+
+QString TextEditBlockScanInfo::ParseMsg::message() const
+{
+    return m_message;
+}
+
+int TextEditBlockScanInfo::ParseMsg::startPos() const
+{
+    return m_startPos;
+}
+
+int TextEditBlockScanInfo::ParseMsg::endPos() const
+{
+    return m_endPos;
+}
+
+TextEditBlockScanInfo::MsgType TextEditBlockScanInfo::ParseMsg::type() const
+{
+    return m_type;
+}
+
+// ------------------------------------------------------------------------------------
 
 TextEditBlockScanInfo::TextEditBlockScanInfo()
 {
@@ -1134,10 +1180,10 @@ const TextEditBlockScanInfo::ParseMsg
                                           TextEditBlockScanInfo::MsgType type) const
 {
     for (const ParseMsg &msg : m_parseMessages) {
-        if (msg.startPos <= startPos && msg.endPos >= endPos) {
+        if (msg.startPos() <= startPos && msg.endPos() >= endPos) {
             if (type == AllMsgTypes)
                 return &msg;
-            else if (msg.type == type)
+            else if (msg.type() == type)
                 return &msg;
             break;
         }
@@ -1149,7 +1195,7 @@ QString TextEditBlockScanInfo::parseMessage(int col, MsgType type) const
 {
     const ParseMsg *parseMsg = getParseMessage(col, col, type);
     if (parseMsg)
-        return parseMsg->message;
+        return parseMsg->message();
     return QString();
 }
 
@@ -1158,7 +1204,7 @@ void TextEditBlockScanInfo::clearParseMessage(int col)
     int idx = -1;
     for (ParseMsg &msg : m_parseMessages) {
         ++idx;
-        if (msg.startPos <= col && msg.endPos >= col)
+        if (msg.startPos() <= col && msg.endPos() >= col)
             m_parseMessages.removeAt(idx);
     }
 }

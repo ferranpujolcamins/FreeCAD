@@ -29,7 +29,7 @@ DumpModule::DumpModule(Python::SourceModule *module, FILE *fp) :
 void DumpModule::create()
 {
     if (m_module) {
-        fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().toLatin1().data(), datetimeStr());
+        fprintf(m_file, "dump for module %s at %s\n", m_module->moduleName().c_str(), datetimeStr());
 
         const Python::SourceFrame *rootFrm =  m_module->rootFrame();
         fprintf(m_file, "Startframe->isModule:%d\n", rootFrm->isModule());
@@ -62,13 +62,13 @@ void DumpModule::dumpFrame(const Python::SourceFrame *frm, int indent)
 
     fprintf(m_file, "%s---------------------------------------------------\n", indentStr);
     fprintf(m_file, "%sStarting new frame, startToken:%s(line:%d), endToken:%s(line:%d)\n", indentStr,
-            Syntax::tokenToCStr(frm->token()->type), frm->token()->line() +1,
-            frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->type) : "-1",
+            Syntax::tokenToCStr(frm->token()->type()), frm->token()->line() +1,
+            frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->type()) : "-1",
             frm->lastToken() ? frm->lastToken()->line() +1 : -1);
 
     DBG_TOKEN(frm->lastToken())
 
-    fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().toLatin1().data(),
+    fprintf(m_file, "%sFrame name:%s isClass:%d\n", indentStr, frm->name().c_str(),
                                                     frm->isClass());
     fprintf(m_file, "%ssubframes count:%x\n", indentStr, frm->size());
 

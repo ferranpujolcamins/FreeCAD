@@ -30,6 +30,7 @@ class SourceModuleList;
 class SyntaxHighlighter;
 class Token;
 class TokenLine;
+class Tokenizer;
 
 /**
  * @brief The PythonCodeTree class hold all frames, vars and other identifiers
@@ -233,11 +234,11 @@ public:
 
     /// scans complete filePath, clears all old and re-doe it
     Python::SourceModule *scanCompleteModule(const std::string &filePath,
-                                             Python::SyntaxHighlighter *highlighter);
+                                             Python::Tokenizer *tokenizer);
     /// re-scan a single line, as in we are typing
     Python::SourceModule *scanSingleRowModule(const std::string &filePath,
                                               Python::TokenLine *row,
-                                              Python::SyntaxHighlighter *highlighter);
+                                              Python::Tokenizer *tokenizer);
 
     /// computes the return type of statement pointed to by startToken
     /// NOTE it has limitations, it isn' a fullblown interpreter
