@@ -1593,11 +1593,11 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     if (!textData)
         return false;
     const Python::Token *tok = textData->tokenAt(posInLine - 1);
-    if (!tok || tok->token == Python::Token::T_Comment ||
-         tok->token == Python::Token::T_LiteralBlockDblQuote ||
-         tok->token == Python::Token::T_LiteralBlockSglQuote ||
-         tok->token == Python::Token::T_LiteralDblQuote ||
-         tok->token == Python::Token::T_LiteralSglQuote)
+    if (!tok || tok->type == Python::Token::T_Comment ||
+         tok->type == Python::Token::T_LiteralBlockDblQuote ||
+         tok->type == Python::Token::T_LiteralBlockSglQuote ||
+         tok->type == Python::Token::T_LiteralDblQuote ||
+         tok->type == Python::Token::T_LiteralSglQuote)
     {
         return false;  // not a token we care about
     }

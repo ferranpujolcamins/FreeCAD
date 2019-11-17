@@ -1,7 +1,9 @@
 #ifndef PYTHONTOKEN_H
 #define PYTHONTOKEN_H
 
-#include <QObject>
+#include <vector>
+#include <string>
+#include <list>
 
 namespace Gui {
 namespace Python {
@@ -10,11 +12,12 @@ class SourceListNodeBase; // in code analyzer
 class TextBlockData;
 class TokenList;
 class TokenLine;
+class Tokenizer;
 
 class Token
 {
 public:
-    enum Tokens {
+    enum Type {
         //**
         //* Any token added or removed here must also be added or removed in PythonCodeDebugTools
         // all these tokens must be in grouped order ie: All operators grouped, numbers grouped etc
@@ -217,13 +220,13 @@ public:
         T_PythonConsoleError      = 1001
     };
 
-    explicit Token(Tokens token, int startPos, int endPos, Python::TokenLine *line);
+    explicit Token(Type tokType, uint startPos, uint endPos, Python::TokenLine *line);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
     {
-        return line() == rhs.line() && token == rhs.token &&
-               startPos == rhs.startPos && endPos == rhs.endPos;
+        return line() == rhs.line() && m_type == rhs.m_type &&
+               m_startPos == rhs.m_startPos && m_endPos == rhs.m_endPos;
     }
     bool operator > (const Token &rhs) const
     {
@@ -232,7 +235,7 @@ public:
             return true;
         if (myLine < rhsLine)
             return false;
-        return startPos > rhs.startPos;
+        return m_startPos > rhs.m_startPos;
     }
     bool operator < (const Token &rhs) const { return (rhs > *this); }
     bool operator <= (const Token &rhs) const { return !(rhs < *this); }
@@ -244,17 +247,19 @@ public:
     Token *previous() const { return m_previous; }
 
     // public properties
-    Tokens token;
-    int startPos;
-    int endPos;
+    Type type() const { return m_type; }
+    void changeType(Type tokType);
+    uint startPos() const { return m_startPos; }
+    int startPosInt() const { return static_cast<int>(m_startPos); }
+    uint endPos() const { return m_endPos; }
+    int endPosInt() const { return  static_cast<int>(m_endPos); }
 
-    int textLength() const { return endPos - startPos; }
+    uint textLength() const { return m_endPos - m_startPos; }
 
     /// pointer to our father textBlockData
-    Python::TextBlockData *txtBlock() const;
     Python::TokenList *ownerList() const;
     Python::TokenLine *ownerLine() const;
-    QString text() const;
+    std::string text() const;
     int line() const;
 
     // tests
@@ -295,14 +300,16 @@ public:
 
 
 private:
-    QList<Python::SourceListNodeBase*> m_srcLstNodes;
+    Type m_type;
+    uint m_startPos, m_endPos;
+    std::list<Python::SourceListNodeBase*> m_srcLstNodes;
 
     Token *m_next,
           *m_previous;
     TokenLine *m_ownerLine;
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    QString m_nameDbg;
+    std::string m_nameDbg;
     uint m_lineDbg;
 #endif
     friend class Python::TokenList;
@@ -337,27 +344,8 @@ public:
     uint32_t count() const;
     uint32_t max_size() const { return 20000000u; }
 
-    // modifiers
+    // modifiers for tokens
     void clear();
-    void push_back(Python::Token *tok);
-    void push_front(Python::Token *tok);
-    Python::Token *pop_back();
-    Python::Token *pop_front();
-    /// inserts token into list, list takes ownership and may delete token
-    void insert(Token *previousTok, Python::Token *insertTok);
-
-    /// removes tok from list
-    /// if deleteTok is true it also deletes these tokens (mem. free)
-    /// else caller must delete tok
-    bool remove(Python::Token *tok, bool deleteTok = true);
-
-    /// removes tokens from list
-    /// removes from from tok up til endTok, endTok is the first token not removed
-    /// if deleteTok is true it also deletes these tokens (mem. free)
-    /// else caller must delete tok
-    bool remove(Python::Token *tok,
-                Python::Token *endTok,
-                bool deleteTok = true);
 
     //lines
     /// get the first line for this list/document
@@ -394,6 +382,27 @@ public:
     /// remove line from this list and deletes the line
     void removeLine(Python::TokenLine *lineToRemove, bool deleteLine = true);
 
+    // should modify through TokenLine
+private:
+    void push_back(Python::Token *tok);
+    void push_front(Python::Token *tok);
+    Python::Token *pop_back();
+    Python::Token *pop_front();
+    /// inserts token into list, list takes ownership and may delete token
+    void insert(Token *previousTok, Python::Token *insertTok);
+
+    /// removes tok from list
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    /// else caller must delete tok
+    bool remove(Python::Token *tok, bool deleteTok = true);
+
+    /// removes tokens from list
+    /// removes from from tok up til endTok, endTok is the first token not removed
+    /// if deleteTok is true it also deletes these tokens (mem. free)
+    /// else caller must delete tok
+    bool remove(Python::Token *tok,
+                Python::Token *endTok,
+                bool deleteTok = true);
 
 private:
     friend class Python::TokenLine;
@@ -405,38 +414,92 @@ class TokenLine {
     Python::TokenList *m_ownerList;
     Python::Token *m_startTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
-    QString m_text;
-    Python::TextBlockData *m_txtBlock;
+    std::string m_text;
+
+    std::vector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
+                                        //  (so context parser can detemine it later)
+    int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
+    int m_parenCnt, m_bracketCnt, m_braceCnt;
+
+
 public:
     explicit TokenLine(Python::TokenList *ownerList,
                        Python::Token *startTok,
-                       const QString &text, TextBlockData *txtBlock = nullptr);
+                       const std::string &text);
+    TokenLine(const Python::TokenLine &other);
     virtual ~TokenLine();
 
+    // line info methods
+    /// returns the container that stores this line
     Python::TokenList *ownerList() const { return m_ownerList; }
-
 
     /// returns this lines linenr, 0 based
     uint32_t lineNr() const;
     /// returns this lines text content (without line ending chars)
-    QString text() const { return m_text; }
-
-    Python::TextBlockData *txtBlock() const { return m_txtBlock; }
+    const std::string &text() const { return m_text; }
 
     /// returns the number of tokens
     uint count() const;
+    /// true if line is empty
     bool empty() const { return m_startTok != nullptr; }
 
+    /// returns the number of chars that starts this line
+    int indent() const;
+
+    /// isCodeLine checks if line has any code
+    /// lines with only indent or comments return false
+    /// return true if line has code
+    bool isCodeLine() const;
+
+    /// number of parens in this line
+    /// '(' = parenCnt++
+    /// ')' = parenCnt--
+    /// Can be negative if this line has more closing parens than opening ones
+    int parenCnt() const { return  m_parenCnt; }
+    /// number of brackets '[' int this line, see as parenCnt description
+    int bracketCnt() const { return m_braceCnt; }
+    /// number of braces '{' in this line, see parenCnt for description
+    int braceCnt() const { return m_braceCnt; }
+
+    /// same as above but reference
+    int &parenCntRef() { return m_parenCnt; }
+    int &bracketCntRef() { return m_bracketCnt; }
+    int &braceCntRef() { return  m_braceCnt; }
+
+
+
+    // accessor methods
     Python::Token *front() const { return m_startTok; }
     Python::Token *back() const;
     Python::Token *end() const;
     Python::Token *rend() const;
+    /// gets the nextline sibling
     Python::TokenLine *nextLine() const { return m_nextLine; }
     Python::TokenLine *previousLine() const { return m_previousLine; }
-    /// returns the token at idx position
-    Python::Token *operator[] (int idx);
+    /// returns the token at idx position in line or nullptr
+    Python::Token *operator[] (int idx) const;
+    Python::Token *tokenAt(int idx) const;
+
+    /// returns a list with all tokens in this line
+    const std::list<Python::Token*> tokens() const;
 
 
+    /// findToken searches for token in this block
+    /// tokType = needle to search for
+    /// searchFrom start position in line to start the search
+    ///                   if negative start from the back ie -10 searches from pos 10 to 0
+    /// returns pointer to token if found, else nullptr
+    const Python::Token* findToken(Python::Token::Type tokType,
+                                   int searchFrom = 0) const;
+
+    /// firstTextToken lookup first token that is a text (comment or code) token or nullptr
+    const Python::Token *firstTextToken() const;
+    /// firstCodeToken lookup first token that is a code token or nullptr
+    const Python::Token *firstCodeToken() const;
+
+
+
+    // line/list mutator methods
     void push_back(Python::Token *tok);
     void push_front(Python::Token *tok);
     /// removes last token in this line
@@ -445,8 +508,8 @@ public:
     /// removes first token in this line
     /// caller taken ownership and must delete token
     Python::Token *pop_front();
-    /// inserts token into list
-    void insert(Python::Token *tok);
+    /// inserts token into list, returns position it is stored at
+    int insert(Python::Token *tok);
 
     /// removes tok from list
     /// if deleteTok is true it also deletes these tokens (mem. free)
@@ -459,8 +522,73 @@ public:
                 Python::Token *endTok,
                 bool deleteTok = true);
 
+    // these are accessed from Python::Tokenizer
+    /// create a token with tokType and insert at pos with length
+    Python::Token *newDeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
+    /// this insert should only be used by PythonSyntaxHighlighter
+    /// stores this token id as needing a parse tree lookup to determine the tokenType
+    Python::Token *newUndeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
+
 private:
+    /// set indentcount
+    void setIndentCount(uint count);
+
     friend class Python::TokenList;
+    friend class Python::Tokenizer;
+};
+
+// -------------------------------------------------------------------------------------
+
+/// implements logic to tokenize a string input
+class TokenizerP;
+class Tokenizer {
+public:
+    explicit Tokenizer();
+    virtual ~Tokenizer();
+
+    Python::TokenList &list();
+
+    virtual void tokenTypeChanged(const Python::Token *tok) const;
+
+
+    void setFilePath(const std::string &filePath);
+    const std::string &filePath() const;
+
+protected:
+    Python::TokenizerP *d_tok;
+
+    uint tokenize(Python::TokenLine *tokLine, bool &isParamLine);
+
+    /// this method is called when we cant tokenize a char
+    /// subclasses should implement this function
+    virtual Python::Token::Type unhandledState(uint &pos, int state, const std::string &text);
+
+    /// call this method when tok type has changed
+    virtual void tokenUpdated(const Python::Token *tok);
+
+    Python::Token::Type &endStateOfLastParaRef() const;
+    Python::TokenLine *activeLine() const;
+    void setActiveLine(Python::TokenLine *line);
+
+private:
+    uint lastWordCh(uint startPos, const std::string &text) const;
+    uint lastNumberCh(uint startPos, const std::string &text) const;
+    uint lastDblQuoteStringCh(uint startAt, const std::string &text) const;
+    uint lastSglQuoteStringCh(uint startAt, const std::string &text) const;
+    Python::Token::Type numberType(const std::string &text) const;
+
+    void setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType);
+    void scanIndentation(uint &pos, const std::string &text);
+    void setWord(uint &pos, uint len, Python::Token::Type tokType);
+    void setIdentifier(uint &pos, uint len, Python::Token::Type tokType);
+    void setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType);
+    void setNumber(uint &pos, uint len, Python::Token::Type tokType);
+    void setOperator(uint &pos, uint len, Python::Token::Type tokType);
+    void setDelimiter(uint &pos, uint len, Python::Token::Type tokType);
+    void setSyntaxError(uint &pos, uint len);
+    void setLiteral(uint &pos, uint len, Python::Token::Type tokType);
+    void setIndentation(uint &pos, uint len, uint count);
+
 };
 
 

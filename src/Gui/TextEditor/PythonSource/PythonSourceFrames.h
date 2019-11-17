@@ -8,7 +8,7 @@
 #include "PythonSourceImports.h"
 #include "PythonSourceIndent.h"
 #include "PythonSourceRoot.h"
-#include <TextEditor/PythonSyntaxHighlighter.h>
+#include <TextEditor/PythonToken.h>
 
 
 namespace Gui {
@@ -25,8 +25,8 @@ class SourceFrameReturnType : public Python::SourceListNodeBase
     Python::SourceRoot::TypeInfo m_typeInfo;
 public:
     explicit SourceFrameReturnType(Python::SourceListParentBase *owner,
-                                         const Python::SourceModule *module,
-                                         Python::Token *tok);
+                                   const Python::SourceModule *module,
+                                   Python::Token *tok);
     virtual ~SourceFrameReturnType();
 
     // getter/setters for typeInfo
@@ -90,13 +90,13 @@ public:
     const Python::SourceModule *module() const { return m_module; }
     Python::SourceRoot::TypeInfo type() const { return m_type; }
 
-    QString name() const;
+    const std::string name() const;
 
     /// true if frame is itself a module, ie: rootframe
     bool isModule() const { return m_parentFrame == nullptr; }
 
     /// get the docstring for this function/method
-    QString docstring();
+    const std::string docstring();
 
     /// get the return type hint
     ///  def funt(arg1, arg2) -> Module.Class.Custom:
@@ -106,7 +106,7 @@ public:
     Python::SourceRoot::TypeInfo returnTypeHint() const;
 
     /// true if we have identifier
-    bool hasIdentifier(const QString name) const {
+    bool hasIdentifier(const std::string &name) const {
         return m_identifiers.getIdentifier(name);
     }
 
@@ -116,7 +116,7 @@ public:
     bool isClass() const { return m_isClass; }
 
     /// looks up name among identifiers (variables/constants)
-    const Python::SourceIdentifier *getIdentifier(const QString name) const;
+    const Python::SourceIdentifier *getIdentifier(const std::string &name) const;
 
     /// get reference to all identifiers within this frame
     const Python::SourceIdentifierList &identifiers() const { return m_identifiers; }
@@ -176,7 +176,7 @@ private:
     // scan yield statement
     Python::Token *scanYieldStmt(Python::Token *tok);
     // sanity check after for code after a return or yield
-    void scanCodeAfterReturnOrYield(Python::Token *tok, QString name);
+    void scanCodeAfterReturnOrYield(Python::Token *tok, const std::string &name);
 
     // used to traverse to semicolon after argumentslist for typehint
     // if storeParameters, we add found parameters to parametersList
@@ -189,7 +189,7 @@ private:
     Python::Token *gotoEndOfLine(Python::Token *tok);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    QString m_name;
+    std::string m_name;
 #endif
 };
 

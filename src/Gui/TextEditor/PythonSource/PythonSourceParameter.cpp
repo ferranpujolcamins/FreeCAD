@@ -65,7 +65,7 @@ Python::SourceParameterList::~SourceParameterList()
 {
 }
 
-const Python::SourceParameter *Python::SourceParameterList::getParameter(const QString name) const
+const Python::SourceParameter *Python::SourceParameterList::getParameter(const std::string &name) const
 {
     for (Python::SourceListNodeBase *itm = m_first;
          itm != nullptr;
@@ -82,7 +82,7 @@ Python::SourceParameter *Python::SourceParameterList::setParameter(Python::Token
                                                                 Python::SourceParameter::ParameterType paramType)
 {
     assert(tok && "Expected a valid pointer");
-    QString name = tok->text();
+    const std::string name = tok->text();
 
     Python::SourceParameter *parameter = nullptr;
 

@@ -36,11 +36,11 @@ void Python::SourceListNodeBase::setToken(Python::Token *token) {
     m_token = token;
 }
 
-QString Python::SourceListNodeBase::text() const
+const std::string Python::SourceListNodeBase::text() const
 {
     if (m_token)
         return m_token->text();
-    return QString();
+    return std::string();
 }
 
 void Python::SourceListNodeBase::setOwner(Python::SourceListParentBase *owner)
@@ -237,26 +237,23 @@ Python::SourceListNodeBase *Python::SourceListParentBase::findExact(const Python
     return nullptr;
 }
 
-Python::SourceListNodeBase *Python::SourceListParentBase::findFirst(Python::Token::Tokens token) const
+Python::SourceListNodeBase *Python::SourceListParentBase::findFirst(Python::Token::Type tokType) const
 {
     DEFINE_DBG_VARS
-
-    if (!token)
-        return nullptr;
 
     for (Python::SourceListNodeBase *node = m_first;
          node != nullptr;
          node = node->next())
     {
         DBG_TOKEN(node->token())
-        if (node->token() && node->token()->token == token)
+        if (node->token() && node->token()->type() == tokType)
             return node;
     }
 
     return nullptr;
 }
 
-Python::SourceListNodeBase *Python::SourceListParentBase::findLast(Python::Token::Tokens token) const
+Python::SourceListNodeBase *Python::SourceListParentBase::findLast(Python::Token::Type tokType) const
 {
     DEFINE_DBG_VARS
 
@@ -265,20 +262,20 @@ Python::SourceListNodeBase *Python::SourceListParentBase::findLast(Python::Token
          node = node->previous())
     {
         DBG_TOKEN(node->token())
-        if (node->token() && node->token()->token == token)
+        if (node->token() && node->token()->type() == tokType)
             return node;
     }
 
     return nullptr;
 }
 
-bool Python::SourceListParentBase::hasOtherTokens(Python::Token::Tokens token) const
+bool Python::SourceListParentBase::hasOtherTokens(Python::Token::Type tokType) const
 {
     for (Python::SourceListNodeBase *node = m_last;
          node != nullptr;
          node = node->previous())
     {
-        if (node->token() && node->token()->token != token)
+        if (node->token() && node->token()->type() != tokType)
             return true;
     }
 

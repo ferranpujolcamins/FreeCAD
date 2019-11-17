@@ -62,7 +62,7 @@ public:
     Python::SourceTypeHintAssignment *getFromPos(const Python::Token *tok) const;
 
     /// get name of typeHint
-    QString name() const;
+    const std::string name() const;
 
     /// get the type of typeHint
     Python::SourceRoot::TypeInfo type() const { return m_type; }
@@ -109,7 +109,7 @@ public:
     bool isImported(int line, int pos) const;
 
     /// get the name of identifier
-    QString name() const;
+    const std::string name() const;
 
     /// get last inserted TypeHint for identifier up to including line
     Python::SourceTypeHintAssignment *getTypeHintAssignment(const Python::Token *tok) const;
@@ -127,7 +127,7 @@ protected:
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 public:
-    QString m_name;
+    std::string m_name;
 #endif
 };
 
@@ -145,11 +145,11 @@ public:
     /// get the frame contained for these collections
     const Python::SourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
-    const Python::SourceIdentifier *getIdentifier(const QString name) const;
+    const Python::SourceIdentifier *getIdentifier(const std::string &name) const;
     const Python::SourceIdentifier *getIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->text());
     }
-    bool hasIdentifier(const QString name) const { return getIdentifier(name) != nullptr; }
+    bool hasIdentifier(const std::string &name) const { return getIdentifier(name) != nullptr; }
     bool hasIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->text()) == nullptr;
     }

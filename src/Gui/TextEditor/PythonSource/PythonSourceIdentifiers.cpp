@@ -42,7 +42,7 @@ int Python::SourceIdentifierAssignment::linenr() const
 
 int Python::SourceIdentifierAssignment::position() const
 {
-    return m_token->startPos;
+    return m_token->startPosInt();
 }
 
 // --------------------------------------------------------------------------------
@@ -70,7 +70,8 @@ Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(int lin
          lstElem != end();
          lstElem = lstElem->previous())
     {
-        if ((lstElem->token()->line() == line && lstElem->token()->endPos < pos) ||
+        if ((lstElem->token()->line() == line &&
+              lstElem->token()->endPosInt() < pos) ||
             (lstElem->token()->line() < line))
         {
             return dynamic_cast<Python::SourceIdentifierAssignment*>(lstElem);
@@ -83,12 +84,12 @@ Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(int lin
 
 Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(const Python::Token *tok) const
 {
-    return getFromPos(tok->line(), tok->startPos);
+    return getFromPos(tok->line(), tok->startPosInt());
 }
 
 bool Python::SourceIdentifier::isCallable(const Python::Token *tok) const
 {
-    return isCallable(tok->line(), tok->startPos);
+    return isCallable(tok->line(), tok->startPosInt());
 }
 
 bool Python::SourceIdentifier::isCallable(int line, int pos) const
@@ -123,7 +124,7 @@ const Python::SourceFrame *Python::SourceIdentifier::callFrame(const Python::Tok
 
 bool Python::SourceIdentifier::isImported(const Python::Token *tok) const
 {
-    return isImported(tok->line(), tok->startPos);
+    return isImported(tok->line(), tok->startPosInt());
 }
 
 bool Python::SourceIdentifier::isImported(int line, int pos) const
@@ -137,12 +138,12 @@ bool Python::SourceIdentifier::isImported(int line, int pos) const
     return assign->token()->isImport();
 }
 
-QString Python::SourceIdentifier::name() const
+const std::string Python::SourceIdentifier::name() const
 {
     if (m_first)
         return m_first->text();
 
-    return QLatin1String("<lookup error>");
+    return "<lookup error>";
 }
 
 Python::SourceTypeHintAssignment *Python::SourceIdentifier::getTypeHintAssignment(const Python::Token *tok) const
@@ -197,7 +198,7 @@ int Python::SourceIdentifier::compare(const Python::SourceListNodeBase *left,
         return +1;
     } else {
         // line nr equal
-        if (l->token()->startPos > r->token()->startPos)
+        if (l->token()->startPos() > r->token()->startPos())
             return -1;
         else
             return +1; // can't be at same source position
@@ -223,14 +224,13 @@ const Python::SourceFrame *Python::SourceIdentifierList::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(const QString name) const
+const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(const std::string &name) const
 {
     for (Python::SourceIdentifier *itm = dynamic_cast<Python::SourceIdentifier*>(m_first);
          itm != nullptr;
          itm = dynamic_cast<Python::SourceIdentifier*>(itm->next()))
     {
-        QString itmName = itm->name();
-        if (itmName == name)
+        if (itm->name() == name)
             return itm;
     }
     return nullptr;
@@ -244,7 +244,6 @@ Python::SourceIdentifier
     DBG_TOKEN(tok)
 
     assert(tok && "Expected a valid pointer");
-    QString name = tok->text();
 
     Python::SourceIdentifier *identifier = nullptr;
     Python::SourceIdentifierAssignment *assign = nullptr;
@@ -255,7 +254,7 @@ Python::SourceIdentifier
         itm = itm->next())
     {
         Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
-        if (ident && ident->name() == name) {
+        if (ident && ident->name() == tok->text()) {
             identifier = ident;
             break;
         }
@@ -301,7 +300,7 @@ const Python::SourceIdentifier
     if (tok->isIdentifier()) {
         // TODO builtin identifiers and modules lookup
         const Python::SourceIdentifier *ident = getIdentifier(tok->text());
-        return getIdentifierReferencedBy(ident, tok->line(), tok->startPos, limitChain);
+        return getIdentifierReferencedBy(ident, tok->line(), tok->startPosInt(), limitChain);
     }
 
     return nullptr;
@@ -378,7 +377,7 @@ Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(int line, i
          lstElem != end();
          lstElem = lstElem->previous())
     {
-        if ((lstElem->token()->line() == line && lstElem->token()->endPos < pos) ||
+        if ((lstElem->token()->line() == line && lstElem->token()->endPosInt() < pos) ||
             (lstElem->token()->line() < line))
         {
             return dynamic_cast<Python::SourceTypeHintAssignment*>(lstElem);
@@ -391,10 +390,10 @@ Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(int line, i
 
 Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(const Python::Token *tok) const
 {
-    return getFromPos(tok->line(), tok->startPos);
+    return getFromPos(tok->line(), tok->startPosInt());
 }
 
-QString Python::SourceTypeHint::name() const
+const std::string Python::SourceTypeHint::name() const
 {
     return m_type.typeAsStr();
 }
@@ -412,7 +411,7 @@ int Python::SourceTypeHint::compare(const Python::SourceListNodeBase *left, cons
         return +1;
     } else {
         // line nr equal
-        if (l->token()->startPos > r->token()->startPos)
+        if (l->token()->startPos() > r->token()->startPos())
             return -1;
         else
             return +1; // can't be at same source position

@@ -40,7 +40,7 @@ class TextEditor;
 class PythonEditor;
 namespace Syntax {
 
-const char* tokenToCStr(Python::Token::Tokens tok);
+const char* tokenToCStr(Python::Token::Type tok);
 
 
 // -----------------------------------------------------------------------------

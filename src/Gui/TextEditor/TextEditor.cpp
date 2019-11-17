@@ -1075,7 +1075,7 @@ const QTextBlock &TextEditBlockData::block() const
     return m_block;
 }
 
-TextEditBlockData *TextEditBlockData::next() const
+TextEditBlockData *TextEditBlockData::nextBlock() const
 {
     QTextBlock nextBlock = block().next();
     if (!nextBlock.isValid())
@@ -1083,7 +1083,7 @@ TextEditBlockData *TextEditBlockData::next() const
     return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
 }
 
-TextEditBlockData *TextEditBlockData::previous() const
+TextEditBlockData *TextEditBlockData::previousBlock() const
 {
     QTextBlock nextBlock = block().previous();
     if (!nextBlock.isValid())

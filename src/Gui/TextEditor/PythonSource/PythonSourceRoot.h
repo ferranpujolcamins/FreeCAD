@@ -4,15 +4,14 @@
 
 #include <FCConfig.h>
 #include "Base/Interpreter.h"
-#include <QObject>
-#include <QString>
-#include <QStringList>
-#include <QHash>
+//#include <QObject>
+#include <list>
+#include <map>
 
 namespace Gui {
 namespace Python {
 
-// Begin AST Python source code introspection
+// Begin Python source code introspection
 // -------------------------------------------------------------------
 
 //class SourceListParentBase;
@@ -30,16 +29,16 @@ class SourceModuleList;
 //class SourceImportList;
 class SyntaxHighlighter;
 class Token;
-class TextBlockData;
+class TokenLine;
 
 /**
  * @brief The PythonCodeTree class hold all frames, vars and other identifiers
  * used to get info about src
  * Is intended as a singleton!
  */
-class SourceRoot : public QObject
+class SourceRoot //: public QObject
 {
-    Q_OBJECT
+    //Q_OBJECT
 public:
     typedef int CustomNameIdx_t;
     enum DataTypes {
@@ -139,9 +138,10 @@ public:
         ~TypeInfo();
         Python::SourceRoot::DataTypes type;
         CustomNameIdx_t customNameIdx;
-        QString referenceName;
-        QString typeAsStr() const;
-        QString customName() const;
+        std::string referenceName;
+        const std::string typeAsStr() const;
+        const char* typeAsCStr() const;
+        const std::string customName() const;
         bool operator ==(const TypeInfo &other) const {
             return type == other.type &&
                    customNameIdx == other.customNameIdx &&
@@ -198,20 +198,20 @@ public:
     static Python::SourceRoot *instance();
 
     /// Gets a stringlist of all loaded modules names
-    QStringList modulesNames() const;
+    const std::list<const std::string> modulesNames() const;
     /// Gets a stringlist of all loaded modules paths
-    QStringList modulesPaths() const;
+    const std::list<const std::string> modulesPaths() const;
     /// gets modules count, -1 if none yet
     int modulesCount() const;
     /// get Module at idx, nullptr if not found
     Python::SourceModule *moduleAt(int idx) const;
     /// get Module from path
-    Python::SourceModule *moduleFromPath(QString filePath) const;
+    Python::SourceModule *moduleFromPath(const std::string &filePath) const;
     /// get reference to our modules collection
     const Python::SourceModuleList *modules() const { return m_modules; }
 
     /// map typestr from metadata Type annotation, ie x: int
-    DataTypes mapMetaDataType(const QString typeAnnotation) const;
+    DataTypes mapMetaDataType(const std::string &typeAnnotation) const;
 
     /// get the type for this token, token must be a Identifier
     /// else it returns a inValid TypeInfo
@@ -227,16 +227,16 @@ public:
     bool isLineEscaped(const Python::Token *tok) const;
 
     // typename database for custom types
-    QString customTypeNameFor(CustomNameIdx_t customIdx);
-    CustomNameIdx_t addCustomTypeName(const QString name);
-    CustomNameIdx_t indexOfCustomTypeName(const QString name);
+    const std::string customTypeNameFor(CustomNameIdx_t customIdx);
+    CustomNameIdx_t addCustomTypeName(const std::string &name);
+    CustomNameIdx_t indexOfCustomTypeName(const std::string &name);
 
     /// scans complete filePath, clears all old and re-doe it
-    Python::SourceModule *scanCompleteModule(const QString filePath,
+    Python::SourceModule *scanCompleteModule(const std::string &filePath,
                                              Python::SyntaxHighlighter *highlighter);
-    /// re-scan a single QTextBlock, as in we are typing
-    Python::SourceModule *scanSingleRowModule(const QString filePath,
-                                              Python::TextBlockData *row,
+    /// re-scan a single line, as in we are typing
+    Python::SourceModule *scanSingleRowModule(const std::string &filePath,
+                                              Python::TokenLine *row,
                                               Python::SyntaxHighlighter *highlighter);
 
     /// computes the return type of statement pointed to by startToken
@@ -246,7 +246,7 @@ public:
 
 
 private:
-    QHash<CustomNameIdx_t, QString> m_customTypeNames;
+    std::map<CustomNameIdx_t, const std::string> m_customTypeNames;
     CustomNameIdx_t m_uniqueCustomTypeNames;
     Python::SourceModuleList *m_modules;
     static Python::SourceRoot *m_instance;

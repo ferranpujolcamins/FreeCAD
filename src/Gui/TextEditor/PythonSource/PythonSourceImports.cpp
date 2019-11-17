@@ -3,9 +3,10 @@
 #include "PythonSource.h"
 #include "PythonSourceFrames.h"
 
-#include <QString>
-#include <QFileInfo>
-#include <QDir>
+#include <fstream>
+#include <list>
+#include <string>
+#include <algorithm>
 
 
 DBG_TOKEN_FILE
@@ -17,7 +18,7 @@ using namespace Gui;
 
 Python::SourceImportModule::SourceImportModule(Python::SourceImportPackage *parent,
                                                Python::SourceFrame *frame,
-                                               QString alias) :
+                                               const std::string &alias) :
     Python::SourceListNodeBase(parent),
     m_frame(frame), m_aliasName(alias),
     m_type(Python::SourceRoot::ReferenceImportType)
@@ -29,12 +30,12 @@ Python::SourceImportModule::~SourceImportModule()
 {
 }
 
-QString Python::SourceImportModule::name() const
+const std::string Python::SourceImportModule::name() const
 {
-    if (!m_aliasName.isEmpty())
+    if (!m_aliasName.empty())
         return m_aliasName;
 
-    QFileInfo fi(m_modulePath);
+    Python::FileInfo fi(m_modulePath);
     return fi.baseName();
 }
 
@@ -52,7 +53,7 @@ bool Python::SourceImportModule::isBuiltIn() const
 // -----------------------------------------------------------------------------
 
 Python::SourceImportPackage::SourceImportPackage(Python::SourceImportPackage *parent,
-                                                 QString name,
+                                                 const std::string &name,
                                                  const Python::SourceModule *ownerModule) :
     Python::SourceListParentBase(parent),
     m_name(name),
@@ -66,7 +67,7 @@ Python::SourceImportPackage::~SourceImportPackage()
 {
 }
 
-Python::SourceImportPackage *Python::SourceImportPackage::getImportPackagePath(QString filePath)
+Python::SourceImportPackage *Python::SourceImportPackage::getImportPackagePath(const std::string &filePath)
 {
     for (Python::SourceListNodeBase *itm = begin();
          itm != end();
@@ -80,7 +81,7 @@ Python::SourceImportPackage *Python::SourceImportPackage::getImportPackagePath(Q
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportPackage::getImportPackage(QString name)
+Python::SourceImportPackage *Python::SourceImportPackage::getImportPackage(const std::string &name)
 {
     for (Python::SourceListNodeBase *itm = begin();
          itm != end();
@@ -94,7 +95,7 @@ Python::SourceImportPackage *Python::SourceImportPackage::getImportPackage(QStri
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportPackage::getImportModulePath(QString filePath)
+Python::SourceImportModule *Python::SourceImportPackage::getImportModulePath(const std::string &filePath)
 {
     for (Python::SourceListNodeBase *itm = begin();
          itm != end();
@@ -108,7 +109,7 @@ Python::SourceImportModule *Python::SourceImportPackage::getImportModulePath(QSt
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportPackage::getImportModule(QString name)
+Python::SourceImportModule *Python::SourceImportPackage::getImportModule(const std::string &name)
 {
     for (Python::SourceListNodeBase *itm = begin();
          itm != end();
@@ -122,12 +123,11 @@ Python::SourceImportModule *Python::SourceImportPackage::getImportModule(QString
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportPackage::setModule(QString name,
-                                                               QString alias,
-                                                               Python::SourceFrame *frame)
+Python::SourceImportModule *Python::SourceImportPackage::setModule(const std::string &name,
+                                                                   const std::string &alias,
+                                                                   Python::SourceFrame *frame)
 {
-    QString importName = alias.isEmpty() ? name : alias;
-    Python::SourceImportModule *mod = getImportModule(importName);
+    Python::SourceImportModule *mod = getImportModule(alias.empty() ? name : alias);
 
     if (mod)
         return mod;
@@ -138,7 +138,7 @@ Python::SourceImportModule *Python::SourceImportPackage::setModule(QString name,
     return mod;
 }
 
-Python::SourceImportPackage *Python::SourceImportPackage::setPackage(QString name)
+Python::SourceImportPackage *Python::SourceImportPackage::setPackage(const std::string &name)
 {
     Python::SourceImportPackage *pkg = getImportPackage(name);
     if (pkg)
@@ -152,7 +152,7 @@ Python::SourceImportPackage *Python::SourceImportPackage::setPackage(QString nam
 int Python::SourceImportPackage::compare(const Python::SourceListNodeBase *left,
                                        const Python::SourceListNodeBase *right) const
 {
-    QString lName, rName;
+    std::string lName, rName;
     const Python::SourceImportModule *lm = dynamic_cast<const Python::SourceImportModule*>(left),
                                    *rm = dynamic_cast<const Python::SourceImportModule*>(right);
 
@@ -185,7 +185,7 @@ int Python::SourceImportPackage::compare(const Python::SourceListNodeBase *left,
 
 Python::SourceImportList::SourceImportList(Python::SourceFrame *owner,
                                                const Python::SourceModule *ownerModule) :
-    Python::SourceImportPackage(this, QLatin1String(""), ownerModule),
+    Python::SourceImportPackage(this, "", ownerModule),
     m_frame(owner)
 {
     m_preventAutoRemoveMe = true;
@@ -195,50 +195,50 @@ Python::SourceImportList::~SourceImportList()
 {
 }
 
-Python::SourceImportModule *Python::SourceImportList::getImportModulePath(QString filePath)
+Python::SourceImportModule *Python::SourceImportList::getImportModulePath(const std::string &filePath)
 {
-    QFileInfo fi(filePath);
-    QDir dir = fi.dir();
-    dir.cdUp();
-    return getImportModule(dir.dirName(), fi.baseName());
+    Python::FileInfo fi(filePath);
+    std::string dirName = fi.dirName(1);
+    return getImportModule(dirName, fi.baseName());
 }
 
-Python::SourceImportModule *Python::SourceImportList::getImportModule(QString rootPackage, QString name)
+Python::SourceImportModule *Python::SourceImportList::getImportModule(const std::string &rootPackage,
+                                                                      const std::string &name)
 {
-    Python::SourceImportPackage *pkg = getImportPackage(QString(), rootPackage);
+    Python::SourceImportPackage *pkg = getImportPackage(std::string(), rootPackage);
     if (pkg)
         return pkg->getImportModule(name);
 
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportList::getImportModule(QStringList modInheritance)
+Python::SourceImportModule *Python::SourceImportList::getImportModule(const std::list<const std::string> &modInheritance)
 {
     if (empty() || modInheritance.size() < 1)
         return nullptr;
 
-    QString modName = modInheritance[modInheritance.size() -1];
+    std::string modName = modInheritance.back();
 
     if (modInheritance.size() < 2)
-        return getImportModule(QString(), modName);
+        return getImportModule(std::string(), modName);
 
     // get root package by slicing QStringList
-    Python::SourceImportPackage *pkg = getImportPackage(QString(), modInheritance.last());
+    Python::SourceImportPackage *pkg = getImportPackage(std::string(), modInheritance.back());
     if (pkg)
         return pkg->getImportModule(modName);
 
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportList::getImportPackagePath(QString filePath)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackagePath(const std::string &filePath)
 {
-    QFileInfo fi(filePath);
-    QDir dir = fi.dir();
-    dir.cdUp();
-    return getImportPackage(dir.dirName(), fi.baseName());
+    Python::FileInfo fi(filePath);
+    std::string dirName = fi.dirName(1);
+    return getImportPackage(dirName, fi.baseName());
 }
 
-Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QString rootPackage, QString name)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const std::string &rootPackage,
+                                                                        const std::string &name)
 {
     for (Python::SourceListNodeBase *itm = begin();
          itm != end();
@@ -247,7 +247,7 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QString 
         Python::SourceImportPackage *pkg = dynamic_cast<Python::SourceImportPackage*>(itm);
         // lookup among packages, all modules are stored in packages
         if (pkg) {
-            if (!rootPackage.isEmpty()) {
+            if (!rootPackage.empty()) {
                 if (rootPackage == pkg->name())
                     return pkg->getImportPackage(name);
             } else {
@@ -260,18 +260,21 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QString 
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QStringList modInheritance)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const std::list<const std::string> &modInheritance)
 {
     if (empty() || modInheritance.size() < 1)
         return nullptr;
 
     // single name like import sys
     if (modInheritance.size() == 1)
-        return getImportPackage(QString(), modInheritance[0]);
+        return getImportPackage(std::string(), modInheritance.front());
+
+    std::list<const std::string> inheritanceList = modInheritance;
 
     // package.module.... like import sys.path.join
     Python::SourceImportPackage *pkg = nullptr;
-    QString curName = modInheritance.takeLast();
+    std::string curName = inheritanceList.back();
+    inheritanceList.pop_back();
 
     // first find our root package
     for (Python::SourceListNodeBase *itm = begin();
@@ -282,10 +285,11 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QStringL
         if (pkg && pkg->name() == curName) {
             // found our root package
             while(pkg &&
-                  !(curName = modInheritance.takeLast()).isEmpty() && // note! action here
-                  !curName.isEmpty())
+                  !(curName = inheritanceList.back()).empty() && // note! action here
+                  !curName.empty())
             {
-                if (modInheritance.size() == 0)
+                inheritanceList.pop_back();
+                if (inheritanceList.size() == 0)
                     return pkg->getImportPackage(curName);
                 pkg = pkg->getImportPackage(curName);
             }
@@ -296,8 +300,8 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(QStringL
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportList::setModule(QStringList rootPackage,
-                                                            QString module, QString alias)
+Python::SourceImportModule *Python::SourceImportList::setModule(const std::list<const std::string> &rootPackage,
+                                                            const std::string &module, const std::string alias)
 {
     Python::SourceImportModule *mod = nullptr;
     Python::SourceImportPackage *rootPkg = getImportPackage(rootPackage);
@@ -306,7 +310,7 @@ Python::SourceImportModule *Python::SourceImportList::setModule(QStringList root
         rootPkg = setPackage(rootPackage);
 
     if (rootPkg) {
-        mod = rootPkg->getImportModule(alias.isEmpty() ? module : alias);
+        mod = rootPkg->getImportModule(alias.empty() ? module : alias);
         if (mod)
             return mod;
 
@@ -318,13 +322,13 @@ Python::SourceImportModule *Python::SourceImportList::setModule(QStringList root
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportList::setPackage(QStringList rootPackage)
+Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::list<const std::string> &rootPackage)
 {
     Python::SourceImportPackage *rootPkg = nullptr;
 
     // no rootPackages
     if (rootPackage.size() < 1) {
-       rootPkg = Python::SourceImportPackage::setPackage(QLatin1String(""));
+       rootPkg = Python::SourceImportPackage::setPackage("");
        return rootPkg;
     }
 
@@ -333,14 +337,17 @@ Python::SourceImportPackage *Python::SourceImportList::setPackage(QStringList ro
 
     if (!rootPkg) {
         // we doesn't have rootPackage yet, recurse until we find it
-        rootPkg = setPackage(rootPackage.mid(0, rootPackage.size() -1));
+        std::list<const std::string> pkg;
+        for (auto &it : rootPackage) pkg.push_back(it);
+        pkg.pop_back();
+        rootPkg = setPackage(pkg);
         return rootPkg;
     }
 
     return rootPkg;
 }
 
-Python::SourceModule *Python::SourceImportList::setModuleGlob(QStringList rootPackage)
+Python::SourceModule *Python::SourceImportList::setModuleGlob(const std::list<const std::string> &rootPackage)
 {
     // FIXME implement
     Q_UNUSED(rootPackage)

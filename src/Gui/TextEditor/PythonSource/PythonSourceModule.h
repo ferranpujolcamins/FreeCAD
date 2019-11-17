@@ -5,7 +5,7 @@
 #include "PythonSourceFrames.h"
 #include "PythonSourceListBase.h"
 
-#include <QList>
+#include <list>
 
 namespace Gui {
 namespace Python {
@@ -19,8 +19,8 @@ class SourceModule : public Python::SourceListParentBase
 {
     Python::SourceRoot *m_root;
     Python::SourceFrame m_rootFrame;
-    QString m_filePath;
-    QString m_moduleName;
+    std::string m_filePath;
+    std::string m_moduleName;
     Python::SyntaxHighlighter *m_highlighter;
 public:
 
@@ -32,12 +32,12 @@ public:
     const Python::SourceFrame *rootFrame() const { return &m_rootFrame; }
 
     /// filepath for this module
-    QString filePath() const { return m_filePath; }
-    void setFilePath(QString filePath) { m_filePath = filePath; }
+    const std::string &filePath() const { return m_filePath; }
+    void setFilePath(std::string filePath) { m_filePath = filePath; }
 
     /// modulename, ie sys or PartDesign
-    QString moduleName() const { return m_moduleName; }
-    void setModuleName(QString moduleName) { m_moduleName = moduleName; }
+    const std::string &moduleName() const { return m_moduleName; }
+    void setModuleName(const std::string &moduleName) { m_moduleName = moduleName; }
 
     /// rescans all lines in frame that encapsulates tok
     void scanFrame(Python::Token *tok);
@@ -49,20 +49,19 @@ public:
 
     // syntax highlighter stuff
     Python::SyntaxHighlighter *highlighter() const { return m_highlighter; }
-    void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
-    void updateFormatToken(const Python::Token *tok) const;
+    void tokenTypeChanged(const Python::Token *tok) const;
 
     /// stores a syntax error at tok with message and sets up for repaint
-    void setSyntaxError(const Python::Token *tok, QString parseMessage) const;
+    void setSyntaxError(const Python::Token *tok, const std::string &parseMessage) const;
 
     /// sets a indenterror (sets token to indentError and sets up for style document)
     void setIndentError(const Python::Token *tok) const;
 
     /// sets a lookup error (variable not found) with message, or default message
-    void setLookupError(const Python::Token *tok, QString parseMessage = QString()) const;
+    void setLookupError(const Python::Token *tok, const std::string &parseMessage = std::string()) const;
 
     /// stores a message at tok
-    void setMessage(const Python::Token *tok, QString parseMessage) const;
+    void setMessage(const Python::Token *tok, const std::string &parseMessage) const;
 
     /// returns the frame for given token
     const Python::SourceFrame *getFrameForToken(const Python::Token *tok,

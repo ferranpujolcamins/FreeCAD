@@ -30,11 +30,14 @@ Python::SourceIndent &Python::SourceIndent::operator =(const SourceIndent &other
 bool Python::SourceIndent::operator ==(const Python::SourceIndent &other) {
     if (m_indentStack.size() != other.m_indentStack.size())
         return false;
-    for (int i = 0; i < m_indentStack.size(); ++i){
-        const Indent lhs = m_indentStack[i],
-                     rhs = other.m_indentStack[i];
-        if (lhs.frameIndent != rhs.frameIndent ||
-            lhs.currentBlockIndent != rhs.currentBlockIndent)
+
+    for (std::list<Indent>::const_iterator thisStack = m_indentStack.begin(),
+                                           otherStack = other.m_indentStack.begin();
+         thisStack != m_indentStack.end() && otherStack != other.m_indentStack.end();
+         ++thisStack, ++otherStack)
+    {
+        if (thisStack->frameIndent != otherStack->frameIndent ||
+            thisStack->currentBlockIndent != otherStack->currentBlockIndent)
         {
             return false;
         }
@@ -58,14 +61,14 @@ int Python::SourceIndent::previousBlockIndent() const
     if (m_indentStack.empty())
         return 0;
     if (m_indentStack.size() == 1)
-        return m_indentStack.first().currentBlockIndent;
-    return m_indentStack[m_indentStack.size()-1].currentBlockIndent;
+        return m_indentStack.front().currentBlockIndent;
+    return m_indentStack.back().currentBlockIndent;
 }
 
 bool Python::SourceIndent::isValid() const {
     if (m_indentStack.size() < 1)
         return false;
-    const Indent ind = m_indentStack[m_indentStack.size()-1];
+    const Indent ind = m_indentStack.back();
     return ind.currentBlockIndent > -1 || ind.frameIndent > -1;
 }
 
@@ -88,7 +91,7 @@ void Python::SourceIndent::popBlock()
     if (m_indentStack.size() < 2)
         return;
     m_indentStack.pop_back();
-    Indent ind = m_indentStack.last();
+    Indent ind = m_indentStack.back();
     if (ind.frameIndent >= ind.currentBlockIndent) {
         // pop a framestarter
         m_indentStack.pop_back();
@@ -109,9 +112,9 @@ bool Python::SourceIndent::validIndentLine(Python::Token *tok)
     DEFINE_DBG_VARS
 
     // make sure we don't dedent on a comment or a string
-    for(Python::Token *tmpTok : tok->txtBlock()->tokens()) {
+    for(Python::Token *tmpTok : tok->ownerLine()->tokens()) {
         DBG_TOKEN(tmpTok)
-        switch (tmpTok->token) {
+        switch (tmpTok->type()) {
         case Python::Token::T_LiteralBlockDblQuote:
         case Python::Token::T_LiteralBlockSglQuote:
         case Python::Token::T_LiteralDblQuote:
@@ -131,5 +134,5 @@ Python::SourceIndent::Indent Python::SourceIndent::_current() const
 {
     if (m_indentStack.size() < 1)
         return Indent();
-    return m_indentStack.last();
+    return m_indentStack.back();
 }

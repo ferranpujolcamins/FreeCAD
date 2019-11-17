@@ -4,11 +4,109 @@
 #include <TextEditor/PythonSource/PythonSourceListBase.h>
 #include "PythonSyntaxHighlighter.h"
 
+#include <algorithm>
+#include <cctype>
+#include <string>
+
+
+bool isNumber(char ch)
+{
+    return (ch >= '0' && ch <= '9');
+}
+
+
+bool isLetter(char ch)
+{
+    // is letter or number or _
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+}
+
+bool isSpace(char ch)
+{
+    return ch == ' ' || ch == '\t';
+}
+
+namespace Gui {
+namespace Python {
+class TokenizerP {
+public:
+    TokenizerP() :
+        tokenList(),
+        endStateOfLastPara(Python::Token::T_Invalid),
+        activeLine(nullptr)
+    {
+
+        // GIL lock code block
+        PyGILState_STATE lock = PyGILState_Ensure();
+
+        PyObject *pyObj = PyEval_GetBuiltins();
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+
+        while (PyDict_Next(pyObj, &pos, &key, &value)) {
+
+#if PY_MAJOR_VERSION >= 3
+            const char *name = PyUnicode_AsUTF8(key);
+            if (name != nullptr)
+                builtins.push_back(name);
+#else
+            char *name = PyString_AS_STRING(key);
+            if (name != nullptr)
+                builtins << QString(QLatin1String(name));
+#endif
+        }
+        PyGILState_Release(lock);
+
+        // https://docs.python.org/3/reference/lexical_analysis.html#keywords
+        keywords.push_back("False");    keywords.push_back("None");
+        keywords.push_back("True");     keywords.push_back("and");
+        keywords.push_back("as");       keywords.push_back("assert");
+        keywords.push_back("async");    keywords.push_back("await"); //2 new kewords from 3.6
+        keywords.push_back("break");    keywords.push_back("class");
+        keywords.push_back("continue"); keywords.push_back("def");
+        keywords.push_back("del");      keywords.push_back("elif");
+        keywords.push_back("else");     keywords.push_back("except");
+        keywords.push_back("finally");  keywords.push_back("for");
+        keywords.push_back("from");     keywords.push_back("global");
+        keywords.push_back("if");       keywords.push_back("import");
+        keywords.push_back("in");       keywords.push_back("is");
+        keywords.push_back("lambda");   keywords.push_back("nonlocal");
+        keywords.push_back("not");      keywords.push_back("or");
+        keywords.push_back("pass");     keywords.push_back("raise");
+        keywords.push_back("return");   keywords.push_back("try");
+        keywords.push_back("while");    keywords.push_back("with");
+        keywords.push_back("yield");
+
+        // keywords takes precedence over builtins
+        for (const std::string &name : keywords) {
+            auto it = std::find(builtins.begin(), builtins.end(), name);
+            if (it != builtins.end())
+                builtins.remove(*it);
+        }
+
+        auto it = std::find(builtins.begin(), builtins.end(), "print");
+        if (it != builtins.end())
+            keywords.push_back("print"); // python 2.7 and below
+    }
+    ~TokenizerP()
+    {
+    }
+    Python::TokenList tokenList;
+    Python::Token::Type endStateOfLastPara;
+    Python::TokenLine *activeLine;
+    std::list<const std::string> keywords;
+    std::list<const std::string> builtins;
+    std::string filePath;
+};
+
+} // namespace Python
+} // namespace Gui
+
 using namespace Gui;
 
 
-Python::Token::Token(Python::Token::Tokens token, int startPos, int endPos, TokenLine *line) :
-    token(token), startPos(startPos), endPos(endPos),
+Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, TokenLine *line) :
+    m_type(token), m_startPos(startPos), m_endPos(endPos),
     m_next(nullptr), m_previous(nullptr),
     m_ownerLine(line)
 {
@@ -20,7 +118,7 @@ Python::Token::Token(Python::Token::Tokens token, int startPos, int endPos, Toke
 }
 
 Python::Token::Token(const Python::Token &other) :
-    token(other.token), startPos(other.startPos), endPos(other.endPos),
+    m_type(other.m_type), m_startPos(other.m_startPos), m_endPos(other.m_endPos),
     m_next(other.m_next), m_previous(other.m_previous),
     m_ownerLine(other.m_ownerLine)
 {
@@ -41,9 +139,9 @@ Python::Token::~Token()
         m_ownerLine->remove(this, false);
 }
 
-Python::TextBlockData *Python::Token::txtBlock() const
+void Python::Token::changeType(Python::Token::Type tokType)
 {
-    return m_ownerLine->txtBlock();
+    m_type = tokType;
 }
 
 Python::TokenList *Python::Token::ownerList() const
@@ -56,11 +154,11 @@ Python::TokenLine *Python::Token::ownerLine() const
     return m_ownerLine;
 }
 
-QString Python::Token::text() const
+std::string Python::Token::text() const
 {
     if (m_ownerLine)
-        return m_ownerLine->text().mid(startPos, endPos - startPos);
-    return QString();
+        return m_ownerLine->text().substr(m_startPos, m_endPos - m_startPos);
+    return std::string();
 }
 
 int Python::Token::line() const
@@ -71,129 +169,129 @@ int Python::Token::line() const
 }
 
 bool Python::Token::isNumber() const { // is a number in src file
-    return token > T__NumbersStart &&
-           token < T__NumbersEnd;
+    return m_type > T__NumbersStart &&
+           m_type < T__NumbersEnd;
 }
 
 bool Python::Token::isInt() const { // is a integer (dec) in src file
-    return token > T__NumbersIntStart &&
-           token < T__NumbersIntEnd;
+    return m_type > T__NumbersIntStart &&
+           m_type < T__NumbersIntEnd;
 }
 
 bool Python::Token::isFloat() const {
-    return token == T_NumberFloat;
+    return m_type == T_NumberFloat;
 }
 
 bool Python::Token::isString() const {
-    return token > T__LiteralsStart &&
-            token < T__LiteralsEnd;
+    return m_type > T__LiteralsStart &&
+            m_type < T__LiteralsEnd;
 }
 
 bool Python::Token::isBoolean() const {
-    return token == T_IdentifierTrue ||
-           token == T_IdentifierFalse;
+    return m_type == T_IdentifierTrue ||
+           m_type == T_IdentifierFalse;
 }
 
 bool Python::Token::isMultilineString() const
 {
-    return token > T__LiteralsMultilineStart &&
-           token < T__LiteralsMultilineEnd;
+    return m_type > T__LiteralsMultilineStart &&
+           m_type < T__LiteralsMultilineEnd;
 }
 
 bool Python::Token::isKeyword() const {
-    return token > T__KeywordsStart &&
-           token <  T__KeywordsEnd;
+    return m_type > T__KeywordsStart &&
+           m_type <  T__KeywordsEnd;
 }
 
 bool Python::Token::isOperator() const {
-    return token > T__OperatorStart &&
-           token <  T__OperatorEnd;
+    return m_type > T__OperatorStart &&
+           m_type <  T__OperatorEnd;
 }
 
 bool Python::Token::isOperatorArithmetic() const {
-    return token > T__OperatorArithmeticStart &&
-           token < T__OperatorArithmeticEnd;
+    return m_type > T__OperatorArithmeticStart &&
+           m_type < T__OperatorArithmeticEnd;
 }
 
 bool Python::Token::isOperatorBitwise() const {
-    return token > T__OperatorBitwiseStart &&
-           token < T__OperatorBitwiseEnd;
+    return m_type > T__OperatorBitwiseStart &&
+           m_type < T__OperatorBitwiseEnd;
 }
 
 bool Python::Token::isOperatorAssignment() const { // modifies lvalue
-    return token > T__OperatorAssignmentStart &&
-           token < T__OperatorAssignmentEnd;
+    return m_type > T__OperatorAssignmentStart &&
+           m_type < T__OperatorAssignmentEnd;
 }
 
 bool Python::Token::isOperatorAssignmentBitwise() const { // modifies through bit twiddling
-    return token > T__OperatorBitwiseStart &&
-           token < T__OperatorBitwiseEnd;
+    return m_type > T__OperatorBitwiseStart &&
+           m_type < T__OperatorBitwiseEnd;
 }
 
 bool Python::Token::isOperatorCompare() const {
-    return token > T__OperatorAssignBitwiseStart &&
-           token < T__OperatorAssignBitwiseEnd;
+    return m_type > T__OperatorAssignBitwiseStart &&
+           m_type < T__OperatorAssignBitwiseEnd;
 }
 
 bool Python::Token::isOperatorCompareKeyword() const {
-    return token > T__OperatorCompareKeywordStart &&
-           token < T__OperatorCompareKeywordEnd;
+    return m_type > T__OperatorCompareKeywordStart &&
+           m_type < T__OperatorCompareKeywordEnd;
 }
 
 bool Python::Token::isOperatorParam() const {
-    return token > T__OperatorParamStart &&
-           token <  T__OperatorParamEnd;
+    return m_type > T__OperatorParamStart &&
+           m_type <  T__OperatorParamEnd;
 }
 
 bool Python::Token::isDelimiter() const {
-    return token > T__DelimiterStart &&
-           token < T__DelimiterEnd;
+    return m_type > T__DelimiterStart &&
+           m_type < T__DelimiterEnd;
 }
 
 bool Python::Token::isIdentifier() const {
-    return token > T__IdentifierStart &&
-           token < T__IdentifierEnd;
+    return m_type > T__IdentifierStart &&
+           m_type < T__IdentifierEnd;
 }
 
 bool Python::Token::isIdentifierVariable() const {
-    return token > T__IdentifierVariableStart &&
-           token < T__IdentifierVariableEnd;
+    return m_type > T__IdentifierVariableStart &&
+           m_type < T__IdentifierVariableEnd;
 }
 
 bool Python::Token::isIdentifierDeclaration() const {
-    return token > T__IdentifierDeclarationStart &&
-           token < T__IdentifierDeclarationEnd;
+    return m_type > T__IdentifierDeclarationStart &&
+           m_type < T__IdentifierDeclarationEnd;
 }
 
 bool Python::Token::isNewLine() const
 {
-    if (token != T_DelimiterNewLine)
+    if (m_type != T_DelimiterNewLine)
         return false;
 
     // else check for escape char
     const Python::Token *prev = previous();
-    return prev && prev->token != T_DelimiterLineContinue;
+    return prev && prev->type() != T_DelimiterLineContinue;
 }
 
 bool Python::Token::isInValid() const  {
-    return token == T_Invalid;
+    return m_type == T_Invalid;
 }
 
 bool Python::Token::isUndetermined() const {
-    return token == T_Undetermined;
+    return m_type == T_Undetermined;
 }
 
 bool Python::Token::isCode() const
 {
-    if (token < T__NumbersStart)
+    if (m_type < T__NumbersStart)
         return false;
-    if (token > T__DelimiterTextLineStart &&
-        token < T__DelimiterTextLineEnd)
+    if (m_type > T__DelimiterTextLineStart &&
+        m_type < T__DelimiterTextLineEnd)
     {
         return false;
     }
-    if (token >= T_BlockStart &&
-        token <= T_BlockEnd)
+    if (m_type >= T_BlockStart &&
+        m_type <= T_BlockEnd)
     {
         return false;
     }
@@ -202,25 +300,25 @@ bool Python::Token::isCode() const
 
 bool Python::Token::isImport() const
 {
-    return token > T__IdentifierImportStart &&
-           token < T__IdentifierImportEnd;
+    return m_type > T__IdentifierImportStart &&
+           m_type < T__IdentifierImportEnd;
 }
 bool Python::Token::isText() const
 {
-    return token == T_Comment || isCode();
+    return m_type == T_Comment || isCode();
 }
 
 void Python::Token::attachReference(Python::SourceListNodeBase *srcListNode)
 {
-    if (!m_srcLstNodes.contains(srcListNode))
+    std::list<Python::SourceListNodeBase*>::iterator pos =
+            std::find(m_srcLstNodes.begin(), m_srcLstNodes.end(), srcListNode);
+    if (pos != m_srcLstNodes.end())
         m_srcLstNodes.push_back(srcListNode);
 }
 
 void Python::Token::detachReference(Python::SourceListNodeBase *srcListNode)
 {
-    int idx = m_srcLstNodes.indexOf(srcListNode);
-    if (idx > -1)
-        m_srcLstNodes.removeAt(idx);
+    m_srcLstNodes.remove(srcListNode);
 }
 
 // -------------------------------------------------------------------------------------------
@@ -561,18 +659,33 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteL
 
 Python::TokenLine::TokenLine(Python::TokenList *ownerList,
                              Python::Token *startTok,
-                             const QString &text,
-                             Python::TextBlockData *txtBlock) :
+                             const std::string &text) :
     m_ownerList(ownerList), m_startTok(startTok),
-    m_txtBlock(txtBlock)
+    m_nextLine(nullptr), m_previousLine(nullptr),
+    m_indentCharCount(0), m_parenCnt(0),
+    m_bracketCnt(0), m_braceCnt(0)
 {
     // strip newline chars
-    QRegExp re(QLatin1String("(\\r\\n|\\n\\r|\\n\\r)$"));
-    int lineEndingPos = re.indexIn(text);
-    if (lineEndingPos > -1)
-        m_text = text.left(lineEndingPos);
-    else
-        m_text = text;
+    size_t trimChrs = 0;
+
+    // should match "\r\n", "\n\r", "\r", "\n"
+    for (size_t i = 1; text.length() >= i && i < 2; ++i) {
+        if (text[text.length() - i] == '\n' || text[text.length() - i] == '\r')
+            ++trimChrs;
+        else
+            break;
+    }
+
+    m_text = text.substr(0, text.length()-1 - trimChrs);
+}
+
+Python::TokenLine::TokenLine(const TokenLine &other) :
+    m_ownerList(other.m_ownerList), m_startTok(other.m_startTok),
+    m_nextLine(other.m_nextLine), m_previousLine(other.m_previousLine),
+    m_text(other.m_text), m_indentCharCount(other.m_indentCharCount),
+    m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
+    m_braceCnt(other.m_braceCnt)
+{
 }
 
 Python::TokenLine::~TokenLine()
@@ -616,6 +729,23 @@ uint Python::TokenLine::count() const
     return cnt;
 }
 
+int Python::TokenLine::indent() const
+{
+    return m_indentCharCount;
+}
+
+bool Python::TokenLine::isCodeLine() const
+{
+    Python::Token *tok = m_startTok;
+    uint guard = m_ownerList->max_size();
+    while (tok && tok->m_ownerLine == this && (--guard)) {
+        if (tok->isCode())
+            return true;
+        tok = tok->next();
+    }
+    return false;
+}
+
 Python::Token *Python::TokenLine::back() const {
     Python::Token *iter = m_startTok;
     uint32_t guard = m_ownerList->max_size();
@@ -634,7 +764,7 @@ Python::Token *Python::TokenLine::rend() const {
     return m_startTok ? m_startTok->m_previous : nullptr;
 }
 
-Python::Token *Python::TokenLine::operator[](int idx)
+Python::Token *Python::TokenLine::operator[](int idx) const
 {
     // allow lookup from the end
     while (idx < 0)
@@ -652,6 +782,88 @@ Python::Token *Python::TokenLine::operator[](int idx)
     }
     assert(guard > 0 && "Line iteration guard circular nodes in List");
 
+    return nullptr;
+}
+
+Python::Token *Python::TokenLine::tokenAt(int idx) const
+{
+    return (*this)[idx];
+}
+
+const std::list<Python::Token *> Python::TokenLine::tokens() const
+{
+    std::list<Python::Token*> tokList;
+    Python::Token *tok = m_startTok;
+    uint guard = m_ownerList->max_size();
+    while(tok && tok->ownerLine() == this && (--guard)) {
+        tokList.push_back(tok);
+        tok = tok->next();
+    }
+    return  tokList;
+}
+
+const Python::Token *Python::TokenLine::findToken(Python::Token::Type tokType, int searchFrom) const
+{
+    int lineEnd = static_cast<int>(count());
+
+    if (searchFrom > lineEnd)
+        searchFrom = lineEnd;
+    else if (searchFrom < -lineEnd)
+        searchFrom = -lineEnd;
+
+    if (searchFrom < 0) {
+        // search reversed (from lineend)
+        Python::Token *tok = back();
+        uint guard = m_ownerList->max_size();
+        while(tok && tok->m_ownerLine == this && (--guard)) {
+            if (tok->type() == tokType &&
+                searchFrom <= tok->startPosInt() &&
+                searchFrom < tok->endPosInt())
+            {
+                return tok;
+            }
+            tok = tok->previous();
+        }
+
+    } else {
+        // search from front (linestart)
+        Python::Token *tok = m_startTok;
+        uint guard = m_ownerList->max_size();
+        while(tok && tok->m_ownerLine == this && (--guard)) {
+            if (tok->type() == tokType &&
+                searchFrom <= tok->startPosInt() &&
+                searchFrom < tok->endPosInt())
+            {
+                return tok;
+            }
+            tok = tok->next();
+        }
+    }
+
+    return nullptr;
+}
+
+const Python::Token *Python::TokenLine::firstTextToken() const
+{
+    Python::Token *tok = m_startTok;
+    uint guard = m_ownerList->max_size();
+    while(tok && tok->m_ownerLine == this && (--guard)) {
+        if (tok->isText())
+            return tok;
+        tok = tok->next();
+    }
+    return nullptr;
+}
+
+const Python::Token *Python::TokenLine::firstCodeToken() const
+{
+    Python::Token *tok = m_startTok;
+    uint guard = m_ownerList->max_size();
+    while(tok && tok->m_ownerLine == this && (--guard)) {
+        if (tok->isCode())
+            return tok;
+        tok = tok->next();
+    }
     return nullptr;
 }
 
@@ -696,13 +908,14 @@ Python::Token *Python::TokenLine::pop_front()
     return m_startTok;
 }
 
-void Python::TokenLine::insert(Python::Token *tok)
+int Python::TokenLine::insert(Python::Token *tok)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
     assert((!tok->m_ownerLine || tok->m_ownerLine != this) && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
 
+    int pos = 0;
     Python::Token *prevTok = m_startTok;
     if (!prevTok && m_previousLine)
         prevTok = m_previousLine->back();
@@ -711,9 +924,11 @@ void Python::TokenLine::insert(Python::Token *tok)
         if (!prevTok->m_next)
             break; // at last token in document, must keep this token as ref.
         prevTok = prevTok->m_next;
+        ++pos;
     }
     // insert into list, if prevTok is nullptr its inserted at beginning of list
     m_ownerList->insert(prevTok, tok);
+    return pos;
 }
 
 bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
@@ -746,3 +961,884 @@ bool Python::TokenLine::remove(Python::Token *tok, Python::Token *endTok, bool d
         delete this; // delete me
     return ret;
 }
+
+Python::Token *Python::TokenLine::newDeterminedToken(Python::Token::Type tokType,
+                                                     uint startPos, uint len)
+{
+    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, this);
+    insert(tokenObj);
+    return tokenObj;
+}
+
+Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokType,
+                                                             uint startPos, uint len)
+{
+    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, this);
+    int pos = insert(tokenObj);
+    m_undeterminedIndexes.push_back(pos);
+    return tokenObj;
+}
+
+void Python::TokenLine::setIndentCount(uint count)
+{
+    m_indentCharCount = static_cast<int>(count);
+}
+
+// --------------------------------------------------------------------------------
+
+Python::Tokenizer::Tokenizer() :
+    d_tok(new TokenizerP())
+{
+}
+
+Python::Tokenizer::~Tokenizer()
+{
+}
+
+Python::TokenList &Python::Tokenizer::list()
+{
+    return d_tok->tokenList;
+}
+
+void Python::Tokenizer::tokenTypeChanged(const Python::Token *tok) const
+{
+    (void)tok; // handle in subclass, squelsh compile warning
+}
+
+void Python::Tokenizer::setFilePath(const std::string &filePath)
+{
+    d_tok->filePath = filePath;
+}
+
+const std::string &Python::Tokenizer::filePath() const
+{
+    return d_tok->filePath;
+}
+
+uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
+{
+    d_tok->activeLine = tokLine;
+    //int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
+    bool isModuleLine = false;
+    uint prefixLen = 0;
+
+    const std::string text(tokLine->text());
+
+    uint i = 0, lastI = 0;
+    char prev, ch;
+
+    while ( i < text.length() )
+    {
+        ch = text.at( i );
+
+        switch ( d_tok->endStateOfLastPara )
+        {
+        case Python::Token::T_Undetermined:
+        {
+            char thisCh = text[i],
+                 nextCh = 0, thirdCh = 0;
+            if (text.length() > i+1)
+                nextCh = text.at(i+1);
+            if (text.length() > i+2)
+                thirdCh = text.at(i+2);
+
+            switch (thisCh)
+            {
+            // all these chars are described at: https://docs.python.org/3/reference/lexical_analysis.html
+            case '#':
+                // begin a comment
+                // it goes on to the end of the row
+                setRestOfLine(i, text, Python::Token::T_Comment); // function advances i
+                break;
+            case '"': case '\'':
+            {
+                // Begin either string literal or block string
+                char compare = thisCh;
+                std::string endMarker;
+                endMarker.push_back(ch);
+                uint startStrPos = 0;
+                Python::Token::Type tokType = Python::Token::T_Undetermined;
+                uint len = 0;
+
+                if (nextCh == compare && thirdCh == compare) {
+                    // block string
+                    endMarker += endMarker + endMarker; // makes """ or '''
+                    startStrPos = i + 3;
+                    if (compare == '"') {
+                        tokType = Python::Token::T_LiteralBlockDblQuote;
+                        len = lastDblQuoteStringCh(startStrPos, text);
+                    } else {
+                        tokType = Python::Token::T_LiteralBlockSglQuote;
+                        len = lastSglQuoteStringCh(startStrPos, text);
+                    }
+                    d_tok->endStateOfLastPara = tokType;
+                }
+
+                // just a " or ' quoted string
+                if (tokType == Python::Token::T_Undetermined) {
+                    startStrPos = i + 1;
+                    if (compare == '"') {
+                        tokType = Python::Token::T_LiteralDblQuote;
+                        len = lastDblQuoteStringCh(startStrPos, text);
+                    } else {
+                        tokType = Python::Token::T_LiteralSglQuote;
+                        len = lastSglQuoteStringCh(startStrPos, text);
+                    }
+                }
+
+                // search for end of string including endMarker
+                auto endPos = text.find(endMarker, startStrPos + len);
+                if (endPos != text.npos) {
+                    len = static_cast<uint>(endPos - i) + prefixLen;
+                    d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                }
+
+                // a string might have string prefix, such as r"" or u''
+                // detection of that was in a previous iteration
+                i -= prefixLen;
+
+                setLiteral(i, len + static_cast<uint>(endMarker.length()) + prefixLen, tokType);
+                prefixLen = 0;
+
+            } break;
+
+            // handle indentation
+            case ' ': case '\t':
+            {
+                scanIndentation(i, text);
+            } break;
+
+                // operators or delimiters
+                // These are the allowed operators
+                // arithmetic
+                //  +       -       *       **      /       //      %      @
+
+                // bitwise
+                //  <<      >>      &       |       ^       ~
+
+                // assign
+                // =       +=      -=      *=      /=       %=
+                // //=     **=     @=
+
+                // compare
+                //  <       >       <=      >=      ==      !=
+
+                // assign bitwise
+                // &=      |=      ^=      >>=     <<=      ~=
+
+                // These are the allowed Delimiters
+                // (       )       [       ]       {       }
+                // ,       :       .       ;       ->     ...
+
+
+            // handle all with possibly 3 chrs
+            case '*':
+                if (isParamLine) {
+                    // specialcase * as it may be a *arg or **arg
+                    if (nextCh == '*') {
+                        setWord(i, 2, Python::Token::T_OperatorKeyWordParam);
+                        break;
+                    }
+                    setWord(i, 1, Python::Token::T_OperatorVariableParam);
+                    break;
+                } else if (isModuleLine) {
+                    // specialcase * as it is also used as glob for modules
+                    i -= 1;
+                    d_tok->endStateOfLastPara = Python::Token::T_IdentifierModuleGlob;
+                    break;
+                } else if (nextCh == '*') {
+                    if (thirdCh == '=')
+                        setOperator(i, 3, Python::Token::T_OperatorExpoEqual);
+                    else
+                        setOperator(i, 2, Python::Token::T_OperatorExponential);
+                } else if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorMulEqual);
+                } else {
+                    setOperator(i, 1, Python::Token::T_OperatorMul);
+                }
+                 break;
+            case '/':
+                if (nextCh == '/') {
+                    if (thirdCh == '=') {
+                        setOperator(i, 3, Python::Token::T_OperatorFloorDivEqual);
+                    } else {
+                        setOperator(i, 2, Python::Token::T_OperatorFloorDiv);
+                    }
+                } else if(nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorDivEqual);
+                    break;
+                } else {
+                    setOperator(i, 1, Python::Token::T_OperatorDiv);
+                }
+                break;
+            case '>':
+            {
+                if (nextCh == thisCh) {
+                    if(thirdCh == '=') {
+                        setOperator(i, 3, Python::Token::T_OperatorBitShiftRightEqual);
+                        break;
+                    }
+                    setOperator(i, 2, Python::Token::T_OperatorBitShiftRight);
+                    break;
+                } else if(nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorMoreEqual);
+                    break;
+                }
+                // no just single * or <
+                setOperator(i, 1, Python::Token::T_OperatorMore);
+            } break;
+            case '<': // might be 3 chars ie <<=
+            {
+                if (nextCh == thisCh) {
+                    if(thirdCh == '=') {
+                        setOperator(i, 3, Python::Token::T_OperatorBitShiftLeftEqual);
+                        break;
+                    }
+                    setOperator(i, 2, Python::Token::T_OperatorBitShiftLeft);
+                    break;
+                } else if(nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorLessEqual);
+                    break;
+                }
+                // no just single <
+                setOperator(i, 1, Python::Token::T_OperatorLess);
+            } break;
+
+            // handle all left with possibly 2 chars only
+            case '-':
+                if (nextCh == '>') {
+                    // -> is allowed function return type documentation
+                    setDelimiter(i, 2, Python::Token::T_DelimiterMetaData);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorMinus);
+                break;
+            case '+':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorPlusEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorPlus);
+                break;
+            case '%':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorModuloEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorModulo);
+                break;
+            case '&':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorBitAndEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorBitAnd);
+                break;
+            case '^':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorBitXorEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorBitXor);
+                break;
+            case '|':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorBitOrEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorOr);
+                break;
+            case '=':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorCompareEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorEqual);
+                break;
+            case '!':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorNotEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorNot);
+                break;
+            case '~':
+                if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorBitNotEqual);
+                    break;
+                }
+                setOperator(i, 1, Python::Token::T_OperatorBitNot);
+                break;
+            case '(':
+                setDelimiter(i, 1, Python::Token::T_DelimiterOpenParen);
+                if (isParamLine)
+                    ++tokLine->parenCntRef();
+                break;
+            case '\r':
+                if (nextCh == '\n') {
+                    setDelimiter(i, 2, Python::Token::T_DelimiterNewLine);
+                    break;
+                }
+                setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
+                break;
+            case '\n':
+                setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
+                break;
+            case '[':
+                setDelimiter(i, 1, Python::Token::T_DelimiterOpenBracket);
+                break;
+            case '{':
+                setDelimiter(i, 1, Python::Token::T_DelimiterOpenBrace);
+                break;
+            case '}':
+                setDelimiter(i, 1, Python::Token::T_DelimiterCloseBrace);
+                break;
+            case ')':
+                setDelimiter(i, 1, Python::Token::T_DelimiterCloseParen);
+                if (isParamLine) {
+                    --tokLine->parenCntRef();
+                    if (tokLine->parenCnt() == 0)
+                        isParamLine = false;
+                }
+                break;
+            case ']':
+                setDelimiter(i, 1, Python::Token::T_DelimiterCloseBracket);
+                break;
+            case ',':
+                setDelimiter(i, 1, Python::Token::T_DelimiterComma);
+                break;
+            case '.':
+                if (nextCh == '.' && thirdCh == '.') {
+                    setDelimiter(i, 3, Python::Token::T_DelimiterEllipsis);
+                    break;
+                }
+                setDelimiter(i, 1, Python::Token::T_DelimiterPeriod);
+                break;
+            case ';':
+                isModuleLine = false;
+                setDelimiter(i, 1, Python::Token::T_DelimiterSemiColon);
+                break;
+            case ':':
+                setDelimiter(i, 1, Python::Token::T_DelimiterColon);
+                break;
+            case '@':
+            {   // decorator or matrix add
+                if(nextCh &&
+                   ((nextCh >= 'A' && nextCh <= 'Z') ||
+                    (nextCh >= 'a' && nextCh <= 'z') ||
+                    (nextCh == '_')))
+                {
+                    uint len = lastWordCh(i + 1, text);
+                    setWord(i, len +1, Python::Token::T_IdentifierDecorator);
+                    break;
+                } else if (nextCh == '=') {
+                    setOperator(i, 2, Python::Token::T_OperatorMatrixMulEqual);
+                    break;
+                }
+
+                 setDelimiter(i, 1, Python::Token::T_Delimiter);
+            } break;
+            // illegal chars
+            case '$': case '?': case '`':
+                setSyntaxError(i, 1);
+                break;
+            // text or number?
+            default:
+            {
+                // check for string prefixes
+                if (nextCh == '"' || nextCh == '\'') {
+                    thisCh = static_cast<char>(std::tolower(thisCh));
+
+                    if (thisCh == 'r' || thisCh == 'b' ||
+                        thisCh == 'f' || thisCh == 'u')
+                    {
+                        prefixLen = 1;
+                        break; // let string start code handle it
+                    }
+
+                } else if (thirdCh == '"' || thirdCh == '\'') {
+                    std::string twoCh = text.substr(i, 2);
+                    // make lowercase
+                    std::transform(twoCh.begin(), twoCh.end(), twoCh.begin(),
+                                   [](unsigned char ch){ return std::tolower(ch);});
+
+                    if (twoCh == "fr" || twoCh == "rf" ||
+                        twoCh == "br" || twoCh == "rb")
+                    {
+                        prefixLen = 2;
+                        i += 1;
+                        break; // let string start code handle it
+                    }
+                }
+
+                // Check for normal text
+                if (isLetter(ch) || ch =='_')
+                {
+                    uint len = lastWordCh(i, text);
+                    std::string word = text.substr(i, len);
+
+                    auto it = std::find(d_tok->keywords.begin(), d_tok->keywords.end(), word);
+                    if (it != d_tok->keywords.end()) {
+                        if (word == "def") {
+                            isParamLine = true;
+                            setWord(i, len, Python::Token::T_KeywordDef);
+                            d_tok->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
+
+                        } else if (word == "class") {
+                            setWord(i, len, Python::Token::T_KeywordClass);
+                            d_tok->endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
+
+                        } else if (word == "import") {
+                            setWord(i, len, Python::Token::T_KeywordImport);
+                            d_tok->endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
+                            isModuleLine = true;
+
+                        } else if (word == "from") {
+                            setWord(i, len, Python::Token::T_KeywordFrom);
+                            d_tok->endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
+                            isModuleLine = true;
+
+                        } else if (word == "and") {
+                            setWord(i, len, Python::Token::T_OperatorAnd);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+
+                        } else if (word == "as") {
+                            setWord(i, len, Python::Token::T_KeywordAs);
+                            if (isModuleLine)
+                                d_tok->endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
+                            else
+                                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "in") {
+                            setWord(i, len, Python::Token::T_OperatorIn);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "is") {
+                            setWord(i, len, Python::Token::T_OperatorIs);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "not") {
+                            setWord(i, len, Python::Token::T_OperatorNot);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "or") {
+                            setWord(i, len, Python::Token::T_OperatorOr);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "yield") {
+                            setWord(i, len, Python::Token::T_KeywordYield);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "return") {
+                            setWord(i, len, Python::Token::T_KeywordReturn);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "True") {
+                            setIdentifier(i, len, Python::Token::T_IdentifierTrue);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "False") {
+                            setIdentifier(i, len, Python::Token::T_IdentifierFalse);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "None") {
+                            setIdentifier(i, len, Python::Token::T_IdentifierNone);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "if") {
+                            setIdentifier(i, len, Python::Token::T_KeywordIf);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        } else if (word == "elif") {
+                            setIdentifier(i, len, Python::Token::T_KeywordElIf);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }  else if (word == "else") {
+                            setIdentifier(i, len, Python::Token::T_KeywordElse);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }  else if (word == "for") {
+                            setIdentifier(i, len, Python::Token::T_KeywordFor);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }   else if (word == "while") {
+                            setIdentifier(i, len, Python::Token::T_KeywordWhile);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }   else if (word == "break") {
+                            setIdentifier(i, len, Python::Token::T_KeywordBreak);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }   else if (word == "continue") {
+                            setIdentifier(i, len, Python::Token::T_KeywordContinue);
+                            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                        }   else {
+                            setWord(i, len, Python::Token::T_Keyword);
+                        }
+
+                    } else {
+                        auto it = std::find(d_tok->builtins.begin(), d_tok->builtins.end(), word);
+                        if (it != d_tok->builtins.end() &&
+                              d_tok->activeLine->back() &&
+                              d_tok->activeLine->back()->type() == Python::Token::T_DelimiterPeriod)
+                        {
+                            // avoid match against someObj.print
+                            setWord(i, len, Python::Token::T_IdentifierBuiltin);
+                        } else if (isModuleLine) {
+                            i -= 1; // jump to module block
+                            d_tok->endStateOfLastPara = Python::Token::T_IdentifierModule;
+                        } else {
+                            setUndeterminedIdentifier(i, len, Python::Token::T_IdentifierUnknown);
+                        }
+                    }
+
+                    break;
+                    //i += word.length(); setWord increments
+                }
+
+                // is it the beginning of a number?
+                uint len = lastNumberCh(i, text);
+                if ( len > 0) {
+                    setNumber(i, len, numberType(text.substr(i, len)));
+                    break;
+                } else if (thisCh == '\\' && i == text.length() - 1)
+                {
+                    setDelimiter(i, 1, Python::Token::T_DelimiterLineContinue);
+                    break;
+                }
+                // its a error if we ever get here
+                setSyntaxError(i, 1);
+
+
+                std::clog << "PythonSyntaxHighlighter error on char: " << ch <<
+                          " row:"<< std::to_string(d_tok->activeLine->lineNr() + 1) <<
+                          " col:" << std::to_string(i) << std::endl;
+
+            } // end default:
+            } // end switch
+
+        } break;// end T_Undetermined
+
+        // we should only arrive here when we start on a new line
+        case Python::Token::T_LiteralBlockDblQuote:
+        {
+            // multiline double quote string continued from previous line
+            scanIndentation(i, text);
+
+            auto endPos = text.find("\"\"\"", i);
+            if (endPos != text.npos) {
+                endPos += 3;
+                setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockDblQuote);
+                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+            } else {
+                setRestOfLine(i, text, Python::Token::T_LiteralBlockDblQuote);
+            }
+
+        } break;
+        case Python::Token::T_LiteralBlockSglQuote:
+        {
+            // multiline single quote string continued from previous line
+            scanIndentation(i, text);
+
+            auto endPos = text.find("'''", i);
+            if (endPos != text.npos) {
+                endPos += 3;
+                setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockSglQuote);
+                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+            }else {
+                setRestOfLine(i, text, Python::Token::T_LiteralBlockSglQuote);
+            }
+
+        } break;
+        case Python::Token::T_IdentifierDefUnknown:
+        {   // before we now if its a class member or a function
+            for (; i < text.length(); ++i) {
+                if (!isSpace(text.at(i)))
+                    break;
+            }
+            if (i == text.length()) {
+                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            uint len = lastWordCh(i, text);
+            if (d_tok->activeLine->indent() == 0)
+                // no indent, it can't be a method
+                setIdentifier(i, len, Python::Token::T_IdentifierFunction);
+            else
+                setUndeterminedIdentifier(i, len, Python::Token::T_IdentifierDefUnknown);
+            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+
+        } break;
+        case Python::Token::T_IdentifierClass:
+        {
+            for (; i < text.length(); ++i) {
+                if (!isSpace(text.at(i)))
+                    break;
+            }
+            if (i == text.length()) {
+                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            uint len = lastWordCh(i, text);
+            setIdentifier(i, len, Python::Token::T_IdentifierClass);
+            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+
+        } break;
+        case Python::Token::T_IdentifierModuleAlias:
+        case Python::Token::T_IdentifierModuleGlob:
+        case Python::Token::T_IdentifierModule:  // fallthrough
+        case Python::Token::T_IdentifierModulePackage:
+        {
+            // can import multiple modules separated  with ',' so we jump here between here and T_Undertermined
+            for (; i < text.length(); ++i) {
+                if (!isSpace(text.at(i)))
+                    break;
+            }
+            if (i == text.length()) {
+                d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+                break; // not yet finished this line?
+            }
+
+            uint len = lastWordCh(i, text);
+            if (len < 1) {
+                if (ch == '*') // globs aren't a word char so they don't get caught
+                    len += 1;
+                else
+                    break;
+            }
+
+            setIdentifier(i, len, d_tok->endStateOfLastPara);
+            d_tok->endStateOfLastPara = Python::Token::T_Undetermined;
+
+        } break;
+        default:
+        {
+            // let subclass sort it out
+            Python::Token::Type nextState = unhandledState(i, d_tok->endStateOfLastPara, text);
+            if (nextState != Python::Token::T_Invalid) {
+                d_tok->endStateOfLastPara = nextState;
+                break; // break switch
+            }
+
+            setSyntaxError(i, lastWordCh(i, text));
+            std::clog << "PythonsytaxHighlighter unknown state for: " << ch <<
+                         " row:"<< std::to_string(tokLine->lineNr() + 1) <<
+                         " col:" << std::to_string(i) << std::endl;
+        }
+        } // end switch
+
+        prev = ch;
+        assert(i >= lastI); // else infinite loop
+        lastI = i++;
+
+    } // end loop
+
+
+    // only block comments can have several lines
+    if ( d_tok->endStateOfLastPara != Python::Token::T_LiteralBlockDblQuote &&
+         d_tok->endStateOfLastPara != Python::Token::T_LiteralBlockSglQuote )
+    {
+        d_tok->endStateOfLastPara = Python::Token::T_Undetermined ;
+    }
+
+    return i;
+}
+
+Python::Token::Type Python::Tokenizer::unhandledState(uint &pos, int state,
+                                                      const std::string &text)
+{
+    (void)pos;
+    (void)state;
+    (void)text;
+    return Python::Token::T_Invalid;
+}
+
+void Python::Tokenizer::tokenUpdated(const Python::Token *tok)
+{
+    (void)tok; // handle in subclass, squelsh compile warning
+}
+
+Python::Token::Type &Python::Tokenizer::endStateOfLastParaRef() const
+{
+    return d_tok->endStateOfLastPara;
+}
+
+Python::TokenLine *Python::Tokenizer::activeLine() const
+{
+    return d_tok->activeLine;
+}
+
+void Python::Tokenizer::setActiveLine(Python::TokenLine *line)
+{
+    d_tok->activeLine = line;
+}
+
+uint Python::Tokenizer::lastWordCh(uint startPos, const std::string &text) const
+{
+    uint len = 0;
+    for (auto pos = text.begin() + startPos;
+         pos != text.end(); ++pos, ++len)
+    {
+        // is letter or number or _
+        if (!isNumber(*pos) && !isLetter(*pos) && *pos != '_')
+            break;
+    }
+
+    return len;
+}
+
+uint Python::Tokenizer::lastNumberCh(uint startPos, const std::string &text) const
+{
+    std::string lowerText;
+    auto pos = text.begin() + startPos;
+    int first = *pos;
+    uint len = 0;
+    for (; pos != text.end(); ++pos, ++len) {
+        int ch = std::tolower(*pos);
+        if (ch >= '0' && ch <= '9')
+            continue;
+        if (ch >= 'a' && ch <= 'f')
+            continue;
+        if (ch == '.')
+            continue;
+        // hex, binary, octal
+        if ((ch == 'x' || ch == 'b' || ch == 'o') &&  first == '0')
+            continue;
+        break;
+    }
+    // long integer or imaginary?
+    if (pos == text.end()) {
+        int ch = std::toupper(text.back());
+        if (ch == 'L' || ch == 'J')
+            len += 1;
+    }
+
+    return len;
+}
+
+uint Python::Tokenizer::lastDblQuoteStringCh(uint startAt, const std::string &text) const
+{
+    uint len = static_cast<uint>(text.length());
+    if (len <= startAt)
+        return len -1;
+
+    len = 0;
+    for (auto pos = text.begin() + startAt; pos != text.end(); ++pos, ++len) {
+        if (*pos == '\\') {
+            ++len;
+            continue;
+        }
+        if (*pos == '"')
+            break;
+    }
+
+    return len;
+}
+
+uint Python::Tokenizer::lastSglQuoteStringCh(uint startAt, const std::string &text) const
+{
+    // no escapes '\' possible in this type
+    uint len = static_cast<uint>(text.length());
+    if (len <= startAt)
+        return len -1;
+
+    len = 0;
+    for (auto pos = text.begin() + startAt; pos != text.end(); ++pos, ++len) {
+        if (*pos == '\'')
+            break;
+    }
+
+    return len;
+}
+
+Python::Token::Type Python::Tokenizer::numberType(const std::string &text) const
+{
+    if (text.empty())
+        return Python::Token::T_Invalid;
+
+    if (text.find('.') != text.npos)
+        return Python::Token::T_NumberFloat;
+    if (text.length() >= 2){
+        int one = tolower(text[0]),
+            two = tolower(text[1]);
+        if (one == '0') {
+            if (two == 'x')
+                return Python::Token::T_NumberHex;
+            if (two == 'b')
+                return Python::Token::T_NumberBinary;
+            if (two == 'o' || one == '0')
+                return Python::Token::T_NumberOctal;
+            return Python::Token::T_NumberOctal; // python 2 octal ie. 01234 != 1234
+        }
+    }
+    return Python::Token::T_NumberDecimal;
+}
+
+void Python::Tokenizer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
+{
+    uint len = static_cast<uint>(text.size()) - pos;
+    Python::Token *tok = d_tok->activeLine->newDeterminedToken(tokType, pos, len);
+    tokenUpdated(tok);
+    pos += len -1;
+}
+
+void Python::Tokenizer::scanIndentation(uint &pos, const std::string &text)
+{
+    if (d_tok->activeLine->empty()) {
+
+        uint count = 0, j = pos;
+
+        for (auto it = text.begin() + pos; it != text.end(); ++it, ++j) {
+            if (*it == ' ') {
+                ++count;
+            } else if (*it == '\t') {
+                count += 8; // according to python lexical documentaion tab is eight spaces
+            } else {
+                break;
+            }
+        }
+        if (count > 0)
+            setIndentation(pos, j, count);
+    }
+}
+
+void Python::Tokenizer::setWord(uint &pos, uint len, Python::Token::Type tokType)
+{
+    Python::Token *tok = d_tok->activeLine->newDeterminedToken(tokType, pos, len);
+    tokenUpdated(tok);
+    pos += len -1;
+}
+
+void Python::Tokenizer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+{
+    return setWord(pos, len, tokType);
+}
+
+void Python::Tokenizer::setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+{
+    // let parse tree figure out and color at a later stage
+    Python::Token *tok = d_tok->activeLine->newUndeterminedToken(tokType, pos, len);
+    tokenUpdated(tok);
+    pos += len -1;
+}
+
+void Python::Tokenizer::setNumber(uint &pos, uint len, Python::Token::Type tokType)
+{
+    setWord(pos, len, tokType);
+}
+
+void Python::Tokenizer::setOperator(uint &pos, uint len, Python::Token::Type tokType)
+{
+    setWord(pos, len, tokType);
+}
+
+void Python::Tokenizer::setDelimiter(uint &pos, uint len, Python::Token::Type tokType)
+{
+    setWord(pos, len, tokType);
+}
+
+void Python::Tokenizer::setSyntaxError(uint &pos, uint len)
+{
+    setWord(pos, len, Python::Token::T_SyntaxError);
+}
+
+void Python::Tokenizer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
+{
+    setWord(pos, len, tokType);
+}
+
+void Python::Tokenizer::setIndentation(uint &pos, uint len, uint count)
+{
+    Python::Token *tok = d_tok->activeLine->newDeterminedToken(Python::Token::T_Indent, pos, len);
+    d_tok->activeLine->setIndentCount(count);
+    tokenUpdated(tok);
+    pos += len -1;
+}
+
+

@@ -49,7 +49,7 @@ char TOKEN_SRC_LINE_BUF[350];
 using namespace Gui;
 using namespace Syntax;
 
-const char *Gui::Syntax::tokenToCStr(Python::Token::Tokens tok)
+const char *Gui::Syntax::tokenToCStr(Python::Token::Type tok)
 {
     switch(tok) {
     case Python::Token::T_Undetermined:        return "T_Undetermined";     // Parser looks tries to figure out next char also Standard text
@@ -257,7 +257,7 @@ DumpSyntaxTokens::DumpSyntaxTokens(QTextBlock firstBlock, const char *outfile):
         if (txtData == nullptr)
             break;
         for (Python::Token *tok : txtData->tokens()) {
-            fprintf(m_file, " %s", tokenToCStr(tok->token));
+            fprintf(m_file, " %s", tokenToCStr(tok->type));
         }
         fprintf(m_file, "¶\n");
         txtBlock = txtBlock.next();
@@ -327,7 +327,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
                 } else if (index.column() == 1) {
                     if (role == Qt::ForegroundRole)
                         return QBrush(QColor(0, 0, 120));
-                    return QString::fromLatin1(tokenToCStr(tok->token));
+                    return QString::fromLatin1(tokenToCStr(tok->type));
                 }
             }
         }

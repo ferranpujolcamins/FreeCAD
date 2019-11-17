@@ -15,21 +15,21 @@ class SourceFrame;
 class SourceImportModule : public Python::SourceListNodeBase
 {
     Python::SourceFrame *m_frame;
-    QString m_modulePath; // filepath to python file
-    QString m_aliasName; // alias name in: import something as other <- other is alias
+    std::string m_modulePath; // filepath to python file
+    std::string m_aliasName; // alias name in: import something as other <- other is alias
     Python::SourceRoot::TypeInfo m_type;
 
 public:
     explicit SourceImportModule(Python::SourceImportPackage *parent,
                                 Python::SourceFrame *frame,
-                                QString alias);
+                                const std::string &alias);
     ~SourceImportModule();
 
     /// returns the name as used when lookup, ie baseName or alias if present
-    QString name() const;
-    QString alias() const { return m_aliasName; }
-    QString path() const { return m_modulePath; }
-    void setPath(QString path) { m_modulePath = path; }
+    const std::string name() const;
+    const std::string &alias() const { return m_aliasName; }
+    const std::string &path() const { return m_modulePath; }
+    void setPath(const std::string path) { m_modulePath = path; }
     /// we use defered load, this function explicitly loads module
     void load();
     bool isLoaded() const;
@@ -52,34 +52,36 @@ public:
 
 class SourceImportPackage : public Python::SourceListParentBase
 {
-    QString m_packagePath; // filepath to folder for this package
-    QString m_name;
+    std::string m_packagePath; // filepath to folder for this package
+    std::string m_name;
     const Python::SourceModule *m_ownerModule;
 public:
     explicit SourceImportPackage(Python::SourceImportPackage *parent,
-                                 QString name, const Python::SourceModule *ownerModule);
+                                 const std::string &name,
+                                 const Python::SourceModule *ownerModule);
     ~SourceImportPackage();
 
     /// get import package from filePath
-    virtual Python::SourceImportPackage *getImportPackagePath(QString filePath);
+    virtual Python::SourceImportPackage *getImportPackagePath(const std::string &filePath);
     /// get import instance from name (basename of filepath or alias)
-    virtual Python::SourceImportPackage *getImportPackage(QString name);
+    virtual Python::SourceImportPackage *getImportPackage(const std::string &name);
 
     /// get import module instance from filePath
-    virtual Python::SourceImportModule *getImportModulePath(QString filePath);
+    virtual Python::SourceImportModule *getImportModulePath(const std::string &filePath);
     /// get import module instance from name (basename of filepath or alias)
-    virtual Python::SourceImportModule *getImportModule(QString name);
+    virtual Python::SourceImportModule *getImportModule(const std::string &name);
 
 
     /// lookup module and return it
     /// if not stored in list it creates it
-    virtual Python::SourceImportModule *setModule(QString name, QString alias,
+    virtual Python::SourceImportModule *setModule(const std::string &name,
+                                                  const std::string &alias,
                                                   Python::SourceFrame *frame);
 
-    virtual Python::SourceImportPackage *setPackage(QString name);
+    virtual Python::SourceImportPackage *setPackage(const std::string &name);
 
-    QString name() const { return m_name; }
-    QString path() const { return m_packagePath;}
+    const std::string &name() const { return m_name; }
+    const std::string &path() const { return m_packagePath;}
 
 protected:
     int compare(const Python::SourceListNodeBase *left,
@@ -97,36 +99,38 @@ public:
     ~SourceImportList();
 
     /// returns package instance stored in 'filePath' from list
-    Python::SourceImportModule *getImportModulePath(QString filePath);
+    Python::SourceImportModule *getImportModulePath(const std::string &filePath);
     /// returns module instance from list with 'name' in 'rootPackage'
     /// rootPackage might be empty, ie: 'import file2' <- here rootPackage is empty
-    Python::SourceImportModule *getImportModule(QString rootPackage, QString name);
-    /// returns module instance form list with module paths as QStingList
+    Python::SourceImportModule *getImportModule(const std::string &rootPackage,
+                                                const std::string &name);
+    /// returns module instance form list with module paths as list of strings
     ///  ie: import sys.path.sub
-    Python::SourceImportModule *getImportModule(QStringList modInheritance);
+    Python::SourceImportModule *getImportModule(const std::list<const std::string> &modInheritance);
 
     /// returns package instance stored in 'filePath' from list
-    Python::SourceImportPackage *getImportPackagePath(QString filePath);
+    Python::SourceImportPackage *getImportPackagePath(const std::string &filePath);
     /// returns package instance from list with 'name' in rootPackage
     /// rootPackage might be empty, ie: import sys <- here rootPackage is empty
-    Python::SourceImportPackage *getImportPackage(QString rootPackage, QString name);
+    Python::SourceImportPackage *getImportPackage(const std::string &rootPackage,
+                                                  const std::string &name);
     /// returns package instance form list with module paths as QStringList
     ///  ie: import sys.path.sub
-    Python::SourceImportPackage *getImportPackage(QStringList modInheritance);
+    Python::SourceImportPackage *getImportPackage(const std::list<const std::string> &modInheritance);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    Python::SourceImportModule *setModule(QStringList rootPackage,
-                                          QString module,
-                                          QString alias = QString());
+    Python::SourceImportModule *setModule(const std::list<const std::string> &rootPackage,
+                                          const std::string &module,
+                                          const std::string alias = std::string());
 
-    Python::SourceImportPackage *setPackage(QStringList rootPackage);
+    Python::SourceImportPackage *setPackage(const std::list<const std::string> &rootPackage);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    Python::SourceModule *setModuleGlob(QStringList rootPackage);
+    Python::SourceModule *setModuleGlob(const std::list<const std::string> &rootPackage);
 };
 
 } // namespace Python

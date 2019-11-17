@@ -32,7 +32,7 @@ public:
     SourceIndent &operator =(const Python::SourceIndent &other);
     bool operator == (const Python::SourceIndent &other);
     /// returns the number of pushed block -1, invalid == -1
-    int atIndentBlock() const { return m_indentStack.size() -1; }
+    int atIndentBlock() const { return static_cast<int>(m_indentStack.size()) -1; }
 
     int frameIndent() const;
     int currentBlockIndent() const;
@@ -56,7 +56,7 @@ public:
     /// returns true if line pointed to by tok is valid, ie: no comment string etc
     bool validIndentLine(Python::Token *tok);
 private:
-    QList<Indent> m_indentStack;
+    std::list<Indent> m_indentStack;
     Indent _current() const;
     int m_framePopCnt;
 };

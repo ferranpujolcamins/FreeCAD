@@ -62,8 +62,8 @@ void DumpModule::dumpFrame(const Python::SourceFrame *frm, int indent)
 
     fprintf(m_file, "%s---------------------------------------------------\n", indentStr);
     fprintf(m_file, "%sStarting new frame, startToken:%s(line:%d), endToken:%s(line:%d)\n", indentStr,
-            Syntax::tokenToCStr(frm->token()->token), frm->token()->line() +1,
-            frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->token) : "-1",
+            Syntax::tokenToCStr(frm->token()->type), frm->token()->line() +1,
+            frm->lastToken() ? Syntax::tokenToCStr(frm->lastToken()->type) : "-1",
             frm->lastToken() ? frm->lastToken()->line() +1 : -1);
 
     DBG_TOKEN(frm->lastToken())
@@ -95,11 +95,11 @@ void DumpModule::dumpFrame(const Python::SourceFrame *frm, int indent)
                 paramType = "Unknown"; break;
             }
             Python::SourceIdentifierAssignment *assign = itm->identifierAssignment();
-            QString txt = assign ? assign->text() : QString();
-            fprintf(m_file, "%s %s(%s)", indentStr, txt.toLatin1().data(), paramType);
+            const std::string txt = assign ? assign->text() : std::string();
+            fprintf(m_file, "%s %s(%s)", indentStr, txt.c_str(), paramType);
 
-            QString typeInfo = assign ? assign->typeInfo().typeAsStr() : QString();
-            fprintf(m_file, " : %s\n", typeInfo.toLatin1().data());
+            const std::string  typeInfo = assign ? assign->typeInfo().typeAsStr() : std::string();
+            fprintf(m_file, " : %s\n", typeInfo.c_str());
         }
     }
 

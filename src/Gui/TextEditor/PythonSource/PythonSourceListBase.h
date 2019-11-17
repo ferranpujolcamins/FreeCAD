@@ -30,7 +30,7 @@ public:
     void setToken(Python::Token *token);
 
     /// gets text for token (gets from document)
-    QString text() const;
+    const std::string text() const;
 
     /// owner node, setOwner is essential during cleanup, or ownership swaps
     Python::SourceListParentBase *owner() const { return m_owner; }
@@ -78,12 +78,12 @@ public:
     /// finds the node that has token this exact token
     Python::SourceListNodeBase *findExact(const Python::Token *tok) const;
     /// finds the first token of this type
-    Python::SourceListNodeBase *findFirst(Python::Token::Tokens token) const;
+    Python::SourceListNodeBase *findFirst(Python::Token::Type tokType) const;
     /// finds the last token of this type (reverse lookup)
-    Python::SourceListNodeBase *findLast(Python::Token::Tokens token) const;
+    Python::SourceListNodeBase *findLast(Python::Token::Type tokType) const;
     /// returns true if all elements are of token type false otherwise
     /// if list is empty it returns false
-    bool hasOtherTokens(Python::Token::Tokens token) const;
+    bool hasOtherTokens(Python::Token::Type tokType) const;
 
     /// stl iterator stuff
     Python::SourceListNodeBase* begin() const { return m_first; }

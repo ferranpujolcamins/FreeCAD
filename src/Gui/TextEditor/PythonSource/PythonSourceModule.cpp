@@ -67,56 +67,56 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     if (frm->parentFrame() == nullptr)
         frameIndent = 0;
     else
-        frameIndent = beginTok->txtBlock()->indent();
+        frameIndent = beginTok->ownerLine()->indent();
 
     //beginTok = tok;
     DBG_TOKEN(beginTok)
 
-    QList<int> traversedBlocks;
+    std::list<int> traversedBlocks;
     // rationale here is to back up until we find a line with less indent
     // def func(arg1):     <- frameIndent
     //     var1 = None     <- previousBlockIndent
     //     if (arg1):      <- triggers change in currentBlockIndent
     //         var1 = arg1 <- currentBlockIndent
-    Python::TextBlockData *txtData = tok->txtBlock();
-    int indent = txtData->indent();
+    Python::TokenLine *tokLine = tok->ownerLine();
+    int indent = tokLine->indent();
     int guard = 1000;
-    while (txtData && (guard--) > 0) {
-        if (!txtData->isEmpty()){
-            if (indent >= txtData->indent()) {
+    while (tokLine && (guard--) > 0) {
+        if (!tokLine->empty()){
+            if (indent >= tokLine->indent()) {
                 // look for ':' if not found its a syntax error unless its a comment
-                beginTok = txtData->findToken(Python::Token::T_DelimiterColon, -1);
+                beginTok = tokLine->findToken(Python::Token::T_DelimiterColon, -1);
                 DBG_TOKEN(beginTok)
                 const Python::Token *colonTok = beginTok;
                 while (beginTok && (guard--) > 0) {
                     PREV_TOKEN(beginTok)
                     // make sure isn't a comment line
-                    if (!beginTok || beginTok->token == Python::Token::T_Comment ||
-                        beginTok->txtBlock() != txtData)
+                    if (!beginTok || beginTok->type() == Python::Token::T_Comment ||
+                        beginTok->ownerLine() != tokLine)
                     {
                         break; // goto parent loop, do previous line
-                    } else if (beginTok->token == Python::Token::T_BlockStart) {
-                        traversedBlocks.push_back(txtData->indent());
+                    } else if (beginTok->type() == Python::Token::T_BlockStart) {
+                        traversedBlocks.push_back(tokLine->indent());
                         guard = -1; break;
                     } else if (beginTok->isCode()) {
                         insertBlockStart(colonTok);
-                        traversedBlocks.push_back(txtData->indent());
+                        traversedBlocks.push_back(tokLine->indent());
                         guard = -1;
                         break;
-                    } else if(beginTok->token == Python::Token::T_DelimiterNewLine) {
+                    } else if(beginTok->type() == Python::Token::T_DelimiterNewLine) {
                         guard = -2; // exit parent loop
                         break;
                     }
                 }
 
                 if (guard < -1)
-                    setSyntaxError(beginTok, QString::fromLatin1("Blockstart without ':'"));
+                    setSyntaxError(beginTok, "Blockstart without ':'");
             }
 
         }
 
         if (guard > 0) // guard is 0 when we exit, no need to look up previous row
-            txtData = txtData->previous();
+            tokLine = tokLine->previousLine();
     }
 
     if (guard < 0) {
@@ -147,7 +147,7 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
     // get indent of first line after newline at frame start
     int newLines = 0;
     while(beginTok && newLines < 2) {
-        switch (beginTok->token){
+        switch (beginTok->type()){
         case Python::Token::T_DelimiterLineContinue:
             --newLines; // newline escaped
             break;
@@ -163,7 +163,7 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
             break;
         default:
             if (newLines > 0 && beginTok->isCode())
-                return beginTok->txtBlock()->indent();
+                return beginTok->ownerLine()->indent();
         }
         NEXT_TOKEN(beginTok)
     }
@@ -171,16 +171,10 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
     return 0;
 }
 
-void Python::SourceModule::newFormatToken(const Python::Token *tok, QTextCharFormat format) const
+void Python::SourceModule::tokenTypeChanged(const Python::Token *tok) const
 {
     if (m_highlighter)
-        m_highlighter->newFormatToken(tok, format);
-}
-
-void Python::SourceModule::updateFormatToken(const Python::Token *tok) const
-{
-    if (m_highlighter)
-        m_highlighter->updateFormatToken(tok);
+        m_highlighter->tokenTypeChanged(tok);
 }
 
 int Python::SourceModule::compare(const Python::SourceListNodeBase *left,
@@ -224,23 +218,23 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
             continue;
         if (!childFrm->lastToken()) {
             // end token have been deleted, re-parse end token
-            int ind = childFrm->token()->txtBlock()->indent();
-            Python::TextBlockData *txtData = childFrm->token()->txtBlock();
-            while ((txtData = txtData->next())) {
-                if (txtData->isCodeLine() && txtData->indent() <= ind) {
-                    while((txtData = txtData->previous())) {
-                        if (txtData->isCodeLine()) {
-                            childFrm->setLastToken(txtData->tokens().last());
+            int ind = childFrm->token()->ownerLine()->indent();
+            Python::TokenLine *tokLine = childFrm->token()->ownerLine();
+            while ((tokLine = tokLine->nextLine())) {
+                if (tokLine->isCodeLine() && tokLine->indent() <= ind) {
+                    while((tokLine = tokLine->previousLine())) {
+                        if (tokLine->isCodeLine()) {
+                            childFrm->setLastToken(tokLine->back());
                             break;
                         }
                     }
                     break;
-                } else if (!txtData->next()) {
+                } else if (!tokLine->nextLine()) {
                     // we might be at a row with no tokens
-                    while(txtData->tokens().empty())
-                        txtData = txtData->previous();
-                    if (txtData && txtData->tokens().size())
-                        childFrm->setLastToken(txtData->tokens().last());
+                    while(tokLine->empty())
+                        tokLine = tokLine->previousLine();
+                    if (tokLine && tokLine->count())
+                        childFrm->setLastToken(tokLine->back());
                     break;
                 }
             }
@@ -267,32 +261,35 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
 
 void Python::SourceModule::insertBlockStart(const Python::Token *colonTok) const
 {
-    if (colonTok->next() && colonTok->next()->token != Python::Token::T_BlockStart) {
-        colonTok->txtBlock()->insertToken(Python::Token::T_BlockStart,
-                                          colonTok->startPos, 0);
-        colonTok->txtBlock()->incBlockState();
+    if (colonTok->next() && colonTok->next()->type() != Python::Token::T_BlockStart) {
+        colonTok->ownerLine()->insert(
+                    new Python::Token(Python::Token::T_BlockStart,
+                                      colonTok->startPos(), 0, colonTok->ownerLine()));
+        colonTok->ownerLine()->incBlockState();
     }
 }
 
 Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLineTok) const
 {
     if (newLineTok->previous() &&
-        newLineTok->previous()->token != Python::Token::T_BlockEnd)
+        newLineTok->previous()->type() != Python::Token::T_BlockEnd)
     {
-        Python::Token *blkEndTok = newLineTok->txtBlock()->insertToken(Python::Token::T_BlockEnd,
-                                                               newLineTok->previous()->startPos, 0);
-        newLineTok->txtBlock()->decBlockState();
-        return blkEndTok;
+        int newPos = newLineTok->ownerLine()->insert(
+                                        new Python::Token(Python::Token::T_BlockEnd,
+                                                newLineTok->previous()->startPos(), 0,
+                                                          newLineTok->ownerLine()));
+        newLineTok->ownerLine()->decBlockState();
+        return newLineTok->ownerLine()->tokenAt(newPos);
     }
     return nullptr;
 }
 
 
-void Python::SourceModule::setSyntaxError(const Python::Token *tok, QString parseMessage) const
+void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::string &parseMessage) const
 {
     DEFINE_DBG_VARS
 
-    Python::TextBlockScanInfo *scanInfo = tok->txtBlock()->scanInfo();
+    Python::TextBlockScanInfo *scanInfo = tok->ownerLine()->scanInfo();
     if (!scanInfo) {
         scanInfo = new Python::TextBlockScanInfo();
         tok->txtBlock()->setScanInfo(scanInfo);
@@ -301,9 +298,9 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, QString pars
     scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::SyntaxError);
 
     // create format with default format for syntax error
-    const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
+    const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
     if (m_highlighter)
-        m_highlighter->updateFormatToken(tok);
+        m_highlighter->tokenTypeChanged(tok);
 
     // set text underline of all text in here
     // move to beginning of text
@@ -352,14 +349,14 @@ void Python::SourceModule::setIndentError(const Python::Token *tok) const
 
     scanInfo->setParseMessage(tok, QLatin1String("Unexpected indent"), TextEditBlockScanInfo::IndentError);
 
-    const_cast<Python::Token*>(tok)->token = Python::Token::T_SyntaxError;
-    updateFormatToken(tok);
+    const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
+    tokenTypeChanged(tok);
 
     if (m_highlighter)
         m_highlighter->setIndentError(tok);
 }
 
-void Python::SourceModule::setLookupError(const Python::Token *tok, QString parseMessage) const
+void Python::SourceModule::setLookupError(const Python::Token *tok, const std::string &parseMessage) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
@@ -376,7 +373,7 @@ void Python::SourceModule::setLookupError(const Python::Token *tok, QString pars
     scanInfo->setParseMessage(tok, parseMessage, TextEditBlockScanInfo::LookupError);
 }
 
-void Python::SourceModule::setMessage(const Python::Token *tok, QString parseMessage) const
+void Python::SourceModule::setMessage(const Python::Token *tok, const std::string &parseMessage) const
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)

@@ -216,8 +216,8 @@ public:
 
     const QTextBlock &block() const;
 
-    virtual TextEditBlockData *next() const;
-    virtual TextEditBlockData *previous() const;
+    virtual TextEditBlockData *nextBlock() const;
+    virtual TextEditBlockData *previousBlock() const;
 
     /**
      * @brief copyBlock copies a textblocks info, such as bookmark, etc

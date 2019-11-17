@@ -7,10 +7,13 @@
 #include <FCConfig.h>
 #include "Base/Interpreter.h"
 //#include <TextEditor/PythonCode.h>
-#include <TextEditor/PythonSyntaxHighlighter.h>
-#include <QDebug>
+//#include <TextEditor/PythonSyntaxHighlighter.h>
+#include <TextEditor/PythonToken.h>
 #include <QFileInfo>
-#include <QTextDocument>
+
+#include <map>
+#include <string>
+#include <list>
 
 DBG_TOKEN_FILE
 
@@ -41,9 +44,9 @@ Python::SourceRoot *Python::SourceRoot::instance()
 
 }
 
-QStringList Python::SourceRoot::modulesNames() const
+const std::list<const std::string> Python::SourceRoot::modulesNames() const
 {
-    QStringList ret;
+    std::list<const std::string> ret;
     if (!m_modules)
         return ret;
 
@@ -53,15 +56,15 @@ QStringList Python::SourceRoot::modulesNames() const
     {
         Python::SourceModule *module = dynamic_cast<Python::SourceModule*>(itm);
         if (module)
-            ret << module->moduleName();
+            ret.push_back(module->moduleName());
     }
 
     return ret;
 }
 
-QStringList Python::SourceRoot::modulesPaths() const
+const std::list<const std::string> Python::SourceRoot::modulesPaths() const
 {
-    QStringList ret;
+    std::list<const std::string> ret;
 
     for(Python::SourceListNodeBase *itm = m_modules->begin();
         itm != m_modules->end();
@@ -69,7 +72,7 @@ QStringList Python::SourceRoot::modulesPaths() const
     {
         Python::SourceModule *module = dynamic_cast<Python::SourceModule*>(itm);
         if (module)
-            ret << module->filePath();
+            ret.push_back(module->filePath());
     }
 
     return ret;
@@ -96,7 +99,7 @@ Python::SourceModule *Python::SourceRoot::moduleAt(int idx) const
 
 }
 
-Python::SourceModule *Python::SourceRoot::moduleFromPath(QString filePath) const
+Python::SourceModule *Python::SourceRoot::moduleFromPath(const std::string &filePath) const
 {
     for (Python::SourceListNodeBase *itm = m_modules->begin();
          itm != m_modules->end();
@@ -112,36 +115,36 @@ Python::SourceModule *Python::SourceRoot::moduleFromPath(QString filePath) const
 
 Python::SourceRoot *Python::SourceRoot::m_instance = nullptr;
 
-Python::SourceRoot::DataTypes Python::SourceRoot::mapMetaDataType(const QString typeAnnotation) const
+Python::SourceRoot::DataTypes Python::SourceRoot::mapMetaDataType(const std::string &typeAnnotation) const
 {
     // try to determine type form type annotaion
     // more info at:
     // https://www.python.org/dev/peps/pep-0484/
     // https://www.python.org/dev/peps/pep-0526/
     // https://mypy.readthedocs.io/en/latest/cheat_sheet_py3.html
-    if (typeAnnotation == QLatin1String("none"))
+    if (typeAnnotation == "none")
         return NoneType;
-    if (typeAnnotation == QLatin1String("Object"))
+    if (typeAnnotation == "Object")
         return ObjectType;
-    else if (typeAnnotation == QLatin1String("bool"))
+    else if (typeAnnotation == "bool")
         return BoolType;
-    else if (typeAnnotation == QLatin1String("int"))
+    else if (typeAnnotation == "int")
         return IntType;
-    else if (typeAnnotation == QLatin1String("float"))
+    else if (typeAnnotation == "float")
         return FloatType;
-    else if (typeAnnotation == QLatin1String("str"))
+    else if (typeAnnotation == "str")
         return StringType;
-    else if (typeAnnotation == QLatin1String("bytes"))
+    else if (typeAnnotation == "bytes")
         return BytesType;
-    else if (typeAnnotation == QLatin1String("List"))
+    else if (typeAnnotation == "List")
         return ListType;
-    else if (typeAnnotation == QLatin1String("Tuple"))
+    else if (typeAnnotation == "Tuple")
         return TupleType;
-    else if (typeAnnotation == QLatin1String("Dict"))
+    else if (typeAnnotation == "Dict")
         return DictType;
-    else if (typeAnnotation == QLatin1String("Set"))
+    else if (typeAnnotation == "Set")
         return SetType;
-    else if (typeAnnotation == QLatin1String("Range"))
+    else if (typeAnnotation == "Range")
         return RangeType;
     return CustomType;
 }
@@ -153,7 +156,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
     if (tok || !tok->isIdentifier())
         return tp;
 
-    switch (tok->token) {
+    switch (tok->type) {
     case Python::Token::T_IdentifierBuiltin:
         return builtinType(tok, frame);
     case Python::Token::T_IdentifierClass:
@@ -192,14 +195,15 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
     case Python::Token::T_IdentifierUnknown:
         tp.thisType.type = UnknownType;
         return tp;
-    default:
+    default: {
         // invalid?
-        qDebug() << QString::fromLatin1("Invalid token: id:%1 with text:%2")
-                            .arg(QString::number(tok->token)).arg(tok->text()) << endl;
+        std::cout << "Invalid token: id:" + std::to_string(tok->type) +
+                     " with text:" << tok->text() << std::endl;
 #ifdef DEBUG_TOKENS
         assert(tp.thisType.type != Python::SourceRoot::InValidType && "Invalid Token!");
 #endif
         break;
+    }
     }
 
     return tp;
@@ -207,175 +211,175 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
 
 Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::Token *tok, const Python::SourceFrame *frame) const
 {
-    Q_UNUSED(frame);
+    Q_UNUSED(frame)
     TypeInfoPair tp;
 
-    if (tok && tok->token == Python::Token::T_IdentifierBuiltin) {
-        QString text = tok->text();
+    if (tok && tok->type == Python::Token::T_IdentifierBuiltin) {
+        const std::string text = tok->text();
         // handle built in functions
 
         tp.thisType.type = BuiltinFunctionType;
         // https://docs.python.org/3/library/functions.html
-        if (text == QLatin1String("abs")) {
+        if (text == "abs") {
             tp.returnType.type = FloatType;
-        } else if (text == QLatin1String("all")) {
+        } else if (text == "all") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("any")) {
+        } else if (text == "any") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("ascii")) {
+        } else if (text == "ascii") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("bin")) {
+        } else if (text == "bin") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("bool")) {
+        } else if (text == "bool") {
             tp.returnType.type = BoolType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("breakpoint")) {
+        } else if (text == "breakpoint") {
             tp.returnType.type = VoidType;
-        } else if (text == QLatin1String("bytesarray")) {
+        } else if (text == "bytesarray") {
             tp.returnType.type = BytesType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("bytes")) {
+        } else if (text == "bytes") {
             tp.returnType.type = BytesType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("callable")) {
+        } else if (text == "callable") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("chr")) {
+        } else if (text == "chr") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("compile")) {
+        } else if (text == "compile") {
             tp.returnType.type = CodeType;
-        } else if (text == QLatin1String("complex")) {
+        } else if (text == "complex") {
             tp.returnType.type = ComplexType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("delattr")) {
+        } else if (text == "delattr") {
             tp.returnType.type = VoidType;
-        } else if (text == QLatin1String("dict")) {
+        } else if (text == "dict") {
             tp.returnType.type = DictType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("dir")) {
+        } else if (text == "dir") {
             tp.returnType.type = ListType;
-        } else if (text == QLatin1String("divmod")) {
+        } else if (text == "divmod") {
             tp.returnType.type = IntType;
-        } else if (text == QLatin1String("enumerate")) {
+        } else if (text == "enumerate") {
             tp.returnType.type = EnumerateType;
-        } else if (text == QLatin1String("eval")) {
+        } else if (text == "eval") {
             tp.returnType.type = ObjectType;
             // we dont know what type is returned,
             // might be str, int or anything realy
-        } else if (text == QLatin1String("exec")) {
+        } else if (text == "exec") {
             tp.returnType.type = NoneType;
-        } else if (text == QLatin1String("filter")) {
+        } else if (text == "filter") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("float")) {
+        } else if (text == "float") {
             tp.returnType.type = FloatType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("format")) {
+        } else if (text == "format") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("frozenset")) {
+        } else if (text == "frozenset") {
             tp.returnType.type = FrozenSetType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("getattr")) {
+        } else if (text == "getattr") {
             tp.returnType.type = ObjectType;
             // we dont know what value is returned
-        } else if (text == QLatin1String("Globals")) {
+        } else if (text == "Globals") {
             tp.returnType.type = DictType;
-        } else if (text == QLatin1String("hasattr")) {
+        } else if (text == "hasattr") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("hash")) {
+        } else if (text == "hash") {
             tp.returnType.type = IntType;
-        } else if (text == QLatin1String("help")) {
+        } else if (text == "help") {
             tp.returnType.type = VoidType;
-        } else if (text == QLatin1String("hex")) {
+        } else if (text == "hex") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("id")) {
+        } else if (text == "id") {
             tp.returnType.type = IntType;
-        } else if (text == QLatin1String("input")) {
+        } else if (text == "input") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("int")) {
+        } else if (text == "int") {
             tp.returnType.type = IntType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("isinstance")) {
+        } else if (text == "isinstance") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("issubclass")) {
+        } else if (text == "issubclass") {
             tp.returnType.type = BoolType;
-        } else if (text == QLatin1String("iter")) {
+        } else if (text == "iter") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("len")) {
+        } else if (text == "len") {
             tp.returnType.type = IntType;
-        } else if (text == QLatin1String("list")) {
+        } else if (text == "list") {
             tp.returnType.type = ListType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("locals")) {
+        } else if (text == "locals") {
             tp.returnType.type = DictType;
-        } else if (text == QLatin1String("map")) {
+        } else if (text == "map") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("max")) {
+        } else if (text == "max") {
             tp.returnType.type = ObjectType;
-        } else if (text == QLatin1String("memoryiew")) {
+        } else if (text == "memoryiew") {
             tp.returnType.type = ClassType;
-        } else if (text == QLatin1String("min")) {
+        } else if (text == "min") {
             tp.returnType.type = ObjectType;
-        } else if (text == QLatin1String("next")) {
+        } else if (text == "next") {
             tp.returnType.type = ObjectType;
-        } else if (text == QLatin1String("object")) {
+        } else if (text == "object") {
             tp.returnType.type = ObjectType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("oct")) {
+        } else if (text == "oct") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("open")) {
+        } else if (text == "open") {
             tp.returnType.type = FileType;
-        } else if (text == QLatin1String("ord")) {
+        } else if (text == "ord") {
             tp.returnType.type = IntType;
-        } else if (text == QLatin1String("pow")) {
+        } else if (text == "pow") {
             tp.returnType.type = FloatType;
             // might also return int, but default to float
-        } else if (text == QLatin1String("print")) {
+        } else if (text == "print") {
             tp.returnType.type = VoidType;
-        } else if (text == QLatin1String("property")) {
+        } else if (text == "property") {
             tp.returnType.type = ClassType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("range")) {
+        } else if (text == "range") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("repr")) {
+        } else if (text == "repr") {
             tp.returnType.type = StringType;
-        } else if (text == QLatin1String("reversed")) {
+        } else if (text == "reversed") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("round")) {
+        } else if (text == "round") {
             tp.returnType.type = FloatType;
-        } else if (text == QLatin1String("set")) {
+        } else if (text == "set") {
             tp.returnType.type = SetType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("setattr")) {
+        } else if (text == "setattr") {
             tp.returnType.type = VoidType;
-        } else if (text == QLatin1String("slice")) {
+        } else if (text == "slice") {
             tp.returnType.type = IterableType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("sorted")) {
+        } else if (text == "sorted") {
             tp.returnType.type = ListType;
-        } else if (text == QLatin1String("str")) {
+        } else if (text == "str") {
             tp.returnType.type = StringType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("sum")) {
+        } else if (text == "sum") {
             tp.returnType.type = FloatType;
-        } else if (text == QLatin1String("super")) {
+        } else if (text == "super") {
             tp.returnType.type = ClassType;
-        } else if (text == QLatin1String("tuple")) {
+        } else if (text == "tuple") {
             tp.returnType.type = TupleType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("type")) {
+        } else if (text == "type") {
             tp.returnType.type = TypeObjectType;
-        } else if (text == QLatin1String("unicode")) {
+        } else if (text == "unicode") {
             tp.returnType.type = StringType;
             tp.thisType.type = BuiltinMethodType;
-        } else if (text == QLatin1String("vars")) {
+        } else if (text == "vars") {
             tp.returnType.type = DictType;
-        } else if (text == QLatin1String("zip")) {
+        } else if (text == "zip") {
             tp.returnType.type = IterableType;
-        } else if (text == QLatin1String("__import__")) {
+        } else if (text == "__import__") {
             tp.returnType.type = ReferenceImportType;
 
         // handle @methods
-        } else if (tok->token == Python::Token::T_IdentifierDecorator) {
-            if (text == QLatin1String("@classmethod")) {
+        } else if (tok->type == Python::Token::T_IdentifierDecorator) {
+            if (text == "@classmethod") {
                 tp.returnType.type = ClassMethodDescriptorType;
             }
         }
@@ -385,7 +389,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::T
 
 Python::SourceRoot::DataTypes Python::SourceRoot::numberType(const Python::Token *tok) const
 {
-    switch (tok->token) {
+    switch (tok->type) {
     case Python::Token::T_NumberFloat:
         return FloatType;
     case Python::Token::T_NumberBinary:
@@ -404,36 +408,42 @@ bool Python::SourceRoot::isLineEscaped(const Python::Token *tok) const {
     int guard = 40;
     bool escaped = false;
     while (tok && (guard--)) {
-        if (tok->token == Python::Token::T_DelimiterLineContinue)
+        if (tok->type == Python::Token::T_DelimiterLineContinue)
             escaped = true;
         else
             escaped = false;
-        if (tok->token == Python::Token::T_DelimiterNewLine)
+        if (tok->type == Python::Token::T_DelimiterNewLine)
             break;
         NEXT_TOKEN(tok)
     }
     return escaped;
 }
 
-QString Python::SourceRoot::customTypeNameFor(Python::SourceRoot::CustomNameIdx_t customIdx)
+const std::string Python::SourceRoot::customTypeNameFor(Python::SourceRoot::CustomNameIdx_t customIdx)
 {
+    if (customIdx >= m_uniqueCustomTypeNames || customIdx < 0)
+        return std::string();
     return m_customTypeNames[customIdx];
 }
 
-Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::addCustomTypeName(const QString name)
+Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::addCustomTypeName(const std::string &name)
 {
-    m_customTypeNames[++m_uniqueCustomTypeNames] = name;
+    m_customTypeNames.insert({++m_uniqueCustomTypeNames, name});
     return m_uniqueCustomTypeNames;
 }
 
-Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(const QString name)
+Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(const std::string &name)
 {
-    if (m_customTypeNames.values().contains(QString(name)))
-        return m_customTypeNames.key(QString(name));
+    CustomNameIdx_t idx = 0;
+    for (auto &p : m_customTypeNames) {
+        if (name == p.second)
+            return idx;
+        ++idx;
+    }
     return -1;
 }
 
-Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString filePath,
+Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &filePath,
                                                          Python::SyntaxHighlighter *highlighter)
 {
     DEFINE_DBG_VARS
@@ -448,7 +458,7 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString fileP
     // create a new module
     mod = new Python::SourceModule(this, highlighter);
     mod->setFilePath(filePath);
-    QFileInfo fi(filePath);
+    Python::FileInfo fi(filePath);
     mod->setModuleName(fi.baseName());
     m_modules->insert(mod);
 
@@ -456,19 +466,20 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString fileP
     // firstline might be empty
     if (highlighter && highlighter->document()) {
         QTextBlock block = highlighter->document()->begin();
-        const Python::TextBlockData *txtData = nullptr;
+        const Python::TokenLine *tokLine = nullptr;
         if (block.isValid())
-            txtData = dynamic_cast<Python::TextBlockData*>(block.userData());
+            // FIXME port to tokenizer instead of document
+            tokLine = dynamic_cast<Python::TextBlockD  ata*>(block.userData());
 
-        if (!txtData)
+        if (!tokLine)
             highlighter->rehighlight();
         else {
             // find first token, first row might be empty
-            while(txtData->tokens().empty() &&
-                  (txtData = txtData->next()))
+            while(tokLine->empty() &&
+                  (tokLine = tokLine->nextLine()))
                 ;
-            if (txtData) {
-                Python::Token *tok = txtData->tokens()[0];
+            if (tokLine) {
+                Python::Token *tok = tokLine->front();
                 if (tok) {
                     DBG_TOKEN(tok)
                     mod->scanFrame(tok);
@@ -485,8 +496,8 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const QString fileP
     return mod;
 }
 
-Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const QString filePath,
-                                                          Python::TextBlockData *row,
+Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const std::string &filePath,
+                                                          Python::TokenLine *row,
                                                           Python::SyntaxHighlighter *highlighter)
 {
     Python::SourceModule *mod = moduleFromPath(filePath);
@@ -494,12 +505,12 @@ Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const QString file
         // create a new module
         mod = new Python::SourceModule(this, highlighter);
         mod->setFilePath(filePath);
-        QFileInfo fi(filePath);
+        Python::FileInfo fi(filePath);
         mod->setModuleName(fi.baseName());
         m_modules->insert(mod);
     }
 
-    if (!row->isEmpty()) {
+    if (!row->empty()) {
         mod->scanLine(row->tokenAt(0));
     }
 
@@ -548,10 +559,10 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
     static const int maxStatements = 50;
     int pos = 0; // use as guard for max tokens and parenPos
     do {
-        switch (tok->token) {
+        switch (tok->type) {
         case Python::Token::T_DelimiterOpenParen:
             if (parenOpenCnt != parenCloseCnt) {
-                frame->module()->setSyntaxError(tok, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+                frame->module()->setSyntaxError(tok, "Parens mismatch '('..')' in statement");
                 return typeInfo;
             }
             parenPos.push_front(pos);
@@ -561,13 +572,13 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
             parenPos.push_front(pos);
             parenCloseCnt++;
             if (parenOpenCnt != parenCloseCnt) {
-                frame->module()->setSyntaxError(tok, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+                frame->module()->setSyntaxError(tok, "Parens mismatch '('..')' in statement");
                 return typeInfo;
             }
             break;
         case Python::Token::T_DelimiterOpenBrace:
             if (braceOpenCnt != braceCloseCnt) {
-                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
+                frame->module()->setSyntaxError(startToken, "Braces mismatch in statement '{'..'}'");
                 return typeInfo;
             }
             braceOpenCnt++;
@@ -575,13 +586,13 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         case Python::Token::T_DelimiterCloseBrace:
             braceCloseCnt++;
             if (braceOpenCnt != braceCloseCnt) {
-                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Braces mismatch in statement '{'..'}'"));
+                frame->module()->setSyntaxError(startToken, "Braces mismatch in statement '{'..'}'");
                 return typeInfo;
             }
             break;
         case Python::Token::T_DelimiterOpenBracket:
             if (bracketOpenCnt != bracketCloseCnt) {
-                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
+                frame->module()->setSyntaxError(startToken, "Brackets mismatch in statment '['..']'");
                 return typeInfo;
             }
             bracketOpenCnt++;
@@ -589,7 +600,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         case Python::Token::T_DelimiterCloseBracket:
             bracketCloseCnt++;
             if (bracketOpenCnt != bracketCloseCnt) {
-                frame->module()->setSyntaxError(startToken, QString::fromLatin1("Brackets mismatch in statment '['..']'"));
+                frame->module()->setSyntaxError(startToken, "Brackets mismatch in statment '['..']'");
                 return typeInfo;
             }
             break;
@@ -606,7 +617,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
 
     // track a dangling ( at end
     if (parenPos.size() % 2) {
-        frame->module()->setSyntaxError(startToken, QString::fromLatin1("Parens mismatch '('..')' in statement"));
+        frame->module()->setSyntaxError(startToken, "Parens mismatch '('..')' in statement");
         return typeInfo;
     }
 
@@ -654,7 +665,7 @@ const Python::Token
     DBG_TOKEN(tok)
 
     while(tok && (guard--)) {
-        switch (tok->token) {
+        switch (tok->type) {
         case Python::Token::T_DelimiterOpenParen:
  //           ++parenCnt;
             // recurse into this '(..)'
@@ -767,7 +778,12 @@ Python::SourceRoot::TypeInfo::~TypeInfo()
 {
 }
 
-QString Python::SourceRoot::TypeInfo::typeAsStr() const
+const std::string Python::SourceRoot::TypeInfo::typeAsStr() const
+{
+    return std::string(typeAsCStr());
+}
+
+const char* Python::SourceRoot::TypeInfo::typeAsCStr() const
 {
     const char *typeAsStr;
     static const char *errStr = "<Typename lookup error>";
@@ -836,23 +852,23 @@ QString Python::SourceRoot::TypeInfo::typeAsStr() const
     case Python::SourceRoot::FileType:            typeAsStr = "FileType";     break;
     case Python::SourceRoot::CustomType:
         if (customNameIdx > -1) {
-            return customName();
+            return customName().c_str();
         }
-        return QLatin1String(errStr);
+        return errStr;
         break;
     default:
-        return QLatin1String(errStr);
+        return errStr;
     }
 
-    return QLatin1String(typeAsStr);
+    return typeAsStr;
 }
 
-QString Python::SourceRoot::TypeInfo::customName() const
+const std::string Python::SourceRoot::TypeInfo::customName() const
 {
     if (customNameIdx > -1) {
         return Python::SourceRoot::instance()->customTypeNameFor(customNameIdx);
     }
-    return QString();
+    return std::string();
 }
 
 #include "moc_PythonSourceRoot.cpp"
