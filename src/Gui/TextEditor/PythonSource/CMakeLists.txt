@@ -19,30 +19,6 @@ if(WIN32)
     add_definitions(-DFCGui) # For GUIExport to work
 endif(WIN32)
 
-# qt specific
-if (BUILD_QT5)
-    include_directories(
-        ${Qt5Core_INCLUDE_DIRS}
-        ${Qt5Widgets_INCLUDE_DIRS}
-        ${Qt5PrintSupport_INCLUDE_DIRS}
-        ${Qt5UiTools_INCLUDE_DIRS}
-    )
-    list(APPEND Common_LIBS
-        ${Qt5Core_LIBRARIES}
-        ${Qt5Widgets_LIBRARIES}
-        ${Qt5PrintSupport_LIBRARIES}
-        ${Qt5UiTools_LIBRARIES}
-    )
-else()
-    include_directories(
-        ${QT_INCLUDE_DIR}
-    )
-    list(APPEND Common_LIBS
-        ${QT_LIBRARIES}
-        ${QT_QTUITOOLS_LIBRARY}
-    )
-endif()
-
 # dependencies
 list(APPEND Common_LIBS
     FreeCADBase FreeCADApp TextEditor)
@@ -72,11 +48,6 @@ SET(PythonSource_HPP_SRCS
     PythonSourceParameter.h
     PythonSourceRoot.h
 )
-SET(PythonSource_MOC_HDRS
-    PythonSourceRoot.h
-)
-# run moc
-fc_wrap_cpp(PythonSource_MOC_SRCS ${PythonSource_MOC_HDRS})
 
 SET(PythonSource_SRCS
     ${PythonSource_CPP_SRCS}
@@ -98,13 +69,6 @@ if(BUILD_PYTHON_DEBUGTOOLS)
 endif()
 SOURCE_GROUP("PythonSource" FILES ${PythonSource_SRCS})
 
-if (BUILD_QT5)
-    QT5_ADD_RESOURCES(PythonSource_QRC_SRCS ${PythonSource_RES_SRCS})
-    QT5_WRAP_UI(PythonSource_UIC_HDRS ${PythonSource_Dlg_UIC_SRCS})
-else(BUILD_QT5)
-    QT4_ADD_RESOURCES(PythonSource_QRC_SRCS ${PythonSource_RES_SRCS})
-    QT4_WRAP_UI(PythonSource_UIC_HDRS ${PythonSource_Dlg_UIC_SRCS})
-endif(BUILD_QT5)
 SET(PythonSource_Dlg_SRCS
     ${PythonSource_Dlg_CPP_SRCS}
     ${PythonSource_Dlg_HPP_SRCS}

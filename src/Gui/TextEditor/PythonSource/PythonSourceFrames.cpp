@@ -251,12 +251,10 @@ Python::Token *Python::SourceFrame::scanFrame(Python::Token *startToken, Python:
         m_lastToken.setToken(startToken);
 
     Python::Token *tok = startToken;
-    Python::TokenLine *tokLine = tok->ownerLine();
     DBG_TOKEN(tok)
 
-    uint guard = tokLine->ownerList()->max_size(); // max number of rows scanned
+    uint guard = tok->ownerLine()->ownerList()->max_size(); // max number of rows scanned
     while (tok && (--guard)) {
-        tokLine = tok->ownerLine();
         tok = scanLine(tok, indent);
 
         if (indent.framePopCnt() > 0) {
@@ -268,8 +266,7 @@ Python::Token *Python::SourceFrame::scanFrame(Python::Token *startToken, Python:
 
         if (tok && !tok->next())
             m_lastToken.setToken(tok);
-        else
-            NEXT_TOKEN(tok)
+        NEXT_TOKEN(tok)
     }
 
     if (guard == 0)
@@ -361,7 +358,6 @@ Python::Token *Python::SourceFrame::scanLine(Python::Token *startToken,
     // do increasing indents
     tok = handleIndent(tok, indent, 1);
 
-    Python::SourceModule *noConstModule = const_cast<Python::SourceModule*>(m_module);
 
     guard = 200; // max number of tokens in this line, unhang locked loop
     // scan document
@@ -427,6 +423,8 @@ Python::Token *Python::SourceFrame::scanLine(Python::Token *startToken,
             tok = handleIndent(tok, indent, -1);
             if (indent.framePopCnt())
                 return tok->previous();
+
+            Python::SourceModule *noConstModule = const_cast<Python::SourceModule*>(m_module);
 
             // a function that can be function or method
             // determine what it is
@@ -1271,7 +1269,8 @@ Python::Token *Python::SourceFrame::handleIndent(Python::Token *tok,
             m_module->setIndentError(tok); // uneven indentation
         } else if (linePrev){
 
-            Python::Token *lastTok = linePrev->back();
+            // last token -1 to get before newlinetoken
+            Python::Token *lastTok = linePrev->back()->previous();
             do { // handle when multiple blocks dedent in a single row
                 indent.popBlock();
                 if (linePrev) {// notify that this block has ended
@@ -1351,7 +1350,6 @@ Python::Token *Python::SourceFrame::gotoEndOfLine(Python::Token *tok)
             if (++newLines > 0)
                 return tok;
             // fallthrough
-        [[clang::fallthrough]];
         default: ;// nothing
         }
         NEXT_TOKEN(tok)

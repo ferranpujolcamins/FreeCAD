@@ -1,7 +1,7 @@
 #include "PythonSourceModule.h"
 #include <TextEditor/PythonCode.h>
 #include <TextEditor/PythonSyntaxHighlighter.h>
-#include <QDebug>
+#include <iostream>
 
 DBG_TOKEN_FILE
 
@@ -42,7 +42,6 @@ void Python::SourceModule::scanLine(Python::Token *tok)
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const_cast<Python::SourceFrame*>(frm)->scanLine(tok, indent);
-    qDebug() << QLatin1String("scanline:") << tok->line() << endl;
 }
 
 Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Token *tok) const
@@ -126,7 +125,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
             traversedBlocks.push_back(currentIndent);
     } else {
         if (guard == 0)
-            qDebug() << QLatin1String("scanFrame loopguard") << endl;
+            std::clog << "scanFrame loopguard" << std::endl;
         // we dind't find any ':', must be in root frame
         assert(frm->parentFrame() == nullptr && frameIndent == 0 && "Should be in root frame here!");
     }
@@ -243,9 +242,6 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
         if (!childFrm->lastToken())
             continue;
 
-        qDebug() << tok->line() << QLatin1String(">=") << childFrm->token()->line()<<endl;
-        qDebug() << tok->line() << QLatin1String(">=") << childFrm->lastToken()->line()<<endl;
-        qDebug() << "------" <<endl;
         if (*tok >= *childFrm->token() && *tok <= *childFrm->lastToken())
         {
             // find recursivly

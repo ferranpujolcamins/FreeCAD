@@ -341,7 +341,7 @@ public:
     Python::Token *operator[] (int32_t idx);
 
     // info
-    bool empty() const { return m_first != nullptr && m_last != nullptr; }
+    bool empty() const { return m_first == nullptr && m_last == nullptr; }
     uint32_t count() const;
     uint32_t max_size() const { return 20000000u; }
 
@@ -419,9 +419,10 @@ class TokenLine {
     std::string m_text;
 
     std::vector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
-                                        //  (so context parser can detemine it later)
+                                            //  (so context parser can determine it later)
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
     int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
+    bool m_isParamLine;
 
 public:
     explicit TokenLine(Python::TokenList *ownerList,
@@ -585,7 +586,7 @@ public:
 protected:
     Python::TokenizerP *d_tok;
 
-    uint tokenize(Python::TokenLine *tokLine, bool &isParamLine);
+    uint tokenize(Python::TokenLine *tokLine);
 
     /// this method is called when we cant tokenize a char
     /// subclasses should implement this function

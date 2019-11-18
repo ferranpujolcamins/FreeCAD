@@ -9,6 +9,11 @@
 #include <string>
 
 
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+#include <TextEditor/PythonCodeDebugTools.h>
+#define DEBUG_DELETES
+#endif
+
 bool isNumber(char ch)
 {
     return (ch >= '0' && ch <= '9');
@@ -131,12 +136,20 @@ Python::Token::Token(const Python::Token &other) :
 
 Python::Token::~Token()
 {
+#ifdef DEBUG_DELETES
+    std::cout << "del Token: " << std::hex << this << " '" << m_nameDbg <<
+                 "' ownerLine:" << std::hex << m_ownerLine <<
+                 " type" << Syntax::tokenToCStr(m_type)  << std::endl;
+#endif
+
     // notify our listeners
     for (Python::SourceListNodeBase *n : m_srcLstNodes)
         n->tokenDeleted();
 
     if (m_ownerLine)
         m_ownerLine->remove(this, false);
+
+
 }
 
 void Python::Token::changeType(Python::Token::Type tokType)
@@ -342,8 +355,6 @@ Python::TokenList::~TokenList()
     clear();
 }
 
-
-
 Python::Token *Python::TokenList::operator[](int32_t idx)
 {
     int32_t cnt = static_cast<int32_t>(count());
@@ -372,15 +383,6 @@ Python::Token *Python::TokenList::operator[](int32_t idx)
 uint32_t Python::TokenList::count() const
 {
     return m_size;
-    /*uint32_t siz = 0;
-    uint32_t guard = max_size();
-    Python::Token *iter = m_first;
-    while (iter && guard--) {
-        iter = iter->m_next;
-        ++siz;
-    }
-    assert(guard > 0 && "Line iteration guard circular nodes in List");
-    return siz; */
 }
 
 void Python::TokenList::clear()
@@ -484,6 +486,10 @@ bool Python::TokenList::remove(Python::Token *tok, bool deleteTok)
         tok->m_previous->m_next = tok->m_next;
     if (tok->m_next)
         tok->m_next->m_previous = tok->m_previous;
+    if (m_first == tok)
+        m_first = nullptr;
+    if (m_last == tok)
+        m_last = nullptr;
 
     assert(m_size > 0 && "Size cache out of order");
     --m_size;
@@ -705,7 +711,8 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
     m_ownerList(ownerList), m_startTok(startTok),
     m_nextLine(nullptr), m_previousLine(nullptr),
     m_tokenScanInfo(nullptr), m_indentCharCount(0),
-    m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0)
+    m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0),
+    m_blockStateCnt(0), m_isParamLine(false)
 {
     // strip newline chars
     size_t trimChrs = 0;
@@ -720,7 +727,9 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
 
     m_text = text.substr(0, text.length() - trimChrs);
 
+#ifdef DEBUG_DELETES
     std::cout << "new TokenLine: " << std::hex << this << " " << m_text << std::endl;
+#endif
 }
 
 Python::TokenLine::TokenLine(const TokenLine &other) :
@@ -729,15 +738,26 @@ Python::TokenLine::TokenLine(const TokenLine &other) :
     m_tokenScanInfo(other.m_tokenScanInfo),
     m_text(other.m_text), m_indentCharCount(other.m_indentCharCount),
     m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
-    m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt)
+    m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt),
+    m_isParamLine(false)
 {
+#ifdef DEBUG_DELETES
     std::cout << "cpy TokenLine: " << std::hex << this << " " << m_text << std::endl;
+#endif
 }
 
 Python::TokenLine::~TokenLine()
 {
-    std::cout << "del TokenLine: " << std::hex << this << " " << m_text << std::endl;
-    m_ownerList->removeLine(this, false);
+#ifdef DEBUG_DELETES
+    std::cout << "del TokenLine: " << std::hex << this << " '" << m_text <<
+                 "' tokCnt:" << count() << std::endl;
+#endif
+
+    if (m_tokenScanInfo) {
+        delete m_tokenScanInfo;
+        m_tokenScanInfo = nullptr;
+    }
+
 
     Python::Token *tok = m_startTok;
     while (tok && tok->m_ownerLine == this)
@@ -747,8 +767,7 @@ Python::TokenLine::~TokenLine()
         delete tmp;
     }
 
-    if (m_tokenScanInfo)
-        delete m_tokenScanInfo;
+    m_ownerList->removeLine(this, false);
 }
 
 uint32_t Python::TokenLine::lineNr() const
@@ -800,9 +819,10 @@ Python::Token *Python::TokenLine::back() const {
     Python::Token *iter = m_startTok;
     uint32_t guard = m_ownerList->max_size();
     while (iter && iter->m_ownerLine == this &&
-           iter->next() && (--guard))
+           iter->m_next && iter->m_next->m_ownerLine == this
+           && (--guard))
     {
-        iter = iter->next();
+        iter = iter->m_next;
     }
 
     return iter;
@@ -1085,11 +1105,13 @@ const std::string &Python::Tokenizer::filePath() const
     return d_tok->filePath;
 }
 
-uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
+uint Python::Tokenizer::tokenize(TokenLine *tokLine)
 {
     d_tok->activeLine = tokLine;
-    //int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
     bool isModuleLine = false;
+
+    tokLine->m_isParamLine = tokLine->m_previousLine ?
+                                tokLine->m_previousLine->m_isParamLine : false;
     uint prefixLen = 0;
 
     const std::string text(tokLine->text());
@@ -1203,7 +1225,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
 
             // handle all with possibly 3 chrs
             case '*':
-                if (isParamLine) {
+                if (tokLine->m_isParamLine) {
                     // specialcase * as it may be a *arg or **arg
                     if (nextCh == '*') {
                         setWord(i, 2, Python::Token::T_OperatorKeyWordParam);
@@ -1341,8 +1363,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
                 break;
             case '(':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenParen);
-                if (isParamLine)
-                    ++tokLine->parenCntRef();
+                ++tokLine->parenCntRef();
                 break;
             case '\r':
                 if (nextCh == '\n') {
@@ -1365,11 +1386,9 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
                 break;
             case ')':
                 setDelimiter(i, 1, Python::Token::T_DelimiterCloseParen);
-                if (isParamLine) {
-                    --tokLine->parenCntRef();
-                    if (tokLine->parenCnt() == 0)
-                        isParamLine = false;
-                }
+                --tokLine->parenCntRef();
+                if (tokLine->parenCnt() == 0)
+                    tokLine->m_isParamLine = false;
                 break;
             case ']':
                 setDelimiter(i, 1, Python::Token::T_DelimiterCloseBracket);
@@ -1450,7 +1469,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine, bool &isParamLine)
                     auto it = std::find(d_tok->keywords.begin(), d_tok->keywords.end(), word);
                     if (it != d_tok->keywords.end()) {
                         if (word == "def") {
-                            isParamLine = true;
+                            tokLine->m_isParamLine = true;
                             setWord(i, len, Python::Token::T_KeywordDef);
                             d_tok->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
 
@@ -1917,10 +1936,16 @@ Python::TokenScanInfo::ParseMsg::ParseMsg(const std::string &message, const Toke
                                           TokenScanInfo::MsgType type) :
     m_message(message), m_token(tok), m_type(type)
 {
+#ifdef DEBUG_DELETES
+    std::clog << "new ParseMsg " << std::hex << this << std::endl;
+#endif
 }
 
 Python::TokenScanInfo::ParseMsg::~ParseMsg()
 {
+#ifdef DEBUG_DELETES
+    std::clog << "del ParseMsg " << std::hex << this << std::endl;
+#endif
 }
 
 const std::string Python::TokenScanInfo::ParseMsg::msgTypeAsString() const
@@ -1956,10 +1981,17 @@ Python::TokenScanInfo::MsgType Python::TokenScanInfo::ParseMsg::type() const
 
 Python::TokenScanInfo::TokenScanInfo()
 {
+#ifdef DEBUG_DELETES
+    std::clog << "new TokenScanInfo " << std::hex << this << std::endl;
+#endif
 }
 
 Python::TokenScanInfo::~TokenScanInfo()
 {
+#ifdef DEBUG_DELETES
+    std::clog << "del TokenScanInfo " << std::hex << this << std::endl;
+#endif
+
     for (auto &msg : m_parseMsgs)
         delete msg;
 }

@@ -85,7 +85,6 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     d->sourceScanTmr.stop();
 
     // create new userData, copy bookmark etc
-    bool isValid = currentBlock().isValid();
     Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock(), &list()),
                           *curBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
     Python::TokenLine *prevLine = dynamic_cast<Python::TokenLine*>(currentBlock().previous().userData());
@@ -105,12 +104,12 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     txtBlock->m_textDbg = text;
 #endif
 
-    int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
-    bool isParamLine  = prevState & ParamLineMASK;
+    //int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
+    //bool isParamLine  = prevState & ParamLineMASK;
 
     // scans this line
     endStateOfLastParaRef() = endStateOfLastPara;
-    uint i = tokenize(txtBlock, isParamLine);
+    uint i = tokenize(txtBlock);
 
     // Insert new line token
     if (activeLine())
