@@ -272,8 +272,9 @@ Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLine
     {
         int newPos = newLineTok->ownerLine()->insert(
                                         new Python::Token(Python::Token::T_BlockEnd,
-                                                newLineTok->previous()->startPos(), 0,
-                                                          newLineTok->ownerLine()));
+                                                newLineTok->startPos(), newLineTok->endPos(),
+                                                          newLineTok->ownerLine()),
+                                                    newLineTok);
         newLineTok->ownerLine()->decBlockState();
         return newLineTok->ownerLine()->tokenAt(newPos);
     }

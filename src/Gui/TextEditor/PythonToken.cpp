@@ -992,7 +992,7 @@ Python::Token *Python::TokenLine::pop_front()
     return m_startTok;
 }
 
-int Python::TokenLine::insert(Python::Token *tok)
+int Python::TokenLine::insert(Python::Token *tok, const Python::Token *nextSibling)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
     assert(tok->m_ownerLine == this && "tok already added to a Line");
@@ -1010,6 +1010,8 @@ int Python::TokenLine::insert(Python::Token *tok)
            prevTok->m_next->m_ownerLine == this &&
            (--guard))
     {
+        if (prevTok->m_next == nextSibling)
+            break;
         prevTok = prevTok->m_next;
         ++pos;
     }

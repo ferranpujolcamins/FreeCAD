@@ -514,7 +514,7 @@ public:
     /// caller taken ownership and must delete token
     Python::Token *pop_front();
     /// inserts token into list, returns position it is stored at
-    int insert(Python::Token *tok);
+    int insert(Python::Token *tok, const Python::Token *nextSibling = nullptr);
 
     /// removes tok from list
     /// if deleteTok is true it also deletes these tokens (mem. free)
