@@ -453,19 +453,22 @@ Python::Token *Python::TextBlockData::tokenAt(int pos) const
     return Python::TokenLine::tokenAt(pos);
 }
 
-bool Python::TextBlockData::isMatchAt(int pos, Python::Token::Type token) const
+bool Python::TextBlockData::isMatchAt(int pos, Python::Token::Type tokType) const
 {
     const Python::Token *tok = tokenAt(pos);
     if (!tok)
         return false;
-    return token == tok->type();
+    return tokType == tok->type();
 }
 
-bool Python::TextBlockData::isMatchAt(int pos, const QList<Python::Token::Type> tokens) const
+bool Python::TextBlockData::isMatchAt(int pos, const QList<Python::Token::Type> tokTypes) const
 {
-    for (const Python::Token::Type token : tokens) {
-        if (isMatchAt(pos, token))
-            return true;
+    Python::Token *tok = Python::TokenLine::tokenAt(pos);
+    if (tok) {
+        for (const Python::Token::Type tokType : tokTypes) {
+            if (tok->type() == tokType)
+                return true;
+        }
     }
     return false;
 }
@@ -585,7 +588,7 @@ void Python::MatchingChars::cursorPositionChange()
     QTextBlockUserData *rawTextData = currentBlock.userData();
     if (!rawTextData)
         return;
-    Python::TextBlockData *textData = reinterpret_cast<Python::TextBlockData*>(rawTextData);
+    Python::TextBlockData *textData = dynamic_cast<Python::TextBlockData*>(rawTextData);
     if (!textData)
         return;
 
@@ -677,7 +680,11 @@ void Python::MatchingChars::cursorPositionChange()
                 --innerCount;
             if (innerCount < 0 && tokenObj->type() == token2) {
                 // found it!
-                pos2 = tokenObj->startPosInt() + currentBlock.position();
+                Python::TextBlockData *pyBlock =
+                        dynamic_cast<Python::TextBlockData*>(tokenObj->ownerLine());
+                if (!pyBlock)
+                    return;
+                pos2 = tokenObj->startPosInt() + pyBlock->block().position();
                 break; // finsihed! set extraformat
             }
         }

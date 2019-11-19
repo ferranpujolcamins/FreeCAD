@@ -149,19 +149,19 @@ public:
     /**
      * @brief isMatchAt compares token at given pos
      * @param pos position i document
-     * @param token match against this token
-     * @return true if token are the same
+     * @param tokType match against this token
+     * @return true if tokType are the same
      */
-    bool isMatchAt(int pos, Python::Token::Type token) const;
+    bool isMatchAt(int pos, Python::Token::Type tokType) const;
 
 
     /**
      * @brief isMatchAt compares multiple tokens at given pos
      * @param pos position i document
-     * @param token a list of tokens to match against this token
-     * @return true if any of the token are the same
+     * @param tokTypes a list of tokens to match against this token
+     * @return true if any of the tokTypes are the same
      */
-    bool isMatchAt(int pos, const QList<Python::Token::Type> tokens) const;
+    bool isMatchAt(int pos, const QList<Python::Token::Type> tokTypes) const;
 
     // FIXME: Sould factor scanInfo to  be disconnected from TextBlockData
     /**

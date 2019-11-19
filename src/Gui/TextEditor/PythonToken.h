@@ -463,12 +463,6 @@ public:
     /// number of braces '{' in this line, see parenCnt for description
     int braceCnt() const { return m_braceCnt; }
 
-    /// same as above but reference
-    int &parenCntRef() { return m_parenCnt; }
-    int &bracketCntRef() { return m_bracketCnt; }
-    int &braceCntRef() { return  m_braceCnt; }
-
-
     /// blockState tells if this block starts a new block,
     ///         such as '{' in C like languages or ':' in python
     ///         +1 = blockstart, -1 = blockend, -2 = 2 blockends ie '}}'

@@ -860,7 +860,18 @@ Python::Token *Python::TokenLine::operator[](int idx) const
 
 Python::Token *Python::TokenLine::tokenAt(int idx) const
 {
-    return (*this)[idx];
+    Python::Token *iter = m_startTok;
+    uint guard = m_ownerList->max_size();
+    while(iter && (--guard)) {
+        if (iter->m_ownerLine != this)
+            break;
+        if (iter->startPosInt() <= idx && iter->endPosInt() > idx)
+            return iter;
+        iter = iter->m_next;
+    }
+    assert(guard > 0 && "Line iteration guard circular nodes in List");
+
+    return nullptr;
 }
 
 const std::list<Python::Token *> Python::TokenLine::tokens() const
@@ -1110,8 +1121,13 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
     d_tok->activeLine = tokLine;
     bool isModuleLine = false;
 
-    tokLine->m_isParamLine = tokLine->m_previousLine ?
-                                tokLine->m_previousLine->m_isParamLine : false;
+    if (tokLine->m_previousLine) {
+        tokLine->m_isParamLine = tokLine->m_previousLine->m_isParamLine;
+        tokLine->m_braceCnt = tokLine->m_previousLine->m_braceCnt;
+        tokLine->m_bracketCnt = tokLine->m_previousLine->m_bracketCnt;
+        tokLine->m_parenCnt = tokLine->m_previousLine->m_parenCnt;
+    }
+
     uint prefixLen = 0;
 
     const std::string text(tokLine->text());
@@ -1363,7 +1379,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
                 break;
             case '(':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenParen);
-                ++tokLine->parenCntRef();
+                ++tokLine->m_parenCnt;
                 break;
             case '\r':
                 if (nextCh == '\n') {
@@ -1377,21 +1393,25 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
                 break;
             case '[':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenBracket);
+                ++tokLine->m_bracketCnt;
                 break;
             case '{':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenBrace);
+                ++tokLine->m_braceCnt;
                 break;
             case '}':
                 setDelimiter(i, 1, Python::Token::T_DelimiterCloseBrace);
+                --tokLine->m_braceCnt;
                 break;
             case ')':
                 setDelimiter(i, 1, Python::Token::T_DelimiterCloseParen);
-                --tokLine->parenCntRef();
+                --tokLine->m_parenCnt;
                 if (tokLine->parenCnt() == 0)
                     tokLine->m_isParamLine = false;
                 break;
             case ']':
                 setDelimiter(i, 1, Python::Token::T_DelimiterCloseBracket);
+                --tokLine->m_bracketCnt;
                 break;
             case ',':
                 setDelimiter(i, 1, Python::Token::T_DelimiterComma);
