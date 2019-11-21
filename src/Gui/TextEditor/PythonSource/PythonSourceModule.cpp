@@ -77,51 +77,39 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     //     var1 = None     <- previousBlockIndent
     //     if (arg1):      <- triggers change in currentBlockIndent
     //         var1 = arg1 <- currentBlockIndent
-    Python::TokenLine *tokLine = tok->ownerLine();
+    Python::TokenLine *tokLine = tok->ownerLine(),
+                      *lastLine = tok->ownerLine();
     int indent = tokLine->indent();
     int guard = 1000;
     while (tokLine && (guard--) > 0) {
-        if (!tokLine->empty()){
+        if (tokLine->isCodeLine()){
             if (indent >= tokLine->indent()) {
                 // look for ':' if not found its a syntax error unless its a comment
                 beginTok = tokLine->findToken(Python::Token::T_DelimiterColon, -1);
                 DBG_TOKEN(beginTok)
-                const Python::Token *colonTok = beginTok;
-                while (beginTok && (guard--) > 0) {
-                    PREV_TOKEN(beginTok)
-                    // make sure isn't a comment line
-                    if (!beginTok || beginTok->type() == Python::Token::T_Comment ||
-                        beginTok->ownerLine() != tokLine)
+                if (beginTok) {
+                    if (beginTok->next() &&
+                        beginTok->next()->type() != Python::Token::T_BlockStart)
                     {
-                        break; // goto parent loop, do previous line
-                    } else if (beginTok->type() == Python::Token::T_BlockStart) {
-                        traversedBlocks.push_back(tokLine->indent());
-                        guard = -1; break;
-                    } else if (beginTok->isCode()) {
-                        insertBlockStart(colonTok);
-                        traversedBlocks.push_back(tokLine->indent());
-                        guard = -1;
-                        break;
-                    } else if(beginTok->type() == Python::Token::T_DelimiterNewLine) {
-                        guard = -2; // exit parent loop
-                        break;
+                        insertBlockStart(beginTok);
                     }
+
+                    traversedBlocks.push_back(tokLine->indent());
+                    break;
+                } else if (tokLine->indent() < indent) {
+                    setSyntaxError(lastLine->front(), "Blockstart without ':'");
+                    break;
                 }
-
-                if (guard < -1)
-                    setSyntaxError(beginTok, "Blockstart without ':'");
             }
-
         }
-
-        if (guard > 0) // guard is 0 when we exit, no need to look up previous row
-            tokLine = tokLine->previousLine();
+        lastLine = tokLine;
+        tokLine = tokLine->previousLine();
     }
 
     if (guard < 0) {
         // we found it
         currentIndent = _currentBlockIndent(beginTok);
-        if (currentIndent > -1)
+        if (currentIndent >= frameIndent)
             traversedBlocks.push_back(currentIndent);
     } else {
         if (guard == 0)
@@ -270,11 +258,10 @@ Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLine
     if (newLineTok->previous() &&
         newLineTok->previous()->type() != Python::Token::T_BlockEnd)
     {
-        int newPos = newLineTok->ownerLine()->insert(
+        int newPos = newLineTok->ownerLine()->insert(newLineTok->previous(),
                                         new Python::Token(Python::Token::T_BlockEnd,
                                                 newLineTok->startPos(), newLineTok->endPos(),
-                                                          newLineTok->ownerLine()),
-                                                    newLineTok);
+                                                          newLineTok->ownerLine()));
         newLineTok->ownerLine()->decBlockState();
         return newLineTok->ownerLine()->tokenAt(newPos);
     }

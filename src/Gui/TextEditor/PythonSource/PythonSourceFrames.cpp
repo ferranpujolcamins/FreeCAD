@@ -1072,9 +1072,9 @@ Python::Token *Python::SourceFrame::scanAllParameters(Python::Token *tok, bool s
 
         // scan parameters
         if (storeParameters && parenCount > 0) {
-            if (tok->isIdentifier() ||
-                tok->type() == Python::Token::T_OperatorVariableParam ||
-                tok->type() == Python::Token::T_OperatorKeyWordParam)
+            if (tok && (tok->isIdentifier() ||
+                    tok->type() == Python::Token::T_OperatorVariableParam ||
+                    tok->type() == Python::Token::T_OperatorKeyWordParam))
             {
                 tok = scanParameter(tok, parenCount, isInitFunc); // also should handle typehints
                 DBG_TOKEN(tok)
@@ -1250,6 +1250,8 @@ Python::Token *Python::SourceFrame::handleIndent(Python::Token *tok,
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(tok)
+    if (!tok)
+            return nullptr;
 
     int ind = tok->ownerLine()->indent();
 

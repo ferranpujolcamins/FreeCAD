@@ -368,7 +368,7 @@ QModelIndex TokenModel::index(int row, int column, const QModelIndex &parent) co
         // its the tokens row
         std::intptr_t idx = reinterpret_cast<std::intptr_t>(parent.internalPointer());
         auto txtData = getTextBlock((idx >> SRC_ROW_SHIFT) -1);
-        if (txtData && static_cast<int>(row) < txtData->tokens().size()){
+        if (txtData && static_cast<uint>(row) < txtData->tokens().size()){
             idx = (idx & SRC_ROW_MASK) | row;
             return createIndex(row, column, reinterpret_cast<void*>(idx));
         }

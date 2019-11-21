@@ -325,7 +325,7 @@ void Python::Token::attachReference(Python::SourceListNodeBase *srcListNode)
 {
     std::list<Python::SourceListNodeBase*>::iterator pos =
             std::find(m_srcLstNodes.begin(), m_srcLstNodes.end(), srcListNode);
-    if (pos != m_srcLstNodes.end())
+    if (pos == m_srcLstNodes.end())
         m_srcLstNodes.push_back(srcListNode);
 }
 
@@ -992,10 +992,10 @@ Python::Token *Python::TokenLine::pop_front()
     return m_startTok;
 }
 
-int Python::TokenLine::insert(Python::Token *tok, const Python::Token *nextSibling)
+int Python::TokenLine::insert(Python::Token *tok)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
-    assert(tok->m_ownerLine == this && "tok already added to a Line");
+    assert(tok->m_ownerLine == instance() && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
 
@@ -1010,8 +1010,6 @@ int Python::TokenLine::insert(Python::Token *tok, const Python::Token *nextSibli
            prevTok->m_next->m_ownerLine == this &&
            (--guard))
     {
-        if (prevTok->m_next == nextSibling)
-            break;
         prevTok = prevTok->m_next;
         ++pos;
     }
@@ -1021,6 +1019,26 @@ int Python::TokenLine::insert(Python::Token *tok, const Python::Token *nextSibli
     if (!m_startTok)
         m_startTok = tok;
     return pos;
+}
+
+int Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insertTok)
+{
+    assert(insertTok);
+    if (!previousTok || previousTok->m_ownerLine != instance())
+        return insert(insertTok);
+
+    assert(previousTok->m_ownerLine == instance());
+    m_ownerList->insert(previousTok, insertTok);
+
+    int cnt = 0;
+    for(Python::Token *iter = m_startTok;
+        iter->m_ownerLine == instance();
+        iter = iter->m_next, ++cnt)
+    {
+        if (iter == insertTok)
+            break;
+    }
+    return cnt;
 }
 
 bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
