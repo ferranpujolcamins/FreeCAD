@@ -39,6 +39,11 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
                     TOKEN->line(), TOKEN->startPos(), TOKEN->endPos()); \
     strncpy(TOKEN_SRC_LINE_BUF, TOKEN->ownerLine()->text().c_str(), sizeof TOKEN_SRC_LINE_BUF); \
     strncpy(TOKEN_TEXT_BUF, TOKEN->text().c_str(), sizeof TOKEN_TEXT_BUF); \
+    } else { \
+    strncpy(TOKEN_NAME_BUF, "Invalid", sizeof TOKEN_NAME_BUF); \
+    snprintf(TOKEN_INFO_BUF, sizeof TOKEN_INFO_BUF, "line:-1,start:-1,end:-1"); \
+    strncpy(TOKEN_SRC_LINE_BUF, "nullptr", sizeof TOKEN_SRC_LINE_BUF); \
+    strncpy(TOKEN_TEXT_BUF, "nullptr", sizeof TOKEN_TEXT_BUF); \
 }
 #define NEXT_TOKEN(TOKEN) {\
     if (TOKEN) TOKEN = TOKEN->next(); \

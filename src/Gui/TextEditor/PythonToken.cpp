@@ -148,8 +148,6 @@ Python::Token::~Token()
 
     if (m_ownerLine)
         m_ownerLine->remove(this, false);
-
-
 }
 
 void Python::Token::changeType(Python::Token::Type tokType)
@@ -586,19 +584,22 @@ void Python::TokenList::swapLine(int32_t lineNr, Python::TokenLine *swapIn)
 
 void Python::TokenList::swapLine(Python::TokenLine *swapOut, Python::TokenLine *swapIn)
 {
-    assert(swapIn == nullptr);
-    assert(swapOut == nullptr);
+    assert(swapIn != nullptr);
+    assert(swapOut != nullptr);
+    assert(swapIn != swapOut);
     assert(swapOut->m_ownerList == this && "swapOut not in this list");
-    assert(!swapIn->m_ownerList && "swapIn already attached to a list");
+    assert((!swapIn->m_ownerList || swapIn->m_ownerList == this) &&
+                                "swapIn already attached to a list");
 
     swapIn->m_ownerList = this;
+    swapIn->m_line = swapOut->m_line;
 
     if (m_firstLine == swapOut->instance())
         m_firstLine = swapIn->instance();
     if (m_lastLine == swapOut->instance())
         m_lastLine = swapIn->instance();
-
-    delete swapOut;
+    swapIn->m_previousLine = swapOut->m_previousLine;
+    swapIn->m_nextLine     = swapOut->m_nextLine;
 }
 
 void Python::TokenList::insertLine(int32_t lineNr, Python::TokenLine *insertLine)
@@ -630,18 +631,24 @@ void Python::TokenList::insertLine(Python::TokenLine *previousLine,
             m_lastLine = insertLine->instance();
         }
         previousLine->m_nextLine = insertLine;
+
+        insertLine->m_line = previousLine->m_line;
+        incLineCount(insertLine);
     } else if(m_firstLine) {
         // has a line stored
         insertLine->m_nextLine = m_firstLine;
         insertLine->m_previousLine = nullptr;
         m_firstLine->m_previousLine = insertLine->instance();
         m_firstLine = insertLine->instance();
+        insertLine->m_line = 0;
+        incLineCount(insertLine->m_nextLine);
     } else {
         // at beginning (ie. first row)
         insertLine->m_nextLine = nullptr;
         insertLine->m_previousLine = nullptr;
         m_firstLine = insertLine->instance();
         m_lastLine = insertLine->instance();
+        insertLine->m_line = 0;
     }
 
     insertLine->m_ownerList = this;
@@ -651,8 +658,10 @@ void Python::TokenList::appendLine(Python::TokenLine *lineToPush)
 {
     assert(lineToPush);
     assert(lineToPush->m_ownerList == nullptr && "lineToPush is contained in another list");
-    if (m_lastLine)
+    if (m_lastLine) {
         lineToPush->m_previousLine = m_lastLine;
+        lineToPush->m_line = m_lastLine->m_line +1;
+    }
 
     m_lastLine = lineToPush->instance();
     if (!m_firstLine)
@@ -672,17 +681,21 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteL
     assert(lineToRemove->m_ownerList == this && "lineToRemove not contained in this list");
 
     if (lineToRemove->instance() == m_firstLine)
-        m_firstLine = lineToRemove->m_nextLine->instance();
+        m_firstLine = lineToRemove->m_nextLine ?
+                    lineToRemove->m_nextLine->instance() : nullptr;
     if (lineToRemove->instance() == m_lastLine)
-        m_lastLine = lineToRemove->m_previousLine->instance();
+        m_lastLine =  lineToRemove->m_previousLine ?
+                    lineToRemove->m_previousLine->instance() : nullptr;
     if (lineToRemove->m_previousLine)
         lineToRemove->m_previousLine->m_nextLine = lineToRemove->m_nextLine->instance();
-    if (lineToRemove->m_nextLine)
+    if (lineToRemove->m_nextLine) {
         lineToRemove->m_nextLine->m_previousLine = lineToRemove->m_previousLine->instance();
+        decLineCount(lineToRemove->nextLine());
+    }
 
-    if (lineToRemove->m_startTok == m_first) {
+    if (lineToRemove->m_frontTok == m_first) {
         if (lineToRemove->m_nextLine)
-            m_first = lineToRemove->m_nextLine->m_startTok;
+            m_first = lineToRemove->m_nextLine->m_frontTok;
         else
             m_first = nullptr;
     }
@@ -703,16 +716,31 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteL
         delete lineToRemove;
 }
 
+void Python::TokenList::incLineCount(Python::TokenLine *firstLineToInc) const
+{
+    while(firstLineToInc) {
+        ++firstLineToInc->m_line;
+        firstLineToInc = firstLineToInc->m_nextLine;
+    }
+}
+
+void Python::TokenList::decLineCount(Python::TokenLine *firstLineToDec) const
+{
+    while(firstLineToDec) {
+        ++firstLineToDec->m_line;
+        firstLineToDec = firstLineToDec->m_nextLine;
+    }
+}
+
 // ----------------------------------------------------------------------------------------
 
 Python::TokenLine::TokenLine(Python::TokenList *ownerList,
                              Python::Token *startTok,
                              const std::string &text) :
-    m_ownerList(ownerList), m_startTok(startTok),
-    m_nextLine(nullptr), m_previousLine(nullptr),
-    m_tokenScanInfo(nullptr), m_indentCharCount(0),
-    m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0),
-    m_blockStateCnt(0), m_isParamLine(false)
+    m_ownerList(ownerList), m_frontTok(startTok), m_backTok(startTok),
+    m_nextLine(nullptr), m_previousLine(nullptr), m_tokenScanInfo(nullptr),
+    m_indentCharCount(0), m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0),
+    m_blockStateCnt(0), m_line(-1),  m_isParamLine(false)
 {
     // strip newline chars
     size_t trimChrs = 0;
@@ -733,13 +761,13 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
 }
 
 Python::TokenLine::TokenLine(const TokenLine &other) :
-    m_ownerList(other.m_ownerList), m_startTok(other.m_startTok),
-    m_nextLine(other.m_nextLine), m_previousLine(other.m_previousLine),
-    m_tokenScanInfo(other.m_tokenScanInfo),
+    m_ownerList(other.m_ownerList), m_frontTok(other.m_frontTok),
+    m_backTok(other.m_backTok), m_nextLine(other.m_nextLine),
+    m_previousLine(other.m_previousLine), m_tokenScanInfo(other.m_tokenScanInfo),
     m_text(other.m_text), m_indentCharCount(other.m_indentCharCount),
     m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
     m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt),
-    m_isParamLine(false)
+    m_line(-1), m_isParamLine(false)
 {
 #ifdef DEBUG_DELETES
     std::cout << "cpy TokenLine: " << std::hex << this << " " << m_text << std::endl;
@@ -758,8 +786,7 @@ Python::TokenLine::~TokenLine()
         m_tokenScanInfo = nullptr;
     }
 
-
-    Python::Token *tok = m_startTok;
+    Python::Token *tok = m_frontTok;
     while (tok && tok->m_ownerLine == this)
     {
         Python::Token *tmp = tok;
@@ -772,20 +799,13 @@ Python::TokenLine::~TokenLine()
 
 uint32_t Python::TokenLine::lineNr() const
 {
-    uint32_t lineCnt = 0;
-    Python::TokenLine *iter = m_previousLine;
-    uint guard = m_ownerList->max_size();
-    while(iter && (--guard)) {
-        ++lineCnt;
-        iter = iter->m_previousLine;
-    }
-    return lineCnt;
+    return static_cast<uint>(m_line);
 }
 
 uint Python::TokenLine::count() const
 {
     uint cnt = 0;
-    Python::Token *iter = m_startTok;
+    Python::Token *iter = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(iter && (--guard)) {
         if (iter->m_ownerLine != this)
@@ -805,7 +825,7 @@ int Python::TokenLine::indent() const
 
 bool Python::TokenLine::isCodeLine() const
 {
-    Python::Token *tok = m_startTok;
+    Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
     while (tok && tok->m_ownerLine == this && (--guard)) {
         if (tok->isCode())
@@ -816,7 +836,10 @@ bool Python::TokenLine::isCodeLine() const
 }
 
 Python::Token *Python::TokenLine::back() const {
-    Python::Token *iter = m_startTok;
+
+    return m_backTok;
+    /*
+    Python::Token *iter = m_frontTok;
     uint32_t guard = m_ownerList->max_size();
     while (iter && iter->m_ownerLine == this &&
            iter->m_next && iter->m_next->m_ownerLine == this
@@ -826,15 +849,15 @@ Python::Token *Python::TokenLine::back() const {
     }
 
     return iter;
+    */
 }
 
 Python::Token *Python::TokenLine::end() const {
-    Python::Token *tok = back();
-    return tok ? tok->m_next : nullptr;
+    return m_backTok ? m_backTok->m_next : nullptr;
 }
 
 Python::Token *Python::TokenLine::rend() const {
-    return m_startTok ? m_startTok->m_previous : nullptr;
+    return m_frontTok ? m_frontTok->m_previous : nullptr;
 }
 
 Python::Token *Python::TokenLine::operator[](int idx) const
@@ -844,7 +867,7 @@ Python::Token *Python::TokenLine::operator[](int idx) const
         idx = static_cast<int>(count()) - idx;
 
     int cnt = 0;
-    Python::Token *iter = m_startTok;
+    Python::Token *iter = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(iter && (--guard)) {
         if (iter->m_ownerLine != this)
@@ -860,7 +883,7 @@ Python::Token *Python::TokenLine::operator[](int idx) const
 
 Python::Token *Python::TokenLine::tokenAt(int idx) const
 {
-    Python::Token *iter = m_startTok;
+    Python::Token *iter = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(iter && (--guard)) {
         if (iter->m_ownerLine != this)
@@ -874,12 +897,26 @@ Python::Token *Python::TokenLine::tokenAt(int idx) const
     return nullptr;
 }
 
+int Python::TokenLine::tokenPos(const Python::Token *tok) const
+{
+    int idx = 0;
+    uint guard = m_ownerList->max_size();
+    const Python::Token *iter = m_frontTok;
+    while (iter && iter->m_ownerLine == this && (--guard)) {
+        if (iter == tok)
+            return idx;
+        ++idx;
+        iter = iter->m_next;
+    }
+    return -1;
+}
+
 const std::list<Python::Token *> Python::TokenLine::tokens() const
 {
     std::list<Python::Token*> tokList;
-    Python::Token *tok = m_startTok;
+    Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
-    while(tok && tok->ownerLine() == this && (--guard)) {
+    while(tok && tok->m_ownerLine == this && (--guard)) {
         tokList.push_back(tok);
         tok = tok->next();
     }
@@ -911,7 +948,7 @@ const Python::Token *Python::TokenLine::findToken(Python::Token::Type tokType, i
 
     } else {
         // search from front (linestart)
-        Python::Token *tok = m_startTok;
+        Python::Token *tok = m_frontTok;
         uint guard = m_ownerList->max_size();
         while(tok && tok->m_ownerLine == this && (--guard)) {
             if (tok->type() == tokType &&
@@ -929,7 +966,7 @@ const Python::Token *Python::TokenLine::findToken(Python::Token::Type tokType, i
 
 const Python::Token *Python::TokenLine::firstTextToken() const
 {
-    Python::Token *tok = m_startTok;
+    Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(tok && tok->m_ownerLine == this && (--guard)) {
         if (tok->isText())
@@ -941,7 +978,7 @@ const Python::Token *Python::TokenLine::firstTextToken() const
 
 const Python::Token *Python::TokenLine::firstCodeToken() const
 {
-    Python::Token *tok = m_startTok;
+    Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(tok && tok->m_ownerLine == this && (--guard)) {
         if (tok->isCode())
@@ -954,42 +991,60 @@ const Python::Token *Python::TokenLine::firstCodeToken() const
 void Python::TokenLine::push_back(Python::Token *tok)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
-    assert((!tok->m_ownerLine || tok->m_ownerLine != this) && "tok already added to a Line");
+    assert(tok->m_ownerLine == this && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
     m_ownerList->push_back(tok);
+    if (!m_frontTok)
+        m_frontTok = tok;
+    m_backTok = tok;
 }
 
 void Python::TokenLine::push_front(Python::Token *tok)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
-    assert((!tok->m_ownerLine || tok->m_ownerLine != this) && "tok already added to a Line");
+    assert(tok->m_ownerLine == this && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
 
     Python::Token *prevTok = nullptr;
-    if (m_startTok)
-        prevTok = m_startTok->m_previous;
+    if (m_frontTok)
+        prevTok = m_frontTok->m_previous;
     else if (m_previousLine)
         prevTok = m_previousLine->back();
     m_ownerList->insert(prevTok, tok);
+    if (!m_backTok)
+        m_backTok = tok;
+    m_frontTok = tok;
 }
 
 Python::Token *Python::TokenLine::pop_back()
 {
     assert(m_ownerList != nullptr && "Line must be inserted to a list to remove tokens");
-    Python::Token *tok = back();
-    if (tok)
+    Python::Token *tok = m_backTok;
+    if (tok) {
         m_ownerList->remove(tok, false);
+        if (tok == m_frontTok)
+            m_frontTok = m_backTok = nullptr;
+
+        if (tok->m_previous  && tok->m_previous->m_ownerLine == instance())
+            m_backTok = tok->m_previous;
+        else
+            m_backTok = m_frontTok;
+    }
     return tok;
 }
 
 Python::Token *Python::TokenLine::pop_front()
 {
     assert(m_ownerList != nullptr && "Line must be inserted to a list to remove tokens");
-    if (m_startTok)
-        m_ownerList->remove(m_startTok, false);
-    return m_startTok;
+    if (m_frontTok) {
+        m_ownerList->remove(m_frontTok, false);
+        m_frontTok = m_frontTok->m_next;
+        if (!m_frontTok)
+            m_backTok = nullptr;
+    }
+    return m_frontTok;
 }
 
 int Python::TokenLine::insert(Python::Token *tok)
@@ -1000,7 +1055,7 @@ int Python::TokenLine::insert(Python::Token *tok)
     tok->m_ownerLine = this;
 
     int pos = 0;
-    Python::Token *prevTok = m_startTok;
+    Python::Token *prevTok = m_frontTok;
     if (!prevTok && m_previousLine)
         prevTok = m_previousLine->back();
     // move up to correct place within line
@@ -1016,8 +1071,10 @@ int Python::TokenLine::insert(Python::Token *tok)
     // insert into list, if prevTok is nullptr its inserted at beginning of list
     m_ownerList->insert(prevTok, tok);
     // our first token in this line
-    if (!m_startTok)
-        m_startTok = tok;
+    if (!m_frontTok)
+        m_frontTok = m_backTok = tok;
+    if (m_backTok == prevTok)
+        m_backTok = tok;
     return pos;
 }
 
@@ -1029,16 +1086,7 @@ int Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insertT
 
     assert(previousTok->m_ownerLine == instance());
     m_ownerList->insert(previousTok, insertTok);
-
-    int cnt = 0;
-    for(Python::Token *iter = m_startTok;
-        iter->m_ownerLine == instance();
-        iter = iter->m_next, ++cnt)
-    {
-        if (iter == insertTok)
-            break;
-    }
-    return cnt;
+    return tokenPos(insertTok);
 }
 
 bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
@@ -1047,11 +1095,11 @@ bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
     if (tok->m_ownerLine != this)
         return false;
 
-    if (tok == m_startTok) {
-        if (count() > 1)
-            m_startTok = m_startTok->m_next;
+    if (tok == m_frontTok) {
+        if (tok->m_next && tok->m_next->m_ownerLine == instance())
+            m_frontTok = m_frontTok->m_next;
         else
-            m_startTok = nullptr;
+            m_frontTok =  m_backTok = nullptr;
     }
 
     return m_ownerList->remove(tok, deleteTok);
@@ -1063,15 +1111,20 @@ bool Python::TokenLine::remove(Python::Token *tok, Python::Token *endTok, bool d
     if (tok->m_ownerLine != this || endTok->m_ownerLine != this)
         return false;
 
-    if (tok == m_startTok) {
-        if (count() > 1)
-            m_startTok = m_startTok->m_next;
+    if (tok == m_frontTok) {
+        if (endTok->m_next && endTok->m_next->m_ownerLine == instance())
+            m_frontTok = endTok->m_next;
         else
-            m_startTok = nullptr;
+            m_frontTok = m_backTok = nullptr;
+    }
+    if (endTok == m_backTok) {
+        if (m_frontTok == m_backTok)
+            m_frontTok = nullptr;
+        m_backTok = nullptr;
     }
 
-    bool ret = m_ownerList->remove(tok, deleteTok);
-    if (!m_startTok)
+    bool ret = m_ownerList->remove(tok, endTok, deleteTok);
+    if (!m_frontTok)
         delete this; // delete me
     return ret;
 }
@@ -1080,15 +1133,15 @@ Python::Token *Python::TokenLine::newDeterminedToken(Python::Token::Type tokType
                                                      uint startPos, uint len)
 {
     Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, this);
-    insert(tokenObj);
+    push_back(tokenObj);
     return tokenObj;
 }
 
 Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokType,
                                                              uint startPos, uint len)
 {
-    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, this);
-    int pos = insert(tokenObj);
+    Python::Token *tokenObj = newDeterminedToken(tokType, startPos, startPos + len);
+    int pos = tokenPos(tokenObj);
     m_undeterminedIndexes.push_back(pos);
     return tokenObj;
 }
@@ -1591,12 +1644,14 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
 
                     } else {
                         auto it = std::find(d_tok->builtins.begin(), d_tok->builtins.end(), word);
-                        if (it != d_tok->builtins.end() &&
-                              d_tok->activeLine->back() &&
-                              d_tok->activeLine->back()->type() == Python::Token::T_DelimiterPeriod)
-                        {
-                            // avoid match against someObj.print
-                            setWord(i, len, Python::Token::T_IdentifierBuiltin);
+                        if (it != d_tok->builtins.end()) {
+                            if (d_tok->activeLine->back() &&
+                                d_tok->activeLine->back()->type() == Python::Token::T_DelimiterPeriod)
+                            {
+                                // avoid match against someObj.print
+                                setWord(i, len, Python::Token::T_IdentifierUnknown);
+                            } else
+                                setWord(i, len, Python::Token::T_IdentifierBuiltin);
                         } else if (isModuleLine) {
                             i -= 1; // jump to module block
                             d_tok->endStateOfLastPara = Python::Token::T_IdentifierModule;

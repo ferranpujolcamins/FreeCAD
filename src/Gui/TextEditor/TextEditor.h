@@ -256,7 +256,8 @@ protected:
 class TextEditBlockScanInfo
 {
 public:
-    enum MsgType { Message, LookupError, SyntaxError, IndentError, Warning, AllMsgTypes };
+    /// types of messages, sorted in priority, higher idx == higher prio
+    enum MsgType { Invalid, AllMsgTypes, Message, Warning, LookupError, IndentError, SyntaxError };
     struct ParseMsg {
     public:
         explicit ParseMsg(QString message, int start, int end, MsgType type);

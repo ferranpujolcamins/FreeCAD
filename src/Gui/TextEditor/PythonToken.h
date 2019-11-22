@@ -363,7 +363,7 @@ public:
     /// lineNr is 0 based (ie. first row == 0), lastRow == -1
     void swapLine(int32_t lineNr, Python::TokenLine *swapIn);
 
-    /// swap line, old line is deleted with all it containing tokens
+    /// swap line, old line must be deleted by caller
     /// list takes ownership of swapInLine and its tokens
     void swapLine(Python::TokenLine *swapOut, Python::TokenLine *swapIn);
 
@@ -405,6 +405,10 @@ private:
                 Python::Token *endTok,
                 bool deleteTok = true);
 
+    // when inserting or removing line, change the rests line
+    void incLineCount(Python::TokenLine *firstLineToInc) const;
+    void decLineCount(Python::TokenLine *firstLineToDec) const;
+
 private:
     friend class Python::TokenLine;
 };
@@ -413,7 +417,7 @@ private:
 
 class TokenLine {
     Python::TokenList *m_ownerList;
-    Python::Token *m_startTok;
+    Python::Token *m_frontTok, *m_backTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
     Python::TokenScanInfo *m_tokenScanInfo;
     std::string m_text;
@@ -422,6 +426,7 @@ class TokenLine {
                                             //  (so context parser can determine it later)
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
     int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
+    int m_line;
     bool m_isParamLine;
 
 public:
@@ -443,7 +448,7 @@ public:
     /// returns the number of tokens
     uint count() const;
     /// true if line is empty
-    bool empty() const { return m_startTok == nullptr; }
+    bool empty() const { return m_frontTok == nullptr; }
 
     /// returns the number of chars that starts this line
     int indent() const;
@@ -474,7 +479,7 @@ public:
 
 
     // accessor methods
-    Python::Token *front() const { return m_startTok; }
+    Python::Token *front() const { return m_frontTok; }
     Python::Token *back() const;
     Python::Token *end() const;
     Python::Token *rend() const;
@@ -484,6 +489,8 @@ public:
     /// returns the token at idx position in line or nullptr
     Python::Token *operator[] (int idx) const;
     Python::Token *tokenAt(int idx) const;
+    /// return what pos tok is at, returns the idx, ...[idx] for tok or -1 if not found
+    int tokenPos(const Python::Token *tok) const;
 
     /// returns a list with all tokens in this line
     const std::list<Python::Token*> tokens() const;
@@ -530,7 +537,7 @@ public:
                 bool deleteTok = true);
 
     // these are accessed from Python::Tokenizer
-    /// create a token with tokType and insert at pos with length
+    /// create a token with tokType and append to line
     Python::Token *newDeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
     /// this insert should only be used by PythonSyntaxHighlighter
     /// stores this token id as needing a parse tree lookup to determine the tokenType
@@ -622,7 +629,8 @@ private:
 class TokenScanInfo
 {
 public:
-    enum MsgType { Message, LookupError, SyntaxError, IndentError, Warning, Issue, AllMsgTypes };
+    /// types of messages, sorted in priority, higher idx == higher prio
+    enum MsgType { Invalid, AllMsgTypes, Message, Warning, Issue, LookupError, IndentError, SyntaxError };
     struct ParseMsg {
     public:
         explicit ParseMsg(const std::string &message, const Python::Token *tok, MsgType type);

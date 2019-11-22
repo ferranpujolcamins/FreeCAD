@@ -402,51 +402,53 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
         Python::TextBlockData *blockData = dynamic_cast<Python::TextBlockData*>(block.userData());
         if (blockData) {
             if (blockData->scanInfo()) {
+                TextEditBlockScanInfo::MsgType msgType = TextEditBlockScanInfo::Invalid;
                 // we have scaninfo on this line (parsemessages)
-                for (const TextEditBlockScanInfo::ParseMsg &msg :
-                     blockData->scanInfo()->allMessages())
-                {
-                    const char *iconFile = nullptr;
-                    switch (msg.type()) {
-                    case TextEditBlockScanInfo::LookupError: // fallthrough
-                    case TextEditBlockScanInfo::IndentError:
-                        iconFile = "parse_info_warning"; break;
-                    case TextEditBlockScanInfo::Message:
-                        iconFile = "parse_info_message"; break;
-                    case TextEditBlockScanInfo::SyntaxError:
-                        iconFile = "parse_info_error";  break;
-                    default:
-                        continue; /* next for loop */
-                    }
-                    if (iconFile) {
-                        QIcon icon = BitmapFactory().iconFromTheme(iconFile);
-                        p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
-                    }
+                for (auto &msg : blockData->scanInfo()->allMessages())
+                    if (msg.type() > msgType)
+                        msgType = msg.type();
+
+                const char *iconFile = nullptr;
+                switch (msgType) {
+                case TextEditBlockScanInfo::LookupError: // fallthrough
+                case TextEditBlockScanInfo::IndentError:
+                    iconFile = "parse_info_warning"; break;
+                case TextEditBlockScanInfo::Message:
+                    iconFile = "parse_info_message"; break;
+                case TextEditBlockScanInfo::SyntaxError:
+                    iconFile = "parse_info_error";  break;
+                default: ; /* nothing */
                 }
+                if (iconFile) {
+                    QIcon icon = BitmapFactory().iconFromTheme(iconFile);
+                    p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
+                }
+                
             } else if (blockData->tokenScanInfo()) {
                 // we have python specific scaninfo on this line
-                for (auto &msg : blockData->tokenScanInfo()->allMessages()) {
-                    const char *iconFile = nullptr;
-                    switch (msg->type()) {
-                    case Python::TokenScanInfo::Issue: // not sure what icon to use here yet
-                    case Python::TokenScanInfo::LookupError: // fallthrough
-                    case Python::TokenScanInfo::IndentError:
-                        iconFile = "parse_info_warning"; break;
-                    case Python::TokenScanInfo::Message:
-                        iconFile = "parse_info_message"; break;
-                    case Python::TokenScanInfo::SyntaxError:
-                        iconFile = "parse_info_error";  break;
-                    default:
-                        continue; /* next for loop */
-                    }
-                    if (iconFile) {
-                        QIcon icon = BitmapFactory().iconFromTheme(iconFile);
-                        p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
-                    }
+                Python::TokenScanInfo::MsgType msgType = Python::TokenScanInfo::Invalid;
+                for (auto &msg : blockData->tokenScanInfo()->allMessages())
+                    if (msg->type() > msgType)
+                        msgType = msg->type();
+
+                const char *iconFile = nullptr;
+                switch (msgType) {
+                case Python::TokenScanInfo::Issue: // not sure what icon to use here yet
+                case Python::TokenScanInfo::LookupError: // fallthrough
+                case Python::TokenScanInfo::IndentError:
+                    iconFile = "parse_info_warning"; break;
+                case Python::TokenScanInfo::Message:
+                    iconFile = "parse_info_message"; break;
+                case Python::TokenScanInfo::SyntaxError:
+                    iconFile = "parse_info_error";  break;
+                default: ; /* nothing */
+                }
+                if (iconFile) {
+                    QIcon icon = BitmapFactory().iconFromTheme(iconFile);
+                    p->drawPixmap(x, y, icon.pixmap(d->breakpoint.height()));
                 }
             }
         }
-
     }
     // breakpoints
     App::BreakpointLine *bpl = d->debugger->getBreakpointLine(d->filename, line);

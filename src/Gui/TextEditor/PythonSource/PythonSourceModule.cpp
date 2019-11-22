@@ -95,6 +95,10 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
                     }
 
                     traversedBlocks.push_back(tokLine->indent());
+                    // we found it
+                    currentIndent = _currentBlockIndent(beginTok);
+                    if (currentIndent >= frameIndent)
+                        traversedBlocks.push_back(currentIndent);
                     break;
                 } else if (tokLine->indent() < indent) {
                     setSyntaxError(lastLine->front(), "Blockstart without ':'");
@@ -106,15 +110,10 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
         tokLine = tokLine->previousLine();
     }
 
-    if (guard < 0) {
-        // we found it
-        currentIndent = _currentBlockIndent(beginTok);
-        if (currentIndent >= frameIndent)
-            traversedBlocks.push_back(currentIndent);
-    } else {
+    if (traversedBlocks.empty()) {
         if (guard == 0)
             std::clog << "scanFrame loopguard" << std::endl;
-        // we dind't find any ':', must be in root frame
+        // we didn't find any ':', must be in root frame
         assert(frm->parentFrame() == nullptr && frameIndent == 0 && "Should be in root frame here!");
     }
     if (frameIndent > 0 || traversedBlocks.size() > 0){
@@ -189,7 +188,7 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
     DEFINE_DBG_VARS
 
     // find the frame associated with this token
-    if (parentFrame->empty())
+    if (parentFrame->empty() || !tok)
         return parentFrame; // we have no children, this is it!
 
     Python::SourceFrame *childFrm = nullptr;

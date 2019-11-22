@@ -29,19 +29,14 @@ namespace Python {
 class SyntaxHighlighterP
 {
 public:
-    explicit SyntaxHighlighterP():
-        //endStateOfLastPara(Python::Token::T_Undetermined),
-        activeBlock(nullptr)
+    explicit SyntaxHighlighterP()
     {
     }
-    ~SyntaxHighlighterP() {}
+    ~SyntaxHighlighterP()
+    {
+    }
 
-    //QStringList keywords;
-    //QStringList builtins;
-    //QString filePath;
     QTimer sourceScanTmr;
-    //Python::Token::Type endStateOfLastPara;
-    Python::TextBlockData *activeBlock;
     QList<int> srcScanBlocks;
 };
 
@@ -76,8 +71,9 @@ Python::SyntaxHighlighter::~SyntaxHighlighter()
  */
 void Python::SyntaxHighlighter::highlightBlock (const QString & text)
 {
-    int prevState = previousBlockState() != -1 ? previousBlockState() : 0; // is -1 when no state is set
-    Python::Token::Type endStateOfLastPara = static_cast<Python::Token::Type>(prevState & TokensMASK);
+    int prevState = previousBlockState();// != -1 ? previousBlockState() : 0; // is -1 when no state is set
+    Python::Token::Type endStateOfLastPara = static_cast<Python::Token::Type>(prevState);
+
     if (endStateOfLastPara < Python::Token::T_Undetermined)
         endStateOfLastPara = Python::Token::T_Undetermined;
 
@@ -87,25 +83,24 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     // create new userData, copy bookmark etc
     Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock(), &list()),
                           *curBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
-    Python::TokenLine *prevLine = dynamic_cast<Python::TokenLine*>(currentBlock().previous().userData());
     if (curBlock) {
-        setActiveLine(curBlock);
         txtBlock->copyBlock(*curBlock);
+        list().swapLine(curBlock, txtBlock);
+    } else {
+        // insert into list at correct pos
+        Python::TokenLine *prevLine = dynamic_cast<Python::TokenLine*>(
+                                                    currentBlock().previous().userData());
+        // prevBlock = nullptr means first line
+        list().insertLine(prevLine, txtBlock);
     }
 
-    // insert into list at correct pos
-    // prevBlock = nullptr means first line
-    list().insertLine(prevLine, txtBlock);
+    setActiveLine(txtBlock);
+    setCurrentBlockUserData(txtBlock); // implicitly deletes curBlock
 
-    d->activeBlock = txtBlock;
-    setCurrentBlockUserData(d->activeBlock);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     txtBlock->m_textDbg = text;
 #endif
-
-    //int parenCnt = (prevState & ParenCntMASK) >> ParenCntShiftPos;
-    //bool isParamLine  = prevState & ParamLineMASK;
 
     // scans this line
     endStateOfLastParaRef() = endStateOfLastPara;
@@ -116,11 +111,9 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
         activeLine()->newDeterminedToken(Python::Token::T_DelimiterNewLine, i, 0);
 
     prevState = static_cast<int>(endStateOfLastParaRef());
-    //prevState |= parenCnt << ParenCntShiftPos;
-    //prevState |= static_cast<int>(isParamLine) << ParamLineShiftPos;
     setCurrentBlockState(prevState);
-    d->srcScanBlocks.push_back(d->activeBlock->block().blockNumber());
-    d->activeBlock = nullptr;
+    d->srcScanBlocks.push_back(txtBlock->block().blockNumber());
+    setActiveLine(nullptr);
 
     d->sourceScanTmr.start();
     d->sourceScanTmr.blockSignals(false);

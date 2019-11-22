@@ -39,7 +39,7 @@ public:
 
     void highlightBlock (const QString & text) override;
 
-
+/*
     /// masks for decoding userState()
     enum {
         ParamLineShiftPos = 17,
@@ -50,6 +50,7 @@ public:
         PreventTokenize = 0x00020000, // prevents this call from running tokenize, used to repaint this block
         Rehighlighted   = 0x00040000, // used to determine if we already have rehighlighted
     };
+    */
 
     /// returns the format to color this token
     QTextCharFormat getFormatToken(const Python::Token *token) const;

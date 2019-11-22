@@ -1292,9 +1292,10 @@ Python::Token *Python::SourceFrame::handleIndent(Python::Token *tok,
     } else if (ind > indent.currentBlockIndent() && direction > -1) {
         // indent
         // find previous ':'
-        const Python::Token *prev = tok->previous();
+        const Python::Token *prev = tok->previous(),
+                            *nextTok = tok;
         DBG_TOKEN(prev)
-        int guard = 20;
+        int guard = 200000;
         while(prev && (guard--)) {
             switch (prev->type()) {
             case Python::Token::T_DelimiterColon:
@@ -1309,10 +1310,19 @@ Python::Token *Python::SourceFrame::handleIndent(Python::Token *tok,
             case Python::Token::T_LiteralBlockDblQuote:
             case Python::Token::T_LiteralSglQuote:
             case Python::Token::T_LiteralBlockSglQuote:
+                nextTok = prev;
                 PREV_TOKEN(prev)
                 break;
+            case Python::Token::T_DelimiterLineContinue:
+                if (nextTok->type() == Python::Token::T_DelimiterNewLine)
+                    prev = nullptr;
+                else
+                    PREV_TOKEN(prev)
+                break;
             default:
-                if (!prev->isCode()) {
+                if (!prev->isCode() || prev->ownerLine()->indent())
+                {
+                    nextTok = prev;
                     PREV_TOKEN(prev)
                     break;
                 }
