@@ -339,6 +339,9 @@ Python::TokenList::TokenList() :
     m_firstLine(nullptr), m_lastLine(nullptr),
     m_size(0)
 {
+#ifdef DEBUG_DELETES
+    std::cout << "new TokenLine: " << std::hex << this << std::endl;
+#endif
 }
 
 Python::TokenList::TokenList(const Python::TokenList &other) :
@@ -346,10 +349,18 @@ Python::TokenList::TokenList(const Python::TokenList &other) :
     m_firstLine(other.m_firstLine), m_lastLine(other.m_lastLine),
     m_size(other.m_size)
 {
+#ifdef DEBUG_DELETES
+    std::cout << "cpy TokenLine: " << std::hex << this
+              << " tokens:" << m_size << " lines:" << lineCount() << std::endl;
+#endif
 }
 
 Python::TokenList::~TokenList()
 {
+#ifdef DEBUG_DELETES
+    std::cout << "del TokenLine: " << std::hex << this
+              << " tokens:" << m_size << " lines:" << lineCount() << std::endl;
+#endif
     clear();
 }
 
@@ -608,6 +619,9 @@ void Python::TokenList::swapLine(Python::TokenLine *swapOut, Python::TokenLine *
     swapIn->m_previousLine = swapOut->m_previousLine;
     swapIn->m_nextLine     = swapOut->m_nextLine;
 
+    // clear so this line don't mess with list when it is deleted
+    swapOut->m_previousLine = swapOut->m_nextLine = nullptr;
+
     assert(swapIn->m_nextLine != swapIn);
     assert(swapIn->m_previousLine != swapIn);
 }
@@ -704,7 +718,7 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteL
         lineToRemove->m_previousLine->m_nextLine = lineToRemove->m_nextLine->instance();
     if (lineToRemove->m_nextLine) {
         lineToRemove->m_nextLine->m_previousLine = lineToRemove->m_previousLine->instance();
-        decLineCount(lineToRemove->nextLine());
+        decLineCount(lineToRemove->m_nextLine);
     }
 
     if (lineToRemove->m_frontTok == m_first) {

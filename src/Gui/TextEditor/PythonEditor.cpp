@@ -753,6 +753,8 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     if (!tok)
         return false;
 
+    QToolTip::setFont(font());
+
     if (d->debugger->isHalted()) {
         // debugging state
         if (!tok->isCode())
@@ -766,47 +768,67 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
         QToolTip::showText(tooltipPos, str, this);
         return true;
     } else {
-
         // coding state
-        TextEditBlockScanInfo *scanInfo = textData->scanInfo();
-        if (scanInfo) {
-            QStringList tooltipTxt;
-            const TextEditBlockScanInfo::parsemsgs_t msgTypes = scanInfo->allMessages();
-            for (const TextEditBlockScanInfo::ParseMsg &msg : msgTypes) {
+        QStringList tooltipStrs;
+        if (textData->scanInfo()) {
+            for (auto &msg : textData->scanInfo()->allMessages()) {
                 if (msg.startPos() > tok->startPosInt() || msg.endPos() < tok->endPosInt())
                     continue; // not for this token
-
-                tooltipTxt << msg.msgTypeAsString() + QLatin1String(": ") + msg.message();
+                tooltipStrs << msg.msgTypeAsString() + QLatin1String(": ") + msg.message();
             }
-            if (tooltipTxt.size()) {
-                QToolTip::showText(tooltipPos, tooltipTxt.join(QLatin1String("\n")));
-                return true;
+        } else if (textData->tokenScanInfo()) {
+            for (auto &msg : textData->tokenScanInfo()->allMessages()) {
+                if (*msg->token() == *tok)
+                    continue; // not for this token
+                tooltipStrs << QString::fromStdString(msg->msgTypeAsString()) +
+                               QLatin1String(": ") +
+                               QString::fromStdString(msg->message());
+            }
+        } else {
+
+            Python::SourceModule *mod = Python::SourceRoot::instance()->
+                    moduleFromPath(d->filename.toStdString());
+            if (!mod)
+                return false;
+
+            const Python::SourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
+            if (!frm)
+                return false;
+
+            // first lookup from current frame
+            const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
+            const  Python::SourceIdentifierAssignment *assign = ident ? ident->getFromPos(tok) :nullptr;
+            // if not found look in ALL identifiers at previous frame
+            while(frm && !ident) {
+                ident = frm->identifiers().getIdentifier(tok);
+                if (ident) {
+                    assign = ident->getFromPos(frm->lastToken());
+                    break;
+                }
+                frm = frm->parentFrame();
+            }
+
+            if (!assign)
+                return false;
+
+            tooltipStrs << QString(QLatin1String("%1 set at line: %2 col: %3"))
+                           .arg(QString::fromStdString(assign->typeInfo().typeAsStr()))
+                           .arg(assign->linenr()+1)
+                           .arg(assign->position());
+            if (assign->token()) {
+                tooltipStrs << QLatin1String("\n") <<
+                               QString::fromStdString(assign->token()->ownerLine()->text());
+                QString fillStr;
+                fillStr.fill(QLatin1Char('-'), assign->position());
+                fillStr.append(QLatin1Char('^'));
+                tooltipStrs << fillStr;
             }
         }
 
-        Python::SourceModule *mod = Python::SourceRoot::instance()->
-                                            moduleFromPath(d->filename.toStdString());
-        if (!mod)
-            return false;
-
-        const Python::SourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
-        if (!frm)
-            return false;
-
-        const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
-        if (!ident)
-            return false;
-
-        const  Python::SourceIdentifierAssignment *assign = ident->getFromPos(tok);
-        if (!assign)
-            return false;
-
-        QString displayStr = QString(QLatin1String("%1 set at line: %2 col: %3"))
-                .arg(QString::fromStdString(assign->typeInfo().typeAsStr()))
-                .arg(assign->linenr()+1)
-                .arg(assign->position());
-        QToolTip::showText(tooltipPos, displayStr);
-
+        if (tooltipStrs.size()) {
+            QToolTip::showText(tooltipPos, tooltipStrs.join(QLatin1Char('\n')));
+            return true;
+        }
     }
 
     return true;

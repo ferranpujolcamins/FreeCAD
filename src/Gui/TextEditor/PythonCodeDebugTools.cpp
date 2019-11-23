@@ -298,19 +298,16 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
     auto idx = reinterpret_cast<std::intptr_t>(index.internalPointer());
     if (idx & SRC_ROW_FLAG) {
         // its a code line
-        Python::SyntaxHighlighter *hl = dynamic_cast<Python::SyntaxHighlighter*>(m_editor->syntaxHighlighter());
-        if (hl) {
-            Python::TokenLine *line = hl->list().lineAt(index.row());
-            if (line) {
-                if (index.column() == 0) {
-                    if (role == Qt::ForegroundRole)
-                        return QBrush(QColor(0, 0, 50));
-                    return QString::number(line->lineNr() +1);
-                } else {
-                    if (role == Qt::ForegroundRole)
-                        return QBrush(QColor(0, 0, 50));
-                    return QString::fromStdString(line->text());
-                }
+        const Python::TokenLine *line = getTokenLine(index.row());
+        if (line) {
+            if (index.column() == 0) {
+                if (role == Qt::ForegroundRole)
+                    return QBrush(QColor(0, 0, 50));
+                return QString::number(line->lineNr() +1);
+            } else {
+                if (role == Qt::ForegroundRole)
+                    return QBrush(QColor(0, 0, 50));
+                return QString::fromStdString(line->text());
             }
         }
 
@@ -318,10 +315,10 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
         // its a token line, and we have parent
         int parentline = (idx & SRC_ROW_MASK) >> SRC_ROW_SHIFT;
         uint tokIdx = idx & TOK_ROW_MASK;
-        auto txtData = getTextBlock(parentline - 1);
-        if (txtData) {
-            const std::list<Python::Token*> &tokens = txtData->tokens();
-            if (txtData->tokens().size() > tokIdx) {
+        auto line = getTokenLine(parentline - 1);
+        if (line) {
+            const std::list<Python::Token*> &tokens = line->tokens();
+            if (line->tokens().size() > tokIdx) {
                 const Python::Token *tok = *std::next(tokens.begin(), tokIdx);
                 if (tok) {
                     DBG_TOKEN(tok)
@@ -372,17 +369,17 @@ QModelIndex TokenModel::index(int row, int column, const QModelIndex &parent) co
     if (parent.isValid()) {
         // its the tokens row
         std::intptr_t idx = reinterpret_cast<std::intptr_t>(parent.internalPointer());
-        auto txtData = getTextBlock((idx >> SRC_ROW_SHIFT) -1);
-        if (txtData && static_cast<uint>(row) < txtData->tokens().size()){
+        auto line = getTokenLine((idx >> SRC_ROW_SHIFT) -1);
+        if (line && static_cast<uint>(row) < line->tokens().size()){
             idx = (idx & SRC_ROW_MASK) | row;
             return createIndex(row, column, reinterpret_cast<void*>(idx));
         }
     } else {
         // its the code line
-        auto txtData = getTextBlock(row);
+        auto line = getTokenLine(row);
         int idx = ((row + 1) << SRC_ROW_SHIFT) | SRC_ROW_FLAG;
-        if (txtData){
-            idx |= txtData->tokens().size();
+        if (line){
+            idx |= line->tokens().size();
         }
         return createIndex(row, column, reinterpret_cast<void*>(idx));
     }
@@ -400,7 +397,7 @@ QModelIndex TokenModel::parent(const QModelIndex &index) const
         // its a token line, and we have parent
         int parentline = (idx & SRC_ROW_MASK) >> SRC_ROW_SHIFT;
         idx |= (idx & SRC_ROW_MASK) | SRC_ROW_FLAG;
-        auto txtData = getTextBlock(parentline);
+        auto txtData = getTokenLine(parentline);
         if (txtData)
             idx |= txtData->tokens().size();
         return createIndex(parentline -1, 0 , reinterpret_cast<void*>(idx));
@@ -419,7 +416,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
         int line = idx >> SRC_ROW_SHIFT;
         if (idx & SRC_ROW_FLAG) {
             // its a src row
-            auto txtData = getTextBlock(line -1);
+            auto txtData = getTokenLine(line -1);
             if (txtData)
                 return static_cast<int>(txtData->tokens().size());
         }
@@ -445,13 +442,12 @@ void TokenModel::refreshAll()
     endResetModel();
 }
 
-const Python::TextBlockData *TokenModel::getTextBlock(long line) const
+const Python::TokenLine *TokenModel::getTokenLine(long line) const
 {
-    QTextBlock block = m_editor->document()->findBlockByLineNumber(static_cast<int>(line));
-    if (!block.isValid())
-        return nullptr;
-
-    return dynamic_cast<Python::TextBlockData*>(block.userData());
+    Python::SyntaxHighlighter *hl = dynamic_cast<Python::SyntaxHighlighter*>(m_editor->syntaxHighlighter());
+    if (hl)
+        return hl->list().lineAt(static_cast<int>(line));
+    return nullptr;
 }
 
 // -----------------------------------------------------------------------

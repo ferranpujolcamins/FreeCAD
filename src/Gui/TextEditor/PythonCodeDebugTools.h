@@ -65,7 +65,7 @@ public Q_SLOTS:
     void refreshAll();
 
 private:
-    const Python::TextBlockData *getTextBlock(long line) const;
+    const Python::TokenLine *getTokenLine(long line) const;
     const PythonEditor *m_editor;
 };
 

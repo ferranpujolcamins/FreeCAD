@@ -36,6 +36,7 @@ SET(PythonSource_CPP_SRCS
     PythonSourceModule.cpp
     PythonSourceParameter.cpp
     PythonSourceRoot.cpp
+    PythonToken.cpp
 )
 SET(PythonSource_HPP_SRCS
     PythonSource.h
@@ -47,6 +48,7 @@ SET(PythonSource_HPP_SRCS
     PythonSourceModule.h
     PythonSourceParameter.h
     PythonSourceRoot.h
+    PythonToken.h
 )
 
 SET(PythonSource_SRCS

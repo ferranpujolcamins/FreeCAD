@@ -8,7 +8,7 @@
 #include "PythonSourceImports.h"
 #include "PythonSourceIndent.h"
 #include "PythonSourceRoot.h"
-#include <TextEditor/PythonToken.h>
+#include "PythonToken.h"
 
 
 namespace Gui {
@@ -161,7 +161,7 @@ private:
     // set identifier and sets up reference to RValue
     Python::Token *scanIdentifier(Python::Token *tok);
 
-    /// looks up a previously defined identifier with same name
+    /// looks up a previously defined identifier with same name and sts token to referenced type
     const Python::SourceIdentifier *lookupIdentifierReference(Python::Token *tok);
 
     // scans the RValue ie after '='

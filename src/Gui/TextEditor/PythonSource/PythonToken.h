@@ -229,6 +229,9 @@ public:
         return line() == rhs.line() && m_type == rhs.m_type &&
                m_startPos == rhs.m_startPos && m_endPos == rhs.m_endPos;
     }
+    bool operator!=(const Python::Token &rhs) const {
+        return !(*this == rhs);
+    }
     bool operator > (const Token &rhs) const
     {
         int myLine = line(), rhsLine = rhs.line();

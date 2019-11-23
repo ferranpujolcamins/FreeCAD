@@ -554,10 +554,7 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
         // TODO figure out how to do tuple assignment
 
         switch (tok->type()) {
-        case Python::Token::T_IdentifierFalse:
-            typeInfo.type = Python::SourceRoot::BoolType;
-            m_identifiers.setIdentifier(tok, typeInfo);
-            break;
+        case Python::Token::T_IdentifierFalse: // fallthrough
         case Python::Token::T_IdentifierTrue:
             typeInfo.type = Python::SourceRoot::BoolType;
             m_identifiers.setIdentifier(tok, typeInfo);
@@ -617,10 +614,25 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
             m_identifiers.setIdentifier(tok, tpPair.thisType);
             identifierTok = tok;
         }   break;
+        case Python::Token::T_OperatorNot:
+        case Python::Token::T_OperatorIs:
+            // booltest
+            if (!identifierTok) {
+                m_module->setSyntaxError(tok, "Unexpected " + tok->text());
+            } else {
+                typeInfo.type = Python::SourceRoot::BoolType;
+                ident = m_identifiers.setIdentifier(identifierTok, typeInfo);
+                if (identifierTok->type() == Python::Token::T_IdentifierUnknown) {
+                    identifierTok->changeType(Python::Token::T_IdentifierDefined);
+                    m_module->tokenTypeChanged(identifierTok);
+                }
+            }
+            break;
+        case Python::Token::T_OperatorIn: // fallthrough
         case Python::Token::T_OperatorEqual:
             // assigment
             if (!identifierTok) {
-                m_module->setSyntaxError(tok, "Unexpected =");
+                m_module->setSyntaxError(tok, "Unexpected " + tok->text());
             } else {
                 tok = scanRValue(tok, typeInfo, false);
                 ident = m_identifiers.setIdentifier(identifierTok, typeInfo);
@@ -634,6 +646,8 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
             // type hint or blockstart
             if (tok->next() && !tok->next()->isCode()) {
                 // its not a typehint, its probably a blockstart
+                if (identifierTok)
+                    lookupIdentifierReference(identifierTok);
                 return tok;
             } else if (ident) {
                 m_module->setSyntaxError(tok, "Unexpected ':'");
@@ -777,6 +791,10 @@ Python::Token *Python::SourceFrame::scanRValue(Python::Token *tok,
             }
             // else do next token
             break;
+        case Python::Token::T_OperatorIn:
+            if (ident && tok)
+                typeInfo = ident->getFromPos(tok)->typeInfo();
+            return tok;
         case Python::Token::T_OperatorEqual:
             if (!isTypeHint && tok->next()) {
                 // might have chained assignments ie: vlu1 = valu2 = vlu3 = 0

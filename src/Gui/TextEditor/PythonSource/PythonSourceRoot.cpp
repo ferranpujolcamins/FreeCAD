@@ -2,13 +2,14 @@
 #include "PythonSource.h"
 #include "PythonSourceModule.h"
 #include "PythonSourceDebugTools.h"
+#include "PythonToken.h"
 
 
 #include <FCConfig.h>
 #include "Base/Interpreter.h"
 //#include <TextEditor/PythonCode.h>
 //#include <TextEditor/PythonSyntaxHighlighter.h>
-#include <TextEditor/PythonToken.h>
+
 #include <QFileInfo>
 
 #include <map>

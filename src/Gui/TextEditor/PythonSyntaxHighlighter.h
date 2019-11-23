@@ -3,7 +3,7 @@
 
 #include "PreCompiled.h"
 #include "SyntaxHighlighter.h"
-#include "PythonToken.h"
+#include <TextEditor/PythonSource/PythonToken.h>
 #include "TextEditor.h"
 #include <Base/Parameter.h>
 
@@ -134,8 +134,8 @@ public:
 
     static Python::TextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
 
-    Python::TextBlockData *nextBlock() const;
-    Python::TextBlockData *previousBlock() const;
+    Python::TextBlockData *nextBlock() const override;
+    Python::TextBlockData *previousBlock() const override;
 
     /**
      * @brief tokenAt returns the token defined pointed to by cursor
