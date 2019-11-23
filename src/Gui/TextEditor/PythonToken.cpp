@@ -165,7 +165,7 @@ Python::TokenLine *Python::Token::ownerLine() const
     return m_ownerLine;
 }
 
-std::string Python::Token::text() const
+const std::string Python::Token::text() const
 {
     if (m_ownerLine && m_endPos - m_startPos)
         return m_ownerLine->text().substr(m_startPos, m_endPos - m_startPos);
@@ -591,6 +591,9 @@ void Python::TokenList::swapLine(Python::TokenLine *swapOut, Python::TokenLine *
     assert((!swapIn->m_ownerList || swapIn->m_ownerList == this) &&
                                 "swapIn already attached to a list");
 
+    assert(swapOut->m_nextLine != swapIn);
+    assert(swapOut->m_previousLine != swapIn);
+
     swapIn->m_ownerList = this;
     swapIn->m_line = swapOut->m_line;
 
@@ -598,15 +601,22 @@ void Python::TokenList::swapLine(Python::TokenLine *swapOut, Python::TokenLine *
         m_firstLine = swapIn->instance();
     if (m_lastLine == swapOut->instance())
         m_lastLine = swapIn->instance();
+    if (swapOut->m_previousLine)
+        swapOut->m_previousLine->m_nextLine = swapIn;
+    if (swapOut->m_nextLine)
+        swapOut->m_nextLine->m_previousLine = swapIn;
     swapIn->m_previousLine = swapOut->m_previousLine;
     swapIn->m_nextLine     = swapOut->m_nextLine;
+
+    assert(swapIn->m_nextLine != swapIn);
+    assert(swapIn->m_previousLine != swapIn);
 }
 
 void Python::TokenList::insertLine(int32_t lineNr, Python::TokenLine *insertLine)
 {
     Python::TokenLine *lineObj = lineAt(lineNr);
     if (lineObj)
-        lineObj = lineObj->m_previousLine;
+        lineObj = lineObj->m_previousLine; // if nullptr = first line in list
     this->insertLine(lineObj, insertLine);
 }
 
@@ -614,6 +624,7 @@ void Python::TokenList::insertLine(Python::TokenLine *previousLine,
                                    Python::TokenLine *insertLine)
 {
     assert(insertLine != nullptr);
+    assert(insertLine != previousLine);
     assert(insertLine->m_ownerList == this && "insertLine contained in another list");
 
     if (previousLine) {
@@ -652,6 +663,9 @@ void Python::TokenList::insertLine(Python::TokenLine *previousLine,
     }
 
     insertLine->m_ownerList = this;
+
+    assert(insertLine->m_nextLine != insertLine);
+    assert(insertLine->m_previousLine != insertLine);
 }
 
 void Python::TokenList::appendLine(Python::TokenLine *lineToPush)
@@ -718,18 +732,22 @@ void Python::TokenList::removeLine(Python::TokenLine *lineToRemove, bool deleteL
 
 void Python::TokenList::incLineCount(Python::TokenLine *firstLineToInc) const
 {
-    while(firstLineToInc) {
+    uint guard = max_size();
+    while(firstLineToInc && (--guard)) {
         ++firstLineToInc->m_line;
         firstLineToInc = firstLineToInc->m_nextLine;
     }
+    assert(guard > 0);
 }
 
 void Python::TokenList::decLineCount(Python::TokenLine *firstLineToDec) const
 {
-    while(firstLineToDec) {
+    uint guard = max_size();
+    while(firstLineToDec && (--guard)) {
         ++firstLineToDec->m_line;
         firstLineToDec = firstLineToDec->m_nextLine;
     }
+    assert(guard > 0);
 }
 
 // ----------------------------------------------------------------------------------------
@@ -1140,7 +1158,7 @@ Python::Token *Python::TokenLine::newDeterminedToken(Python::Token::Type tokType
 Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokType,
                                                              uint startPos, uint len)
 {
-    Python::Token *tokenObj = newDeterminedToken(tokType, startPos, startPos + len);
+    Python::Token *tokenObj = newDeterminedToken(tokType, startPos, len);
     int pos = tokenPos(tokenObj);
     m_undeterminedIndexes.push_back(pos);
     return tokenObj;

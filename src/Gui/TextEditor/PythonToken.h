@@ -260,7 +260,7 @@ public:
     /// pointer to our father textBlockData
     Python::TokenList *ownerList() const;
     Python::TokenLine *ownerLine() const;
-    std::string text() const;
+    const std::string text() const;
     int line() const;
 
     // tests

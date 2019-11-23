@@ -348,7 +348,7 @@ void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
     this->highlighter = sh;
 }
 
-SyntaxHighlighter *TextEditor::syntaxHighlighter()
+SyntaxHighlighter *TextEditor::syntaxHighlighter() const
 {
     return highlighter;
 }

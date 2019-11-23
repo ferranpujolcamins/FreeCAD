@@ -65,7 +65,7 @@ public:
 
 
     void setSyntaxHighlighter(SyntaxHighlighter*);
-    SyntaxHighlighter *syntaxHighlighter();
+    SyntaxHighlighter *syntaxHighlighter() const;
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 

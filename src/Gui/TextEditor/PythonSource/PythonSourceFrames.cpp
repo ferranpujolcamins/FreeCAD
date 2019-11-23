@@ -704,7 +704,10 @@ const Python::SourceIdentifier *Python::SourceFrame::lookupIdentifierReference(P
         } else {
             Python::SourceIdentifierAssignment *assign = tmpIdent->getFromPos(tok);
             if (assign && assign->typeInfo().isValid()) {
-                tok->changeType(Python::Token::T_IdentifierDefined);
+                if (assign->token()->type() == Python::Token::T_IdentifierSelf)
+                    tok->changeType(Python::Token::T_IdentifierSelf);
+                else
+                    tok->changeType(Python::Token::T_IdentifierDefined);
                 if (tmpIdent->isImported(tok))
                     typeInfo.type = Python::SourceRoot::ReferenceImportType;
                 else if (tmpIdent->isCallable(tok))
@@ -848,7 +851,9 @@ Python::Token *Python::SourceFrame::scanRValue(Python::Token *tok,
                         typeInfo.type = Python::SourceRoot::instance()->numberType(tok);
                     else if (tok->isString())
                         typeInfo.type = Python::SourceRoot::StringType;
-                    else {
+                    else if (tok->type() != Python::Token::T_DelimiterComma &&
+                             !tok->isOperatorArithmetic())
+                    {
                         std::string msg =  "Unexpected code (" + text + ")";
                         m_module->setSyntaxError(tok, msg);
                     }
@@ -1181,7 +1186,14 @@ Python::Token *Python::SourceFrame::scanParameter(Python::Token *paramToken, int
                     // repaint in highligher
                     const_cast<Python::SourceModule*>(m_module)->tokenTypeChanged(paramToken);
 
-                } else if(paramType != Python::SourceParameter::InValid) {
+                } else if (!paramToken->isNumber() && !paramToken->isBoolean() &&
+                           !paramToken->isString() && !paramToken->isOperatorArithmetic() &&
+                           paramToken->type() != Python::Token::T_IdentifierBuiltin &&
+                           paramToken->type() != Python::Token::T_DelimiterOpenParen &&
+                           paramToken->type() != Python::Token::T_DelimiterOpenBrace &&
+                           paramToken->type() != Python::Token::T_DelimiterOpenBracket &&
+                           paramType != Python::SourceParameter::InValid)
+                {
                     std::string msg = "Expected identifier, got '" + paramToken->text() + "'";
                     m_module->setSyntaxError(paramToken, msg);
                 }
