@@ -28,6 +28,7 @@
 #include <PythonSource/PythonSource.h>
 #include <PythonSource/PythonSourceRoot.h>
 #include "PythonSource/PythonSourceDebugTools.h"
+#include "PythonSyntaxHighlighter.h"
 #include "PythonEditor.h"
 #include <QTextBlock>
 #include <QTextBlockUserData>
@@ -182,6 +183,7 @@ const char *Gui::Syntax::tokenToCStr(Python::Token::Type tok)
     case Python::Token::T_IdentifierTrue:        return "T_IdentifierTrue";  // The bool True
     case Python::Token::T_IdentifierFalse:       return "T_IdentifierFalse"; // The bool False
     case Python::Token::T_IdentifierSelf:        return "T_IdentifierSelf";
+    case Python::Token::T_IdentifierInvalid:     return "T_IdentifierInvalid";
 
         // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
     case Python::Token::T_MetaData:              return "T_MetaData";
@@ -296,16 +298,19 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
     auto idx = reinterpret_cast<std::intptr_t>(index.internalPointer());
     if (idx & SRC_ROW_FLAG) {
         // its a code line
-        QTextBlock block = m_editor->document()->findBlockByLineNumber(index.row());
-        if (block.isValid()) {
-            if (index.column() == 0) {
-                if (role == Qt::ForegroundRole)
-                    return QBrush(QColor(0, 0, 50));
-                return QString::number(index.row() +1);
-            } else {
-                if (role == Qt::ForegroundRole)
-                    return QBrush(QColor(0, 0, 50));
-                return block.text();
+        Python::SyntaxHighlighter *hl = dynamic_cast<Python::SyntaxHighlighter*>(m_editor->syntaxHighlighter());
+        if (hl) {
+            Python::TokenLine *line = hl->list().lineAt(index.row());
+            if (line) {
+                if (index.column() == 0) {
+                    if (role == Qt::ForegroundRole)
+                        return QBrush(QColor(0, 0, 50));
+                    return QString::number(line->lineNr() +1);
+                } else {
+                    if (role == Qt::ForegroundRole)
+                        return QBrush(QColor(0, 0, 50));
+                    return QString::fromStdString(line->text());
+                }
             }
         }
 
