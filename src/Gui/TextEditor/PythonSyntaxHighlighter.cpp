@@ -393,17 +393,13 @@ char Python::MatchingCharInfo::matchingChar() const
 Python::TextBlockData::TextBlockData(QTextBlock block, Python::TokenList *tokenList,
                                      Python::Token *startTok) :
     Gui::TextEditBlockData(block),
-    Python::TokenLine(tokenList, startTok, block.text().toStdString()),
-    m_indentCharCount(0)
+    Python::TokenLine(tokenList, startTok, block.text().toStdString())
 {
 }
 
 Python::TextBlockData::TextBlockData(const Python::TextBlockData &other) :
     Gui::TextEditBlockData(other),
-    Python::TokenLine(other),
-    //m_tokens(other.m_tokens),
-    m_undeterminedIndexes(other.m_undeterminedIndexes),
-    m_indentCharCount(other.m_indentCharCount)
+    Python::TokenLine(other)
 {
 }
 
@@ -424,11 +420,6 @@ Python::TextBlockData *Python::TextBlockData::nextBlock() const
 Python::TextBlockData *Python::TextBlockData::previousBlock() const
 {
     return dynamic_cast<Python::TextBlockData*>(TextEditBlockData::previousBlock());
-}
-
-void Python::TextBlockData::setIndentCount(int count)
-{
-    m_indentCharCount = count;
 }
 
 // static

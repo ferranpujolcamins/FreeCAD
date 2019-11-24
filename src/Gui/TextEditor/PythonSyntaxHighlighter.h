@@ -183,29 +183,9 @@ public:
     int decBlockState() override;
 
 protected:
-    /**
-     * @brief insert should only be used by PythonSyntaxHighlighter
-     */
-    const Python::Token *setDeterminedToken(Token::Type tokType, int startPos, int len);
-    /**
-     * @brief insert should only be used by PythonSyntaxHighlighter
-     *  signifies that parse tree lookup is needed
-     */
-    const Python::Token *setUndeterminedToken(Python::Token::Type tokType, int startPos, int len);
-
-
-    /**
-     * @brief setIndentCount should be considered private, is
-     * @param count
-     */
-    void setIndentCount(int count);
 
 
 private:
-   // tokens_t m_tokens;
-    QVector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
-                                        //  (so context parser can detemine it later)
-    int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QString m_textDbg;

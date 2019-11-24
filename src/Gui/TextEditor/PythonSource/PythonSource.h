@@ -13,7 +13,7 @@
 #endif
 
 #if DEBUG_TOKENS == 1
-#include "PythonCodeDebugTools.h"
+#include "PythonSourceDebugTools.h"
 // include at top of cpp file
 #define DBG_TOKEN_FILE \
 extern char TOKEN_TEXT_BUF[350]; \
@@ -34,7 +34,7 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
     (void)TOKEN_INFO; \
     (void)TOKEN_SRC_LINE;
 #define DBG_TOKEN(TOKEN) if (TOKEN){\
-    strncpy(TOKEN_NAME_BUF, Syntax::tokenToCStr(TOKEN->type()), sizeof TOKEN_NAME_BUF); \
+    strncpy(TOKEN_NAME_BUF, Python::tokenToCStr(TOKEN->type()), sizeof TOKEN_NAME_BUF); \
     snprintf(TOKEN_INFO_BUF, sizeof TOKEN_INFO_BUF, "line:%d,start:%d,end:%d", \
                     TOKEN->line(), TOKEN->startPos(), TOKEN->endPos()); \
     strncpy(TOKEN_SRC_LINE_BUF, TOKEN->ownerLine()->text().c_str(), sizeof TOKEN_SRC_LINE_BUF); \
@@ -70,15 +70,43 @@ class FileInfo {
 public:
     explicit FileInfo(const std::string path);
     ~FileInfo();
-    bool fileExists() const;
-    bool dirExists() const;
-    static bool fileExists(const std::string &file);
-    static bool dirExists(const std::string &dir);
-    std::string baseName() const;
-    std::string dirName(int parentFolderCnt = 0) const;
-    inline static char dirSeparator();
 
-    std::string baseName(const std::string &filename) const;
+    /// true is file exists
+    bool fileExists() const;
+    static bool fileExists(const std::string &file);
+
+    /// true if dir exists
+    bool dirExists() const;
+    static bool dirExists(const std::string &dir);
+
+    /// gets the basename (filename including extension)
+    static std::string baseName(const std::string &filePath);
+    std::string baseName() const;
+
+    /// get the directory path that contains this file/dir
+    /// parentFolderCnt limit to ths number of folders
+    ///   default 0 == get complete path
+    std::string dirPath(int parentFolderCnt = 0) const;
+    static std::string dirPath(const std::string &path, int parentFolderCnt = 0);
+
+    /// returns a path which has moved up numberOfDirs
+    std::string cdUp(uint numberOfDirs = 1) const;
+    static std::string cdUp(const std::string &dirPath, uint numberOfDirs = 1);
+
+    /// gets the file extension
+    static std::string ext(const std::string &filename);
+    std::string ext() const;
+
+    /// get the absolute path for filePath
+    /// relativePath is relative to applicationPath
+    static std::string absolutePath(const std::string &relativePath);
+    std::string absolutePath() const;
+
+    /// the system separator char in paths '\' or '/'
+    static const char dirSep;
+
+    /// gets the pathname to this application
+    static std::string &applicationPath();
 };
 
 } // namespace Python

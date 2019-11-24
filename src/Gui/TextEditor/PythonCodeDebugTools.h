@@ -22,6 +22,8 @@
 #ifndef PYTHONCODEDEBUGTOOLS_H
 #define PYTHONCODEDEBUGTOOLS_H
 
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+
 #include "PythonSyntaxHighlighter.h"
 #include <stdio.h>
 #include <QAbstractItemModel>
@@ -38,9 +40,8 @@ QT_END_NAMESPACE
 namespace Gui {
 class TextEditor;
 class PythonEditor;
-namespace Syntax {
+namespace Python {
 
-const char* tokenToCStr(Python::Token::Type tok);
 
 
 // -----------------------------------------------------------------------------
@@ -89,37 +90,14 @@ private:
     QPlainTextEdit *m_frameDumpEdit;
 };
 
-} // namespace Syntax
+} // namespace Python
 
-// --------------------------------------------------------------------
-
-class DumpToFileBaseClass
-{
-public:
-    explicit DumpToFileBaseClass(const char *outfile = "stdout");
-    explicit DumpToFileBaseClass(FILE *fp);
-    virtual ~DumpToFileBaseClass();
-
-    const char *datetimeStr();
-protected:
-    FILE *m_file;
-};
 
 // -----------------------------------------------------------------
-
-// dumps all tokens from pythonsyntaxhighlighter
-class DumpSyntaxTokens : public DumpToFileBaseClass
-{
-public:
-    explicit DumpSyntaxTokens(QTextBlock firstBlock, const char *outfile = "stdout");
-    ~DumpSyntaxTokens();
-};
-
-// -----------------------------------------------------------------
-
-
 
 
 } // namespace Gui
+
+#endif // BUILD_PYTHON_DEBUG_TOOLS
 
 #endif // PYTHONCODEDEBUGTOOLS_H

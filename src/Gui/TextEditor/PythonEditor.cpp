@@ -40,6 +40,7 @@
 #include "FileDialog.h"
 #include "App/PropertyContainer.h"
 #include "App/PropertyContainerPy.h"
+#include "PythonCodeDebugTools.h"
 
 
 #include <CXX/Objects.hxx>
@@ -64,6 +65,8 @@
 #include <QGridLayout>
 #include <QDialogButtonBox>
 #include <QTimer>
+
+
 
 using namespace Gui;
 
@@ -107,7 +110,7 @@ struct PythonEditorP
     }
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    Syntax::DebugWindow *dbgWindow;
+    Python::DebugWindow *dbgWindow;
 #endif
 };
 
@@ -252,7 +255,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     //    d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    d->dbgWindow = new Syntax::DebugWindow(this);
+    d->dbgWindow = new Python::DebugWindow(this);
     d->dbgWindow->show();
 #endif
 }
@@ -778,60 +781,60 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
             }
         } else if (textData->tokenScanInfo()) {
             for (auto &msg : textData->tokenScanInfo()->allMessages()) {
-                if (*msg->token() == *tok)
+                if (*msg->token() != *tok)
                     continue; // not for this token
                 tooltipStrs << QString::fromStdString(msg->msgTypeAsString()) +
                                QLatin1String(": ") +
                                QString::fromStdString(msg->message());
             }
-        } else {
+        }
+        if (!tooltipStrs.isEmpty())
+            tooltipStrs << QLatin1String("\n");
 
-            Python::SourceModule *mod = Python::SourceRoot::instance()->
-                    moduleFromPath(d->filename.toStdString());
-            if (!mod)
-                return false;
+        Python::SourceModule *mod = Python::SourceRoot::instance()->
+                moduleFromPath(d->filename.toStdString());
+        if (!mod)
+            return false;
 
-            const Python::SourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
-            if (!frm)
-                return false;
+        const Python::SourceFrame *frm = mod->getFrameForToken(tok, mod->rootFrame());
+        if (!frm)
+            return false;
 
-            // first lookup from current frame
-            const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
-            const  Python::SourceIdentifierAssignment *assign = ident ? ident->getFromPos(tok) :nullptr;
-            // if not found look in ALL identifiers at previous frame
-            while(frm && !ident) {
-                ident = frm->identifiers().getIdentifier(tok);
-                if (ident) {
-                    assign = ident->getFromPos(frm->lastToken());
-                    break;
-                }
-                frm = frm->parentFrame();
+        // first lookup from current frame
+        const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
+        const  Python::SourceIdentifierAssignment *assign = ident ? ident->getFromPos(tok) :nullptr;
+        // if not found look in ALL identifiers at previous frame
+        while(frm && !ident) {
+            ident = frm->identifiers().getIdentifier(tok);
+            if (ident) {
+                assign = ident->getFromPos(frm->lastToken());
+                break;
             }
-
-            if (!assign)
-                return false;
-
-            tooltipStrs << QString(QLatin1String("%1 set at line: %2 col: %3"))
-                           .arg(QString::fromStdString(assign->typeInfo().typeAsStr()))
-                           .arg(assign->linenr()+1)
-                           .arg(assign->position());
-            if (assign->token()) {
-                tooltipStrs << QLatin1String("\n") <<
-                               QString::fromStdString(assign->token()->ownerLine()->text());
-                QString fillStr;
-                fillStr.fill(QLatin1Char('-'), assign->position());
-                fillStr.append(QLatin1Char('^'));
-                tooltipStrs << fillStr;
-            }
+            frm = frm->parentFrame();
         }
 
-        if (tooltipStrs.size()) {
+        if (!assign)
+            return false;
+
+        tooltipStrs << QString(QLatin1String("%1 set at line: %2 col: %3"))
+                       .arg(QString::fromStdString(assign->typeInfo().typeAsStr()))
+                       .arg(assign->linenr()+1)
+                       .arg(assign->position());
+        if (assign->token()) {
+            tooltipStrs << QLatin1String("\n") <<
+                           QString::fromStdString(assign->token()->ownerLine()->text());
+            QString fillStr;
+            fillStr.fill(QLatin1Char('-'), assign->position());
+            fillStr.append(QLatin1Char('^'));
+            tooltipStrs << fillStr;
+        }
+
+        if (tooltipStrs.size())
             QToolTip::showText(tooltipPos, tooltipStrs.join(QLatin1Char('\n')));
-            return true;
-        }
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)

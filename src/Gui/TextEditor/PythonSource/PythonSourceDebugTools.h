@@ -1,29 +1,61 @@
 #ifndef PYTHONSOURCEDEBUGTOOLS_H
 #define PYTHONSOURCEDEBUGTOOLS_H
 
-#include <TextEditor/PythonCodeDebugTools.h>
+#include "PythonToken.h"
 
 
 namespace Gui {
 namespace Python {
 
-
 class SourceModule;
 class SourceFrame;
+
+
+const char* tokenToCStr(Token::Type tok);
+
+
+// --------------------------------------------------------------------
+
+class DumpToFileBaseClass
+{
+public:
+    explicit DumpToFileBaseClass(const char *outfile = "stdout");
+    explicit DumpToFileBaseClass(FILE *fp);
+    virtual ~DumpToFileBaseClass();
+
+    const char *datetimeStr();
+protected:
+    FILE *m_file;
+};
+
+// -----------------------------------------------------------------
+
+// dumps all tokens from pythonsyntaxhighlighter
+class DumpSyntaxTokens : public DumpToFileBaseClass
+{
+public:
+    explicit DumpSyntaxTokens(TokenLine *firstLine, const char *outfile = "stdout");
+    ~DumpSyntaxTokens();
+};
+
+// --------------------------------------------------------------------
 
 // dump identifiers etc from a module and frame
 class DumpModule : public DumpToFileBaseClass
 {
 public:
-    explicit DumpModule(Python::SourceModule *module, const char *outfile = "stdout");
-    explicit DumpModule(Python::SourceModule *module, FILE *fp);
+    explicit DumpModule(SourceModule *module, const char *outfile = "stdout");
+    explicit DumpModule(SourceModule *module, FILE *fp);
     ~DumpModule();
 
-    void dumpFrame(const Python::SourceFrame *frm, int indent);
+    void dumpFrame(const SourceFrame *frm, int indent);
 private:
-    Python::SourceModule *m_module;
+    SourceModule *m_module;
     void create();
 };
+
+
+// --------------------------------------------------------------------
 
 } // namespace Python
 } // namespace Gui
