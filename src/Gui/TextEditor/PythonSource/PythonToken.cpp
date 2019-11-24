@@ -112,7 +112,7 @@ using namespace Gui;
 
 Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
-    m_next(nullptr), m_previous(nullptr),
+    m_hash(0), m_next(nullptr), m_previous(nullptr),
     m_ownerLine(line)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
@@ -120,11 +120,14 @@ Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, Toke
     if (m_ownerLine)
         m_lineDbg = m_ownerLine->lineNr();
 #endif
+
+    if (m_startPos != m_endPos)
+        m_hash = strToHash(text());
 }
 
 Python::Token::Token(const Python::Token &other) :
     m_type(other.m_type), m_startPos(other.m_startPos), m_endPos(other.m_endPos),
-    m_next(other.m_next), m_previous(other.m_previous),
+    m_hash(other.m_hash), m_next(other.m_next), m_previous(other.m_previous),
     m_ownerLine(other.m_ownerLine)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS

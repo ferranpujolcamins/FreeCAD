@@ -51,7 +51,8 @@ Python::SourceIdentifier::SourceIdentifier(Python::SourceListParentBase *owner,
                                                const Python::SourceModule *module) :
     Python::SourceListParentBase(owner),
     m_module(module),
-    m_typeHint(this, this, module)
+    m_typeHint(this, this, module),
+    m_hash(0)
 {
     assert(m_module != nullptr && "Must have a valid module");
 }
@@ -146,6 +147,13 @@ const std::string Python::SourceIdentifier::name() const
     return "<lookup error>";
 }
 
+int Python::SourceIdentifier::hash() const
+{
+    if (m_first)
+        return m_first->token()->hash();
+    return 0;
+}
+
 Python::SourceTypeHintAssignment *Python::SourceIdentifier::getTypeHintAssignment(const Python::Token *tok) const
 {
     return getTypeHintAssignment(tok->line());
@@ -224,13 +232,13 @@ const Python::SourceFrame *Python::SourceIdentifierList::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(const std::string &name) const
+const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(int hash) const
 {
     for (Python::SourceIdentifier *itm = dynamic_cast<Python::SourceIdentifier*>(m_first);
          itm != nullptr;
          itm = dynamic_cast<Python::SourceIdentifier*>(itm->next()))
     {
-        if (itm->name() == name)
+        if (itm->hash() == hash)
             return itm;
     }
     return nullptr;
@@ -254,7 +262,7 @@ Python::SourceIdentifier
         itm = itm->next())
     {
         Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
-        if (ident && ident->name() == tok->text()) {
+        if (ident && ident->hash() == tok->hash()) {
             identifier = ident;
             break;
         }
@@ -299,7 +307,7 @@ const Python::SourceIdentifier
 {
     if (tok->isIdentifier()) {
         // TODO builtin identifiers and modules lookup
-        const Python::SourceIdentifier *ident = getIdentifier(tok->text());
+        const Python::SourceIdentifier *ident = getIdentifier(tok->hash());
         return getIdentifierReferencedBy(ident, tok->line(), tok->startPosInt(), limitChain);
     }
 
@@ -344,9 +352,10 @@ int Python::SourceIdentifierList::compare(const Python::SourceListNodeBase *left
     const Python::SourceIdentifier *l = dynamic_cast<const Python::SourceIdentifier*>(left),
                                  *r = dynamic_cast<const Python::SourceIdentifier*>(right);
     assert(l != nullptr && r != nullptr && "Python::SourceIdentifiers contained invalid nodes");
-    if (l->name() > r->name())
+    std::string lName = l->name(), rName = r->name();
+    if (lName > rName)
         return -1;
-    else if (r->name() > l->name())
+    else if (rName > lName)
         return +1;
     return 0;
 }

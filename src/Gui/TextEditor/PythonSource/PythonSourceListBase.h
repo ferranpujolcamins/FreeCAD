@@ -32,6 +32,9 @@ public:
     /// gets text for token (gets from document)
     const std::string text() const;
 
+    /// gets the hash for this tokens text
+    virtual int hash() const;
+
     /// owner node, setOwner is essential during cleanup, or ownership swaps
     Python::SourceListParentBase *owner() const { return m_owner; }
     void setOwner(Python::SourceListParentBase *owner);

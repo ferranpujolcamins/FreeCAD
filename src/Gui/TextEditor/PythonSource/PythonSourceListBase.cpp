@@ -43,6 +43,13 @@ const std::string Python::SourceListNodeBase::text() const
     return std::string();
 }
 
+int Python::SourceListNodeBase::hash() const
+{
+    if (m_token)
+        return m_token->hash();
+    return 0;
+}
+
 void Python::SourceListNodeBase::setOwner(Python::SourceListParentBase *owner)
 {
     //assert(owner != this && "Can't own myself");

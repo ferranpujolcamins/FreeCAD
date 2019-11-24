@@ -61,7 +61,10 @@ public:
     /// get the frame contained for these collections
     const Python::SourceFrame *frame() const { return m_frame; }
     /// get the parameter with name or nullptr if not contained
-    const Python::SourceParameter *getParameter(const std::string &name) const;
+    const Python::SourceParameter *getParameter(int hash) const;
+    const Python::SourceParameter *getParameter(const std::string &name) const {
+        return getParameter(Python::strToHash(name));
+    }
     bool hasParameter(const std::string &name) const { return getParameter(name) != nullptr; }
     /// updates param type and or creates parameter if not exists
     Python::SourceParameter *setParameter(Python::Token *tok,

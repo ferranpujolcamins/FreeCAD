@@ -43,7 +43,7 @@ Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignmen
          itm = itm->next())
     {
         Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
-        if (ident && ident->name() == m_token->text()) {
+        if (ident && ident->hash() == m_token->hash()) {
             return dynamic_cast<Python::SourceIdentifierAssignment*>(ident->findExact(m_token));
         }
     }
@@ -65,13 +65,13 @@ Python::SourceParameterList::~SourceParameterList()
 {
 }
 
-const Python::SourceParameter *Python::SourceParameterList::getParameter(const std::string &name) const
+const Python::SourceParameter *Python::SourceParameterList::getParameter(int hash) const
 {
     for (Python::SourceListNodeBase *itm = m_first;
          itm != nullptr;
          itm->next())
     {
-        if (itm->text() == name)
+        if (itm->hash() == hash)
             return dynamic_cast<Python::SourceParameter*>(itm);
     }
     return nullptr;
@@ -82,8 +82,6 @@ Python::SourceParameter *Python::SourceParameterList::setParameter(Python::Token
                                                                 Python::SourceParameter::ParameterType paramType)
 {
     assert(tok && "Expected a valid pointer");
-    const std::string name = tok->text();
-
     Python::SourceParameter *parameter = nullptr;
 
     // find in our list
@@ -92,7 +90,7 @@ Python::SourceParameter *Python::SourceParameterList::setParameter(Python::Token
         itm = itm->next())
     {
         Python::SourceParameter *param = dynamic_cast<Python::SourceParameter*>(itm);
-        if (param->text() == name) {
+        if (param->hash() == tok->hash()) {
             parameter = param;
             break;
         }

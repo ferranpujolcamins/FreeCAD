@@ -3,6 +3,16 @@
 
 #include <string>
 
+#if __cplusplus >= 201703L && __has_cpp_attribute(fallthrough)
+# define FALLTHROUGH [[fallthrough]];
+#elif defined(__clang__) && __cplusplus >= 201103L
+# define FALLTHROUGH [[clang::fallthrough]];
+#elif defined(__GNUC__) && __cplusplus >= 201103L
+# define FALLTHROUGH [[gnu::fallthrough]];
+#else
+# define FALLTHROUGH /* intended fallthrough */
+#endif
+
 
 // convinience macros, sets a global variable TOKEN_TEXT and TOKEN_NAME
 // usefull when debugging, you cant inspect in your variable window
@@ -68,6 +78,10 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
 namespace Gui {
 
 namespace Python {
+
+int strToHash(const std::string &strToHash);
+
+// ----------------------------------------------------------------------------------------
 
 class FileInfo {
     std::string m_path;

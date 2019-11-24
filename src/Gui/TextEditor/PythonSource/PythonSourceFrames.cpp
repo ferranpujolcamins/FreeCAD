@@ -175,17 +175,17 @@ const std::string Python::SourceFrame::docstring()
             if (!token->ownerLine())
                 continue;
             switch (token->type()) {
-            case Python::Token::T_LiteralBlockDblQuote:// fallthrough
+            case Python::Token::T_LiteralBlockDblQuote: FALLTHROUGH
             case Python::Token::T_LiteralBlockSglQuote: {
                 // multiline
                 docStrs.push_back(token->text().substr(3, token->text().length() - 6)); // clip """
             }   break;
-            case Python::Token::T_LiteralDblQuote: // fallthrough
+            case Python::Token::T_LiteralDblQuote: FALLTHROUGH
             case Python::Token::T_LiteralSglQuote: {
                 // single line;
                 docStrs.push_back(token->text().substr(1, token->text().length() - 2)); // clip "
             }   break;
-            case Python::Token::T_Indent: // fallthrough
+            case Python::Token::T_Indent: FALLTHROUGH
             case Python::Token::T_Comment:
                 NEXT_TOKEN(token)
                 break;
@@ -226,14 +226,14 @@ Python::SourceRoot::TypeInfo Python::SourceFrame::returnTypeHint() const
 
 }
 
-const Python::SourceIdentifier *Python::SourceFrame::getIdentifier(const std::string &name) const {
-    const Python::SourceIdentifier *ident = m_identifiers.getIdentifier(name);
+const Python::SourceIdentifier *Python::SourceFrame::getIdentifier(int hash) const {
+    const Python::SourceIdentifier *ident = m_identifiers.getIdentifier(hash);
     if (ident)
         return ident;
     // recurse upwards to lookup
     if (!m_parentFrame)
         return nullptr;
-    return parentFrame()->getIdentifier(name);
+    return parentFrame()->getIdentifier(hash);
 }
 
 Python::Token *Python::SourceFrame::scanFrame(Python::Token *startToken, Python::SourceIndent &indent)
@@ -471,8 +471,7 @@ Python::Token *Python::SourceFrame::scanLine(Python::Token *startToken,
                 scanAllParameters(tok->next(), true, true);
                 DBG_TOKEN(tok)
             }
-            // fallthrough
-        [[clang::fallthrough]];
+            FALLTHROUGH
         case Python::Token::T_IdentifierMethod: {
             if (!isClass())
                 m_module->setSyntaxError(tok, "Method without class");
@@ -556,7 +555,7 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
         // TODO figure out how to do tuple assignment
 
         switch (tok->type()) {
-        case Python::Token::T_IdentifierFalse: // fallthrough
+        case Python::Token::T_IdentifierFalse: FALLTHROUGH
         case Python::Token::T_IdentifierTrue:
             typeInfo.type = Python::SourceRoot::BoolType;
             m_identifiers.setIdentifier(tok, typeInfo);
@@ -630,7 +629,7 @@ Python::Token *Python::SourceFrame::scanIdentifier(Python::Token *tok)
                 }
             }
             break;
-        case Python::Token::T_OperatorIn: // fallthrough
+        case Python::Token::T_OperatorIn: FALLTHROUGH
         case Python::Token::T_OperatorEqual:
             // assigment
             if (!identifierTok) {
@@ -673,7 +672,7 @@ parent_check:
             if (parentIdent && identifierTok) {
                 const Python::SourceFrame *frm = parentIdent->callFrame(tok->previous());
                 if (frm) {
-                    parentIdent = frm->getIdentifier(parentIdent->name());
+                    parentIdent = frm->getIdentifier(parentIdent->hash());
                     if (!parentIdent) {
                         identifierTok->changeType(Python::Token::T_IdentifierInvalid);
                         m_module->setLookupError(tok->previous());
@@ -1417,7 +1416,7 @@ Python::Token *Python::SourceFrame::gotoEndOfLine(Python::Token *tok)
         case Python::Token::T_DelimiterNewLine:
             if (++newLines > 0)
                 return tok;
-            // fallthrough
+            FALLTHROUGH
         default: ;// nothing
         }
         NEXT_TOKEN_IF(tok)

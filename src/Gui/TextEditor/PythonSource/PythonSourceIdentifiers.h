@@ -82,6 +82,7 @@ class SourceIdentifier : public Python::SourceListParentBase
 {
     const Python::SourceModule *m_module;
     Python::SourceTypeHint m_typeHint;
+    uint m_hash;
 public:
     explicit SourceIdentifier(Python::SourceListParentBase *owner,
                               const Python::SourceModule *module);
@@ -110,6 +111,9 @@ public:
 
     /// get the name of identifier
     const std::string name() const;
+
+    /// get the hash of this identifiers name
+    int hash() const;
 
     /// get last inserted TypeHint for identifier up to including line
     Python::SourceTypeHintAssignment *getTypeHintAssignment(const Python::Token *tok) const;
@@ -145,13 +149,16 @@ public:
     /// get the frame contained for these collections
     const Python::SourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
-    const Python::SourceIdentifier *getIdentifier(const std::string &name) const;
+    const Python::SourceIdentifier *getIdentifier(int hash) const;
+    const Python::SourceIdentifier *getIdentifier(const std::string &name) const {
+        return getIdentifier(Python::strToHash(name));
+    }
     const Python::SourceIdentifier *getIdentifier(const Python::Token *tok) const {
-        return getIdentifier(tok->text());
+        return getIdentifier(tok->hash());
     }
     bool hasIdentifier(const std::string &name) const { return getIdentifier(name) != nullptr; }
     bool hasIdentifier(const Python::Token *tok) const {
-        return getIdentifier(tok->text()) == nullptr;
+        return getIdentifier(tok->hash()) == nullptr;
     }
     /// sets a new assignment, creates identifier if not exists
     Python::SourceIdentifier *setIdentifier(Python::Token *tok,

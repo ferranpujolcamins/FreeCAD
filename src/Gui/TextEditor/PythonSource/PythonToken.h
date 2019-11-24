@@ -260,6 +260,10 @@ public:
 
     uint textLength() const { return m_endPos - m_startPos; }
 
+    /// token which has textlength has a hash for its text
+    /// speeds up compares
+    inline int hash() const { return m_hash; }
+
     /// pointer to our father textBlockData
     Python::TokenList *ownerList() const;
     Python::TokenLine *ownerLine() const;
@@ -306,6 +310,7 @@ public:
 private:
     Type m_type;
     uint m_startPos, m_endPos;
+    int m_hash;
     std::list<Python::SourceListNodeBase*> m_srcLstNodes;
 
     Token *m_next,

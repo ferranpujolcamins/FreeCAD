@@ -116,7 +116,10 @@ public:
     bool isClass() const { return m_isClass; }
 
     /// looks up name among identifiers (variables/constants)
-    const Python::SourceIdentifier *getIdentifier(const std::string &name) const;
+    const Python::SourceIdentifier *getIdentifier(int hash) const;
+    const Python::SourceIdentifier *getIdentifier(const std::string &name) const {
+        return getIdentifier(Python::strToHash(name));
+    }
 
     /// get reference to all identifiers within this frame
     const Python::SourceIdentifierList &identifiers() const { return m_identifiers; }

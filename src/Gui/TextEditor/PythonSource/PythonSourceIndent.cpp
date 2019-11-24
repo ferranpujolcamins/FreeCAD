@@ -118,8 +118,8 @@ bool Python::SourceIndent::validIndentLine(Python::Token *tok)
         case Python::Token::T_LiteralBlockDblQuote:
         case Python::Token::T_LiteralBlockSglQuote:
         case Python::Token::T_LiteralDblQuote:
-        case Python::Token::T_LiteralSglQuote:
-        case Python::Token::T_Comment: // fallthrough
+        case Python::Token::T_LiteralSglQuote: FALLTHROUGH
+        case Python::Token::T_Comment:
             return false;// ignore indents if we are at a multiline string
         default:
             if (tmpTok->isCode())

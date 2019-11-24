@@ -166,12 +166,12 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
     case Python::Token::T_IdentifierDecorator:
         tp.thisType.type = MethodDescriptorType;
         return tp;
-    case Python::Token::T_IdentifierDefined: // fallthrough
+    case Python::Token::T_IdentifierDefined: FALLTHROUGH
     case Python::Token::T_IdentifierDefUnknown:
         tp.thisType.type = FunctionType; // method or function not known yet
         tp.returnType.type = UnknownType;
         return tp;
-    case Python::Token::T_IdentifierTrue: // fallthrough
+    case Python::Token::T_IdentifierTrue: FALLTHROUGH
     case Python::Token::T_IdentifierFalse:
         tp.thisType.type = BoolType;
         return tp;
@@ -688,7 +688,7 @@ const Python::Token
             const Python::SourceIdentifier *ident = nullptr;
             Python::SourceIdentifierAssignment *assign = nullptr;
             if (tok->isIdentifierVariable()) {
-                ident = frame->getIdentifier(tok->text());
+                ident = frame->getIdentifier(tok->hash());
                 if (ident) {
                     assign = ident->getTypeHintAssignment(tok);
                     if (assign) {
