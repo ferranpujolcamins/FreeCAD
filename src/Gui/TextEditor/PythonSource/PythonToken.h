@@ -425,7 +425,7 @@ class TokenLine {
     Python::TokenScanInfo *m_tokenScanInfo;
     std::string m_text;
 
-    std::vector<int> m_undeterminedIndexes; // index to m_tokens where a undetermined is at
+    std::list<int> m_unfinishedTokenIndexes; // index to m_tokens where a undetermined is at
                                             //  (so context parser can determine it later)
     int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
     int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
@@ -497,6 +497,9 @@ public:
 
     /// returns a list with all tokens in this line
     const std::list<Python::Token*> tokens() const;
+
+    /// returns a list with all undetermined or invalid tokens in this line
+    std::list<int> &unfinishedTokens();
 
 
     /// findToken searches for token in this block
@@ -657,7 +660,8 @@ public:
     const std::list<const ParseMsg*> getParseMessages(const Python::Token *tok,
                                                       MsgType type = AllMsgTypes) const;
     /// remove all messages attached to tok, returns number of deleted parseMessages
-    int clearParseMessages(const Python::Token *tok);
+    /// filter by type
+    int clearParseMessages(const Python::Token *tok, MsgType filterType = MsgType::AllMsgTypes);
 
     std::list<const ParseMsg*> allMessages() const;
 

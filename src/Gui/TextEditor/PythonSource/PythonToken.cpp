@@ -11,7 +11,7 @@
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 #include <TextEditor/PythonCodeDebugTools.h>
-#define DEBUG_DELETES
+// #define DEBUG_DELETES
 #endif
 
 bool isNumber(char ch)
@@ -139,7 +139,7 @@ Python::Token::~Token()
 #ifdef DEBUG_DELETES
     std::cout << "del Token: " << std::hex << this << " '" << m_nameDbg <<
                  "' ownerLine:" << std::hex << m_ownerLine <<
-                 " type" << Syntax::tokenToCStr(m_type)  << std::endl;
+                 " type" << Python::tokenToCStr(m_type)  << std::endl;
 #endif
 
     // notify our listeners
@@ -152,6 +152,10 @@ Python::Token::~Token()
 
 void Python::Token::changeType(Python::Token::Type tokType)
 {
+    if (m_type == T_IdentifierUnknown && m_ownerLine) {
+        if (tokType != T_IdentifierInvalid)
+            m_ownerLine->unfinishedTokens().remove(m_ownerLine->tokenPos(this));
+    }
     m_type = tokType;
 }
 
@@ -870,18 +874,6 @@ bool Python::TokenLine::isCodeLine() const
 Python::Token *Python::TokenLine::back() const {
 
     return m_backTok;
-    /*
-    Python::Token *iter = m_frontTok;
-    uint32_t guard = m_ownerList->max_size();
-    while (iter && iter->m_ownerLine == this &&
-           iter->m_next && iter->m_next->m_ownerLine == this
-           && (--guard))
-    {
-        iter = iter->m_next;
-    }
-
-    return iter;
-    */
 }
 
 Python::Token *Python::TokenLine::end() const {
@@ -953,6 +945,11 @@ const std::list<Python::Token *> Python::TokenLine::tokens() const
         tok = tok->next();
     }
     return  tokList;
+}
+
+std::list<int> &Python::TokenLine::unfinishedTokens()
+{
+    return m_unfinishedTokenIndexes;
 }
 
 const Python::Token *Python::TokenLine::findToken(Python::Token::Type tokType, int searchFrom) const
@@ -1173,8 +1170,7 @@ Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokTy
                                                              uint startPos, uint len)
 {
     Python::Token *tokenObj = newDeterminedToken(tokType, startPos, len);
-    int pos = tokenPos(tokenObj);
-    m_undeterminedIndexes.push_back(pos);
+    m_unfinishedTokenIndexes.push_back(tokenPos(tokenObj));
     return tokenObj;
 }
 
@@ -2146,11 +2142,16 @@ Python::TokenScanInfo::getParseMessages(const Python::Token *tok,
     return ret;
 }
 
-int Python::TokenScanInfo::clearParseMessages(const Python::Token *tok)
+int Python::TokenScanInfo::clearParseMessages(const Python::Token *tok, MsgType filterType)
 {
     auto eraseFrom = std::remove_if(m_parseMsgs.begin(), m_parseMsgs.end(),
-                   [tok](const Python::TokenScanInfo::ParseMsg *msg) {
-                        return *msg->token() == *tok;
+                   [tok, filterType](const Python::TokenScanInfo::ParseMsg *msg) {
+                        if (*msg->token() == *tok) {
+                            if (filterType != AllMsgTypes)
+                                return msg->type() == filterType;
+                            return true;
+                        }
+                        return false;
     });
     int cnt = static_cast<int>(std::distance(eraseFrom, m_parseMsgs.end()));
     for (auto it = eraseFrom; it != m_parseMsgs.end(); ++it)

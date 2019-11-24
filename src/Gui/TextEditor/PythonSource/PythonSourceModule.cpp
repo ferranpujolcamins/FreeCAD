@@ -267,6 +267,39 @@ Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLine
     return nullptr;
 }
 
+void Python::SourceModule::reparseInvalidTokens()
+{
+    Python::SourceFrame *frm = &m_rootFrame;
+    Python::Token *tok = const_cast<Python::Token*>(frm->token());
+    Python::TokenLine *line = tok->ownerLine();
+    const Python::TokenLine *endLine = m_rootFrame.lastToken()->ownerLine();
+
+    uint guard = 2000000;
+    while (line && line->lineNr() <= endLine->lineNr() && (--guard)) {
+        auto it = line->unfinishedTokens().begin();
+        while (it != line->unfinishedTokens().end())
+        {
+            tok = (*line)[*it];
+            ++it; // must be done before iterator this item is removed from list
+            if (tok && tok->type() == Python::Token::T_IdentifierInvalid) {
+                // found the token, look it up
+                frm = const_cast<Python::SourceFrame*>(getFrameForToken(tok, &m_rootFrame));
+                if (!frm)
+                    continue;
+                if (frm->lookupIdentifierReference(tok) &&
+                    tok->type() != Python::Token::T_IdentifierInvalid)
+                {
+                    if (line->tokenScanInfo()) {
+                        line->tokenScanInfo()->
+                                clearParseMessages(tok, Python::TokenScanInfo::LookupError);
+                    }
+                }
+            }
+        }
+        line = line->nextLine();
+    }
+}
+
 
 void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::string &parseMessage) const
 {

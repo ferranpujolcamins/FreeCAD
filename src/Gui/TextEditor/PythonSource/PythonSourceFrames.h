@@ -139,6 +139,9 @@ public:
     /// on single row rescan
     Python::Token *scanLine(Python::Token *startToken, Python::SourceIndent &indent);
 
+    /// looks up a previously defined identifier with same name and sets token to referenced type
+    const Python::SourceIdentifier *lookupIdentifierReference(Python::Token *tok);
+
 
 private:
     /// starts a new frame
@@ -160,9 +163,6 @@ private:
 
     // set identifier and sets up reference to RValue
     Python::Token *scanIdentifier(Python::Token *tok);
-
-    /// looks up a previously defined identifier with same name and sts token to referenced type
-    const Python::SourceIdentifier *lookupIdentifierReference(Python::Token *tok);
 
     // scans the RValue ie after '='
     // or scans type hint ie after :

@@ -259,13 +259,15 @@ Python::Token *Python::SourceFrame::scanFrame(Python::Token *startToken, Python:
 
         if (indent.framePopCnt() > 0) {
             indent.framePopCntDecr();
-            if (tok && m_parentFrame == nullptr)
+            if (tok)
                 m_lastToken.setToken(tok);
             break;
         }
 
-        if (tok && !tok->next())
+        if (tok && !tok->next()) {
             m_lastToken.setToken(tok);
+            break; // allow store lastToken in rootframe
+        }
         NEXT_TOKEN(tok)
     }
 
@@ -496,7 +498,7 @@ Python::Token *Python::SourceFrame::scanLine(Python::Token *startToken,
 
         } // end switch
 
-        NEXT_TOKEN(tok)
+        NEXT_TOKEN_IF(tok)
 
     } // end while
 
@@ -697,7 +699,7 @@ parent_check:
             break;
         }
 
-        NEXT_TOKEN(tok)
+        NEXT_TOKEN_IF(tok)
     }
 
     return tok;
@@ -706,9 +708,31 @@ parent_check:
 const Python::SourceIdentifier *Python::SourceFrame::lookupIdentifierReference(Python::Token *tok)
 {
     const Python::SourceIdentifier *tmpIdent = nullptr;
-    if (tok && tok->type() == Python::Token::T_IdentifierUnknown) {
+    if (tok &&
+        (tok->type() == Python::Token::T_IdentifierUnknown ||
+         tok->type() == Python::Token::T_IdentifierInvalid))
+    {
         Python::SourceRoot::TypeInfo typeInfo;
-        tmpIdent = getIdentifier(tok->text());
+        const Python::Token *lookFromToken = tok;
+        Python::SourceFrame *frm = this;
+        Python::SourceIdentifierAssignment *assign = nullptr;
+
+        // lookup in this frame, from cursor position upwards
+        if ((tmpIdent = getIdentifier(tok->text())))
+            assign = tmpIdent->getFromPos(tok);
+
+        // else lookup in praentframe (complete context)
+        while(!assign && (frm = frm->m_parentFrame)) {
+            // lookup in parent frames if not found
+            tmpIdent = frm->identifiers().getIdentifier(tok);
+            if (tmpIdent) {
+                lookFromToken = frm->lastToken();
+                break;
+            }
+        }
+
+        if (!tmpIdent && tok->type() == Python::Token::T_IdentifierInvalid)
+            return nullptr; // error is already set
 
         // default to invalid
         tok->changeType(Python::Token::T_IdentifierInvalid);
@@ -716,7 +740,7 @@ const Python::SourceIdentifier *Python::SourceFrame::lookupIdentifierReference(P
         if (!tmpIdent) {
             m_module->setLookupError(tok);
         } else {
-            Python::SourceIdentifierAssignment *assign = tmpIdent->getFromPos(tok);
+            assign = tmpIdent->getFromPos(lookFromToken);
             if (assign && assign->typeInfo().isValid()) {
                 if (assign->token()->type() == Python::Token::T_IdentifierSelf)
                     tok->changeType(Python::Token::T_IdentifierSelf);
@@ -729,6 +753,7 @@ const Python::SourceIdentifier *Python::SourceFrame::lookupIdentifierReference(P
                 else
                     typeInfo.type = Python::SourceRoot::ReferenceType;
                 m_identifiers.setIdentifier(tok, typeInfo);
+                tok->ownerLine()->unfinishedTokens().remove(tok->ownerLine()->tokenPos(tok));
             }
         }
         m_module->tokenTypeChanged(tok);
@@ -798,6 +823,7 @@ Python::Token *Python::SourceFrame::scanRValue(Python::Token *tok,
         case Python::Token::T_OperatorEqual:
             if (!isTypeHint && tok->next()) {
                 // might have chained assignments ie: vlu1 = valu2 = vlu3 = 0
+                ident = lookupIdentifierReference(tok);
                 tok = scanRValue(tok->next(), typeInfo, isTypeHint);
                 DBG_TOKEN(tok)
             }
@@ -879,7 +905,7 @@ Python::Token *Python::SourceFrame::scanRValue(Python::Token *tok,
                 }
             }
         }
-        NEXT_TOKEN(tok)
+        NEXT_TOKEN_IF(tok)
     }
 
     return tok;
@@ -962,7 +988,7 @@ Python::Token *Python::SourceFrame::scanImports(Python::Token *tok)
 
 next_token:
         if (guard > 0)
-            NEXT_TOKEN(tok)
+            NEXT_TOKEN_IF(tok)
         continue;
 
         // we should only get here by explicit goto statements
@@ -1091,7 +1117,7 @@ Python::Token *Python::SourceFrame::scanAllParameters(Python::Token *tok, bool s
             return tok->next(); // so next caller knows where it ended
 
         // advance one token
-        NEXT_TOKEN(tok)
+        NEXT_TOKEN_IF(tok)
 
         // scan parameters
         if (storeParameters && parenCount > 0) {
@@ -1218,7 +1244,7 @@ Python::Token *Python::SourceFrame::scanParameter(Python::Token *paramToken, int
             }
         }
 
-        NEXT_TOKEN(paramToken)
+        NEXT_TOKEN_IF(paramToken)
     }
 
     return paramToken;
@@ -1394,7 +1420,7 @@ Python::Token *Python::SourceFrame::gotoEndOfLine(Python::Token *tok)
             // fallthrough
         default: ;// nothing
         }
-        NEXT_TOKEN(tok)
+        NEXT_TOKEN_IF(tok)
     }
 
     return tok;

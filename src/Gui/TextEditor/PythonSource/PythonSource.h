@@ -51,6 +51,10 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
 #define PREV_TOKEN(TOKEN) {\
     if (TOKEN) TOKEN = TOKEN->previous(); \
     DBG_TOKEN(TOKEN);}
+#define NEXT_TOKEN_IF(TOKEN) { \
+    if (TOKEN->next()) TOKEN = TOKEN->next();\
+    else return TOKEN; \
+}
 
 #else
 // No debug, squelsh warnings

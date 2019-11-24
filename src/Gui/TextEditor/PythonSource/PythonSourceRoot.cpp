@@ -470,6 +470,11 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
         assert(tok != nullptr && "Tokenizer !empty but has no front item");
         DBG_TOKEN(tok)
         mod->scanFrame(tok);
+
+        // lookup invalid identifiers again.
+        // They might have been defined now that all page is scanned
+        // iterate through subFrames, recursive
+        mod->reparseInvalidTokens();
     }
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS

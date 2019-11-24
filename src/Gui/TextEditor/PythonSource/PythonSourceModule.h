@@ -73,6 +73,8 @@ public:
     /// inserts a blockEnd token before newLineTok
     Python::Token *insertBlockEnd(const Python::Token *newLineTok) const;
 
+    /// reparse all invalidtokens, should be done when all page have finished its scan
+    void reparseInvalidTokens();
 
 protected:
     int compare(const Python::SourceListNodeBase *left,

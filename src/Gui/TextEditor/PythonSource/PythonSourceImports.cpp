@@ -198,7 +198,7 @@ Python::SourceImportList::~SourceImportList()
 Python::SourceImportModule *Python::SourceImportList::getImportModulePath(const std::string &filePath)
 {
     Python::FileInfo fi(filePath);
-    std::string dirName = fi.dirName(1);
+    std::string dirName = fi.dirPath(1);
     return getImportModule(dirName, fi.baseName());
 }
 
@@ -233,7 +233,7 @@ Python::SourceImportModule *Python::SourceImportList::getImportModule(const std:
 Python::SourceImportPackage *Python::SourceImportList::getImportPackagePath(const std::string &filePath)
 {
     Python::FileInfo fi(filePath);
-    std::string dirName = fi.dirName(1);
+    std::string dirName = fi.dirPath(1);
     return getImportPackage(dirName, fi.baseName());
 }
 
