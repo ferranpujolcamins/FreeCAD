@@ -802,15 +802,14 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
 
         // first lookup from current frame
         const Python::SourceIdentifier *ident = frm->identifiers().getIdentifierReferencedBy(tok);
-        const  Python::SourceIdentifierAssignment *assign = ident ? ident->getFromPos(tok) :nullptr;
+        const  Python::SourceIdentifierAssignment *assign = ident ? ident->getFromPos(tok->previous()) :nullptr;
         // if not found look in ALL identifiers at previous frame
-        while(frm && !ident) {
+        while((frm = frm->parentFrame()) && (!ident || !assign)) {
             ident = frm->identifiers().getIdentifier(tok);
             if (ident) {
                 assign = ident->getFromPos(frm->lastToken());
                 break;
             }
-            frm = frm->parentFrame();
         }
 
         if (!assign)
