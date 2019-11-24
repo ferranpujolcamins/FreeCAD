@@ -14,6 +14,7 @@
 namespace Gui {
 namespace Python {
 
+class SourceParser;
 
 /// a return can be built up by several Identifiers and operators
 ///  ie: return (var1 + var3) * 4 or 5
@@ -61,6 +62,7 @@ protected:
 /// for function or method frames, contains all identifiers within this frame
 class SourceFrame : public Python::SourceListParentBase
 {
+    friend class Python::SourceParser;
     Python::SourceListParentBase *m_owner;
     /// stores all identifiers contained within each frame
     Python::SourceIdentifierList m_identifiers;
@@ -135,61 +137,7 @@ public:
     const Python::Token *lastToken() const { return m_lastToken.token(); }
     void setLastToken(Python::Token *tok) { m_lastToken.setToken(tok); }
 
-    // scan* functions might mutate Python::Token, ie change from Undetermined -> determined etc.
-    /// on complete rescan, returns lastToken->next()
-    Python::Token *scanFrame(Python::Token *startToken, Python::SourceIndent &indent);
-
-    /// on single row rescan
-    Python::Token *scanLine(Python::Token *startToken, Python::SourceIndent &indent);
-
-    /// looks up a previously defined identifier with same name and sets token to referenced type
-    const Python::SourceIdentifier *lookupIdentifierReference(Python::Token *tok);
-
-
 private:
-    /// starts a new frame
-    Python::Token *startSubFrame(Python::Token *tok, Python::SourceIndent &indent,
-                               Python::SourceRoot::DataTypes type);
-
-    /// moves token til next line with tokens
-    Python::Token *gotoNextLine(Python::Token *tok);
-
-    /**
-     * @brief handleIndent calculates the indent, pushes and pops indent blocks
-     * @param tok = Starttoken
-     * @param indent = indent class to mutate
-     * @param direction = -1: only calc deindent, 1: only calc indent and push frames instead of block, 0 do both
-     * @return
-     */
-    Python::Token *handleIndent(Python::Token *tok,
-                              Python::SourceIndent &indent, int direction);
-
-    // set identifier and sets up reference to RValue
-    Python::Token *scanIdentifier(Python::Token *tok);
-
-    // scans the RValue ie after '='
-    // or scans type hint ie after :
-    Python::Token *scanRValue(Python::Token *tok,
-                            Python::SourceRoot::TypeInfo &typeInfo,
-                            bool isTypeHint);
-    Python::Token *scanImports(Python::Token *tok);
-
-    // scan return statement
-    Python::Token *scanReturnStmt(Python::Token *tok);
-    // scan yield statement
-    Python::Token *scanYieldStmt(Python::Token *tok);
-    // sanity check after for code after a return or yield
-    void scanCodeAfterReturnOrYield(Python::Token *tok, const std::string &name);
-
-    // used to traverse to semicolon after argumentslist for typehint
-    // if storeParameters, we add found parameters to parametersList
-    Python::Token *scanAllParameters(Python::Token *token, bool storeParameters, bool isInitFunc);
-    // sets a parameter
-    Python::Token *scanParameter(Python::Token *paramToken, int &parenCount, bool isInitFunc);
-    // guess type for identifier
-    Python::SourceRoot::TypeInfo guessIdentifierType(const Python::Token *token);
-    // goto end of line
-    Python::Token *gotoEndOfLine(Python::Token *tok);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     std::string m_name;

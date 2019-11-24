@@ -35,6 +35,7 @@ SET(PythonSource_CPP_SRCS
     PythonSourceListBase.cpp
     PythonSourceModule.cpp
     PythonSourceParameter.cpp
+    PythonSourceParser.cpp
     PythonSourceRoot.cpp
     PythonToken.cpp
 )
@@ -47,6 +48,7 @@ SET(PythonSource_HPP_SRCS
     PythonSourceListBase.h
     PythonSourceModule.h
     PythonSourceParameter.h
+    PythonSourceParser.h
     PythonSourceRoot.h
     PythonToken.h
 )

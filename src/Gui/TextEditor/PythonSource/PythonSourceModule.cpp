@@ -1,4 +1,5 @@
 #include "PythonSourceModule.h"
+#include "PythonSourceParser.h"
 #include <TextEditor/PythonCode.h>
 #include <TextEditor/PythonSyntaxHighlighter.h>
 #include <iostream>
@@ -28,7 +29,10 @@ void Python::SourceModule::scanFrame(Python::Token *tok)
 
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
-    const_cast<Python::SourceFrame*>(frm)->scanFrame(tok, indent);
+    auto parser = Python::SourceParser::instance();
+    parser->setActiveModule(this);
+    parser->setActiveFrame(const_cast<Python::SourceFrame*>(frm));
+    parser->scanFrame(tok, indent);
 }
 
 void Python::SourceModule::scanLine(Python::Token *tok)
@@ -41,7 +45,10 @@ void Python::SourceModule::scanLine(Python::Token *tok)
 
     Python::SourceIndent indent = currentBlockIndent(tok);
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
-    const_cast<Python::SourceFrame*>(frm)->scanLine(tok, indent);
+    auto parser = Python::SourceParser::instance();
+    parser->setActiveModule(this);
+    parser->setActiveFrame(const_cast<Python::SourceFrame*>(frm));
+    parser->scanLine(tok, indent);
 }
 
 Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Token *tok) const
@@ -286,7 +293,7 @@ void Python::SourceModule::reparseInvalidTokens()
                 frm = const_cast<Python::SourceFrame*>(getFrameForToken(tok, &m_rootFrame));
                 if (!frm)
                     continue;
-                if (frm->lookupIdentifierReference(tok) &&
+                if (Python::SourceParser::instance()->lookupIdentifierReference(tok) &&
                     tok->type() != Python::Token::T_IdentifierInvalid)
                 {
                     if (line->tokenScanInfo()) {

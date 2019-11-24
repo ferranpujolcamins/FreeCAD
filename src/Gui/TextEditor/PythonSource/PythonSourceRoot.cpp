@@ -501,7 +501,7 @@ Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const std::string 
     }
 
     if (!row->empty()) {
-        mod->scanLine(row->tokenAt(0));
+        mod->scanLine(row->front());
     }
 
     return mod;
