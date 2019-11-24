@@ -52,13 +52,11 @@ public:
 
 #if PY_MAJOR_VERSION >= 3
             const char *name = PyUnicode_AsUTF8(key);
+#else
+            const char *name = PyString_AS_STRING(key);
+#endif
             if (name != nullptr)
                 builtins.push_back(name);
-#else
-            char *name = PyString_AS_STRING(key);
-            if (name != nullptr)
-                builtins << QString(QLatin1String(name));
-#endif
         }
         PyGILState_Release(lock);
 
@@ -1237,7 +1235,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
     const std::string text(tokLine->text());
 
     uint i = 0, lastI = 0;
-    char prev, ch;
+    char ch; //, prev;
 
     while ( i < text.length() )
     {
@@ -1828,7 +1826,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
         }
         } // end switch
 
-        prev = ch;
+        //prev = ch;
         assert(i >= lastI); // else infinite loop
         lastI = i++;
 
