@@ -688,7 +688,7 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
                         Python::SourceFrame *frm = m_activeFrame;
                         do {
                             if (!frm->isClass())
-                                ident = frm->identifiers().getIdentifier(text);
+                                ident = frm->identifiers().getIdentifier(m_tok->hash());
                         } while (!ident && (frm = frm->parentFrame()));
 
                         // finished lookup
@@ -704,7 +704,7 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
                             m_activeModule->setLookupError(m_tok, msg);
                         } else {
                             // new identifier
-                            std::string msg = "Unbound variable in RValue context '" + m_tok->text() + "'";
+                            std::string msg = "Unbound variable in RValue context '" + text + "'";
                             m_activeModule->setLookupError(m_tok, msg);
                             typeInfo.type = Python::SourceRoot::ReferenceType;
                         }
@@ -718,7 +718,7 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
                         typeInfo.type = Python::SourceRoot::NoneType;
                 } else if (m_tok->isCode()) {
                     if (isTypeHint)
-                        typeInfo.type = Python::SourceRoot::instance()->mapMetaDataType(m_tok->text());
+                        typeInfo.type = Python::SourceRoot::instance()->mapMetaDataType(text);
                     if (m_tok->isNumber())
                         typeInfo.type = Python::SourceRoot::instance()->numberType(m_tok);
                     else if (m_tok->isString())

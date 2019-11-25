@@ -141,7 +141,7 @@ const std::string Python::SourceFrame::name() const
         return "<" + m_module->moduleName() + ">";
 
     const Python::SourceIdentifier *ident = parentFrame()->identifiers()
-                                                .getIdentifier(token()->text());
+                                                .getIdentifier(token()->hash());
     if (ident)
         return ident->name();
 
@@ -216,7 +216,7 @@ Python::SourceRoot::TypeInfo Python::SourceFrame::returnTypeHint() const
     Python::SourceRoot::TypeInfo typeInfo;
     if (parentFrame()) {
         // get typehint from parentframe identifier for this frame
-        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(m_token->text());
+        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(m_token->hash());
         if (ident) {
             Python::SourceTypeHintAssignment *assign = ident->getTypeHintAssignment(m_token->line());
             if (assign)

@@ -150,13 +150,15 @@ public:
     const Python::SourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
     const Python::SourceIdentifier *getIdentifier(int hash) const;
-    const Python::SourceIdentifier *getIdentifier(const std::string &name) const {
+    const Python::SourceIdentifier *getIdentifierByName(const std::string &name) const {
         return getIdentifier(Python::strToHash(name));
     }
     const Python::SourceIdentifier *getIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->hash());
     }
-    bool hasIdentifier(const std::string &name) const { return getIdentifier(name) != nullptr; }
+    bool hasIdentifierByName(const std::string &name) const {
+        return getIdentifierByName(name) != nullptr;
+    }
     bool hasIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->hash()) == nullptr;
     }
