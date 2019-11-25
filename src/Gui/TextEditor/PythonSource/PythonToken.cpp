@@ -10,8 +10,8 @@
 
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-#include <TextEditor/PythonCodeDebugTools.h>
-// #define DEBUG_DELETES
+# include <TextEditor/PythonCodeDebugTools.h>
+# define DEBUG_DELETES
 #endif
 
 bool isNumber(char ch)
@@ -1924,7 +1924,7 @@ uint Python::Tokenizer::lastDblQuoteStringCh(uint startAt, const std::string &te
     len = 0;
     for (auto pos = text.begin() + startAt; pos != text.end(); ++pos, ++len) {
         if (*pos == '\\') {
-            ++len;
+            ++len; ++pos;
             continue;
         }
         if (*pos == '"')

@@ -62,7 +62,7 @@ public:
 
         // identifiers
         colorArray[SyntaxHighlighter::IdentifierClass]        .setRgb(1, 122, 153);
-        colorArray[SyntaxHighlighter::IdentifierDefined]      .setRgb(0, 61, 22);
+        colorArray[SyntaxHighlighter::IdentifierDefined]      .setRgb(50, 100, 80);
         colorArray[SyntaxHighlighter::IdentifierDefUnknown]   .setRgb(0, 104, 37);
         colorArray[SyntaxHighlighter::IdentifierFunction]     .setRgb(16, 145, 145);
         colorArray[SyntaxHighlighter::IdentifierMethod]       .setRgb(17, 94, 145);

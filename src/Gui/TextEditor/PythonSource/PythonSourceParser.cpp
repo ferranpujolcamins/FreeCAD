@@ -152,7 +152,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
     if (!startToken)
         return startToken;
 
-    m_tok = startToken;
+    moveToken(startToken);
     Python::Token *frmStartTok = startToken;
     DBG_TOKEN(m_tok)
 
