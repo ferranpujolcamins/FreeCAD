@@ -144,8 +144,10 @@ Python::Token::~Token()
 #endif
 
     // notify our listeners
-    for (Python::SourceListNodeBase *n : m_srcLstNodes)
-        n->tokenDeleted();
+    for (auto n = m_wrappers.begin(); n != m_wrappers.end();) {
+        auto p = n++; // need to advance because n might get deleted by tokenDeleted
+        (*p)->tokenDeleted();
+    }
 
     if (m_ownerLine)
         m_ownerLine->remove(this, false);
@@ -324,17 +326,17 @@ bool Python::Token::isText() const
     return m_type == T_Comment || isCode();
 }
 
-void Python::Token::attachReference(Python::SourceListNodeBase *srcListNode)
+void Python::Token::attachReference(Python::TokenWrapperBase *tokWrapper)
 {
-    std::list<Python::SourceListNodeBase*>::iterator pos =
-            std::find(m_srcLstNodes.begin(), m_srcLstNodes.end(), srcListNode);
-    if (pos == m_srcLstNodes.end())
-        m_srcLstNodes.push_back(srcListNode);
+    std::list<Python::TokenWrapperBase*>::iterator pos =
+            std::find(m_wrappers.begin(), m_wrappers.end(), tokWrapper);
+    if (pos == m_wrappers.end())
+        m_wrappers.push_back(tokWrapper);
 }
 
-void Python::Token::detachReference(Python::SourceListNodeBase *srcListNode)
+void Python::Token::detachReference(Python::TokenWrapperBase *tokWrapper)
 {
-    m_srcLstNodes.remove(srcListNode);
+    m_wrappers.remove(tokWrapper);
 }
 
 // -------------------------------------------------------------------------------------------
@@ -2166,3 +2168,25 @@ std::list<const Python::TokenScanInfo::ParseMsg *> Python::TokenScanInfo::allMes
 {
     return m_parseMsgs;
 }
+
+// ----------------------------------------------------------------------------------------
+
+Python::TokenWrapperBase::TokenWrapperBase(Token *tok) :
+    m_tok(nullptr)
+{
+    setToken(tok);
+}
+
+Python::TokenWrapperBase::~TokenWrapperBase()
+{
+    setToken(nullptr);
+}
+
+void Python::TokenWrapperBase::setToken(Python::Token *tok)
+{
+    if (m_tok)
+        m_tok->detachReference(this);
+    if ((m_tok = tok))
+        m_tok->attachReference(this);
+}
+

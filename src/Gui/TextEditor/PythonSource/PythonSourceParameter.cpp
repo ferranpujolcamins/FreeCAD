@@ -35,7 +35,7 @@ Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignmen
     // lookup with same token
     const Python::SourceFrame *frm = frame();
     assert(frm != nullptr && "Expected a Python::SourceFrame as parent to Python::SourceParameterList");
-    assert(m_token != nullptr && "A non valid token stored to Python::SourceParameter");
+    assert(token() != nullptr && "A non valid token stored to Python::SourceParameter");
 
     Python::SourceListNodeBase *itm = nullptr;
     for (itm = frm->identifiers().begin();
@@ -43,8 +43,8 @@ Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignmen
          itm = itm->next())
     {
         Python::SourceIdentifier *ident = dynamic_cast<Python::SourceIdentifier*>(itm);
-        if (ident && ident->hash() == m_token->hash()) {
-            return dynamic_cast<Python::SourceIdentifierAssignment*>(ident->findExact(m_token));
+        if (ident && ident->hash() == hash()) {
+            return dynamic_cast<Python::SourceIdentifierAssignment*>(ident->findExact(token()));
         }
     }
 

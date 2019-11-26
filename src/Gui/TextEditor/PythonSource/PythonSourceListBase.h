@@ -26,7 +26,7 @@ public:
     void setNext(Python::SourceListNodeBase *next) { m_next = next; }
     void setPrevious(Python::SourceListNodeBase *previous) { m_previous = previous; }
     /// python token
-    const Python::Token *token() const { return m_token; }
+    const Python::Token *token() const { return m_tokenWrapper.token(); }
     void setToken(Python::Token *token);
 
     /// gets text for token (gets from document)
@@ -40,13 +40,13 @@ public:
     void setOwner(Python::SourceListParentBase *owner);
 
     /// called by PythonToken when it gets destroyed
-    virtual void tokenDeleted();
+    virtual void tokenDeleted(TokenWrapperBase *wrapper);
 
 protected:
     Python::SourceListNodeBase *m_previous;
     Python::SourceListNodeBase *m_next;
     Python::SourceListParentBase *m_owner;
-    Python::Token *m_token;
+    Python::TokenWrapper<Python::SourceListNodeBase> m_tokenWrapper;
 };
 
 // -------------------------------------------------------------------------

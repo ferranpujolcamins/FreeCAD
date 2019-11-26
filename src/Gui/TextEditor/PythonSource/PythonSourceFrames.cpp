@@ -39,23 +39,23 @@ Python::SourceRoot::TypeInfo Python::SourceFrameReturnType::returnType() const
     }
 
     // compute return type of statement
-    return m_module->root()->statementResultType(m_token,
+    return m_module->root()->statementResultType(m_tokenWrapper.token(),
                                                  m_module->getFrameForToken(
-                                                     m_token, m_module->rootFrame()));
+                                                     m_tokenWrapper.token(), m_module->rootFrame()));
 }
 
 bool Python::SourceFrameReturnType::isYield() const
 {
-    return m_token->type() == Python::Token::T_KeywordYield;
+    return m_tokenWrapper.token()->type() == Python::Token::T_KeywordYield;
 }
 
 Python::SourceRoot::TypeInfo Python::SourceFrameReturnType::yieldType() const
 {
     Python::SourceRoot::TypeInfo typeInfo;
     if (isYield())
-        return m_module->root()->statementResultType(m_token,
+        return m_module->root()->statementResultType(m_tokenWrapper.token(),
                                                      m_module->getFrameForToken(
-                                                         m_token, m_module->rootFrame()));
+                                                         m_tokenWrapper.token(), m_module->rootFrame()));
 
     return typeInfo;
 }
@@ -145,7 +145,7 @@ const std::string Python::SourceFrame::name() const
     if (ident)
         return ident->name();
 
-    return "<unbound>" + m_token->text();
+    return "<unbound>" + text();
 }
 
 const std::string Python::SourceFrame::docstring()
@@ -216,9 +216,10 @@ Python::SourceRoot::TypeInfo Python::SourceFrame::returnTypeHint() const
     Python::SourceRoot::TypeInfo typeInfo;
     if (parentFrame()) {
         // get typehint from parentframe identifier for this frame
-        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(m_token->hash());
+        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(hash());
         if (ident) {
-            Python::SourceTypeHintAssignment *assign = ident->getTypeHintAssignment(m_token->line());
+            Python::SourceTypeHintAssignment *assign =
+                    ident->getTypeHintAssignment(m_tokenWrapper.token()->line());
             if (assign)
                 typeInfo = assign->typeInfo();
         }

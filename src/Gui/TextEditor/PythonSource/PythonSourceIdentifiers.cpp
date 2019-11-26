@@ -16,8 +16,7 @@ Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceIde
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
-    m_token = startToken;
-    m_token->attachReference(this);
+    setToken(startToken);
 }
 
 Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceTypeHint *owner,
@@ -27,8 +26,7 @@ Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceTyp
 {
     m_type = typeInfo;
     assert(startToken != nullptr && "Must have valid token");
-    m_token = startToken;
-    m_token->attachReference(this);
+    setToken(startToken);
 }
 
 Python::SourceIdentifierAssignment::~SourceIdentifierAssignment()
@@ -37,12 +35,12 @@ Python::SourceIdentifierAssignment::~SourceIdentifierAssignment()
 
 int Python::SourceIdentifierAssignment::linenr() const
 {
-    return m_token->line();
+    return m_tokenWrapper.token()->line();
 }
 
 int Python::SourceIdentifierAssignment::position() const
 {
-    return m_token->startPosInt();
+    return m_tokenWrapper.token()->startPosInt();
 }
 
 // --------------------------------------------------------------------------------
@@ -62,7 +60,7 @@ Python::SourceIdentifier::~SourceIdentifier()
 }
 
 const Python::SourceFrame *Python::SourceIdentifier::frame() const {
-    return m_module->getFrameForToken(m_token, m_module->rootFrame());
+    return m_module->getFrameForToken(m_tokenWrapper.token(), m_module->rootFrame());
 }
 
 Python::SourceIdentifierAssignment *Python::SourceIdentifier::getFromPos(int line, int pos) const
@@ -229,7 +227,7 @@ Python::SourceIdentifierList::~SourceIdentifierList()
 }
 
 const Python::SourceFrame *Python::SourceIdentifierList::frame() const {
-    return m_module->getFrameForToken(m_token, m_module->rootFrame());
+    return m_module->getFrameForToken(m_tokenWrapper.token(), m_module->rootFrame());
 }
 
 const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(int hash) const
@@ -377,7 +375,7 @@ Python::SourceTypeHint::~SourceTypeHint()
 }
 
 const Python::SourceFrame *Python::SourceTypeHint::frame() const {
-    return m_module->getFrameForToken(m_token, m_module->rootFrame());
+    return m_module->getFrameForToken(m_tokenWrapper.token(), m_module->rootFrame());
 }
 
 Python::SourceTypeHintAssignment *Python::SourceTypeHint::getFromPos(int line, int pos) const

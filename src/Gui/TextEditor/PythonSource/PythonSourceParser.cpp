@@ -110,7 +110,7 @@ Python::Token *Python::SourceParser::scanFrame(Python::Token *startToken, Python
         return startToken;
 
     // freshly created frame?
-    if (!m_activeFrame->m_token)
+    if (!m_activeFrame->token())
         m_activeFrame->setToken(startToken);
     if (!m_activeFrame->m_lastToken.token())
         m_activeFrame->m_lastToken.setToken(startToken);
@@ -259,7 +259,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
                 if (typeInfo.isValid() && typeHintTok && m_activeFrame->parentFrame()) {
                     // we don't store typehint in this frame, rather we lookup
                     // our parentframe identifier for this function and stes typehint on that
-                    ident = m_activeFrame->parentFrame()->getIdentifier(m_activeFrame->m_token->hash());
+                    ident = m_activeFrame->parentFrame()->getIdentifier(m_activeFrame->hash());
                     if (ident)
                         const_cast<Python::SourceIdentifier*>(ident)->setTypeHint(typeHintTok, typeInfo);
                 }

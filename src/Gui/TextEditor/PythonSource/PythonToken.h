@@ -14,6 +14,7 @@ class TokenList;
 class TokenLine;
 class Tokenizer;
 class TokenScanInfo;
+class TokenWrapperBase;
 
 class Token
 {
@@ -303,15 +304,15 @@ public:
 
 
     // all references get a call to PythonSourceListNode::tokenDeleted
-    void attachReference(Python::SourceListNodeBase *srcListNode);
-    void detachReference(Python::SourceListNodeBase *srcListNode);
+    void attachReference(Python::TokenWrapperBase *tokWrapper);
+    void detachReference(Python::TokenWrapperBase *srcListNode);
 
 
 private:
     Type m_type;
     uint m_startPos, m_endPos;
     int m_hash;
-    std::list<Python::SourceListNodeBase*> m_srcLstNodes;
+    std::list<Python::TokenWrapperBase*> m_wrappers;
 
     Token *m_next,
           *m_previous;
@@ -674,6 +675,52 @@ private:
     std::list<const ParseMsg*> m_parseMsgs;
 };
 
+// ------------------------------------------------------------------------------------------
+
+/// this class attaches to pointer token.
+/// When token is deleted, gets notified when token is deleted
+/// Base class for TokenWrapper
+class TokenWrapperBase {
+public:
+    explicit TokenWrapperBase(Python::Token *tok);
+    virtual ~TokenWrapperBase();
+    Python::Token *token() const { return m_tok; }
+    virtual void tokenDeleted() = 0;
+    void setToken(Python::Token *tok);
+
+protected:
+    Python::Token *m_tok;
+};
+
+// ------------------------------------------------------------------------------------------
+
+/// this class attaches to pointer token.
+/// When token is deleted, gets notified when token is deleted
+template<typename T>
+class TokenWrapper : public TokenWrapperBase
+{
+public:
+    typedef void (T::*onTokenDeleted)(TokenWrapperBase *wrapper);
+    explicit TokenWrapper(Python::Token *tok, T *owner,
+                          onTokenDeleted eventCallback) :
+             TokenWrapperBase(tok),
+        m_owner(owner), m_delEvtCallback(eventCallback)
+    { }
+    ~TokenWrapper() { }
+    void tokenDeleted()
+    {
+        if (m_owner && m_delEvtCallback)
+            (m_owner->*m_delEvtCallback)(this);
+        m_tok = nullptr;
+    }
+    void setOwner(T *owner, onTokenDeleted callback) {
+        m_owner = owner;
+        m_delEvtCallback = callback;
+    }
+private:
+    T *m_owner;
+    onTokenDeleted m_delEvtCallback;
+};
 
 } // namespace Python
 } // namespace Gui
