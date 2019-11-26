@@ -21,11 +21,11 @@ class SourceModule : public Python::SourceListParentBase
     Python::SourceFrame m_rootFrame;
     std::string m_filePath;
     std::string m_moduleName;
-    Python::Tokenizer *m_tokenizer;
+    Python::Lexer *m_tokenizer;
 public:
 
     explicit SourceModule(Python::SourceRoot *root,
-                          Python::Tokenizer *tokenizer);
+                          Python::Lexer *tokenizer);
     ~SourceModule();
 
     Python::SourceRoot *root() const { return m_root; }
@@ -48,7 +48,7 @@ public:
     Python::SourceIndent currentBlockIndent(const Python::Token *tok) const;
 
     // syntax highlighter stuff
-    Python::Tokenizer *tokenizer() const { return m_tokenizer; }
+    Python::Lexer *tokenizer() const { return m_tokenizer; }
     void tokenTypeChanged(const Python::Token *tok) const;
 
     /// stores a syntax error at tok with message and sets up for repaint

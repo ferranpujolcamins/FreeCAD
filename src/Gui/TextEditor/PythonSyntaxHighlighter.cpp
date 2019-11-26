@@ -51,7 +51,7 @@ public:
  */
 Python::SyntaxHighlighter::SyntaxHighlighter(QObject* parent):
     Gui::SyntaxHighlighter(parent),
-    Python::Tokenizer()
+    Python::Lexer()
 {
     d = new Python::SyntaxHighlighterP();
     d->sourceScanTmr.setInterval(50); // wait before running PythonSourceRoot rescan
@@ -320,7 +320,7 @@ void Python::SyntaxHighlighter::sourceScanTmrCallback() {
             Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(block.userData());
             if (txtData)
                 Python::SourceRoot::instance()->scanSingleRowModule(
-                            Python::Tokenizer::filePath(), txtData, this);
+                            Python::Lexer::filePath(), txtData, this);
         }
     }
     d->srcScanBlocks.clear();
@@ -328,7 +328,7 @@ void Python::SyntaxHighlighter::sourceScanTmrCallback() {
 
 void Python::SyntaxHighlighter::setFilePath(QString filePath)
 {
-    Python::Tokenizer::setFilePath(filePath.toStdString());
+    Python::Lexer::setFilePath(filePath.toStdString());
 
     Python::SourceRoot::instance()->scanCompleteModule(filePath.toStdString(), this);
     d->srcScanBlocks.clear();
@@ -336,7 +336,7 @@ void Python::SyntaxHighlighter::setFilePath(QString filePath)
 
 QString Python::SyntaxHighlighter::filePath() const
 {
-    return QString::fromStdString(Python::Tokenizer::filePath());
+    return QString::fromStdString(Python::Lexer::filePath());
 }
 
 // --------------------------------------------------------------------------------------------

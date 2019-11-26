@@ -10,7 +10,7 @@ using namespace Gui;
 
 
 Python::SourceModule::SourceModule(Python::SourceRoot *root,
-                                   Tokenizer *tokenizer) :
+                                   Lexer *tokenizer) :
     Python::SourceListParentBase(this),
     m_root(root),
     m_rootFrame(this, this),

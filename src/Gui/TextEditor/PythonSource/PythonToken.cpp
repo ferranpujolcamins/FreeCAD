@@ -33,9 +33,9 @@ bool isSpace(char ch)
 
 namespace Gui {
 namespace Python {
-class TokenizerP {
+class LexerP {
 public:
-    TokenizerP() :
+    LexerP() :
         tokenList(),
         endStateOfLastPara(Python::Token::T_Invalid),
         activeLine(nullptr)
@@ -91,7 +91,7 @@ public:
         if (it != builtins.end())
             keywords.push_back("print"); // python 2.7 and below
     }
-    ~TokenizerP()
+    ~LexerP()
     {
     }
     Python::TokenList tokenList;
@@ -1191,36 +1191,36 @@ void Python::TokenLine::setIndentCount(uint count)
 
 // --------------------------------------------------------------------------------
 
-Python::Tokenizer::Tokenizer() :
-    d_tok(new TokenizerP())
+Python::Lexer::Lexer() :
+    d_tok(new LexerP())
 {
 }
 
-Python::Tokenizer::~Tokenizer()
+Python::Lexer::~Lexer()
 {
 }
 
-Python::TokenList &Python::Tokenizer::list()
+Python::TokenList &Python::Lexer::list()
 {
     return d_tok->tokenList;
 }
 
-void Python::Tokenizer::tokenTypeChanged(const Python::Token *tok) const
+void Python::Lexer::tokenTypeChanged(const Python::Token *tok) const
 {
     (void)tok; // handle in subclass, squelsh compile warning
 }
 
-void Python::Tokenizer::setFilePath(const std::string &filePath)
+void Python::Lexer::setFilePath(const std::string &filePath)
 {
     d_tok->filePath = filePath;
 }
 
-const std::string &Python::Tokenizer::filePath() const
+const std::string &Python::Lexer::filePath() const
 {
     return d_tok->filePath;
 }
 
-uint Python::Tokenizer::tokenize(TokenLine *tokLine)
+uint Python::Lexer::tokenize(TokenLine *tokLine)
 {
     d_tok->activeLine = tokLine;
     bool isModuleLine = false;
@@ -1845,7 +1845,7 @@ uint Python::Tokenizer::tokenize(TokenLine *tokLine)
     return i;
 }
 
-Python::Token::Type Python::Tokenizer::unhandledState(uint &pos, int state,
+Python::Token::Type Python::Lexer::unhandledState(uint &pos, int state,
                                                       const std::string &text)
 {
     (void)pos;
@@ -1854,27 +1854,27 @@ Python::Token::Type Python::Tokenizer::unhandledState(uint &pos, int state,
     return Python::Token::T_Invalid;
 }
 
-void Python::Tokenizer::tokenUpdated(const Python::Token *tok)
+void Python::Lexer::tokenUpdated(const Python::Token *tok)
 {
     (void)tok; // handle in subclass, squelsh compile warning
 }
 
-Python::Token::Type &Python::Tokenizer::endStateOfLastParaRef() const
+Python::Token::Type &Python::Lexer::endStateOfLastParaRef() const
 {
     return d_tok->endStateOfLastPara;
 }
 
-Python::TokenLine *Python::Tokenizer::activeLine() const
+Python::TokenLine *Python::Lexer::activeLine() const
 {
     return d_tok->activeLine;
 }
 
-void Python::Tokenizer::setActiveLine(Python::TokenLine *line)
+void Python::Lexer::setActiveLine(Python::TokenLine *line)
 {
     d_tok->activeLine = line;
 }
 
-uint Python::Tokenizer::lastWordCh(uint startPos, const std::string &text) const
+uint Python::Lexer::lastWordCh(uint startPos, const std::string &text) const
 {
     uint len = 0;
     for (auto pos = text.begin() + startPos;
@@ -1888,7 +1888,7 @@ uint Python::Tokenizer::lastWordCh(uint startPos, const std::string &text) const
     return len;
 }
 
-uint Python::Tokenizer::lastNumberCh(uint startPos, const std::string &text) const
+uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text) const
 {
     std::string lowerText;
     auto pos = text.begin() + startPos;
@@ -1917,7 +1917,7 @@ uint Python::Tokenizer::lastNumberCh(uint startPos, const std::string &text) con
     return len;
 }
 
-uint Python::Tokenizer::lastDblQuoteStringCh(uint startAt, const std::string &text) const
+uint Python::Lexer::lastDblQuoteStringCh(uint startAt, const std::string &text) const
 {
     uint len = static_cast<uint>(text.length());
     if (len <= startAt)
@@ -1936,7 +1936,7 @@ uint Python::Tokenizer::lastDblQuoteStringCh(uint startAt, const std::string &te
     return len;
 }
 
-uint Python::Tokenizer::lastSglQuoteStringCh(uint startAt, const std::string &text) const
+uint Python::Lexer::lastSglQuoteStringCh(uint startAt, const std::string &text) const
 {
     // no escapes '\' possible in this type
     uint len = static_cast<uint>(text.length());
@@ -1952,7 +1952,7 @@ uint Python::Tokenizer::lastSglQuoteStringCh(uint startAt, const std::string &te
     return len;
 }
 
-Python::Token::Type Python::Tokenizer::numberType(const std::string &text) const
+Python::Token::Type Python::Lexer::numberType(const std::string &text) const
 {
     if (text.empty())
         return Python::Token::T_Invalid;
@@ -1975,7 +1975,7 @@ Python::Token::Type Python::Tokenizer::numberType(const std::string &text) const
     return Python::Token::T_NumberDecimal;
 }
 
-void Python::Tokenizer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
+void Python::Lexer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
 {
     uint len = static_cast<uint>(text.size()) - pos;
     Python::Token *tok = d_tok->activeLine->newDeterminedToken(tokType, pos, len);
@@ -1983,7 +1983,7 @@ void Python::Tokenizer::setRestOfLine(uint &pos, const std::string &text, Python
     pos += len -1;
 }
 
-void Python::Tokenizer::scanIndentation(uint &pos, const std::string &text)
+void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
 {
     if (d_tok->activeLine->empty()) {
 
@@ -2003,19 +2003,19 @@ void Python::Tokenizer::scanIndentation(uint &pos, const std::string &text)
     }
 }
 
-void Python::Tokenizer::setWord(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setWord(uint &pos, uint len, Python::Token::Type tokType)
 {
     Python::Token *tok = d_tok->activeLine->newDeterminedToken(tokType, pos, len);
     tokenUpdated(tok);
     pos += len -1;
 }
 
-void Python::Tokenizer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
 {
     return setWord(pos, len, tokType);
 }
 
-void Python::Tokenizer::setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType)
 {
     // let parse tree figure out and color at a later stage
     Python::Token *tok = d_tok->activeLine->newUndeterminedToken(tokType, pos, len);
@@ -2023,32 +2023,32 @@ void Python::Tokenizer::setUndeterminedIdentifier(uint &pos, uint len, Python::T
     pos += len -1;
 }
 
-void Python::Tokenizer::setNumber(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setNumber(uint &pos, uint len, Python::Token::Type tokType)
 {
     setWord(pos, len, tokType);
 }
 
-void Python::Tokenizer::setOperator(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setOperator(uint &pos, uint len, Python::Token::Type tokType)
 {
     setWord(pos, len, tokType);
 }
 
-void Python::Tokenizer::setDelimiter(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setDelimiter(uint &pos, uint len, Python::Token::Type tokType)
 {
     setWord(pos, len, tokType);
 }
 
-void Python::Tokenizer::setSyntaxError(uint &pos, uint len)
+void Python::Lexer::setSyntaxError(uint &pos, uint len)
 {
     setWord(pos, len, Python::Token::T_SyntaxError);
 }
 
-void Python::Tokenizer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
+void Python::Lexer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
 {
     setWord(pos, len, tokType);
 }
 
-void Python::Tokenizer::setIndentation(uint &pos, uint len, uint count)
+void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
 {
     Python::Token *tok = d_tok->activeLine->newDeterminedToken(Python::Token::T_Indent, pos, len);
     d_tok->activeLine->setIndentCount(count);

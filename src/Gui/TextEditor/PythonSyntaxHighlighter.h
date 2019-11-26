@@ -30,7 +30,7 @@ class SyntaxHighlighterP;
  * Syntax highlighter for Python.
  */
 class GuiExport SyntaxHighlighter : public Gui::SyntaxHighlighter,
-                                    public Python::Tokenizer
+                                    public Python::Lexer
 {
     Q_OBJECT
 public:

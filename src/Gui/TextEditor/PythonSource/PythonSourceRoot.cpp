@@ -445,7 +445,7 @@ Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(co
 }
 
 Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &filePath,
-                                                            Python::Tokenizer *tokenizer)
+                                                            Python::Lexer *tokenizer)
 {
     DEFINE_DBG_VARS
     assert(tokenizer != nullptr && "Must have a valid tokenizer");
@@ -488,7 +488,7 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
 
 Python::SourceModule *Python::SourceRoot::scanSingleRowModule(const std::string &filePath,
                                                           Python::TokenLine *row,
-                                                          Python::Tokenizer *tokenizer)
+                                                          Python::Lexer *tokenizer)
 {
     Python::SourceModule *mod = moduleFromPath(filePath);
     if (!mod) {

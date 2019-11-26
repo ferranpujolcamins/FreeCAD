@@ -12,7 +12,7 @@ class SourceListNodeBase; // in code analyzer
 class TextBlockData;
 class TokenList;
 class TokenLine;
-class Tokenizer;
+class Lexer;
 class TokenScanInfo;
 class TokenWrapperBase;
 
@@ -573,17 +573,17 @@ private:
     }
 
     friend class Python::TokenList;
-    friend class Python::Tokenizer;
+    friend class Python::Lexer;
 };
 
 // -------------------------------------------------------------------------------------
 
 /// implements logic to tokenize a string input
-class TokenizerP;
-class Tokenizer {
+class LexerP;
+class Lexer {
 public:
-    explicit Tokenizer();
-    virtual ~Tokenizer();
+    explicit Lexer();
+    virtual ~Lexer();
 
     Python::TokenList &list();
 
@@ -599,7 +599,7 @@ public:
     virtual void setSyntaxError(const Python::Token *tok) const { (void)tok; }
 
 protected:
-    Python::TokenizerP *d_tok;
+    Python::LexerP *d_tok;
 
     uint tokenize(Python::TokenLine *tokLine);
 
