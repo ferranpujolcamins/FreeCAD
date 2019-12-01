@@ -146,7 +146,9 @@ Python::Token::~Token()
     // notify our listeners
     for (auto n = m_wrappers.begin(); n != m_wrappers.end();) {
         auto p = n++; // need to advance because n might get deleted by tokenDeleted
-        (*p)->tokenDeleted();
+        (*p)->tokenDeleted(); // we don't explicitly delete p here as owner of p might
+                              // decide to some other thing with it
+                              // and we are not the owner of p
     }
 
     if (m_ownerLine)
@@ -2172,7 +2174,7 @@ std::list<const Python::TokenScanInfo::ParseMsg *> Python::TokenScanInfo::allMes
 // ----------------------------------------------------------------------------------------
 
 Python::TokenWrapperBase::TokenWrapperBase(Token *tok) :
-    m_tok(nullptr)
+    m_token(nullptr)
 {
     setToken(tok);
 }
@@ -2184,9 +2186,39 @@ Python::TokenWrapperBase::~TokenWrapperBase()
 
 void Python::TokenWrapperBase::setToken(Python::Token *tok)
 {
-    if (m_tok)
-        m_tok->detachReference(this);
-    if ((m_tok = tok))
-        m_tok->attachReference(this);
+    if (m_token)
+        m_token->detachReference(this);
+    if ((m_token = tok))
+        m_token->attachReference(this);
 }
 
+// ---------------------------------------------------------------------------------------
+
+Python::TokenWrapperInherit::TokenWrapperInherit(Token *token) :
+    TokenWrapperBase(token)
+{
+}
+
+Python::TokenWrapperInherit::~TokenWrapperInherit()
+{
+}
+
+const std::string Python::TokenWrapperInherit::text() const
+{
+    if (m_token)
+        return m_token->text();
+    return std::string();
+}
+
+int Python::TokenWrapperInherit::hash() const
+{
+    if (m_token)
+        return m_token->hash();
+    return 0;
+}
+
+void Python::TokenWrapperInherit::tokenDeleted()
+{
+    tokenDeletedCallback();
+    m_token = nullptr;
+}

@@ -304,12 +304,12 @@ void DumpModule::dumpFrame(const SourceFrame *frm, int indent)
     // parameters
     fprintf(m_file, "%sFrame parameters:\n", indentStr);
     if (!frm->isModule()) {
-        for (SourceParameter *itm = dynamic_cast<SourceParameter*>(frm->parameters().begin());
+        for (auto itm = frm->parameters().begin();
              itm != frm->parameters().end();
-             itm = dynamic_cast<SourceParameter*>(itm->next()))
+             ++itm)
         {
             const char *paramType = nullptr;
-            switch(itm->parameterType()){
+            switch((*itm)->parameterType()){
             case SourceParameter::Positional:
                 paramType = "Positional"; break;
             case SourceParameter::PositionalDefault:
@@ -323,7 +323,7 @@ void DumpModule::dumpFrame(const SourceFrame *frm, int indent)
             default:
                 paramType = "Unknown"; break;
             }
-            SourceIdentifierAssignment *assign = itm->identifierAssignment();
+            SourceIdentifierAssignment *assign = (*itm)->identifierAssignment();
             const std::string txt = assign ? assign->text() : std::string();
             fprintf(m_file, "%s %s(%s)", indentStr, txt.c_str(), paramType);
 

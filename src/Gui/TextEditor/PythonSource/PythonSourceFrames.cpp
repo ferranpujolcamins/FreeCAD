@@ -39,23 +39,23 @@ Python::SourceRoot::TypeInfo Python::SourceFrameReturnType::returnType() const
     }
 
     // compute return type of statement
-    return m_module->root()->statementResultType(m_tokenWrapper.token(),
+    return m_module->root()->statementResultType(m_token,
                                                  m_module->getFrameForToken(
-                                                     m_tokenWrapper.token(), m_module->rootFrame()));
+                                                     m_token, m_module->rootFrame()));
 }
 
 bool Python::SourceFrameReturnType::isYield() const
 {
-    return m_tokenWrapper.token()->type() == Python::Token::T_KeywordYield;
+    return m_token->type() == Python::Token::T_KeywordYield;
 }
 
 Python::SourceRoot::TypeInfo Python::SourceFrameReturnType::yieldType() const
 {
     Python::SourceRoot::TypeInfo typeInfo;
     if (isYield())
-        return m_module->root()->statementResultType(m_tokenWrapper.token(),
+        return m_module->root()->statementResultType(m_token,
                                                      m_module->getFrameForToken(
-                                                         m_tokenWrapper.token(), m_module->rootFrame()));
+                                                         m_token, m_module->rootFrame()));
 
     return typeInfo;
 }
@@ -101,7 +101,7 @@ Python::SourceFrame::SourceFrame(Python::SourceFrame *owner,
                                  bool isClass):
     Python::SourceListParentBase(owner),
     m_identifiers(module),
-    m_parameters(this),
+ //   m_parameters(this),
     m_imports(this, module),
     m_returnTypes(this, module),
     m_typeHint(nullptr),
@@ -110,6 +110,7 @@ Python::SourceFrame::SourceFrame(Python::SourceFrame *owner,
     m_lastToken(this),
     m_isClass(isClass)
 {
+
 }
 
 Python::SourceFrame::SourceFrame(Python::SourceModule *owner,
@@ -118,7 +119,7 @@ Python::SourceFrame::SourceFrame(Python::SourceModule *owner,
                                      bool isClass):
     Python::SourceListParentBase(owner),
     m_identifiers(module),
-    m_parameters(this),
+//    m_parameters(this),
     m_imports(this, module),
     m_returnTypes(this, module),
     m_typeHint(nullptr),
@@ -216,10 +217,10 @@ Python::SourceRoot::TypeInfo Python::SourceFrame::returnTypeHint() const
     Python::SourceRoot::TypeInfo typeInfo;
     if (parentFrame()) {
         // get typehint from parentframe identifier for this frame
-        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(hash());
+        const Python::SourceIdentifier *ident = parentFrame()->getIdentifier(this->hash());
         if (ident) {
             Python::SourceTypeHintAssignment *assign =
-                    ident->getTypeHintAssignment(m_tokenWrapper.token()->line());
+                    ident->getTypeHintAssignment(m_token->line());
             if (assign)
                 typeInfo = assign->typeInfo();
         }
@@ -242,4 +243,14 @@ const Python::SourceIdentifier *Python::SourceFrame::getIdentifier(int hash) con
 const Python::SourceFrameReturnTypeList Python::SourceFrame::returnTypes() const
 {
     return m_returnTypes;
+}
+
+void Python::SourceFrame::deleteParameter(const Python::SourceParameter *param)
+{
+    auto pos = std::find(m_parameters.begin(), m_parameters.end(), param);
+    if (pos != m_parameters.end()) {
+        m_parameters.erase(pos);
+        delete *pos;
+    }
+
 }

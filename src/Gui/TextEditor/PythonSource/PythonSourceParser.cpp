@@ -1045,13 +1045,15 @@ void Python::SourceParser::scanParameter(int &parenCount, bool isInitFunc)
                     m_activeFrame->m_identifiers.setIdentifier(m_tok, typeInfo);
 
                     // set parameter
-                    param = m_activeFrame->m_parameters.setParameter(m_tok, typeInfo, paramType);
+                    //param = m_activeFrame->m_parameters.setParameter(m_tok, typeInfo, paramType);
+                    param = new Python::SourceParameter(m_activeFrame, m_tok);
+                    m_activeFrame->m_parameters.push_back(param);
 
                     // Change tokenValue
                     if (m_tok->type() == Python::Token::T_IdentifierUnknown) {
 
                         if ((m_activeFrame->parentFrame()->isClass() || (isInitFunc && m_activeFrame->isClass())) &&
-                            m_activeFrame->m_parameters.indexOf(param) == 0)
+                            m_activeFrame->m_parameters.size() == 1)
                         {
                             m_tok->changeType(Python::Token::T_IdentifierSelf);
                         } else {

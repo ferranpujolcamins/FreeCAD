@@ -2,6 +2,7 @@
 #define PYTHONSOURCELISTBASE_H
 
 #include "PythonSource.h"
+#include "PythonSourceItemBase.h"
 #include <TextEditor/PythonSyntaxHighlighter.h>
 
 
@@ -15,7 +16,8 @@ class SourceListParentBase;
 
 ///
 /// Base class for items in collections
-class SourceListNodeBase {
+class SourceListNodeBase : public TokenWrapperInherit
+{
 public:
     explicit SourceListNodeBase(Python::SourceListParentBase *owner);
     SourceListNodeBase(const Python::SourceListNodeBase &other);
@@ -25,28 +27,18 @@ public:
 
     void setNext(Python::SourceListNodeBase *next) { m_next = next; }
     void setPrevious(Python::SourceListNodeBase *previous) { m_previous = previous; }
-    /// python token
-    const Python::Token *token() const { return m_tokenWrapper.token(); }
-    void setToken(Python::Token *token);
-
-    /// gets text for token (gets from document)
-    const std::string text() const;
-
-    /// gets the hash for this tokens text
-    virtual int hash() const;
 
     /// owner node, setOwner is essential during cleanup, or ownership swaps
     Python::SourceListParentBase *owner() const { return m_owner; }
     void setOwner(Python::SourceListParentBase *owner);
 
     /// called by PythonToken when it gets destroyed
-    virtual void tokenDeleted(TokenWrapperBase *wrapper);
+    virtual void tokenDeletedCallback();
 
 protected:
     Python::SourceListNodeBase *m_previous;
     Python::SourceListNodeBase *m_next;
     Python::SourceListParentBase *m_owner;
-    Python::TokenWrapper<Python::SourceListNodeBase> m_tokenWrapper;
 };
 
 // -------------------------------------------------------------------------

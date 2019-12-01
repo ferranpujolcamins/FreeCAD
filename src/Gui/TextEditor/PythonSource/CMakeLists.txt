@@ -32,6 +32,7 @@ SET(PythonSource_CPP_SRCS
     PythonSourceIdentifiers.cpp
     PythonSourceImports.cpp
     PythonSourceIndent.cpp
+    PythonSourceItemBase.cpp
     PythonSourceListBase.cpp
     PythonSourceModule.cpp
     PythonSourceParameter.cpp
@@ -45,6 +46,7 @@ SET(PythonSource_HPP_SRCS
     PythonSourceIdentifiers.h
     PythonSourceImports.h
     PythonSourceIndent.h
+    PythonSourceItemBase.h
     PythonSourceListBase.h
     PythonSourceModule.h
     PythonSourceParameter.h

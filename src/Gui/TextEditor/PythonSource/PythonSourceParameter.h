@@ -3,7 +3,8 @@
 
 #include "PythonSource.h"
 #include "PythonSourceRoot.h"
-#include "PythonSourceListBase.h"
+//#include "PythonSourceListBase.h"
+#include "PythonSourceItemBase.h"
 
 namespace Gui {
 namespace Python {
@@ -14,7 +15,7 @@ class SourceParameterList;
 
 // class for function/method parameters ie: def func(arg1, arg2=None, *arg3, **arg4)
 //                                                   ^     ^           ^       ^
-class SourceParameter : public Python::SourceListNodeBase
+class SourceParameter : public Python::TokenWrapperInherit
 {
 public:
     /// type for this parameter, ie (arg1, arg2=0, *arg3, **arg4)
@@ -26,11 +27,12 @@ public:
         Variable,
         Keyword
     };
-    explicit SourceParameter(Python::SourceParameterList *parent, Python::Token *tok);
-    ~SourceParameter();
+    explicit SourceParameter(Python::SourceFrame *parent,
+                             Python::Token *tok);
+    virtual ~SourceParameter() override;
 
     /// get the frame of this parameter
-    const Python::SourceFrame *frame() const;
+    const Python::SourceFrame *frame() const { return m_frame; }
 
     /// get the identifierAssignment of this argument
     Python::SourceIdentifierAssignment *identifierAssignment() const;
@@ -43,14 +45,16 @@ public:
     const Python::SourceRoot::TypeInfo type() const { return m_type; }
     void setType(Python::SourceRoot::TypeInfo &type) { m_type = type; } // type is implicitly copied
 
+    virtual void tokenDeletedCallback() override;
 
 private:
     Python::SourceRoot::TypeInfo m_type;
     ParameterType m_paramType;
+    SourceFrame *m_frame;
 };
 
 // ----------------------------------------------------------------------
-
+/*
 class SourceParameterList : public Python::SourceListParentBase
 {
     Python::SourceFrame *m_frame;
@@ -77,6 +81,7 @@ protected:
     int compare(const Python::SourceListNodeBase *left,
                 const Python::SourceListNodeBase *right) const;
 };
+*/
 
 } // namespace Python
 } // namespace Gui

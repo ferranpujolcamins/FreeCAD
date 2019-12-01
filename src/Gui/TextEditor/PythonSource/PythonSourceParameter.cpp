@@ -5,15 +5,18 @@
 #include "PythonSourceIdentifiers.h"
 
 #include <PythonSyntaxHighlighter.h>
+#include <map>
 
 DBG_TOKEN_FILE
 
 using namespace Gui;
 
 
-Python::SourceParameter::SourceParameter(Python::SourceParameterList *parent, Python::Token *tok) :
-    Python::SourceListNodeBase(parent),
-    m_paramType(InValid)
+Python::SourceParameter::SourceParameter(SourceFrame *parent,
+                                         Python::Token *tok) :
+    TokenWrapperInherit(tok),
+    m_paramType(InValid),
+    m_frame(parent)
 {
     setToken(tok);
 }
@@ -22,6 +25,7 @@ Python::SourceParameter::~SourceParameter()
 {
 }
 
+/*
 const Python::SourceFrame *Python::SourceParameter::frame() const
 {
     Python::SourceParameterList *parentList = dynamic_cast<Python::SourceParameterList*>(m_owner);
@@ -29,6 +33,7 @@ const Python::SourceFrame *Python::SourceParameter::frame() const
         return nullptr;
     return parentList->frame();
 }
+*/
 
 Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignment() const
 {
@@ -51,8 +56,13 @@ Python::SourceIdentifierAssignment *Python::SourceParameter::identifierAssignmen
     return nullptr;
 }
 
-// -----------------------------------------------------------------------------
+void Python::SourceParameter::tokenDeletedCallback()
+{
+    m_frame->deleteParameter(this);
+}
 
+// -----------------------------------------------------------------------------
+/*
 
 Python::SourceParameterList::SourceParameterList(Python::SourceFrame *frame) :
     Python::SourceListParentBase(frame),
@@ -120,3 +130,4 @@ int Python::SourceParameterList::compare(const Python::SourceListNodeBase *left,
         return +1;
     return -1; // r must be bigger
 }
+*/

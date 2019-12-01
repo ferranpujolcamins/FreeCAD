@@ -6,18 +6,18 @@ DBG_TOKEN_FILE
 using namespace Gui;
 
 Python::SourceListNodeBase::SourceListNodeBase(Python::SourceListParentBase *owner) :
+        TokenWrapperInherit(nullptr),
     m_previous(nullptr), m_next(nullptr),
-    m_owner(owner), m_tokenWrapper(nullptr, owner, &SourceListNodeBase::tokenDeleted)
+    m_owner(owner)
 {
     assert(owner != nullptr && "Must have valid owner");
     //assert(owner != this && "Can't own myself");
 }
 
 Python::SourceListNodeBase::SourceListNodeBase(const Python::SourceListNodeBase &other) :
+         TokenWrapperInherit(other),
     m_previous(nullptr), m_next(nullptr),
-    m_owner(other.m_owner),
-    m_tokenWrapper(other.m_tokenWrapper.token(), other.m_owner,
-                   &SourceListNodeBase::tokenDeleted)
+    m_owner(other.m_owner)
 {
     assert(other.m_owner != nullptr && "Trying to copy Python::SourceListNodeBase with null as owner");
 }
@@ -28,24 +28,6 @@ Python::SourceListNodeBase::~SourceListNodeBase()
         m_owner->remove(this);
 }
 
-void Python::SourceListNodeBase::setToken(Python::Token *token) {
-    m_tokenWrapper.setToken(token);
-}
-
-const std::string Python::SourceListNodeBase::text() const
-{
-    if (m_tokenWrapper.token())
-        return m_tokenWrapper.token()->text();
-    return std::string();
-}
-
-int Python::SourceListNodeBase::hash() const
-{
-    if (m_tokenWrapper.token())
-        return m_tokenWrapper.token()->hash();
-    return 0;
-}
-
 void Python::SourceListNodeBase::setOwner(Python::SourceListParentBase *owner)
 {
     //assert(owner != this && "Can't own myself");
@@ -53,9 +35,8 @@ void Python::SourceListNodeBase::setOwner(Python::SourceListParentBase *owner)
 }
 
 // this should only be called from PythonToken destructor when it gets destroyed
-void Python::SourceListNodeBase::tokenDeleted(TokenWrapperBase *wrapper)
+void Python::SourceListNodeBase::tokenDeletedCallback()
 {
-    (void)wrapper;
     if (m_owner && m_owner != this)
         m_owner->remove(this, true); // remove me from owner and let him delete me
 }

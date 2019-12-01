@@ -681,45 +681,59 @@ private:
 /// When token is deleted, gets notified when token is deleted
 /// Base class for TokenWrapper
 class TokenWrapperBase {
+    friend class Token;
+    virtual void tokenDeleted() = 0;
 public:
     explicit TokenWrapperBase(Python::Token *tok);
     virtual ~TokenWrapperBase();
-    Python::Token *token() const { return m_tok; }
-    virtual void tokenDeleted() = 0;
+    Python::Token *token() const { return m_token; }
     void setToken(Python::Token *tok);
-
 protected:
-    Python::Token *m_tok;
+    Python::Token *m_token;
 };
 
 // ------------------------------------------------------------------------------------------
 
 /// this class attaches to pointer token.
 /// When token is deleted, gets notified when token is deleted
-template<typename T>
+template<typename TOwner, void (TOwner::*tokenDelCallback)(TokenWrapperBase *wrapper)>
 class TokenWrapper : public TokenWrapperBase
 {
-public:
-    typedef void (T::*onTokenDeleted)(TokenWrapperBase *wrapper);
-    explicit TokenWrapper(Python::Token *tok, T *owner,
-                          onTokenDeleted eventCallback) :
-             TokenWrapperBase(tok),
-        m_owner(owner), m_delEvtCallback(eventCallback)
-    { }
-    ~TokenWrapper() { }
-    void tokenDeleted()
+    friend class Token;
+    TOwner *m_owner;
+    void tokenDeleted() override
     {
-        if (m_owner && m_delEvtCallback)
-            (m_owner->*m_delEvtCallback)(this);
-        m_tok = nullptr;
+        if (m_owner)
+            (m_owner->*tokenDelCallback)(this);
+        m_token = nullptr;
     }
-    void setOwner(T *owner, onTokenDeleted callback) {
-        m_owner = owner;
-        m_delEvtCallback = callback;
-    }
-private:
-    T *m_owner;
-    onTokenDeleted m_delEvtCallback;
+public:
+    explicit TokenWrapper(Python::Token *token, TOwner *owner) :
+             TokenWrapperBase(token),
+        m_owner(owner)
+    { }
+    ~TokenWrapper() override { }
+};
+
+// ----------------------------------------------------------------------------------------
+
+// use this class instead of TokenWrapper if you intend to inherit TokenWrapperBase
+class TokenWrapperInherit : public TokenWrapperBase
+{
+    friend class Token;
+    void tokenDeleted() override;
+public:
+    explicit TokenWrapperInherit(Python::Token *token);
+    ~TokenWrapperInherit() override;
+
+
+    /// gets text for token (gets from document)
+    const std::string text() const;
+
+    /// gets the hash for this tokens text
+    virtual int hash() const;
+
+    virtual void tokenDeletedCallback() = 0;
 };
 
 } // namespace Python
