@@ -184,6 +184,7 @@ inline bool BreakpointFile::operator ==(const QString& fn)
     return _filename == fn;
 }
 
+class PythonDebugModuleP;
 /**
  * @author Werner Mayer
  */
@@ -200,6 +201,7 @@ private:
     Py::Object getExceptionCount(const Py::Tuple &a);
     Py::Object getLineCount(const Py::Tuple &a);
     Py::Object getFunctionReturnCount(const Py::Tuple &a);
+    PythonDebugModuleP *d;
 };
 
 /**

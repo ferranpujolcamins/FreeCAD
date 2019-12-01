@@ -1003,10 +1003,12 @@ const char* InterpreterSingleton::init(int argc,char *argv[])
     if (!Py_IsInitialized()) {
 #if PY_MAJOR_VERSION >= 3
 #if PY_MINOR_VERSION >= 5
-        Py_SetProgramName(Py_DecodeLocale(argv[0],NULL));
+        wchar_t *wargv = Py_DecodeLocale(argv[0], nullptr);
 #else
-        Py_SetProgramName(_Py_char2wchar(argv[0],NULL));
+        wchar_t *wargv = _Py_char2wchar(argv[0], nullptr);
 #endif
+        Py_SetProgramName(wargv);
+        PyMem_RawFree(wargv);
 #else
         Py_SetProgramName(argv[0]);
 #endif
@@ -1042,6 +1044,8 @@ const char* InterpreterSingleton::init(int argc,char *argv[])
 #endif
         }
         PySys_SetArgv(argc, _argv);
+        for (int i = 0; i < argc; i++)
+            PyMem_RawFree(_argv[i]);
 #else
         PySys_SetArgv(argc, argv);
 #endif

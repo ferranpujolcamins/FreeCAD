@@ -315,6 +315,24 @@ BreakpointLine *BreakpointFile::getBreakpointLineFromIdx(int idx)
 }
 
 // -----------------------------------------------------
+namespace App {
+class PythonDebugModuleP
+{
+public:
+    PythonDebugModuleP() :
+        stdout(new PythonDebugStdout()),
+        stderr(new PythonDebugStderr())
+    {}
+    ~PythonDebugModuleP()
+    {
+        delete stdout;
+        delete stderr;
+    }
+    PythonDebugStdout *stdout;
+    PythonDebugStderr *stderr;
+};
+} // namespace App
+// ----------------------------------------------------------------------------------
 
 void PythonDebugModule::init_module(void)
 {
@@ -322,11 +340,12 @@ void PythonDebugModule::init_module(void)
     PythonDebugStderr::init_type();
     PythonDebugExcept::init_type();
     static PythonDebugModule* mod = new PythonDebugModule();
-    Q_UNUSED(mod);
+    Q_UNUSED(mod)
 }
 
 PythonDebugModule::PythonDebugModule()
-  : Py::ExtensionModule<PythonDebugModule>("FreeCADDbg")
+  : Py::ExtensionModule<PythonDebugModule>("FreeCADDbg"),
+    d(new PythonDebugModuleP())
 {
     add_varargs_method("getFunctionCallCount", &PythonDebugModule::getFunctionCallCount,
         "Get the total number of function calls executed and the number executed since the last call to this function.");
@@ -339,15 +358,16 @@ PythonDebugModule::PythonDebugModule()
 
     initialize( "The FreeCAD Python debug module" );
 
-    Py::Dict d(moduleDictionary());
-    Py::Object out(Py::asObject(new PythonDebugStdout()));
-    d["StdOut"] = out;
-    Py::Object err(Py::asObject(new PythonDebugStderr()));
-    d["StdErr"] = err;
+    Py::Dict dict(moduleDictionary());
+    Py::Object out(Py::asObject(d->stdout));
+    dict["StdOut"] = out;
+    Py::Object err(Py::asObject(d->stderr));
+    dict["StdErr"] = err;
 }
 
 PythonDebugModule::~PythonDebugModule()
 {
+    delete d;
 }
 
 Py::Object PythonDebugModule::getFunctionCallCount(const Py::Tuple &)
