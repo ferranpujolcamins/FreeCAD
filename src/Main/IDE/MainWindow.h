@@ -52,6 +52,7 @@ private Q_SLOTS:
     bool saveAs();
     void about();
     void documentWasModified();
+    void showOptions();
 #ifndef QT_NO_SESSIONMANAGER
     void commitData(QSessionManager &);
 #endif

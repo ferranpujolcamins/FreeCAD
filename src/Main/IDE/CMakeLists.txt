@@ -56,14 +56,17 @@ list(APPEND Common_LIBS
 set(IDE_CPP_SRCS
     MainIde.cpp
     MainWindow.cpp
+    DlgPythonSettings.cpp
 )
 
 set(IDE_HPP_SRCS
     MainWindow.h
+    DlgPythonSettings.h
 )
 
 set(IDE_MOC_HDRS
     MainWindow.h
+    DlgPythonSettings.h
 )
 
 fc_wrap_cpp(IDE_MOC_SRCS ${IDE_MOC_HDRS})

@@ -1,5 +1,6 @@
 
 #include "MainWindow.h"
+#include "DlgPythonSettings.h"
 //#include <Python.h>
 #include <QtWidgets>
 #include <Gui/TextEditor/TextEditor.h>
@@ -113,6 +114,12 @@ void MainWindow::documentWasModified()
     setWindowModified(editorView->getEditor()->document()->isModified());
 }
 
+void MainWindow::showOptions()
+{
+    DlgPythonSettings dlg;
+    dlg.exec();
+}
+
 void MainWindow::createActions()
 {
 
@@ -192,6 +199,10 @@ void MainWindow::createActions()
     editToolBar->addAction(pasteAct);
 
     menuBar()->addSeparator();
+
+    QAction *optionAct = new QAction(tr("&options"), this);
+    connect(optionAct, &QAction::triggered, this, &MainWindow::showOptions);
+    editMenu->addAction(optionAct);
 
 #endif // !QT_NO_CLIPBOARD
 
