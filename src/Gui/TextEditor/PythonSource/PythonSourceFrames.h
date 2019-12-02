@@ -68,7 +68,7 @@ class SourceFrame : public Python::SourceListParentBase
     /// stores all identifiers contained within each frame
     Python::SourceIdentifierList m_identifiers;
     //Python::SourceParameterList m_parameters;
-    std::vector<Python::SourceParameter*> m_parameters;
+    std::list<Python::SourceParameter*> m_parameters;
     Python::SourceImportList    m_imports;
     Python::SourceFrameReturnTypeList m_returnTypes; // as in return types
     Python::SourceRoot::TypeInfo m_type;
@@ -131,7 +131,7 @@ public:
 
     // get reference to all parameters for this frame
     //const Python::SourceParameterList &parameters() const { return m_parameters; }
-    const std::vector<Python::SourceParameter*> &parameters() const { return m_parameters; }
+    const std::list<Python::SourceParameter*> &parameters() const { return m_parameters; }
 
     /// returns a list with all the types for this frame
     ///   returnType Might differ
@@ -141,7 +141,7 @@ public:
     const Python::Token *lastToken() const { return m_lastToken.token(); }
     void setLastToken(Python::Token *tok) { m_lastToken.setToken(tok); }
 
-    void deleteParameter(const Python::SourceParameter *param);
+    void deleteParameter(SourceParameter *param);
 
 private:
 

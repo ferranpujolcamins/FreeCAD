@@ -31,7 +31,7 @@
 #include "SyntaxHighlighter.h"
 #include "PythonSyntaxHighlighter.h"
 #include "PythonJedi.h"
-#include "Window.h"
+#include <Gui/Window.h>
 
 #include <QDialog>
 #include <QAbstractListModel>

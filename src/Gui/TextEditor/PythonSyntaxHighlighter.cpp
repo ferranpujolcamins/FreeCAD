@@ -82,7 +82,10 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
 
     // create new userData, copy bookmark etc
     Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock(), &list()),
-                          *curBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
+                          *curBlock = nullptr;
+    if (currentBlock().isValid())
+        curBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
+
     if (curBlock) {
         txtBlock->copyBlock(*curBlock);
         list().swapLine(curBlock, txtBlock);
@@ -117,6 +120,12 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
 
     d->sourceScanTmr.start();
     d->sourceScanTmr.blockSignals(false);
+}
+
+void Python::SyntaxHighlighter::rehighlight()
+{
+    list().clear();
+    Gui::SyntaxHighlighter::rehighlight();
 }
 
 QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *token) const
@@ -242,7 +251,8 @@ QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *t
         break;
     }
 
-    format.setForeground(this->colorByType(colorIdx));
+    QColor col = colorByType(colorIdx);
+    format.setForeground(col);
 
     return format;
 }

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <list>
+#include <map>
 
 namespace Gui {
 namespace Python {
@@ -15,6 +16,37 @@ class TokenLine;
 class Lexer;
 class TokenScanInfo;
 class TokenWrapperBase;
+
+/// class used to differentiate between versions
+/// user can set lexer/parser to generate from python version
+class Version
+{
+public:
+    enum versions { Invalid,
+        // must add new versions in desceding order
+        v2_6, v2_7, EOL,
+        v3_0, v3_1, v3_2, v3_3, v3_4, v3_5, v3_6, v3_7, v3_8, v3_9,
+        Latest };
+    explicit Version(uint8_t major, uint8_t minor);
+    explicit Version(versions version);
+    Version(const Version &other);
+    virtual ~Version();
+
+    /// get/set version
+    void setVersion(versions version);
+    versions version() const;
+
+    /// get the version, if ver = Invalid get the current selected version as string
+    std::string versionAsString() const;
+    static std::string versionAsString(versions version);
+    /// get a list of all available versions
+    static std::map<versions, const std::string> availableVersions();
+    /// get the version as major or minor version
+    uint8_t majorVersion() const;
+    uint8_t minorVersion() const;
+private:
+    versions m_version;
+};
 
 class Token
 {
@@ -597,6 +629,9 @@ public:
     virtual void setMessage(const Python::Token *tok) const { (void)tok; }
     virtual void setIndentError(const Python::Token *tok) const { (void)tok; }
     virtual void setSyntaxError(const Python::Token *tok) const { (void)tok; }
+
+    static Version version();
+    static void setVersion(Version::versions value);
 
 protected:
     Python::LexerP *d_tok;

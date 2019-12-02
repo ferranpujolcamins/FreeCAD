@@ -1,6 +1,6 @@
 #include "PythonSourceTypes.h"
 
-PythonSourceTypes::PythonSourceTypes(QObject *parent) : QObject(parent)
-{
+using namespace Gui;
+using namespace Python;
 
-}
+

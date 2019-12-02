@@ -1,15 +1,19 @@
 #ifndef PYTHONSOURCETYPES_H
 #define PYTHONSOURCETYPES_H
 
+namespace Gui {
 
-class PythonSourceTypes : public QObject
+namespace Python {
+
+class SourceTypeObject
 {
 public:
-    explicit PythonSourceTypes(QObject *parent = nullptr);
+    explicit SourceTypeObject();
+    virtual ~SourceTypeObject();
 
-signals:
-
-public slots:
 };
+
+} // namespace Python
+} // namespace Gui
 
 #endif // PYTHONSOURCETYPES_H

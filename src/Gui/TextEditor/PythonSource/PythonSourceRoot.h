@@ -37,9 +37,8 @@ class Lexer;
  * used to get info about src
  * Is intended as a singleton!
  */
-class SourceRoot //: public QObject
+class SourceRoot
 {
-    //Q_OBJECT
 public:
     typedef int CustomNameIdx_t;
     enum DataTypes {

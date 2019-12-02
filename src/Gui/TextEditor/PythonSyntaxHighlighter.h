@@ -3,7 +3,7 @@
 
 #include "PreCompiled.h"
 #include "SyntaxHighlighter.h"
-#include <TextEditor/PythonSource/PythonToken.h>
+#include <Gui/TextEditor/PythonSource/PythonToken.h>
 #include "TextEditor.h"
 #include <Base/Parameter.h>
 
@@ -38,6 +38,8 @@ public:
     ~SyntaxHighlighter() override;
 
     void highlightBlock (const QString & text) override;
+
+    void rehighlight();
 
 /*
     /// masks for decoding userState()

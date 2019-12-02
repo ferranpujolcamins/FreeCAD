@@ -5,6 +5,7 @@
 #include "PythonSyntaxHighlighter.h"
 
 #include <algorithm>
+#include <unordered_set>
 #include <cctype>
 #include <string>
 
@@ -40,7 +41,16 @@ public:
         endStateOfLastPara(Python::Token::T_Invalid),
         activeLine(nullptr)
     {
+        reGenerate();
+    }
+    ~LexerP()
+    {
+    }
 
+    void reGenerate()
+    {
+        keywords.clear();
+        builtins.clear();
         // GIL lock code block
         PyGILState_STATE lock = PyGILState_Ensure();
 
@@ -56,58 +66,221 @@ public:
             const char *name = PyString_AS_STRING(key);
 #endif
             if (name != nullptr)
-                builtins.push_back(name);
+                builtins.insert(name);
         }
         PyGILState_Release(lock);
 
-        // https://docs.python.org/3/reference/lexical_analysis.html#keywords
-        keywords.push_back("False");    keywords.push_back("None");
-        keywords.push_back("True");     keywords.push_back("and");
-        keywords.push_back("as");       keywords.push_back("assert");
-        keywords.push_back("async");    keywords.push_back("await"); //2 new kewords from 3.6
-        keywords.push_back("break");    keywords.push_back("class");
-        keywords.push_back("continue"); keywords.push_back("def");
-        keywords.push_back("del");      keywords.push_back("elif");
-        keywords.push_back("else");     keywords.push_back("except");
-        keywords.push_back("finally");  keywords.push_back("for");
-        keywords.push_back("from");     keywords.push_back("global");
-        keywords.push_back("if");       keywords.push_back("import");
-        keywords.push_back("in");       keywords.push_back("is");
-        keywords.push_back("lambda");   keywords.push_back("nonlocal");
-        keywords.push_back("not");      keywords.push_back("or");
-        keywords.push_back("pass");     keywords.push_back("raise");
-        keywords.push_back("return");   keywords.push_back("try");
-        keywords.push_back("while");    keywords.push_back("with");
-        keywords.push_back("yield");
+        //
+        // keywords
+        // 2.6 and 2.7 https://docs.python.org/2.7/reference/lexical_analysis.html#keywords
+        // and       del       from      not       while
+        // as        elif      global    or        with
+        // assert    else      if        pass      yield
+        // break     except    import    print
+        // class     exec      in        raise
+        // continue  finally   is        return
+        // def       for       lambda    try
+        keywords.insert("and");      keywords.insert("del");
+        keywords.insert("from");     keywords.insert("not");
+        keywords.insert("while");    keywords.insert("as");
+        keywords.insert("elif");     keywords.insert("global");
+        keywords.insert("or");       keywords.insert("with");
+        keywords.insert("assert");   keywords.insert("else");
+        keywords.insert("if");       keywords.insert("pass");
+        keywords.insert("yield");    keywords.insert("break");
+        keywords.insert("except");   keywords.insert("import");
+        keywords.insert("class");    keywords.insert("in");
+        keywords.insert("raise");    keywords.insert("continue");
+        keywords.insert("finally");  keywords.insert("is");
+        keywords.insert("return");   keywords.insert("def");
+        keywords.insert("for");      keywords.insert("lambda");
+        keywords.insert("lambda");   keywords.insert("try");
+
+        if (Lexer::version().majorVersion() == 2) {
+            keywords.insert("print"); keywords.insert("exec");
+
+        } else if (Lexer::version().majorVersion() >= 3) {
+            keywords.insert("nonlocal");
+
+            // 3.0 https://docs.python.org/3.0/reference/lexical_analysis.html#keywords
+            // False      class      finally    is         return
+            // None       continue   for        lambda     try
+            // True       def        from       nonlocal   while
+            // and        del        global     not        with
+            // as         elif       if         or         yield
+            // assert     else       import     pass
+            // break      except     in         raise
+            keywords.insert("False");    keywords.insert("None");
+            keywords.insert("True");
+
+            if (Lexer::version().version() >= Version::v3_7) {
+                keywords.insert("async");    keywords.insert("await"); //2 new keywords from 3.7
+            }
+        }
+
 
         // keywords takes precedence over builtins
         for (const std::string &name : keywords) {
-            auto it = std::find(builtins.begin(), builtins.end(), name);
+            auto it = builtins.find(name);
             if (it != builtins.end())
-                builtins.remove(*it);
+                builtins.erase(it);
         }
 
-        auto it = std::find(builtins.begin(), builtins.end(), "print");
-        if (it != builtins.end())
-            keywords.push_back("print"); // python 2.7 and below
     }
-    ~LexerP()
-    {
-    }
+    static Python::Version version;
     Python::TokenList tokenList;
     Python::Token::Type endStateOfLastPara;
     Python::TokenLine *activeLine;
-    std::list<const std::string> keywords;
-    std::list<const std::string> builtins;
+    std::unordered_set<std::string> keywords;
+    std::unordered_set<std::string> builtins;
     std::string filePath;
 };
+
+// static
+Python::Version Python::LexerP::version(Version::Latest);
 
 } // namespace Python
 } // namespace Gui
 
 using namespace Gui;
 
+// -------------------------------------------------------------------------------------------
 
+Python::Version::Version(uint8_t major, uint8_t minor)
+{
+    if (major == 3) {
+        switch (minor) {
+        case 9: m_version = v3_9; break;
+        case 8: m_version = v3_8; break;
+        case 7: m_version = v3_7; break;
+        case 6: m_version = v3_6; break;
+        case 5: m_version = v3_5; break;
+        case 4: m_version = v3_4; break;
+        case 3: m_version = v3_3; break;
+        case 2: m_version = v3_2; break;
+        case 1: m_version = v3_1; break;
+        case 0: m_version = v3_0; break;
+        default:
+            assert(minor > 0 && "unknown python minor version");
+        }
+    } else if (major == 2) {
+        switch (minor) {
+        case 7: m_version = v2_7; break;
+        case 6: m_version = v2_6; break;
+        default:
+            assert(minor > 0 && "unknown python minor version");
+        }
+    } else
+        assert(minor > 0 && "unknown python major version");
+}
+
+Python::Version::Version(Python::Version::versions version) :
+    m_version(version)
+{
+    assert(version <= Latest);
+    assert(version >= v2_6);
+}
+
+Python::Version::Version(const Python::Version &other) :
+    m_version(other.m_version)
+{
+}
+
+Python::Version::~Version()
+{
+}
+
+void Python::Version::setVersion(versions version)
+{
+    assert(version <= Latest);
+    assert(version >= v2_6);
+    m_version = version;
+}
+
+uint8_t Python::Version::majorVersion() const
+{
+    if (m_version == Latest)
+        return 3;
+    if (m_version >= v3_0 && m_version <= v3_9)
+        return 3;
+    else if (m_version >= v2_6 && m_version <= v2_7)
+        return 2;
+    return 0;
+}
+
+uint8_t Python::Version::minorVersion() const
+{
+    switch (m_version) {
+    case Latest: // FALLTHROUGH
+    case v3_9: return 9;
+    case v3_8: return 8;
+    case v3_7: return 7;
+    case v3_6: return 6;
+    case v3_5: return 5;
+    case v3_4: return 4;
+    case v3_3: return 3;
+    case v3_2: return 2;
+    case v3_1: return 1;
+    case v3_0: return 0;
+    case EOL: // fallthrough
+    case v2_7: return 7;
+    case v2_6: return 6;
+    case Invalid: return 0xFF;
+    }
+    return 0xFF;
+}
+
+Python::Version::versions Python::Version::version() const
+{
+    return m_version;
+}
+
+std::string Python::Version::versionAsString() const
+{
+    return versionAsString(m_version);
+}
+
+// static
+std::string Python::Version::versionAsString(Python::Version::versions version)
+{
+    switch (version) {
+    case Invalid: return "invalid";
+    case v2_6: return "2.6";
+    case EOL: // Fallthrough
+    case v2_7: return "2.7";
+    case v3_0: return "3.0";
+    case v3_1: return "3.1";
+    case v3_2: return "3.2";
+    case v3_3: return "3.3";
+    case v3_4: return "3.4";
+    case v3_5: return "3.5";
+    case v3_6: return "3.6";
+    case v3_7: return "3.7";
+    case v3_8: return "3.8";
+    case v3_9: return "3.9";
+    case Latest: return "Latest";
+    }
+    return "invalid";
+}
+
+// static
+std::map<Python::Version::versions, const std::string> Python::Version::availableVersions()
+{
+    std::map<versions, const std::string> map;
+    for (uint v = v2_6; v <= v2_7; ++v) {
+        versions ver = static_cast<versions>(v);
+        map.insert(std::pair<versions, const std::string>(ver, versionAsString(ver)));
+    }
+
+    for (uint v = v3_0; v <= Latest; ++v){
+        versions ver = static_cast<versions>(v);
+        map.insert(std::pair<versions, const std::string>(ver, versionAsString(ver)));
+    }
+    return map;
+}
+
+
+// -------------------------------------------------------------------------------------------
 Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
     m_hash(0), m_next(nullptr), m_previous(nullptr),
@@ -405,8 +578,9 @@ uint32_t Python::TokenList::count() const
 
 void Python::TokenList::clear()
 {
-    remove(m_first, m_last, true);
-    m_first = m_last = nullptr;
+    uint guard = max_size();
+    while(m_firstLine && (--guard))
+        removeLine(m_firstLine, true);
 }
 
 void Python::TokenList::push_back(Python::Token *tok)
@@ -1222,6 +1396,18 @@ const std::string &Python::Lexer::filePath() const
     return d_tok->filePath;
 }
 
+// static
+Python::Version Python::Lexer::version()
+{
+    return LexerP::version;
+}
+
+// static
+void Python::Lexer::setVersion(Version::versions value)
+{
+    LexerP::version.setVersion(value);
+}
+
 uint Python::Lexer::tokenize(TokenLine *tokLine)
 {
     d_tok->activeLine = tokLine;
@@ -1592,7 +1778,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     uint len = lastWordCh(i, text);
                     std::string word = text.substr(i, len);
 
-                    auto it = std::find(d_tok->keywords.begin(), d_tok->keywords.end(), word);
+                    auto it = d_tok->keywords.find(word);
                     if (it != d_tok->keywords.end()) {
                         if (word == "def") {
                             tokLine->m_isParamLine = true;
@@ -2219,6 +2405,6 @@ int Python::TokenWrapperInherit::hash() const
 
 void Python::TokenWrapperInherit::tokenDeleted()
 {
-    tokenDeletedCallback();
     m_token = nullptr;
+    tokenDeletedCallback();
 }

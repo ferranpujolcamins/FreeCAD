@@ -132,6 +132,8 @@ Python::SourceFrame::SourceFrame(Python::SourceModule *owner,
 
 Python::SourceFrame::~SourceFrame()
 {
+    for(auto &p : m_parameters)
+        delete p;
     if (m_typeHint)
         delete m_typeHint;
 }
@@ -245,12 +247,15 @@ const Python::SourceFrameReturnTypeList Python::SourceFrame::returnTypes() const
     return m_returnTypes;
 }
 
-void Python::SourceFrame::deleteParameter(const Python::SourceParameter *param)
+void Python::SourceFrame::deleteParameter(Python::SourceParameter *param)
 {
-    auto pos = std::find(m_parameters.begin(), m_parameters.end(), param);
-    if (pos != m_parameters.end()) {
-        m_parameters.erase(pos);
-        delete *pos;
-    }
+    m_parameters.remove(param);
+    delete param;
+//    auto pos = std::find(m_parameters.begin(), m_parameters.end(), param);
+//    if (pos != m_parameters.end()) {
+//        auto p = *pos;
+//        m_parameters.erase(pos);
+//        delete p;
+//    }
 
 }

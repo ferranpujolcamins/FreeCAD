@@ -242,6 +242,7 @@ EditorView::EditorView(TextEditor* editor, QWidget* parent)
     QFrame*     vbox = new QFrame(this);
     d->centralLayout->setMargin(0);
     d->centralLayout->addWidget(editor);
+    editor->setParent(this);
     d->centralLayout->addWidget(d->searchBar);
     vbox->setLayout(d->centralLayout);
 
