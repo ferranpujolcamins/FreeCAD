@@ -38,28 +38,30 @@ DlgPythonSettings::DlgPythonSettings(QDialog *parent) :
             m_cmbVersion->setCurrentText(QString::fromStdString(verPair.second));
     }
 
-    connect(m_cmbVersion, &QComboBox::currentTextChanged, this, &DlgPythonSettings::changedVersion);
-    connect(okButton, &QPushButton::click, this, &DlgPythonSettings::accept);
-    connect(cancelButton, &QPushButton::click, this, &DlgPythonSettings::reject);
+    connect(okButton, &QPushButton::clicked, this, &DlgPythonSettings::accept);
+    connect(cancelButton, &QPushButton::clicked, this, &DlgPythonSettings::reject);
 }
 
 DlgPythonSettings::~DlgPythonSettings()
 {
 }
 
-void DlgPythonSettings::changedVersion()
+void DlgPythonSettings::accept()
 {
     auto ver = static_cast<Gui::Python::Version::versions>(m_cmbVersion->currentData().toUInt());
-    Gui::Python::Lexer::setVersion(ver);
+    if (ver != Gui::Python::Lexer::version().version()) {
+        Gui::Python::Lexer::setVersion(ver);
 
-    QStringList types;
-    types << QLatin1String("py") << QLatin1String("FCMacro");
-    for (auto &wrapper : EditorViewSingleton::instance()->openedByType(types)) {
-        auto highlighter = dynamic_cast<Python::SyntaxHighlighter*>(wrapper->editor()->syntaxHighlighter());
-        if (highlighter)
-            highlighter->rehighlight();
+        QStringList types;
+        types << QLatin1String("py") << QLatin1String("FCMacro");
+        for (auto &wrapper : EditorViewSingleton::instance()->openedByType(types)) {
+            auto highlighter = dynamic_cast<Python::SyntaxHighlighter*>(wrapper->editor()->syntaxHighlighter());
+            if (highlighter)
+                highlighter->rehighlight();
+        }
     }
 
+    QDialog::accept();
 }
 
 #include "moc_DlgPythonSettings.cpp"

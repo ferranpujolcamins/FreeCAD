@@ -15,9 +15,8 @@ public:
     explicit DlgPythonSettings(QDialog *parent = nullptr);
     virtual ~DlgPythonSettings();
 
-
-private Q_SLOTS:
-    void changedVersion();
+protected:
+    void accept();
 
 private:
     QComboBox *m_cmbVersion;
