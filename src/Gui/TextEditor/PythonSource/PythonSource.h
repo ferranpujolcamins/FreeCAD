@@ -79,7 +79,14 @@ namespace Gui {
 
 namespace Python {
 
-int strToHash(const std::string &strToHash);
+struct Hash
+{
+    std::size_t operator()(const char* cstr) const noexcept;
+    std::size_t operator()(const std::string &str) const noexcept;
+};
+
+size_t cstrToHash(const char *str, size_t len);
+
 
 // ----------------------------------------------------------------------------------------
 

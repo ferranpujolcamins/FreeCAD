@@ -82,7 +82,7 @@ class SourceIdentifier : public Python::SourceListParentBase
 {
     const Python::SourceModule *m_module;
     Python::SourceTypeHint m_typeHint;
-    uint m_hash;
+    std::size_t m_hash;
 public:
     explicit SourceIdentifier(Python::SourceListParentBase *owner,
                               const Python::SourceModule *module);
@@ -113,7 +113,7 @@ public:
     const std::string name() const;
 
     /// get the hash of this identifiers name
-    int hash() const;
+    std::size_t hash() const;
 
     /// get last inserted TypeHint for identifier up to including line
     Python::SourceTypeHintAssignment *getTypeHintAssignment(const Python::Token *tok) const;
@@ -149,9 +149,9 @@ public:
     /// get the frame contained for these collections
     const Python::SourceFrame *frame() const;
     /// get the identifier with name or nullptr if not contained
-    const Python::SourceIdentifier *getIdentifier(int hash) const;
+    const Python::SourceIdentifier *getIdentifier(std::size_t hash) const;
     const Python::SourceIdentifier *getIdentifierByName(const std::string &name) const {
-        return getIdentifier(Python::strToHash(name));
+        return getIdentifier(Python::cstrToHash(name.c_str(), name.length()));
     }
     const Python::SourceIdentifier *getIdentifier(const Python::Token *tok) const {
         return getIdentifier(tok->hash());

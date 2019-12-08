@@ -295,7 +295,7 @@ public:
 
     /// token which has textlength has a hash for its text
     /// speeds up compares
-    inline int hash() const { return m_hash; }
+    inline std::size_t hash() const { return m_hash; }
 
     /// pointer to our father textBlockData
     Python::TokenList *ownerList() const;
@@ -343,7 +343,7 @@ public:
 private:
     Type m_type;
     uint m_startPos, m_endPos;
-    int m_hash;
+    std::size_t m_hash;
     std::list<Python::TokenWrapperBase*> m_wrappers;
 
     Token *m_next,
@@ -766,7 +766,7 @@ public:
     const std::string text() const;
 
     /// gets the hash for this tokens text
-    virtual int hash() const;
+    virtual std::size_t hash() const;
 
     virtual void tokenDeletedCallback() = 0;
 };

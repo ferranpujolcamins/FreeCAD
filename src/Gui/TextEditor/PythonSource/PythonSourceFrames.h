@@ -123,7 +123,7 @@ public:
     /// looks up name among identifiers (variables/constants)
     const Python::SourceIdentifier *getIdentifier(int hash) const;
     const Python::SourceIdentifier *getIdentifierByName(const std::string &name) const {
-        return getIdentifier(Python::strToHash(name));
+        return getIdentifier(Python::cstrToHash(name.c_str(), name.length()));
     }
 
     /// get reference to all identifiers within this frame

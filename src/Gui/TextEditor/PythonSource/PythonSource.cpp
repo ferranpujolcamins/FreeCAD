@@ -31,8 +31,19 @@ DBG_TOKEN_FILE
 
 using namespace Gui;
 
+std::size_t Python::Hash::operator()(const char *cstr) const noexcept
+{
+    return cstrToHash(cstr, strlen(cstr));
+}
 
-int Python::strToHash(const std::string &strToHash)
+std::size_t Python::Hash::operator()(const std::string &str) const noexcept
+{
+    return cstrToHash(str.c_str(), str.length());
+}
+
+// ----------------------------------------------------------------------------
+
+size_t Python::cstrToHash(const char *str, size_t len)
 {
     // based on MaPrime2c
     static const unsigned char sTable[256] =
@@ -57,13 +68,10 @@ int Python::strToHash(const std::string &strToHash)
 
     static const int primeMultiplier = 1717;
 
-    int len = static_cast<int>(strToHash.size());
-    const char *str = strToHash.data();
-
-    int hash = len, i;
+    std::size_t hash = len, i;
 
     for (i = 0; i != len; i++, str++) {
-        hash ^= sTable[( *str + i) & 255];
+        hash ^= sTable[( static_cast<unsigned char>(*str) + i) & 255];
         hash = hash * primeMultiplier;
     }
 
@@ -269,3 +277,4 @@ const char Python::FileInfo::dirSep = '/';
 #else
 const char Python::FileInfo::dirSep = '\\';
 #endif
+

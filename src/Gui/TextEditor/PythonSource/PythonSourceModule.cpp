@@ -254,7 +254,8 @@ void Python::SourceModule::insertBlockStart(const Python::Token *colonTok) const
     if (colonTok->next() && colonTok->next()->type() != Python::Token::T_BlockStart) {
         colonTok->ownerLine()->insert(
                     new Python::Token(Python::Token::T_BlockStart,
-                                      colonTok->startPos(), 0, colonTok->ownerLine()));
+                                      colonTok->startPos(), colonTok->startPos(),
+                                      colonTok->ownerLine()));
         colonTok->ownerLine()->incBlockState();
     }
 }

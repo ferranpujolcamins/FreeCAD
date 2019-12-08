@@ -5,14 +5,14 @@
 #include "PythonSyntaxHighlighter.h"
 
 #include <algorithm>
-#include <unordered_set>
+#include <unordered_map>
 #include <cctype>
 #include <string>
 
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 # include <TextEditor/PythonCodeDebugTools.h>
-# define DEBUG_DELETES
+//# define DEBUG_DELETES
 #endif
 
 bool isNumber(char ch)
@@ -35,6 +35,11 @@ bool isSpace(char ch)
 namespace Gui {
 namespace Python {
 class LexerP {
+    static void insertKW(const char *cstr)
+    {
+        std::size_t hash = cstrToHash(cstr, strlen(cstr));
+        keywords[hash] = cstr;
+    }
 public:
     LexerP() :
         tokenList(),
@@ -47,8 +52,13 @@ public:
     {
     }
 
-    void reGenerate()
+    static void reGenerate()
     {
+        if (version.version() == activeVersion)
+            return;
+
+        activeVersion = version.version();
+
         keywords.clear();
         builtins.clear();
         // GIL lock code block
@@ -65,8 +75,10 @@ public:
 #else
             const char *name = PyString_AS_STRING(key);
 #endif
-            if (name != nullptr)
-                builtins.insert(name);
+            if (name != nullptr) {
+                size_t hash = Python::cstrToHash(name, strlen(name));
+                builtins[hash] = name;
+            }
         }
         PyGILState_Release(lock);
 
@@ -80,27 +92,27 @@ public:
         // class     exec      in        raise
         // continue  finally   is        return
         // def       for       lambda    try
-        keywords.insert("and");      keywords.insert("del");
-        keywords.insert("from");     keywords.insert("not");
-        keywords.insert("while");    keywords.insert("as");
-        keywords.insert("elif");     keywords.insert("global");
-        keywords.insert("or");       keywords.insert("with");
-        keywords.insert("assert");   keywords.insert("else");
-        keywords.insert("if");       keywords.insert("pass");
-        keywords.insert("yield");    keywords.insert("break");
-        keywords.insert("except");   keywords.insert("import");
-        keywords.insert("class");    keywords.insert("in");
-        keywords.insert("raise");    keywords.insert("continue");
-        keywords.insert("finally");  keywords.insert("is");
-        keywords.insert("return");   keywords.insert("def");
-        keywords.insert("for");      keywords.insert("lambda");
-        keywords.insert("lambda");   keywords.insert("try");
+        insertKW("and");      insertKW("del");
+        insertKW("from");     insertKW("not");
+        insertKW("while");    insertKW("as");
+        insertKW("elif");     insertKW("global");
+        insertKW("or");       insertKW("with");
+        insertKW("assert");   insertKW("else");
+        insertKW("if");       insertKW("pass");
+        insertKW("yield");    insertKW("break");
+        insertKW("except");   insertKW("import");
+        insertKW("class");    insertKW("in");
+        insertKW("raise");    insertKW("continue");
+        insertKW("finally");  insertKW("is");
+        insertKW("return");   insertKW("def");
+        insertKW("for");      insertKW("lambda");
+        insertKW("lambda");   insertKW("try");
 
         if (Lexer::version().majorVersion() == 2) {
-            keywords.insert("print"); keywords.insert("exec");
+            insertKW("print"); insertKW("exec");
 
         } else if (Lexer::version().majorVersion() >= 3) {
-            keywords.insert("nonlocal");
+            insertKW("nonlocal");
 
             // 3.0 https://docs.python.org/3.0/reference/lexical_analysis.html#keywords
             // False      class      finally    is         return
@@ -110,34 +122,72 @@ public:
             // as         elif       if         or         yield
             // assert     else       import     pass
             // break      except     in         raise
-            keywords.insert("False");    keywords.insert("None");
-            keywords.insert("True");
+            insertKW("False");    insertKW("None");
+            insertKW("True");
 
             if (Lexer::version().version() >= Version::v3_7) {
-                keywords.insert("async");    keywords.insert("await"); //2 new keywords from 3.7
+                insertKW("async");    insertKW("await"); //2 new keywords from 3.7
             }
         }
 
 
         // keywords takes precedence over builtins
-        for (const std::string &name : keywords) {
-            auto it = builtins.find(name);
+        for (auto &item : keywords) {
+            auto it = builtins.find(item.first);
             if (it != builtins.end())
                 builtins.erase(it);
         }
 
     }
     static Python::Version version;
+    static Python::Version::versions activeVersion;
+    static std::unordered_map<std::size_t, std::string> keywords;
+    static std::unordered_map<std::size_t, std::string> builtins;
     Python::TokenList tokenList;
     Python::Token::Type endStateOfLastPara;
     Python::TokenLine *activeLine;
-    std::unordered_set<std::string> keywords;
-    std::unordered_set<std::string> builtins;
     std::string filePath;
+
+    // these hashes are constant and wont change, use for quicker lookup
+    static const std::size_t defHash, classHash, importHash, fromHash, andHash,
+                             asHash, inHash, isHash, notHash, orHash,yieldHash,
+                             returnHash, trueHash, falseHash, noneHash, ifHash,
+                             elifHash, elseHash, forHash, whileHash, breakHash,
+                             continueHash;
 };
 
 // static
 Python::Version Python::LexerP::version(Version::Latest);
+//static
+Python::Version::versions Python::LexerP::activeVersion = Python::Version::Invalid;
+//static
+std::unordered_map<std::size_t, std::string> Python::LexerP::keywords;
+//static
+std::unordered_map<std::size_t, std::string> Python::LexerP::builtins;
+
+// hashes to speed up lookups in lexer
+const std::size_t Python::LexerP::defHash    = cstrToHash("def", 3);
+const std::size_t Python::LexerP::classHash  = cstrToHash("class", 5);
+const std::size_t Python::LexerP::importHash = cstrToHash("import", 6);
+const std::size_t Python::LexerP::fromHash   = cstrToHash("from", 4);
+const std::size_t Python::LexerP::andHash    = cstrToHash("and", 3);
+const std::size_t Python::LexerP::asHash     = cstrToHash("as", 2);
+const std::size_t Python::LexerP::inHash     = cstrToHash("in", 2);
+const std::size_t Python::LexerP::isHash     = cstrToHash("is", 2);
+const std::size_t Python::LexerP::notHash    = cstrToHash("not", 3);
+const std::size_t Python::LexerP::orHash     = cstrToHash("or", 2);
+const std::size_t Python::LexerP::yieldHash  = cstrToHash("yield", 5);
+const std::size_t Python::LexerP::returnHash = cstrToHash("return", 6);
+const std::size_t Python::LexerP::trueHash   = cstrToHash("True", 4);
+const std::size_t Python::LexerP::falseHash  = cstrToHash("False", 5);
+const std::size_t Python::LexerP::noneHash   = cstrToHash("None", 4);
+const std::size_t Python::LexerP::ifHash     = cstrToHash("if", 2);
+const std::size_t Python::LexerP::elifHash   = cstrToHash("elif", 4);
+const std::size_t Python::LexerP::elseHash   = cstrToHash("else", 4);
+const std::size_t Python::LexerP::forHash    = cstrToHash("for", 3);
+const std::size_t Python::LexerP::whileHash  = cstrToHash("while", 5);
+const std::size_t Python::LexerP::breakHash  = cstrToHash("break", 5);
+const std::size_t Python::LexerP::continueHash = cstrToHash("continue", 8);
 
 } // namespace Python
 } // namespace Gui
@@ -293,7 +343,7 @@ Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, Toke
 #endif
 
     if (m_startPos != m_endPos)
-        m_hash = strToHash(text());
+        m_hash = cstrToHash(text().c_str(), m_endPos - m_startPos);
 }
 
 Python::Token::Token(const Python::Token &other) :
@@ -1407,6 +1457,7 @@ Python::Version Python::Lexer::version()
 void Python::Lexer::setVersion(Version::versions value)
 {
     LexerP::version.setVersion(value);
+    LexerP::reGenerate();
 }
 
 uint Python::Lexer::tokenize(TokenLine *tokLine)
@@ -1778,84 +1829,88 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 {
                     uint len = lastWordCh(i, text);
                     std::string word = text.substr(i, len);
+                    std::size_t hash = cstrToHash(word.c_str(), word.length());
 
-                    auto it = d_lex->keywords.find(word);
+                    auto it = d_lex->keywords.find(hash);
                     if (it != d_lex->keywords.end()) {
-                        if (word == "def") {
+                        // lookup with hashes instead, construct hashes only once (static)
+
+
+                        if (hash == d_lex->defHash) {
                             tokLine->m_isParamLine = true;
                             setWord(i, len, Python::Token::T_KeywordDef);
                             d_lex->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
 
-                        } else if (word == "class") {
+                        } else if (hash == d_lex->classHash) {
                             setWord(i, len, Python::Token::T_KeywordClass);
                             d_lex->endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
 
-                        } else if (word == "import") {
+                        } else if (hash == d_lex->importHash) {
                             setWord(i, len, Python::Token::T_KeywordImport);
                             d_lex->endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
                             isModuleLine = true;
 
-                        } else if (word == "from") {
+                        } else if (hash == d_lex->fromHash) {
                             setWord(i, len, Python::Token::T_KeywordFrom);
                             d_lex->endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
                             isModuleLine = true;
 
-                        } else if (word == "and") {
+                        } else if (hash == d_lex->andHash) {
                             setWord(i, len, Python::Token::T_OperatorAnd);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
 
-                        } else if (word == "as") {
+                        } else if (hash == d_lex->asHash) {
                             setWord(i, len, Python::Token::T_KeywordAs);
                             if (isModuleLine)
                                 d_lex->endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
                             else
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "in") {
+                        } else if (hash == d_lex->inHash) {
                             setWord(i, len, Python::Token::T_OperatorIn);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "is") {
+                        } else if (hash == d_lex->isHash) {
                             setWord(i, len, Python::Token::T_OperatorIs);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "not") {
+                        } else if (hash == d_lex->notHash) {
                             setWord(i, len, Python::Token::T_OperatorNot);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "or") {
+                        } else if (hash == d_lex->orHash) {
                             setWord(i, len, Python::Token::T_OperatorOr);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "yield") {
+                        } else if (hash == d_lex->yieldHash) {
                             setWord(i, len, Python::Token::T_KeywordYield);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "return") {
+                        } else if (hash == d_lex->returnHash) {
                             setWord(i, len, Python::Token::T_KeywordReturn);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "True") {
+                        } else if (hash == d_lex->trueHash) {
                             setIdentifier(i, len, Python::Token::T_IdentifierTrue);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "False") {
+                        } else if (hash == d_lex->falseHash) {
                             setIdentifier(i, len, Python::Token::T_IdentifierFalse);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "None") {
+                        } else if (hash == d_lex->noneHash) {
                             setIdentifier(i, len, Python::Token::T_IdentifierNone);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "if") {
+                        } else if (hash == d_lex->ifHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordIf);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (word == "elif") {
+                        } else if (hash == d_lex->elifHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordElIf);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }  else if (word == "else") {
+                        }  else if (hash == d_lex->elseHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordElse);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }  else if (word == "for") {
+                        }  else if (hash == d_lex->forHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordFor);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (word == "while") {
+                        }   else if (hash == d_lex->whileHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordWhile);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (word == "break") {
+                        }   else if (hash == d_lex->breakHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordBreak);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (word == "continue") {
+                        }   else if (hash == d_lex->continueHash) {
                             setIdentifier(i, len, Python::Token::T_KeywordContinue);
                             d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
                         }   else {
@@ -1863,7 +1918,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                         }
 
                     } else {
-                        auto it = std::find(d_lex->builtins.begin(), d_lex->builtins.end(), word);
+                        auto it = d_lex->builtins.find(hash);
                         if (it != d_lex->builtins.end()) {
                             if (d_lex->activeLine->back() &&
                                 d_lex->activeLine->back()->type() == Python::Token::T_DelimiterPeriod)
@@ -2148,7 +2203,7 @@ Python::Token::Type Python::Lexer::numberType(const std::string &text) const
 
     if (text.find('.') != text.npos)
         return Python::Token::T_NumberFloat;
-    if (text.length() >= 2){
+    if (text.length() >= 2) {
         int one = tolower(text[0]),
             two = tolower(text[1]);
         if (one == '0') {
@@ -2397,7 +2452,7 @@ const std::string Python::TokenWrapperInherit::text() const
     return std::string();
 }
 
-int Python::TokenWrapperInherit::hash() const
+std::size_t Python::TokenWrapperInherit::hash() const
 {
     if (m_token)
         return m_token->hash();

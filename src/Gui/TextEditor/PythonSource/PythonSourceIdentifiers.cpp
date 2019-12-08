@@ -145,7 +145,7 @@ const std::string Python::SourceIdentifier::name() const
     return "<lookup error>";
 }
 
-int Python::SourceIdentifier::hash() const
+std::size_t Python::SourceIdentifier::hash() const
 {
     if (m_first)
         return m_first->token()->hash();
@@ -230,7 +230,7 @@ const Python::SourceFrame *Python::SourceIdentifierList::frame() const {
     return m_module->getFrameForToken(m_token, m_module->rootFrame());
 }
 
-const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(int hash) const
+const Python::SourceIdentifier *Python::SourceIdentifierList::getIdentifier(std::size_t hash) const
 {
     for (Python::SourceIdentifier *itm = dynamic_cast<Python::SourceIdentifier*>(m_first);
          itm != nullptr;

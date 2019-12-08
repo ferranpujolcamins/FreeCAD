@@ -480,7 +480,7 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     {
         //DumpSyntaxTokens dump(document()->begin());
-        DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(filePath));
+        //DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(filePath));
     }
 #endif
     return mod;
