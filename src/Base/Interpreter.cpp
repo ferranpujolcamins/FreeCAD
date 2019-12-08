@@ -1034,18 +1034,19 @@ const char* InterpreterSingleton::init(int argc,char *argv[])
         }
         PyEval_InitThreads();
 #if PY_MAJOR_VERSION >= 3
-        size_t size = argc;
+        size_t size = static_cast<size_t>(argc);
         wchar_t **_argv = new wchar_t*[size];
         for (int i = 0; i < argc; i++) {
 #if PY_MINOR_VERSION >= 5
-            _argv[i] = Py_DecodeLocale(argv[i],NULL);
+            _argv[i] = Py_DecodeLocale(argv[i], nullptr);
 #else
-            _argv[i] = _Py_char2wchar(argv[i],NULL);
+            _argv[i] = _Py_char2wchar(argv[i], nullptr);
 #endif
         }
         PySys_SetArgv(argc, _argv);
         for (int i = 0; i < argc; i++)
             PyMem_RawFree(_argv[i]);
+        delete [] _argv;
 #else
         PySys_SetArgv(argc, argv);
 #endif
