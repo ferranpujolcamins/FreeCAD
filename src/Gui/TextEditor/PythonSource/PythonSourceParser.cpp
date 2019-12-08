@@ -1047,6 +1047,8 @@ void Python::SourceParser::scanParameter(int &parenCount, bool isInitFunc)
                     // set parameter
                     //param = m_activeFrame->m_parameters.setParameter(m_tok, typeInfo, paramType);
                     param = new Python::SourceParameter(m_activeFrame, m_tok);
+                    param->setType(typeInfo);
+                    param->setParameterType(paramType);
                     m_activeFrame->m_parameters.push_back(param);
 
                     // Change tokenValue
