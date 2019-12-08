@@ -634,7 +634,7 @@ public:
     static void setVersion(Version::versions value);
 
 protected:
-    Python::LexerP *d_tok;
+    Python::LexerP *d_lex;
 
     uint tokenize(Python::TokenLine *tokLine);
 
