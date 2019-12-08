@@ -103,6 +103,11 @@ public:
         T_KeywordWhile,
         T_KeywordBreak,
         T_KeywordContinue,
+        T__KeywordTryBlockStart,
+        T_KeywordTry,
+        T_KeywordExcept,
+        T_KeywordFinally,
+        T__KeywordTryBlockEnd,
         T__KeywordsLoopEnd,
         T__KeywordsEnd = T__KeywordsLoopEnd,
         // leave some room for future keywords

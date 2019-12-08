@@ -20,17 +20,26 @@ bool isNumber(char ch)
     return (ch >= '0' && ch <= '9');
 }
 
-
-bool isLetter(char ch)
-{
-    // is letter or number or _
-    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-}
-
 bool isSpace(char ch)
 {
     return ch == ' ' || ch == '\t';
 }
+
+// need to differentiate between unicode in Py3 and ascii in Py2
+typedef bool (*letterTypPtr)(char ch);
+bool isLetterPy2(char ch)
+{
+    // is letter
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+}
+
+bool isLetterPy3(char ch)
+{
+    // is letter or unicode
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch < 0);
+}
+static letterTypPtr isLetter = &isLetterPy3;
+
 
 namespace Gui {
 namespace Python {
@@ -58,6 +67,11 @@ public:
             return;
 
         activeVersion = version.version();
+
+        if (version.version() >= Version::v3_0)
+            isLetter = &isLetterPy3;
+        else
+            isLetter = &isLetterPy2;
 
         keywords.clear();
         builtins.clear();
@@ -153,7 +167,7 @@ public:
                              asHash, inHash, isHash, notHash, orHash,yieldHash,
                              returnHash, trueHash, falseHash, noneHash, ifHash,
                              elifHash, elseHash, forHash, whileHash, breakHash,
-                             continueHash;
+                             continueHash, tryHash, exceptHash, finallyHash;
 };
 
 // static
@@ -188,6 +202,9 @@ const std::size_t Python::LexerP::forHash    = cstrToHash("for", 3);
 const std::size_t Python::LexerP::whileHash  = cstrToHash("while", 5);
 const std::size_t Python::LexerP::breakHash  = cstrToHash("break", 5);
 const std::size_t Python::LexerP::continueHash = cstrToHash("continue", 8);
+const std::size_t Python::LexerP::tryHash = cstrToHash("try", 3);
+const std::size_t Python::LexerP::exceptHash = cstrToHash("except", 6);
+const std::size_t Python::LexerP::finallyHash = cstrToHash("finally", 7);
 
 } // namespace Python
 } // namespace Gui
@@ -1828,92 +1845,113 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 if (isLetter(ch) || ch =='_')
                 {
                     uint len = lastWordCh(i, text);
-                    std::string word = text.substr(i, len);
-                    std::size_t hash = cstrToHash(word.c_str(), word.length());
+                    std::size_t hash = cstrToHash(text.substr(i, len).c_str(), len);
 
                     auto it = d_lex->keywords.find(hash);
                     if (it != d_lex->keywords.end()) {
-                        // lookup with hashes instead, construct hashes only once (static)
-
-
-                        if (hash == d_lex->defHash) {
-                            tokLine->m_isParamLine = true;
-                            setWord(i, len, Python::Token::T_KeywordDef);
-                            d_lex->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
-
-                        } else if (hash == d_lex->classHash) {
-                            setWord(i, len, Python::Token::T_KeywordClass);
-                            d_lex->endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
-
-                        } else if (hash == d_lex->importHash) {
-                            setWord(i, len, Python::Token::T_KeywordImport);
-                            d_lex->endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
-                            isModuleLine = true;
-
-                        } else if (hash == d_lex->fromHash) {
-                            setWord(i, len, Python::Token::T_KeywordFrom);
-                            d_lex->endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
-                            isModuleLine = true;
-
-                        } else if (hash == d_lex->andHash) {
-                            setWord(i, len, Python::Token::T_OperatorAnd);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-
-                        } else if (hash == d_lex->asHash) {
-                            setWord(i, len, Python::Token::T_KeywordAs);
-                            if (isModuleLine)
-                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
-                            else
+                        uint startI = i;
+                        switch (len) {
+                        case 8:
+                            if (hash == d_lex->continueHash) {
+                                setWord(i, len, Python::Token::T_KeywordContinue);
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->inHash) {
-                            setWord(i, len, Python::Token::T_OperatorIn);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->isHash) {
-                            setWord(i, len, Python::Token::T_OperatorIs);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->notHash) {
-                            setWord(i, len, Python::Token::T_OperatorNot);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->orHash) {
-                            setWord(i, len, Python::Token::T_OperatorOr);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->yieldHash) {
-                            setWord(i, len, Python::Token::T_KeywordYield);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->returnHash) {
-                            setWord(i, len, Python::Token::T_KeywordReturn);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->trueHash) {
-                            setIdentifier(i, len, Python::Token::T_IdentifierTrue);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->falseHash) {
-                            setIdentifier(i, len, Python::Token::T_IdentifierFalse);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->noneHash) {
-                            setIdentifier(i, len, Python::Token::T_IdentifierNone);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->ifHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordIf);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        } else if (hash == d_lex->elifHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordElIf);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }  else if (hash == d_lex->elseHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordElse);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }  else if (hash == d_lex->forHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordFor);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (hash == d_lex->whileHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordWhile);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (hash == d_lex->breakHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordBreak);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else if (hash == d_lex->continueHash) {
-                            setIdentifier(i, len, Python::Token::T_KeywordContinue);
-                            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                        }   else {
+                             } break;
+                        case 7:
+                            if (hash == d_lex->finallyHash) {
+                                setWord(i, len, Python::Token::T_KeywordFinally);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
+                        case 6:
+                            if (hash == d_lex->importHash) {
+                                setWord(i, len, Python::Token::T_KeywordImport);
+                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
+                                isModuleLine = true;
+                            } else if (hash == d_lex->returnHash) {
+                                setWord(i, len, Python::Token::T_KeywordReturn);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->exceptHash) {
+                                setWord(i, len, Python::Token::T_KeywordExcept);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
+                        case 5:
+                            if (hash == d_lex->classHash) {
+                                setWord(i, len, Python::Token::T_KeywordClass);
+                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
+                            } else if (hash == d_lex->yieldHash) {
+                                setWord(i, len, Python::Token::T_KeywordYield);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->falseHash) {
+                                setIdentifier(i, len, Python::Token::T_IdentifierFalse);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->whileHash) {
+                                setWord(i, len, Python::Token::T_KeywordWhile);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->breakHash) {
+                                setWord(i, len, Python::Token::T_KeywordBreak);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            }
+                            break;
+                        case 4:
+                            if (hash == d_lex->fromHash) {
+                                setWord(i, len, Python::Token::T_KeywordFrom);
+                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
+                                isModuleLine = true;
+                             } else if (hash == d_lex->trueHash) {
+                                setIdentifier(i, len, Python::Token::T_IdentifierTrue);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->noneHash) {
+                                setIdentifier(i, len, Python::Token::T_IdentifierNone);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->elifHash) {
+                                setWord(i, len, Python::Token::T_KeywordElIf);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->elseHash) {
+                                setWord(i, len, Python::Token::T_KeywordElse);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
+                        case 3:
+                            if (hash == d_lex->defHash) {
+                                tokLine->m_isParamLine = true;
+                                setWord(i, len, Python::Token::T_KeywordDef);
+                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
+
+                            } else if (hash == d_lex->notHash) {
+                                setWord(i, len, Python::Token::T_OperatorNot);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->forHash) {
+                                setWord(i, len, Python::Token::T_KeywordFor);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->tryHash) {
+                                setWord(i, len, Python::Token::T_KeywordTry);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
+                        case 2:
+                            if (hash == d_lex->andHash) {
+                                setWord(i, len, Python::Token::T_OperatorAnd);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->asHash) {
+                                setWord(i, len, Python::Token::T_KeywordAs);
+                                if (isModuleLine)
+                                    d_lex->endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
+                                else
+                                    d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->inHash) {
+                                setWord(i, len, Python::Token::T_OperatorIn);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->isHash) {
+                                setWord(i, len, Python::Token::T_OperatorIs);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->orHash) {
+                                setWord(i, len, Python::Token::T_OperatorOr);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->ifHash) {
+                                setWord(i, len, Python::Token::T_KeywordIf);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
+                        default:; // nothing
+                        }
+
+                        if (startI == i) {
                             setWord(i, len, Python::Token::T_Keyword);
                         }
 

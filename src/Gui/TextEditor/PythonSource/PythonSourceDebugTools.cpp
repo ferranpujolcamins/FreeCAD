@@ -61,6 +61,9 @@ const char *Gui::Python::tokenToCStr(Token::Type tok)
     case Token::T_KeywordWhile:        return "T_KeywordWhile";
     case Token::T_KeywordBreak:        return "T_KeywordBreak";
     case Token::T_KeywordContinue:     return "T_KeywordContinue";
+    case Token::T_KeywordTry:          return "T_KeywordTry";
+    case Token::T_KeywordExcept:       return "T_KeywordExcept";
+    case Token::T_KeywordFinally:      return "T_KeywordFinally";
         // leave some room for future keywords
 
         // operators
