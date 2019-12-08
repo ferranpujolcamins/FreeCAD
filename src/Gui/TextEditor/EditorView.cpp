@@ -69,6 +69,7 @@
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 # include <PythonSource/PythonSourceDebugTools.h>
 # include <PythonSource/PythonSourceRoot.h>
+# include <QElapsedTimer>
 #endif
 
 
@@ -397,7 +398,7 @@ bool EditorView::onHasMsg(const char* pMsg) const
     } else if (strcmp(pMsg,"ShowFindBar")==0) {
         return d->searchBar->isHidden();
     } else if (strcmp(pMsg,"HideFindBar")==0) {
-        return !d->searchBar->isHidden();;
+        return !d->searchBar->isHidden();
     }
 
     return false;
@@ -860,7 +861,7 @@ void EditorView::redoAvailable(bool redo)
 
 void EditorView::contentsChange(int position, int charsRemoved, int charsAdded)
 {
-    Q_UNUSED(position); 
+    Q_UNUSED(position)
     if (d->editWrapper->isLocked())
         return;
     if (charsRemoved > 0 && charsAdded > 0)
@@ -1057,7 +1058,7 @@ void PythonEditorView::showDebugMarker(const QString &fileName, int line)
 
 void PythonEditorView::hideDebugMarker(const QString &fileName, int line)
 {
-    Q_UNUSED(line);
+    Q_UNUSED(line)
     if (fileName == this->fileName()) {
         PythonEditor *pye = qobject_cast<PythonEditor*>(editorWrapper()->editor());
         if (pye)
@@ -1081,7 +1082,16 @@ EditorViewWrapper::EditorViewWrapper(TextEditor *editor, const QString &fn) :
         QFile file(d->fileName);
         if (file.open(QFile::ReadOnly)) {
             d->lock = true;
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+            QElapsedTimer timer;
+            timer.start();
+#endif
             d->textEdit->setPlainText(QString::fromUtf8(file.readAll()));
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+            qDebug() << QString::fromLatin1("setPlainText/Lexer took %1ms %2ns").arg(timer.elapsed()).arg(timer.nsecsElapsed()) << endl;
+#endif
             d->lock = false;
             file.close();
         }
@@ -1132,7 +1142,7 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
 {
     detach(sharedOwner);
 
-    d->textEdit->setParent(0);
+    d->textEdit->setParent(nullptr);
 
     // cleanup and memory release
     EditorViewSingleton::instance()->removeWrapper(this);
@@ -1614,7 +1624,7 @@ EditorSearchClearEdit::~EditorSearchClearEdit()
 EditorSearchBar::EditorSearchBar(EditorView *parent, EditorViewP *editorViewP) :
     QFrame(parent),
     d(editorViewP),
-    m_findFlags(0)
+    m_findFlags(nullptr)
 {
     // find row
     QGridLayout *layout  = new QGridLayout(this);

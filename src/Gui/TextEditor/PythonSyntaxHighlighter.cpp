@@ -12,7 +12,8 @@
 #include <PythonSource/PythonSourceListBase.h>
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-#include <PythonSource/PythonSourceDebugTools.h>
+# include <PythonSource/PythonSourceDebugTools.h>
+# include <QElapsedTimer>
 #endif
 
 #include "PythonEditor.h"
@@ -124,8 +125,9 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
 
 void Python::SyntaxHighlighter::rehighlight()
 {
-    list().clear();
     Gui::SyntaxHighlighter::rehighlight();
+    d->srcScanBlocks.clear();
+    Python::SourceRoot::instance()->scanCompleteModule(Python::Lexer::filePath(), this);
 }
 
 QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *token) const
@@ -339,8 +341,16 @@ void Python::SyntaxHighlighter::sourceScanTmrCallback() {
 void Python::SyntaxHighlighter::setFilePath(QString filePath)
 {
     Python::Lexer::setFilePath(filePath.toStdString());
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    QElapsedTimer timer;
+    timer.start();
+#endif
 
     Python::SourceRoot::instance()->scanCompleteModule(filePath.toStdString(), this);
+
+#ifdef BUILD_PYTHON_DEBUGTOOLS
+    qDebug() << QString::fromLatin1("scanCompleteModule took %1ms %2ns").arg(timer.elapsed()).arg(timer.nsecsElapsed()) << endl;
+#endif
     d->srcScanBlocks.clear();
 }
 
