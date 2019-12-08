@@ -232,7 +232,8 @@ Python::SourceRoot::TypeInfo Python::SourceFrame::returnTypeHint() const
 
 }
 
-const Python::SourceIdentifier *Python::SourceFrame::getIdentifier(int hash) const {
+const Python::SourceIdentifier *Python::SourceFrame::getIdentifier(std::size_t hash) const
+{
     const Python::SourceIdentifier *ident = m_identifiers.getIdentifier(hash);
     if (ident)
         return ident;

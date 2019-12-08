@@ -110,7 +110,7 @@ public:
     Python::SourceRoot::TypeInfo returnTypeHint() const;
 
     /// true if we have identifier
-    bool hasIdentifier(int hash) const { return getIdentifier(hash) != nullptr; }
+    bool hasIdentifier(std::size_t hash) const { return getIdentifier(hash) != nullptr; }
     bool hasIdentifierByName(const std::string &name) const {
         return getIdentifierByName(name) != nullptr;
     }
@@ -121,7 +121,7 @@ public:
     bool isClass() const { return m_isClass; }
 
     /// looks up name among identifiers (variables/constants)
-    const Python::SourceIdentifier *getIdentifier(int hash) const;
+    const Python::SourceIdentifier *getIdentifier(std::size_t hash) const;
     const Python::SourceIdentifier *getIdentifierByName(const std::string &name) const {
         return getIdentifier(Python::cstrToHash(name.c_str(), name.length()));
     }

@@ -38,7 +38,7 @@ SET(PythonSource_CPP_SRCS
     PythonSourceParameter.cpp
     PythonSourceParser.cpp
     PythonSourceRoot.cpp
-    PythonSourceTypes.cpp
+    PythonSourcePrimitiveTypes.cpp
     PythonToken.cpp
 )
 SET(PythonSource_HPP_SRCS
@@ -53,7 +53,7 @@ SET(PythonSource_HPP_SRCS
     PythonSourceParameter.h
     PythonSourceParser.h
     PythonSourceRoot.h
-    PythonSourceTypes.h
+    PythonSourcePrimitiveTypes.h
     PythonToken.h
 )
 
