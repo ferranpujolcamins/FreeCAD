@@ -409,7 +409,7 @@ bool Python::SourceRoot::isLineEscaped(const Python::Token *tok) const {
     int guard = 40;
     bool escaped = false;
     while (tok && (guard--)) {
-        if (tok->type() == Python::Token::T_DelimiterLineContinue)
+        if (tok->type() == Python::Token::T_DelimiterBackSlash)
             escaped = true;
         else
             escaped = false;

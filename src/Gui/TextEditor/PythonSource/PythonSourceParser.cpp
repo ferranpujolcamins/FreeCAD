@@ -1195,7 +1195,7 @@ void Python::SourceParser::handleIndent(Python::SourceIndent &indent,
                 nextTok = prev;
                 PREV_TOKEN(prev)
                 break;
-            case Python::Token::T_DelimiterLineContinue:
+            case Python::Token::T_DelimiterBackSlash:
                 if (nextTok->type() == Python::Token::T_DelimiterNewLine)
                     prev = nullptr;
                 else
@@ -1238,7 +1238,7 @@ void Python::SourceParser::gotoEndOfLine()
     while (m_tok && (guard--)) {
         switch (m_tok->type()) {
 
-        case Python::Token::T_DelimiterLineContinue:
+        case Python::Token::T_DelimiterBackSlash:
             --newLines; break;
         case Python::Token::T_DelimiterNewLine:
             if (++newLines > 0)

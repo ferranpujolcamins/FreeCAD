@@ -137,7 +137,7 @@ const char *Gui::Python::tokenToCStr(Token::Type tok)
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
     case Token::T_DelimiterMetaData:     return "T_DelimiterMetaData";   // -> might also be ':' inside arguments
-    case Token::T_DelimiterLineContinue: return "T_DelimiterLineContinue";   // when end of line is escaped like so '\'
+    case Token::T_DelimiterBackSlash:    return "T_DelimiterBackSlash";   // when end of line is escaped like so '\'
     case Token::T_DelimiterNewLine:      return "T_DelimiterNewLine";   // each new line
         // identifiers
     case Token::T_IdentifierUnknown:     return "T_IdentifierUnknown"; // name is not identified at this point

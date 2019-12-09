@@ -205,7 +205,7 @@ public:
 
         // Text line specific
         T__DelimiterTextLineStart,
-        T_DelimiterLineContinue,
+        T_DelimiterBackSlash,
                                            // when end of line is escaped like so '\'
         T_DelimiterNewLine,                // each new line
         T__DelimiterTextLineEnd,

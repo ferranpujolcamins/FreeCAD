@@ -108,11 +108,7 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
 
     // scans this line
     endStateOfLastParaRef() = endStateOfLastPara;
-    uint i = tokenize(txtBlock);
-
-    // Insert new line token
-    if (activeLine())
-        activeLine()->newDeterminedToken(Python::Token::T_DelimiterNewLine, i, 0);
+    tokenize(txtBlock);
 
     prevState = static_cast<int>(endStateOfLastParaRef());
     setCurrentBlockState(prevState);
@@ -184,7 +180,7 @@ QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *t
         colorIdx = SyntaxHighlighter::Text; break;
 
     // delimiters
-    case Python::Token::T_DelimiterLineContinue:
+    case Python::Token::T_DelimiterBackSlash:
         colorIdx = SyntaxHighlighter::Text; break;
 
     // identifiers

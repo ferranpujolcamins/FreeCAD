@@ -141,7 +141,7 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
     int newLines = 0;
     while(beginTok && newLines < 2) {
         switch (beginTok->type()){
-        case Python::Token::T_DelimiterLineContinue:
+        case Python::Token::T_DelimiterBackSlash:
             --newLines; // newline escaped
             break;
         case Python::Token::T_DelimiterColon:

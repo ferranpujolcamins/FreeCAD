@@ -530,7 +530,7 @@ bool Python::Token::isNewLine() const
 
     // else check for escape char
     const Python::Token *prev = previous();
-    return prev && prev->type() != T_DelimiterLineContinue;
+    return prev && prev->type() != T_DelimiterBackSlash;
 }
 
 bool Python::Token::isInValid() const  {
@@ -1035,7 +1035,7 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
             break;
     }
 
-    m_text = text.substr(0, text.length() - trimChrs);
+    m_text = text.substr(0, text.length() - trimChrs) + "\n";
 
 #ifdef DEBUG_DELETES
     std::cout << "new TokenLine: " << std::hex << this << " " << m_text << std::endl;
@@ -1743,6 +1743,11 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 ++tokLine->m_parenCnt;
                 break;
             case '\r':
+                // newline token should not be generated for empty and comment only lines
+                if ((d_lex->activeLine->back() &&
+                     d_lex->activeLine->back()->type() == Token::T_DelimiterBackSlash) ||
+                    !d_lex->activeLine->isCodeLine())
+                    break;
                 if (nextCh == '\n') {
                     setDelimiter(i, 2, Python::Token::T_DelimiterNewLine);
                     break;
@@ -1750,6 +1755,11 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
                 break;
             case '\n':
+                // newline token should not be generated for empty and comment only lines
+                if ((d_lex->activeLine->back() &&
+                     d_lex->activeLine->back()->type() == Token::T_DelimiterBackSlash) ||
+                    !d_lex->activeLine->isCodeLine())
+                    break;
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
                 break;
             case '[':
@@ -1982,9 +1992,9 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 if ( len > 0) {
                     setNumber(i, len, numberType(text.substr(i, len)));
                     break;
-                } else if (thisCh == '\\' && i == text.length() - 1)
+                } else if (thisCh == '\\')// && i == text.length() - 1)
                 {
-                    setDelimiter(i, 1, Python::Token::T_DelimiterLineContinue);
+                    setDelimiter(i, 1, Python::Token::T_DelimiterBackSlash);
                     break;
                 }
                 // its a error if we ever get here
@@ -2104,7 +2114,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             }
 
             setSyntaxError(i, lastWordCh(i, text));
-            std::clog << "PythonsytaxHighlighter unknown state for: " << ch <<
+            std::clog << "Python::Lexer unknown state for: " << ch <<
                          " row:"<< std::to_string(tokLine->lineNr() + 1) <<
                          " col:" << std::to_string(i) << std::endl;
         }

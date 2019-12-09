@@ -79,7 +79,9 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
             } else {
                 if (role == Qt::ForegroundRole)
                     return QBrush(QColor(0, 0, 50));
-                return QString::fromStdString(line->text());
+                QString txt = QString::fromStdString(line->text());
+                txt.chop(1);
+                return txt;
             }
         }
 
