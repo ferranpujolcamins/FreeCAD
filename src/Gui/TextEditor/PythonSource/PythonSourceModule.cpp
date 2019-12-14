@@ -10,11 +10,11 @@ using namespace Gui;
 
 
 Python::SourceModule::SourceModule(Python::SourceRoot *root,
-                                   Lexer *tokenizer) :
+                                   Lexer *lexer) :
     Python::SourceListParentBase(this),
     m_root(root),
     m_rootFrame(this, this),
-    m_tokenizer(tokenizer)
+    m_lexer(lexer)
 {
 }
 
@@ -166,8 +166,8 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
 
 void Python::SourceModule::tokenTypeChanged(const Python::Token *tok) const
 {
-    if (m_tokenizer)
-        m_tokenizer->tokenTypeChanged(tok);
+    if (m_lexer)
+        m_lexer->tokenTypeChanged(tok);
 }
 
 int Python::SourceModule::compare(const Python::SourceListNodeBase *left,
@@ -318,7 +318,7 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::s
 
     // create format with default format for syntax error
     const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
-    m_tokenizer->tokenTypeChanged(tok);
+    m_lexer->tokenTypeChanged(tok);
 
     // set text underline of all text in here
     // move to beginning of text
@@ -344,7 +344,7 @@ void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::s
     }
     // then move down the line til first whitespace
     while(startTok && startTok->isCode()) {
-        m_tokenizer->setSyntaxError(tok);
+        m_lexer->setSyntaxError(tok);
 
         // previous token
         if (startTok->previous()) {
@@ -365,7 +365,7 @@ void Python::SourceModule::setIndentError(const Python::Token *tok) const
     const_cast<Python::Token*>(tok)->changeType(Python::Token::T_SyntaxError);
     tokenTypeChanged(tok);
 
-    m_tokenizer->setIndentError(tok);
+    m_lexer->setIndentError(tok);
 }
 
 void Python::SourceModule::setLookupError(const Python::Token *tok, const std::string &parseMessage) const
@@ -390,7 +390,7 @@ void Python::SourceModule::setMessage(const Python::Token *tok, const std::strin
 
     scanInfo->setParseMessage(tok, parseMessage, TokenScanInfo::Message);
 
-    m_tokenizer->setMessage(tok);
+    m_lexer->setMessage(tok);
 }
 
 
