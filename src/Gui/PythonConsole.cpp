@@ -87,26 +87,21 @@ inline bool cursorBeyond( const QTextCursor &cursor, const QTextCursor &limit, i
 struct PythonConsoleP
 {
     enum CopyType {Normal, History, Command};
-    CopyType type;
     PyObject *_stdoutPy, *_stderrPy, *_stdinPy, *_stdin;
     InteractiveInterpreter* interpreter;
     CallTipsList* callTipsList;
-    Python::MatchingChars* matchingChars;
+    PythonMatchingChars* matchingChars;
     ConsoleHistory history;
     QString output, error, info, historyFile;
     QStringList statements;
-    bool interactive;
     QMap<QString, QColor> colormap; // Color map
-    PythonConsoleP()
+    CopyType type;
+    bool interactive;
+    PythonConsoleP() :
+        _stdoutPy(nullptr), _stderrPy(nullptr), _stdinPy(nullptr), _stdin(nullptr),
+        interpreter(nullptr), callTipsList(nullptr), matchingChars(nullptr),
+         type(Normal), interactive(false)
     {
-        type = Normal;
-        _stdoutPy = 0;
-        _stderrPy = 0;
-        _stdinPy = 0;
-        _stdin = 0;
-        interpreter = 0;
-        callTipsList = 0;
-        interactive = false;
         historyFile = QString::fromUtf8((App::Application::getUserAppDataDir() + "PythonHistory.log").c_str());
         colormap[QLatin1String("Text")] = Qt::black;
         colormap[QLatin1String("Bookmark")] = Qt::cyan;
@@ -304,10 +299,10 @@ void InteractiveInterpreter::runCode(PyCodeObject* code) const
     Base::PyGILStateLocker lock;
     PyObject *module, *dict, *presult;           /* "exec code in d, d" */
     module = PyImport_AddModule("__main__");     /* get module, init python */
-    if (module == NULL) 
+    if (module == nullptr)
         throw Base::PyException();                 /* not incref'd */
     dict = PyModule_GetDict(module);             /* get dict namespace */
-    if (dict == NULL) 
+    if (dict == nullptr)
         throw Base::PyException();                 /* not incref'd */
 
     // It seems that the return value is always 'None' or Null
@@ -418,7 +413,7 @@ void InteractiveInterpreter::clearBuffer()
  *  Constructs a PythonConsoleTextEdit which is a child of 'parent'.
  */
 PythonConsoleTextEdit::PythonConsoleTextEdit(QWidget* parent)
-    : QPlainTextEdit(parent), cursorPosition(0), listBox(0)
+    : QPlainTextEdit(parent), cursorPosition(0), listBox(nullptr)
 {
     //Note: Set the correct context to this shortcut as we may use several instances of this
     //class at a time
@@ -614,22 +609,24 @@ bool CompletionList::eventFilter(QObject * watched, QEvent * event)
             hide();
     } else if (isVisible() && watched == textEdit) {
         if (event->type() == QEvent::KeyPress) {
-            QKeyEvent* ke = (QKeyEvent*)event;
-            if (ke->key() == Qt::Key_Up || ke->key() == Qt::Key_Down) {
-                keyPressEvent(ke);
-                return true;
-            } else if (ke->key() == Qt::Key_PageUp || ke->key() == Qt::Key_PageDown) {
-                keyPressEvent(ke);
-                return true;
-            } else if (ke->key() == Qt::Key_Escape) {
-                hide();
-                return true;
-            } else if (ke->key() == Qt::Key_Space) {
-                hide();
-                return false;
-            } else if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
-                itemActivated(currentItem());
-                return true;
+            QKeyEvent* ke = dynamic_cast<QKeyEvent*>(event);
+            if (ke) {
+                if (ke->key() == Qt::Key_Up || ke->key() == Qt::Key_Down) {
+                    keyPressEvent(ke);
+                    return true;
+                } else if (ke->key() == Qt::Key_PageUp || ke->key() == Qt::Key_PageDown) {
+                    keyPressEvent(ke);
+                    return true;
+                } else if (ke->key() == Qt::Key_Escape) {
+                    hide();
+                    return true;
+                } else if (ke->key() == Qt::Key_Space) {
+                    hide();
+                    return false;
+                } else if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+                    itemActivated(currentItem());
+                    return true;
+                }
             }
         } else if (event->type() == QEvent::FocusOut) {
             if (!hasFocus())
@@ -661,7 +658,7 @@ void CompletionList::completionItem(QListWidgetItem *item)
  *  Constructs a PythonConsole which is a child of 'parent'. 
  */
 PythonConsole::PythonConsole(QWidget *parent)
-  : PythonConsoleTextEdit(parent), WindowParameter( "Editor" ), _sourceDrain(NULL)
+  : PythonConsoleTextEdit(parent), WindowParameter( "Editor" ), _sourceDrain(nullptr)
 {
     d = new PythonConsoleP();
     d->interactive = false;
@@ -720,7 +717,7 @@ PythonConsole::PythonConsole(QWidget *parent)
     .arg(QString::fromLatin1(version), QString::fromLatin1(platform));
     d->output = d->info;
     printPrompt(PythonConsole::Complete);
-    d->matchingChars = new Python::MatchingChars(this);
+    d->matchingChars = new PythonMatchingChars(this);
     loadHistory();
 }
 
@@ -741,7 +738,7 @@ PythonConsole::~PythonConsole()
 /** Set new font and colors according to the paramerts. */  
 void PythonConsole::OnChange( Base::Subject<const char*> &rCaller,const char* sReason )
 {
-    Q_UNUSED(rCaller); 
+    Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
 
     bool pythonWordWrap = App::GetApplication().GetUserParameter().
@@ -754,7 +751,7 @@ void PythonConsole::OnChange( Base::Subject<const char*> &rCaller,const char* sR
     }
 
     if (strcmp(sReason, "FontSize") == 0 || strcmp(sReason, "Font") == 0) {
-        int fontSize = hPrefGrp->GetInt("FontSize", 10);
+        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 10));
         QString fontFamily = QString::fromLatin1(hPrefGrp->GetASCII("Font", "Courier").c_str());
         
         QFont font(fontFamily, fontSize);
@@ -970,13 +967,13 @@ void PythonConsole::printPrompt(PythonConsole::Prompt mode)
 {
     // write normal messages
     if (!d->output.isEmpty()) {
-        appendOutput(d->output, (int)Python::Token::T_PythonConsoleOutput);
+        appendOutput(d->output, static_cast<int>(Python::Token::T_PythonConsoleOutput));
         d->output = QString::null;
     }
 
     // write error messages
     if (!d->error.isEmpty()) {
-        appendOutput(d->error, (int)Python::Token::T_PythonConsoleError);
+        appendOutput(d->error, static_cast<int>(Python::Token::T_PythonConsoleError));
         d->error = QString::null;
     }
 
@@ -1186,7 +1183,7 @@ void PythonConsole::changeEvent(QEvent *e)
     else if (e->type() == QEvent::StyleChange) {
         QPalette pal = palette();
         QColor color = pal.windowText().color();
-        unsigned int text = (color.red() << 24) | (color.green() << 16) | (color.blue() << 8);
+        uint text = static_cast<uint>((color.red() << 24) | (color.green() << 16) | (color.blue() << 8));
         unsigned long value = static_cast<unsigned long>(text);
         // if this parameter is not already set use the style's window text color
         value = getWindowParameter()->GetUnsigned("Text", value);
@@ -1621,7 +1618,7 @@ QString PythonConsole::readline( void )
     // application is about to quit
     if (loop.exec() != 0)
       { PyErr_SetInterrupt(); }            //< send SIGINT to python
-    this->_sourceDrain = NULL;             //< disable source drain
+    this->_sourceDrain = nullptr;             //< disable source drain
     return inputBuffer.append(QChar::fromLatin1('\n')); //< pass a newline here, since the readline-caller may need it!
 }
 
@@ -1678,7 +1675,7 @@ void PythonConsole::saveHistory() const
 // ---------------------------------------------------------------------
 
 PythonConsoleHighlighter::PythonConsoleHighlighter(QObject* parent)
-  : Python::SyntaxHighlighter(parent)
+  : PythonSyntaxHighlighter(parent)
 {
 }
 
@@ -1688,8 +1685,8 @@ PythonConsoleHighlighter::~PythonConsoleHighlighter()
 
 void PythonConsoleHighlighter::highlightBlock(const QString& text)
 {
-    const int ErrorOutput   = (int)Python::Token::T_PythonConsoleError;
-    const int MessageOutput = (int)Python::Token::T_PythonConsoleOutput;
+    const int ErrorOutput   = static_cast<int>(Python::Token::T_PythonConsoleError);
+    const int MessageOutput = static_cast<int>(Python::Token::T_PythonConsoleOutput);
 
     // Get user state to re-highlight the blocks in the appropriate format
     int stateOfPara = currentBlockState();
@@ -1713,7 +1710,7 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
         }   break;
     default:
         {
-            Python::SyntaxHighlighter::highlightBlock(text);
+            PythonSyntaxHighlighter::highlightBlock(text);
         }   break;
     }
 }

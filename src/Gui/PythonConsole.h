@@ -253,7 +253,7 @@ private:
  * Syntax highlighter for Python console.
  * @author Werner Mayer
  */
-class GuiExport PythonConsoleHighlighter : public Python::SyntaxHighlighter
+class GuiExport PythonConsoleHighlighter : public PythonSyntaxHighlighter
 {
 public:
     PythonConsoleHighlighter(QObject* parent);
