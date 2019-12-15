@@ -10,7 +10,7 @@ class SourceIndent {
     struct Indent {
         int frameIndent,
             currentBlockIndent;
-        Indent(int frmInd = -1, int curInd = -1):
+        Indent(int frmInd = -1, int curInd = 1):
             frameIndent(frmInd), currentBlockIndent(curInd)
         {}
         Indent(const Indent &other):
@@ -33,19 +33,19 @@ public:
     /// returns the number of pushed block -1, invalid == -1
     int atIndentBlock() const { return static_cast<int>(m_indentStack.size()) -1; }
 
-    int frameIndent() const;
-    int currentBlockIndent() const;
-    int previousBlockIndent() const;
+    uint frameIndent() const;
+    uint currentBlockIndent() const;
+    uint previousBlockIndent() const;
 
     /// true if we have a valid indentBlock stored
     bool isValid() const;
 
     /// inserts a new frameBlock (ie def func(arg1):)
     /// returns current indentBlock
-    void pushFrameBlock(int frmIndent, int currentIndent);
+    void pushFrameBlock(uint frmIndent, uint currentIndent);
     /// inserts a new block, get frameblock form previous block (indent ie if (arg1):)
     /// returns current indentblock
-    void pushBlock(int currentIndent);
+    void pushBlock(uint currentIndent);
     /// pop a indentblock (de-indent)
     void popBlock();
     /// framePopCnt is a counter that stores the number of frames that have popped

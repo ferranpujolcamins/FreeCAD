@@ -52,7 +52,8 @@ public:
     LexerP(Python::Lexer *lexer) :
         tokenList(lexer),
         endStateOfLastPara(Python::Token::T_Invalid),
-        activeLine(nullptr), insertDedent(false)
+        activeLine(nullptr), insertDedent(false),
+        isCodeLine(false)
     {
         reGenerate();
     }
@@ -158,9 +159,9 @@ public:
     static std::unordered_map<std::size_t, std::string> builtins;
     Python::TokenList tokenList;
     Python::Token::Type endStateOfLastPara;
-    Python::TokenLine *activeLine;
     std::string filePath;
-    bool insertDedent;
+    Python::TokenLine *activeLine;
+    bool insertDedent, isCodeLine;
 
     // these hashes are constant and wont change, use for quicker lookup
     static const std::size_t defHash, classHash, importHash, fromHash, andHash,
@@ -1275,7 +1276,9 @@ void Python::TokenLine::push_back(Python::Token *tok)
     Token *beforeTok;
     if (!m_frontTok) {
         m_frontTok = tok;
-        Python::TokenLine *line = m_ownerList->lexer()->previousCodeLine(m_previousLine);
+        Python::TokenLine *line = m_previousLine;
+        while (line && line->m_previousLine && !line->m_previousLine->m_backTok)
+            line = line->m_previousLine;
         beforeTok = line ? line->m_backTok : nullptr;
     } else {
         beforeTok = m_backTok;
@@ -1331,14 +1334,14 @@ Python::Token *Python::TokenLine::pop_front()
     return m_frontTok;
 }
 
-int Python::TokenLine::insert(Python::Token *tok)
+void Python::TokenLine::insert(Python::Token *tok)
 {
     assert(!tok->m_next && !tok->m_previous && "tok already attached to container");
     assert(tok->m_ownerLine == instance() && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
 
-    int pos = 0;
+    //int pos = 0;
     Python::Token *prevTok = m_frontTok;
     if (!prevTok && m_previousLine)
         prevTok = m_previousLine->back();
@@ -1350,7 +1353,7 @@ int Python::TokenLine::insert(Python::Token *tok)
            (--guard))
     {
         prevTok = prevTok->m_next;
-        ++pos;
+        //++pos;
     }
     // insert into list, if prevTok is nullptr its inserted at beginning of list
     m_ownerList->insert(prevTok, tok);
@@ -1359,18 +1362,27 @@ int Python::TokenLine::insert(Python::Token *tok)
         m_frontTok = m_backTok = tok;
     if (m_backTok == prevTok)
         m_backTok = tok;
-    return pos;
+    //return pos;
 }
 
-int Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insertTok)
+void Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insertTok)
 {
     assert(insertTok);
-    if (!previousTok || previousTok->m_ownerLine != instance())
-        return insert(insertTok);
+    assert(insertTok->m_ownerLine == instance() || insertTok->m_ownerLine == nullptr);
+    if (!previousTok || !previousTok->m_next ||
+        previousTok->m_next->m_ownerLine != instance())
+    {
+        insert(insertTok);
+        return;
+    }
 
-    assert(previousTok->m_ownerLine == instance());
+    insertTok->m_ownerLine = instance();
     m_ownerList->insert(previousTok, insertTok);
-    return tokenPos(insertTok);
+    if (m_frontTok == insertTok->m_next)
+        m_frontTok = insertTok;
+    if (m_backTok == previousTok)
+        m_backTok = insertTok;
+    //return tokenPos(insertTok);
 }
 
 bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
@@ -1541,6 +1553,8 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
     d_lex->activeLine = tokLine;
     bool isModuleLine = false;
 
+    d_lex->isCodeLine = false;
+
     if (tokLine->m_previousLine) {
         tokLine->m_isParamLine = tokLine->m_previousLine->m_isParamLine;
         tokLine->m_braceCnt = tokLine->m_previousLine->m_braceCnt;
@@ -1627,6 +1641,10 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
 
                 setLiteral(i, len + static_cast<uint>(endMarker.length()) + prefixLen, tokType);
                 prefixLen = 0;
+
+                // check if we need indent/dedent Token added
+                if (d_lex->endStateOfLastPara != Token::T_Undetermined)
+                    checkLineEnd();
 
             } break;
 
@@ -1805,27 +1823,23 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 // newline token should not be generated for empty and comment only lines
                 if ((d_lex->activeLine->back() &&
                      d_lex->activeLine->back()->type() == Token::T_DelimiterBackSlash) ||
-                    !d_lex->activeLine->isCodeLine())
+                    !d_lex->isCodeLine)
                     break;
                 if (nextCh == '\n') {
                     setDelimiter(i, 2, Python::Token::T_DelimiterNewLine);
                     break;
                 }
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
-                if (d_lex->insertDedent)
-                    insertDedent();
-                checkForDedent(); // this line might dedent a previous line
+                checkLineEnd();
                 break;
             case '\n':
                 // newline token should not be generated for empty and comment only lines
                 if ((d_lex->activeLine->back() &&
                      d_lex->activeLine->back()->type() == Token::T_DelimiterBackSlash) ||
-                    !d_lex->activeLine->isCodeLine())
+                    !d_lex->isCodeLine)
                     break;
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
-                if (d_lex->insertDedent)
-                    insertDedent();
-                checkForDedent(); // this line might dedent a previous line
+                checkLineEnd();
                 break;
             case '[':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenBracket);
@@ -2334,9 +2348,7 @@ Python::Token::Type Python::Lexer::numberType(const std::string &text) const
 void Python::Lexer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
 {
     uint len = static_cast<uint>(text.size()) - pos;
-    Python::Token *tok = d_lex->activeLine->newDeterminedToken(tokType, pos, len);
-    tokenUpdated(tok);
-    pos += len -1;
+    setWord(pos, len, tokType);
 }
 
 void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
@@ -2354,8 +2366,11 @@ void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
                 break;
             }
         }
-        if (count > 0)
-            setIndentation(pos, j, count);
+        if (count > 0) {
+            //setIndentation(pos, j, count);
+            pos += j - 1;
+            d_lex->activeLine->m_indentCharCount = count;
+        }
     }
 }
 
@@ -2363,6 +2378,8 @@ void Python::Lexer::setWord(uint &pos, uint len, Python::Token::Type tokType)
 {
     Python::Token *tok = d_lex->activeLine->newDeterminedToken(tokType, pos, len);
     tokenUpdated(tok);
+    if (!d_lex->isCodeLine)
+        d_lex->isCodeLine = tok->isCode();
     pos += len -1;
 }
 
@@ -2404,10 +2421,8 @@ void Python::Lexer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
     setWord(pos, len, tokType);
 }
 
-void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
+void Python::Lexer::setIndentation()
 {
-    d_lex->activeLine->setIndentCount(count);
-
     // get the nearest sibling above that has code
     Python::TokenLine *prevLine = previousCodeLine(d_lex->activeLine->m_previousLine);
 
@@ -2416,11 +2431,11 @@ void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
 
     do { // break out block
         if (!prevLine) {
-            if (count > 0)
+            if (d_lex->activeLine->indent() > 0)
                 tok = createIndentError("Unexpected Indent at begining of file");
             break;
         }
-        if (count == prevLine->m_indentCharCount) {
+        if (d_lex->activeLine->indent() == prevLine->m_indentCharCount) {
             if (prevLine->back() && prevLine->back()->type() == Token::T_Dedent) {
                 // remove a previous dedent token at the same level
                 prevLine->remove(prevLine->back(), true);
@@ -2435,7 +2450,7 @@ void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
             break;
 
         // when we get here we have a cahnge in indentation to previous line
-        if (prevLine->m_indentCharCount < count) {
+        if (prevLine->m_indentCharCount < d_lex->activeLine->indent()) {
             // increase indent by one block
 
             // check so we have a valid ':'
@@ -2450,15 +2465,17 @@ void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
                 tok = createIndentError("Blockstart without ':'");
             } else {
                 prevLine->incBlockState();
-                tok = d_lex->activeLine->newDeterminedToken(Python::Token::T_Indent, pos, len);
+                tok = new Python::Token(Python::Token::T_Indent, 0,
+                                        d_lex->activeLine->front()->startPos(),
+                                        d_lex->activeLine);
+                d_lex->activeLine->insert(d_lex->activeLine->front()->previous(),
+                                          tok);
             }
         }
     } while(false); // breakout block
 
     if (tok)
         tokenUpdated(tok);
-
-    pos += len - 1;
 }
 
 Python::Token *Python::Lexer::createIndentError(const std::string &msg)
@@ -2493,16 +2510,27 @@ void Python::Lexer::checkForDedent()
         // first find out the indent count that triggered the indent
         Python::TokenLine *startLine = prevLine;
         int dedentCnt = 0, indentCnt = 0;
+        uint lastIndent = prevLine->m_indentCharCount;
         while (startLine && (--guard)) {
-            if (startLine->back() && startLine->back()->type() == Python::Token::T_Dedent) {
-                --dedentCnt;
-            }
-            if (startLine->front() && startLine->front()->type() == Python::Token::T_Indent) {
-                ++indentCnt;
+            if (startLine->m_indentCharCount <= lastIndent &&
+                startLine->m_indentCharCount > d_lex->activeLine->m_indentCharCount)
+            {
+                if (startLine->back() && startLine->back()->type() == Python::Token::T_Dedent) {
+                    --dedentCnt;
+                    lastIndent = startLine->m_indentCharCount;
+                }
+                if (startLine->front() && startLine->front()->type() == Python::Token::T_Indent) {
+                    ++indentCnt;
+                    lastIndent = startLine->m_indentCharCount;
+                }
             }
 
-            if (startLine->isCodeLine() && startLine->m_indentCharCount < prevLine->m_indentCharCount)
+            // we break here if we have found a indent on current level or unconditionally if we are at a lower level
+            if (startLine->isCodeLine() &&
+                (startLine->m_indentCharCount <= d_lex->activeLine->m_indentCharCount))
+            {
                 break; // we are finished
+            }
 
             startLine = startLine->m_previousLine;
         }
@@ -2515,6 +2543,15 @@ void Python::Lexer::checkForDedent()
         }
 
     }
+}
+
+void Python::Lexer::checkLineEnd()
+{
+    if (d_lex->insertDedent)
+        insertDedent();
+    if (d_lex->activeLine->indent() > 0 && d_lex->isCodeLine)
+        setIndentation();
+    checkForDedent(); // this line might dedent a previous line
 }
 
 // ------------------------------------------------------------------------------------

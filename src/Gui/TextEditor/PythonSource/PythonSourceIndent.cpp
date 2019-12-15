@@ -7,6 +7,8 @@ DBG_TOKEN_FILE
 Python::SourceIndent::SourceIndent():
     m_framePopCnt(0)
 {
+    // default to a root frame
+    m_indentStack.push_back(Indent(-1, 0));
 }
 
 Python::SourceIndent::SourceIndent(const SourceIndent &other) :
@@ -44,23 +46,23 @@ bool Python::SourceIndent::operator ==(const Python::SourceIndent &other) {
     return true;
 }
 
-int Python::SourceIndent::frameIndent() const
+uint Python::SourceIndent::frameIndent() const
 {
-    return _current().frameIndent;
+    return static_cast<uint>(_current().frameIndent);
 }
 
-int Python::SourceIndent::currentBlockIndent() const
+uint Python::SourceIndent::currentBlockIndent() const
 {
-    return _current().currentBlockIndent;
+    return static_cast<uint>(_current().currentBlockIndent);
 }
 
-int Python::SourceIndent::previousBlockIndent() const
+uint Python::SourceIndent::previousBlockIndent() const
 {
     if (m_indentStack.empty())
         return 0;
     if (m_indentStack.size() == 1)
-        return m_indentStack.front().currentBlockIndent;
-    return m_indentStack.back().currentBlockIndent;
+        return static_cast<uint>(m_indentStack.front().currentBlockIndent);
+    return static_cast<uint>(m_indentStack.back().currentBlockIndent);
 }
 
 bool Python::SourceIndent::isValid() const {
@@ -70,24 +72,26 @@ bool Python::SourceIndent::isValid() const {
     return ind.currentBlockIndent > -1 || ind.frameIndent > -1;
 }
 
-void Python::SourceIndent::pushFrameBlock(int frmIndent, int currentIndent)
+void Python::SourceIndent::pushFrameBlock(uint frmIndent, uint currentIndent)
 {
     // insert a framestarter
     assert(frmIndent <= currentIndent && "frmIndent must be less or equal to currentIndent");
-    Indent ind(frmIndent, currentIndent);
+    // we store as ints internally because we need a framestarter=-1 to indicate rootframe
+    Indent ind(static_cast<int>(frmIndent), static_cast<int>(currentIndent));
     m_indentStack.push_back(ind);
 }
 
-void Python::SourceIndent::pushBlock(int currentIndent)
+void Python::SourceIndent::pushBlock(uint currentIndent)
 {
-    Indent ind(_current().frameIndent, currentIndent);
+    // we store as ints internally because we need a framestarter=-1 to indicate rootframe
+    Indent ind(_current().frameIndent, static_cast<int>(currentIndent));
     m_indentStack.push_back(ind);
 }
 
 void Python::SourceIndent::popBlock()
 {
     // keep rootframe
-    if (m_indentStack.size() < 2)
+    if (m_indentStack.size() <= 1)
         return;
 
     // might have a frame block

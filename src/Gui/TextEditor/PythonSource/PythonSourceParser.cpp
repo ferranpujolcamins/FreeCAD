@@ -95,7 +95,6 @@ void Python::SourceParser::startSubFrame(Python::SourceIndent &indent,
                                   tokIt->ownerLine()->indent());
             break;
         }
-
     }
 
     // scan this frame
@@ -218,21 +217,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
     }
 
     // do increasing indents
-    //handleIndent(indent);
-    if (indent.currentBlockIndent() < startToken->ownerLine()->indent()) {
-        if (startToken->type() == Token::T_Indent)
-            indent.pushBlock(startToken->ownerLine()->indent());
-        else {
-            auto prevLine = Python::Lexer::previousCodeLine(
-                                       startToken->ownerLine()->previousLine());
-            if (prevLine && prevLine->parenCnt() == 0 &&
-                prevLine->bracketCnt() == 0 && prevLine->braceCnt() == 0)
-            {
-                startToken->ownerLine()->setIndentErrorMsg(startToken, "Uneven indentation");
-            }
-        }
-    }
-
+    handleIndent(indent);
 
     guard = 200; // max number of tokens in this line, unhang locked loop
     // scan document
@@ -312,14 +297,14 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
             m_activeFrame->m_identifiers.setIdentifier(m_tok, tpInfo);
             startSubFrame(indent, Python::SourceRoot::ClassType);
             DBG_TOKEN(m_tok)
-            if (indent.framePopCnt()> 0)
+            if (indent.framePopCnt()> 0 || (m_tok && m_tok->type() == Token::T_Dedent))
                 return m_tok;
             continue;
         }
         case Python::Token::T_IdentifierFunction: {
             startSubFrame(indent, Python::SourceRoot::FunctionType);
             DBG_TOKEN(m_tok)
-            if (indent.framePopCnt()> 0)
+            if (indent.framePopCnt()> 0 || (m_tok && m_tok->type() == Token::T_Dedent))
                 return m_tok;
             continue;
         }
@@ -340,7 +325,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
 
             startSubFrame(indent, Python::SourceRoot::MethodType);
             DBG_TOKEN(m_tok)
-            if (indent.framePopCnt()> 0)
+            if (indent.framePopCnt()> 0 || (m_tok && m_tok->type() == Token::T_Dedent))
                 return m_tok;
             continue;
         }
@@ -1217,6 +1202,22 @@ void Python::SourceParser::handleIndent(Python::SourceIndent &indent)
     if (!m_tok)
         return;
 
+    if (indent.currentBlockIndent() < m_tok->ownerLine()->indent()) {
+        if (m_tok->type() == Token::T_Indent)
+            indent.pushBlock(m_tok->ownerLine()->indent());
+        else if (m_tok->isCode()) {
+            auto prevLine = Python::Lexer::previousCodeLine(
+                                       m_tok->ownerLine()->previousLine());
+            if (prevLine && prevLine->parenCnt() == 0 &&
+                prevLine->bracketCnt() == 0 && prevLine->braceCnt() == 0)
+            {
+                m_tok->ownerLine()->setIndentErrorMsg(m_tok, "Uneven indentation");
+            }
+        }
+    }
+
+    return;
+/*
     //if (!indent.validIndentLine(m_tok))
     //    return;
 
@@ -1266,6 +1267,7 @@ void Python::SourceParser::handleIndent(Python::SourceIndent &indent)
         //else
             indent.pushBlock(ind);
     }
+    */
 }
 
 void Python::SourceParser::gotoEndOfLine()

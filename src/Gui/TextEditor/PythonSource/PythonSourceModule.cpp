@@ -58,14 +58,11 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     if (!tok)
         return ind; // is invalid here
 
-    // push the root indentblock
-    ind.pushFrameBlock(-1, 0);
-
     const Python::SourceFrame *frm = getFrameForToken(tok, &m_rootFrame);
     const Python::Token *beginTok = frm->token() ? frm->token() : tok;
 
-    int frameIndent = 0,
-        currentIndent = 0;
+    uint frameIndent = 0,
+         currentIndent = 0;
 
     // root frame should always have 0 as indent
     if (frm->parentFrame() == nullptr)
@@ -76,7 +73,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     //beginTok = tok;
     DBG_TOKEN(beginTok)
 
-    std::list<int> traversedBlocks;
+    std::list<uint> traversedBlocks;
     // rationale here is to back up until we find a line with less indent
     // def func(arg1):     <- frameIndent
     //     var1 = None     <- previousBlockIndent
@@ -84,7 +81,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     //         var1 = arg1 <- currentBlockIndent
     Python::TokenLine *tokLine = tok->ownerLine(),
                       *lastLine = tok->ownerLine();
-    int indent = tokLine->indent();
+    uint indent = tokLine->indent();
     int guard = 1000;
     while (tokLine && (guard--) > 0) {
         if (tokLine->isCodeLine()){
@@ -93,11 +90,11 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
                 beginTok = tokLine->findToken(Python::Token::T_DelimiterColon, -1);
                 DBG_TOKEN(beginTok)
                 if (beginTok) {
-                    if (beginTok->next() &&
-                        beginTok->next()->type() != Python::Token::T_BlockStart)
-                    {
-                        insertBlockStart(beginTok);
-                    }
+//                    if (beginTok->next() &&
+//                        beginTok->next()->type() != Python::Token::T_BlockStart)
+//                    {
+//                        insertBlockStart(beginTok);
+//                    }
 
                     traversedBlocks.push_back(tokLine->indent());
                     // we found it
@@ -122,7 +119,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
         assert(frm->parentFrame() == nullptr && frameIndent == 0 && "Should be in root frame here!");
     }
     if (frameIndent > 0 || traversedBlocks.size() > 0){
-        for(int indnt : traversedBlocks)
+        for(uint indnt : traversedBlocks)
             ind.pushFrameBlock(frameIndent, indnt);
     }
     return ind;
@@ -209,7 +206,7 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
             continue;
         if (!childFrm->lastToken()) {
             // end token have been deleted, re-parse end token
-            int ind = childFrm->token()->ownerLine()->indent();
+            uint ind = childFrm->token()->ownerLine()->indent();
             Python::TokenLine *tokLine = childFrm->token()->ownerLine();
             while ((tokLine = tokLine->nextLine())) {
                 if (tokLine->isCodeLine() && tokLine->indent() <= ind) {
@@ -247,6 +244,7 @@ const Python::SourceFrame *Python::SourceModule::getFrameForToken(const Python::
     return parentFrame;
 }
 
+/*
 void Python::SourceModule::insertBlockStart(const Python::Token *colonTok) const
 {
     if (colonTok->next() && colonTok->next()->type() != Python::Token::T_BlockStart) {
@@ -272,6 +270,7 @@ Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLine
     }
     return nullptr;
 }
+*/
 
 void Python::SourceModule::reparseInvalidTokens()
 {

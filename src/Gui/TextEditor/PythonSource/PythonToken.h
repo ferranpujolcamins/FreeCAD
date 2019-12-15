@@ -579,9 +579,9 @@ public:
     /// caller taken ownership and must delete token
     Python::Token *pop_front();
     /// inserts token into list, returns position it is stored at
-    int insert(Python::Token *tok);
+    void insert(Python::Token *tok);
     /// inserts token into list, returns position it is stored at
-    int insert(Python::Token *beforeTok, Python::Token *insertTok);
+    void insert(Python::Token *beforeTok, Python::Token *insertTok);
 
     /// removes tok from list
     /// if deleteTok is true it also deletes these tokens (mem. free)
@@ -690,11 +690,12 @@ private:
     void setDelimiter(uint &pos, uint len, Python::Token::Type tokType);
     void setSyntaxError(uint &pos, uint len);
     void setLiteral(uint &pos, uint len, Python::Token::Type tokType);
-    void setIndentation(uint &pos, uint len, uint count);
+    void setIndentation();
 
     Python::Token *createIndentError(const std::string &msg);
     Python::Token *insertDedent();
     void checkForDedent();
+    void checkLineEnd();
 
 };
 

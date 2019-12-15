@@ -68,11 +68,12 @@ public:
     const Python::SourceFrame *getFrameForToken(const Python::Token *tok,
                                               const Python::SourceFrame *parentFrame) const;
 
-
+    /*
     /// inserts a blockStartTok after colonTok
     void insertBlockStart(const Python::Token *colonTok) const;
     /// inserts a blockEnd token before newLineTok
     Python::Token *insertBlockEnd(const Python::Token *newLineTok) const;
+    */
 
     /// reparse all invalidtokens, should be done when all page have finished its scan
     void reparseInvalidTokens();
