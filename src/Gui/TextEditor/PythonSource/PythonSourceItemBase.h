@@ -3,7 +3,6 @@
 
 #include "PythonToken.h"
 
-namespace Gui {
 namespace Python {
 
 
@@ -30,7 +29,7 @@ public:
     }
 
     /// gets the hash for this tokens text
-    virtual int hash() const {
+    virtual size_t hash() const {
         if (m_token)
             return m_token->hash();
         return 0;
@@ -38,6 +37,5 @@ public:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEITEMBASE_H

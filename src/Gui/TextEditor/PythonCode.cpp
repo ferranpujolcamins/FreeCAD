@@ -72,7 +72,6 @@ DBG_TOKEN_FILE
 #endif
 
 
-namespace Gui {
 namespace Python {
 class CodeP
 {
@@ -84,10 +83,6 @@ public:
 };
 
 } // namespace Python
-} // namespace Gui
-
-
-using namespace Gui;
 
 
 Python::Code::Code(QObject *parent) :

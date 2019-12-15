@@ -6,7 +6,6 @@
 //#include "PythonSourceListBase.h"
 #include "PythonSourceItemBase.h"
 
-namespace Gui {
 namespace Python {
 
 class SourceFrame;
@@ -84,6 +83,5 @@ protected:
 */
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEPARAMETER_H

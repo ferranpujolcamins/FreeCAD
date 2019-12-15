@@ -5,7 +5,6 @@
 #include "PythonSourceListBase.h"
 #include "PythonSourceRoot.h"
 
-namespace Gui {
 namespace Python {
 
 class SourceImportPackage;
@@ -134,6 +133,5 @@ public:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEIMPORTS_H

@@ -27,7 +27,8 @@
 #include "PythonCode.h"
 #include <PythonSource/PythonSource.h>
 #include <PythonSource/PythonSourceRoot.h>
-#include "PythonSource/PythonSourceDebugTools.h"
+#include <PythonSource/PythonSourceDebugTools.h>
+#include <PythonSource/PythonToken.h>
 #include "PythonSyntaxHighlighter.h"
 #include "PythonEditor.h"
 #include <QTextBlock>
@@ -40,7 +41,6 @@
 #include <Gui/TextEditor/TextEditor.h>
 
 using namespace Gui;
-using namespace Python;
 
 DBG_TOKEN_FILE
 
@@ -218,7 +218,7 @@ void TokenModel::refreshAll()
 
 const Python::TokenLine *TokenModel::getTokenLine(long line) const
 {
-    Python::SyntaxHighlighter *hl = dynamic_cast<Python::SyntaxHighlighter*>(m_editor->syntaxHighlighter());
+    PythonSyntaxHighlighter *hl = dynamic_cast<PythonSyntaxHighlighter*>(m_editor->syntaxHighlighter());
     if (hl)
         return hl->list().lineAt(static_cast<int>(line));
     return nullptr;

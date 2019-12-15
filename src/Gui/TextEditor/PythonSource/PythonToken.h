@@ -6,7 +6,6 @@
 #include <list>
 #include <map>
 
-namespace Gui {
 namespace Python {
 
 class SourceListNodeBase; // in code analyzer
@@ -800,6 +799,5 @@ public:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONTOKEN_H

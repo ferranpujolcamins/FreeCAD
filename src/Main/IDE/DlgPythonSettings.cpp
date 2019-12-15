@@ -48,14 +48,14 @@ DlgPythonSettings::~DlgPythonSettings()
 
 void DlgPythonSettings::accept()
 {
-    auto ver = static_cast<Gui::Python::Version::versions>(m_cmbVersion->currentData().toUInt());
-    if (ver != Gui::Python::Lexer::version().version()) {
-        Gui::Python::Lexer::setVersion(ver);
+    auto ver = static_cast<Python::Version::versions>(m_cmbVersion->currentData().toUInt());
+    if (ver != Python::Lexer::version().version()) {
+        Python::Lexer::setVersion(ver);
 
         QStringList types;
         types << QLatin1String("py") << QLatin1String("FCMacro");
         for (auto &wrapper : EditorViewSingleton::instance()->openedByType(types)) {
-            auto highlighter = dynamic_cast<Python::SyntaxHighlighter*>(wrapper->editor()->syntaxHighlighter());
+            auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(wrapper->editor()->syntaxHighlighter());
             if (highlighter)
                 highlighter->rehighlight();
         }

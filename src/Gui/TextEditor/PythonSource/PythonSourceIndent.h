@@ -3,7 +3,6 @@
 
 #include "PythonSourceRoot.h"
 
-namespace Gui {
 namespace Python {
 
 // used as a message parsing between functions
@@ -62,6 +61,5 @@ private:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEINDENT_H

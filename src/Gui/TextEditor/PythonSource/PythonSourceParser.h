@@ -12,7 +12,6 @@
 #include "PythonSourceRoot.h"
 #include "PythonToken.h"
 
-namespace Gui {
 namespace Python {
 
 /// this class pasers tokens and creates the SyntaxTree
@@ -103,6 +102,5 @@ private:
 
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEPARSER_H

@@ -3,8 +3,6 @@
 
 #include "PythonToken.h"
 
-
-namespace Gui {
 namespace Python {
 
 class SourceModule;
@@ -58,6 +56,5 @@ private:
 // --------------------------------------------------------------------
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEDEBUGTOOLS_H

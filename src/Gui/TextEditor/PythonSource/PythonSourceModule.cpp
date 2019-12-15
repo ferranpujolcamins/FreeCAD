@@ -6,8 +6,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
 
 Python::SourceModule::SourceModule(Python::SourceRoot *root,
                                    Lexer *lexer) :

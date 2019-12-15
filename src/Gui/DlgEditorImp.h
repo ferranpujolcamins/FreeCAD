@@ -30,9 +30,7 @@
 #include <TextEditor/SyntaxHighlighter.h>
 
 namespace Gui {
-namespace Python {
-    class SyntaxHighlighter;
-}
+    class PythonSyntaxHighlighter;
 
 namespace Dialog {
 
@@ -46,7 +44,7 @@ class DlgSettingsEditorImp : public PreferencePage, public Ui_DlgEditorSettings
     Q_OBJECT
 
 public:
-    DlgSettingsEditorImp( QWidget* parent = 0 );
+    DlgSettingsEditorImp( QWidget* parent = nullptr);
     ~DlgSettingsEditorImp();
 
 public:
@@ -57,7 +55,7 @@ protected Q_SLOTS:
     void displayItems_currentRowChanged(const QModelIndex & current, const QModelIndex & previous);
     void on_displayItems_doubleClicked(const QModelIndex &current);
     void on_colorButton_changed();
-    void on_fontFamily_activated(const QString&);
+    void on_fontFamily_activated(const QString&fontFam);
     void on_fontSize_valueChanged(const QString&);
 
 protected:

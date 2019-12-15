@@ -84,7 +84,7 @@ struct PythonEditorP
     Python::Code *pythonCode;
     QHash <int, Base::PyExceptionInfo> exceptions;
     //CallTipsList* callTipsList;
-    Python::MatchingChars* matchingChars;
+    PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
     const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     PythonEditorCodeAnalyzer *codeAnalyzer;
@@ -110,7 +110,7 @@ struct PythonEditorP
     }
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    Python::DebugWindow *dbgWindow;
+    Gui::DebugWindow *dbgWindow;
 #endif
 };
 
@@ -201,7 +201,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     d = new PythonEditorP();
     d->loadIcons(fontMetrics().height());
 
-    Python::SyntaxHighlighter *hl = new Python::SyntaxHighlighter(this);
+    PythonSyntaxHighlighter *hl = new PythonSyntaxHighlighter(this);
     setSyntaxHighlighter(hl);
     hl->loadSettings();
 
@@ -244,7 +244,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
             this, SLOT(exception(Base::PyExceptionInfo*)));
 
-    d->matchingChars = new Python::MatchingChars(this);
+    d->matchingChars = new PythonMatchingChars(this);
 
     // tooltips on this widget must use a monospaced font to display code info correctly
     setStyleSheet(QLatin1String("QToolTip {font-size:12pt; font-family:'DejaVu Sans Mono', Courier; }"));
@@ -255,7 +255,7 @@ PythonEditor::PythonEditor(QWidget* parent)
     //    d->codeAnalyzer = new PythonEditorCodeAnalyzer(this);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    d->dbgWindow = new Python::DebugWindow(this);
+    d->dbgWindow = new Gui::DebugWindow(this);
     d->dbgWindow->show();
 #endif
 }
@@ -295,7 +295,7 @@ void PythonEditor::setFileName(const QString& fn)
         Q_EMIT fileNameChanged(fn);
 
         // rescan
-        Python::SyntaxHighlighter *ps = dynamic_cast<Python::SyntaxHighlighter*>(syntaxHighlighter());
+        PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
         if (ps)
             ps->setFilePath(fn);
     }
@@ -402,7 +402,7 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
     QTextBlock block = document()->findBlockByNumber(line-1);
     if (block.isValid()) {
         // we are at the correct line
-        Python::TextBlockData *blockData = dynamic_cast<Python::TextBlockData*>(block.userData());
+        PythonTextBlockData *blockData = dynamic_cast<PythonTextBlockData*>(block.userData());
         if (blockData) {
             if (blockData->scanInfo()) {
                 TextEditBlockScanInfo::MsgType msgType = TextEditBlockScanInfo::Invalid;
@@ -748,7 +748,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     tooltipPos.rx() += lineNumberAreaWidth();
 
     QTextCursor cursor = cursorForPosition(pos);
-    Python::TextBlockData *textData = Python::TextBlockData::pyBlockDataFromCursor(cursor);
+    PythonTextBlockData *textData = PythonTextBlockData::pyBlockDataFromCursor(cursor);
     if (!textData)
         return false;
 
@@ -864,7 +864,7 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
     } else {
 
         // parse errors
-        Python::TextBlockData *textData = dynamic_cast<Python::TextBlockData*>(document()->findBlockByNumber(line-1).userData());
+        PythonTextBlockData *textData = dynamic_cast<PythonTextBlockData*>(document()->findBlockByNumber(line-1).userData());
         if (textData) {
             QStringList tooltipTxt;
             if (textData->scanInfo()) {
@@ -1607,7 +1607,7 @@ bool PythonEditorCodeAnalyzer::keyPressed(QKeyEvent *e)
     // check if this is a token we care about
     if (!cursor.block().isValid())
         return false;
-    Python::TextBlockData *textData = reinterpret_cast<Python::TextBlockData*>(
+    PythonTextBlockData *textData = reinterpret_cast<PythonTextBlockData*>(
                                                 cursor.block().userData());
     if (!textData)
         return false;

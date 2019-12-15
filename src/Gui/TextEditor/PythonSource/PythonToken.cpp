@@ -41,7 +41,6 @@ bool isLetterPy3(char ch)
 static letterTypPtr isLetter = &isLetterPy3;
 
 
-namespace Gui {
 namespace Python {
 class LexerP {
     static void insertKW(const char *cstr)
@@ -208,9 +207,6 @@ const std::size_t Python::LexerP::exceptHash = cstrToHash("except", 6);
 const std::size_t Python::LexerP::finallyHash = cstrToHash("finally", 7);
 
 } // namespace Python
-} // namespace Gui
-
-using namespace Gui;
 
 // -------------------------------------------------------------------------------------------
 
@@ -2515,7 +2511,7 @@ void Python::Lexer::checkForDedent()
         while ((indentCnt + dedentCnt) > 0) {
             --dedentCnt;
             prevLine->decBlockState();
-            tokenUpdated(prevLine->newDeterminedToken(Python::Token::T_Dedent, prevLine->back()->endPos(), 0));
+            prevLine->newDeterminedToken(Python::Token::T_Dedent, prevLine->back()->endPos(), 0);
         }
 
     }

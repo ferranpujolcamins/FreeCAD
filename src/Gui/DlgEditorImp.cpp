@@ -48,7 +48,7 @@ struct DlgSettingsEditorP
             delete pythonSyntax;
     }
 
-    Gui::Python::SyntaxHighlighter* pythonSyntax;
+    Gui::PythonSyntaxHighlighter* pythonSyntax;
     DlgSettingsColorModel colormodel;
 };
 
@@ -72,7 +72,7 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
     d = new DlgSettingsEditorP();
 
 
-    d->pythonSyntax = new Python::SyntaxHighlighter(textEdit1);
+    d->pythonSyntax = new PythonSyntaxHighlighter(textEdit1);
     d->pythonSyntax->setDocument(textEdit1->document());
 
     // get default colors from SyntaxHighlighter
@@ -121,7 +121,7 @@ DlgSettingsEditorImp::~DlgSettingsEditorImp()
  */
 void DlgSettingsEditorImp::displayItems_currentRowChanged(const QModelIndex & current, const QModelIndex & previous)
 {
-    Q_UNUSED(previous);
+    Q_UNUSED(previous)
     QString key = d->colormodel.colormap.keys()[current.row()];
     colorButton->setColor(d->colormodel.colormap[key].color());
 }
@@ -169,7 +169,7 @@ void DlgSettingsEditorImp::saveSettings()
     // Saves the color map
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
 
-    for (const QString key : d->colormodel.colormap.keys()) {
+    for (const QString &key : d->colormodel.colormap.keys()) {
         hGrp->SetUnsigned(key.toLatin1(), d->colormodel.colormap[key].colorAsULong());
     }
 
@@ -212,7 +212,7 @@ void DlgSettingsEditorImp::loadSettings()
 
     // Restores the color map
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
-    for (const QString key : d->colormodel.colormap.keys()) {
+    for (const QString &key : d->colormodel.colormap.keys()) {
         unsigned long col = hGrp->GetUnsigned(key.toLatin1(), d->colormodel.colormap[key].colorAsULong());
         d->colormodel.colormap[key].setColor(col);
     }
@@ -226,7 +226,7 @@ void DlgSettingsEditorImp::loadSettings()
     // fill up font styles
     //
     fontSize->setValue(10);
-    fontSize->setValue( hGrp->GetInt("FontSize", fontSize->value()) );
+    fontSize->setValue(static_cast<int>(hGrp->GetInt("FontSize", fontSize->value())));
 
     QByteArray fontName = this->font().family().toLatin1();
 
@@ -259,10 +259,10 @@ void DlgSettingsEditorImp::changeEvent(QEvent *e)
     }
 }
 
-void DlgSettingsEditorImp::on_fontFamily_activated(const QString& fontFamily)
+void DlgSettingsEditorImp::on_fontFamily_activated(const QString& fontFam)
 {
     int fontSize = this->fontSize->value();
-    QFont ft(fontFamily, fontSize);
+    QFont ft(fontFam, fontSize);
     textEdit1->setFont(ft);
 }
 
@@ -305,7 +305,7 @@ QVariant DlgSettingsColorModel::data(const QModelIndex &index, int role) const
 
 int DlgSettingsColorModel::rowCount(const QModelIndex &parent) const
 {
-    Q_UNUSED(parent);
+    Q_UNUSED(parent)
     return colormap.keys().size() -1;
 }
 

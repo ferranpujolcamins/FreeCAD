@@ -21,21 +21,19 @@ class TextEditBlockScanInfo;
 class PythonEditor;
 class PythonConsoleTextEdit;
 
-namespace Python {
-
 class TextBlockData;
-class SyntaxHighlighterP;
+class PythonSyntaxHighlighterP;
 
 /**
  * Syntax highlighter for Python.
  */
-class GuiExport SyntaxHighlighter : public Gui::SyntaxHighlighter,
-                                    public Python::Lexer
+class GuiExport PythonSyntaxHighlighter : public Gui::SyntaxHighlighter,
+                                          public Python::Lexer
 {
     Q_OBJECT
 public:
-    SyntaxHighlighter(QObject* parent);
-    ~SyntaxHighlighter() override;
+    PythonSyntaxHighlighter(QObject* parent);
+    ~PythonSyntaxHighlighter() override;
 
     void highlightBlock (const QString & text) override;
 
@@ -80,21 +78,21 @@ private Q_SLOTS:
     void sourceScanTmrCallback();
 
 private:
-    SyntaxHighlighterP* d;
+    PythonSyntaxHighlighterP* d;
 
 };
 
 
 // ------------------------------------------------------------------------
 
-struct MatchingCharInfo
+struct PythonMatchingCharInfo
 {
     char character;
     int position;
-    MatchingCharInfo();
-    MatchingCharInfo(const MatchingCharInfo &other);
-    MatchingCharInfo(char chr, int pos);
-    ~MatchingCharInfo();
+    PythonMatchingCharInfo();
+    PythonMatchingCharInfo(const PythonMatchingCharInfo &other);
+    PythonMatchingCharInfo(char chr, int pos);
+    ~PythonMatchingCharInfo();
     char matchingChar() const;
     static char matchChar(char match);
 };
@@ -106,14 +104,14 @@ struct MatchingCharInfo
 /**
  * @brief The PythonMatchingChars highlights the opposite (), [] or {}
  */
-class MatchingChars : public QObject
+class PythonMatchingChars : public QObject
 {
     Q_OBJECT
 
 public:
-    MatchingChars(PythonEditor *parent);
-    MatchingChars(PythonConsoleTextEdit *parent);
-    ~MatchingChars();
+    PythonMatchingChars(PythonEditor *parent);
+    PythonMatchingChars(PythonConsoleTextEdit *parent);
+    ~PythonMatchingChars();
 
 private Q_SLOTS:
     void cursorPositionChange();
@@ -123,21 +121,21 @@ private:
 };
 
 // -----------------------------------------------------------------------
-class TextBlockScanInfo;
-class TextBlockData : public Gui::TextEditBlockData,
+class PythonTextBlockScanInfo;
+class PythonTextBlockData : public Gui::TextEditBlockData,
                       public Python::TokenLine
 {
 public:
     //typedef QVector<Python::Token*> tokens_t;
-    explicit TextBlockData(QTextBlock block, TokenList *tokenList,
-                           Token *startTok = nullptr);
-    TextBlockData(const TextBlockData &other);
-    ~TextBlockData() override;
+    explicit PythonTextBlockData(QTextBlock block, Python::TokenList *tokenList,
+                           Python::Token *startTok = nullptr);
+    PythonTextBlockData(const PythonTextBlockData &other);
+    ~PythonTextBlockData() override;
 
-    static Python::TextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
+    static PythonTextBlockData *pyBlockDataFromCursor(const QTextCursor &cursor);
 
-    Python::TextBlockData *nextBlock() const override;
-    Python::TextBlockData *previousBlock() const override;
+    PythonTextBlockData *nextBlock() const override;
+    PythonTextBlockData *previousBlock() const override;
 
     /**
      * @brief tokenAt returns the token defined pointed to by cursor
@@ -171,13 +169,13 @@ public:
      * @brief scanInfo contains parse messages set by code analyzer
      * @return nullptr if no parsemessages  or PythonTextBlockScanInfo*
      */
-    Python::TextBlockScanInfo *scanInfo() const;
+    PythonTextBlockScanInfo *scanInfo() const;
 
     /**
      * @brief setScanInfo set class with parsemessages
      * @param scanInfo instance of PythonTextBlockScanInfo
      */
-    void setScanInfo(Python::TextBlockScanInfo *scanInfo);
+    void setScanInfo(PythonTextBlockScanInfo *scanInfo);
 
 
     int blockState() const override;
@@ -193,16 +191,16 @@ private:
     QString m_textDbg;
 #endif
 
-    friend class Python::SyntaxHighlighter; // in order to hide some api
+    friend class PythonSyntaxHighlighter; // in order to hide some api
 };
 
 // -------------------------------------------------------------------
 
-class TextBlockScanInfo : public Gui::TextEditBlockScanInfo
+class PythonTextBlockScanInfo : public Gui::TextEditBlockScanInfo
 {
 public:
-    explicit TextBlockScanInfo();
-    virtual ~TextBlockScanInfo();
+    explicit PythonTextBlockScanInfo();
+    virtual ~PythonTextBlockScanInfo();
 
 
     /// set message for token
@@ -220,8 +218,6 @@ public:
 };
 
 // -------------------------------------------------------------------
-
-} // namespace Python
 
 
 /**

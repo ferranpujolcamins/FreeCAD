@@ -18,8 +18,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
 
 // Begin Python Code AST methods (allthough no tree as we constantly keep changing src in editor)
 // ------------------------------------------------------------------------

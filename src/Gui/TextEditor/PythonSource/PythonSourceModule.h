@@ -7,7 +7,6 @@
 
 #include <list>
 
-namespace Gui {
 namespace Python {
 
 class SourceRoot;
@@ -104,6 +103,5 @@ public:
 
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEMODULE_H

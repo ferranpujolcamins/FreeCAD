@@ -40,7 +40,6 @@ QT_END_NAMESPACE
 namespace Gui {
 class TextEditor;
 class PythonEditor;
-namespace Python {
 
 
 
@@ -89,8 +88,6 @@ private:
     QTreeView  *m_tokTree;
     QPlainTextEdit *m_frameDumpEdit;
 };
-
-} // namespace Python
 
 
 // -----------------------------------------------------------------

@@ -6,7 +6,6 @@
 DBG_TOKEN_FILE
 
 
-using namespace Gui;
 
 Python::SourceParser::SourceParser() :
     m_activeModule(nullptr), m_activeFrame(nullptr),
@@ -220,10 +219,18 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
 
     // do increasing indents
     //handleIndent(indent);
-    if (startToken->type() == Token::T_Indent &&
-        indent.currentBlockIndent() < startToken->ownerLine()->indent())
-    {
-        indent.pushBlock(startToken->ownerLine()->indent());
+    if (indent.currentBlockIndent() < startToken->ownerLine()->indent()) {
+        if (startToken->type() == Token::T_Indent)
+            indent.pushBlock(startToken->ownerLine()->indent());
+        else {
+            auto prevLine = Python::Lexer::previousCodeLine(
+                                       startToken->ownerLine()->previousLine());
+            if (prevLine && prevLine->parenCnt() == 0 &&
+                prevLine->bracketCnt() == 0 && prevLine->braceCnt() == 0)
+            {
+                startToken->ownerLine()->setIndentErrorMsg(startToken, "Uneven indentation");
+            }
+        }
     }
 
 

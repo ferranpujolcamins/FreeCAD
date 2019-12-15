@@ -9,7 +9,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
 using namespace Python;
 
 #include <time.h>
@@ -22,7 +21,7 @@ char TOKEN_INFO_BUF[40];
 char TOKEN_SRC_LINE_BUF[350];
 
 
-const char *Gui::Python::tokenToCStr(Token::Type tok)
+const char *Python::tokenToCStr(Token::Type tok)
 {
     switch(tok) {
     case Token::T_Undetermined:        return "T_Undetermined";     // Parser looks tries to figure out next char also Standard text

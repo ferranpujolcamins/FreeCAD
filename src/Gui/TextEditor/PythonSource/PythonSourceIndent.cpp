@@ -4,8 +4,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
 Python::SourceIndent::SourceIndent():
     m_framePopCnt(0)
 {

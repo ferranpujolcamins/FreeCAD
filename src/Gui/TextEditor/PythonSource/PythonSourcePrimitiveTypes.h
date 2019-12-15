@@ -1,8 +1,6 @@
 #ifndef PYTHONSOURCETYPES_H
 #define PYTHONSOURCETYPES_H
 
-namespace Gui {
-
 namespace Python {
 class Token;
 
@@ -15,6 +13,5 @@ public:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCETYPES_H

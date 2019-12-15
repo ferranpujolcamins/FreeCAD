@@ -11,8 +11,6 @@
 #include "PythonToken.h"
 #include <map>
 
-
-namespace Gui {
 namespace Python {
 
 class SourceParser;
@@ -151,6 +149,5 @@ private:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEFRAMES_H

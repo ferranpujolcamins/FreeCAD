@@ -3,8 +3,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
 Python::SourceListNodeBase::SourceListNodeBase(Python::SourceListParentBase *owner) :
         TokenWrapperInherit(nullptr),
     m_previous(nullptr), m_next(nullptr),

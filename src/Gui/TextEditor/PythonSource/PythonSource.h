@@ -75,8 +75,6 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
 #define PREV_TOKEN(TOKEN) if (TOKEN) TOKEN = TOKEN->previous();
 #endif
 
-namespace Gui {
-
 namespace Python {
 
 struct Hash
@@ -135,7 +133,5 @@ public:
 };
 
 } // namespace Python
-
-} // namespace Gui
 
 #endif // PYTHONSOURCE_H

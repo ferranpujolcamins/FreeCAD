@@ -9,7 +9,6 @@
 
 #include <TextEditor/PythonSyntaxHighlighter.h>
 
-namespace Gui {
 namespace Python {
 
 
@@ -195,6 +194,5 @@ protected:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEIDENTIFIERS_H

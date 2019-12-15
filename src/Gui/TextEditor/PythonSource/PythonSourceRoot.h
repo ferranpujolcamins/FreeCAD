@@ -8,7 +8,6 @@
 #include <list>
 #include <map>
 
-namespace Gui {
 namespace Python {
 
 // Begin Python source code introspection
@@ -260,6 +259,5 @@ private:
 };
 
 } // namespace Python
-} // namespace Gui
 
 #endif // PYTHONSOURCEROOT_H

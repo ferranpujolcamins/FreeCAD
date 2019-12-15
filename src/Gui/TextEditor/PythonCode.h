@@ -37,10 +37,11 @@ class QEventLoop;
 
 namespace Gui {
 class TextEdit;
-//class PythonEditorBreakpointDlg;
+class PythonTextBlockData;
+}; // namespace Gui
+
 namespace Python {
 class CodeP;
-class TextBlockData;
 class Token;
 
 
@@ -69,14 +70,8 @@ private:
     Python::CodeP *d;
 };
 
-
-
 // ----------------------------------------------------------------------
 
-
 } // namespace Python
-} // namespace Gui
-
-
 
 #endif // PYTHONCODE_H

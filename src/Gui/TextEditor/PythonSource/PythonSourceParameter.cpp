@@ -9,9 +9,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
-
 Python::SourceParameter::SourceParameter(SourceFrame *parent,
                                          Python::Token *tok) :
     TokenWrapperInherit(tok),

@@ -8,7 +8,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
 
 Python::SourceFrameReturnType::SourceFrameReturnType(Python::SourceListParentBase *owner,
                                        const Python::SourceModule *module,

@@ -29,8 +29,6 @@
 
 DBG_TOKEN_FILE
 
-using namespace Gui;
-
 std::size_t Python::Hash::operator()(const char *cstr) const noexcept
 {
     return cstrToHash(cstr, strlen(cstr));

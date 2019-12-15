@@ -24,16 +24,14 @@ using namespace Gui;
 
 
 namespace Gui {
-namespace Python {
 
-
-class SyntaxHighlighterP
+class PythonSyntaxHighlighterP
 {
 public:
-    explicit SyntaxHighlighterP()
+    explicit PythonSyntaxHighlighterP()
     {
     }
-    ~SyntaxHighlighterP()
+    ~PythonSyntaxHighlighterP()
     {
     }
 
@@ -41,7 +39,6 @@ public:
     QList<int> srcScanBlocks;
 };
 
-} // namespace Python
 } // namespace Gui
 
 
@@ -50,11 +47,11 @@ public:
 /**
  * Constructs a Python syntax highlighter.
  */
-Python::SyntaxHighlighter::SyntaxHighlighter(QObject* parent):
+PythonSyntaxHighlighter::PythonSyntaxHighlighter(QObject* parent):
     Gui::SyntaxHighlighter(parent),
     Python::Lexer()
 {
-    d = new Python::SyntaxHighlighterP();
+    d = new PythonSyntaxHighlighterP();
     d->sourceScanTmr.setInterval(50); // wait before running PythonSourceRoot rescan
                                       // dont scan on every row during complete rescan
     d->sourceScanTmr.setSingleShot(true);
@@ -62,7 +59,7 @@ Python::SyntaxHighlighter::SyntaxHighlighter(QObject* parent):
 }
 
 /** Destroys this object. */
-Python::SyntaxHighlighter::~SyntaxHighlighter()
+PythonSyntaxHighlighter::~PythonSyntaxHighlighter()
 {
     delete d;
 }
@@ -70,8 +67,9 @@ Python::SyntaxHighlighter::~SyntaxHighlighter()
 /**
  * Detects all kinds of text to highlight them in the correct color.
  */
-void Python::SyntaxHighlighter::highlightBlock (const QString & text)
+void PythonSyntaxHighlighter::highlightBlock (const QString &text)
 {
+    Q_UNUSED(text)
     int prevState = previousBlockState();// != -1 ? previousBlockState() : 0; // is -1 when no state is set
     Python::Token::Type endStateOfLastPara = static_cast<Python::Token::Type>(prevState);
 
@@ -82,10 +80,10 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     d->sourceScanTmr.stop();
 
     // create new userData, copy bookmark etc
-    Python::TextBlockData *txtBlock = new Python::TextBlockData(currentBlock(), &list()),
-                          *curBlock = nullptr;
+    PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock(), &list()),
+                        *curBlock = nullptr;
     if (currentBlock().isValid())
-        curBlock = dynamic_cast<Python::TextBlockData*>(currentBlock().userData());
+        curBlock = dynamic_cast<PythonTextBlockData*>(currentBlock().userData());
 
     if (curBlock) {
         txtBlock->copyBlock(*curBlock);
@@ -119,14 +117,14 @@ void Python::SyntaxHighlighter::highlightBlock (const QString & text)
     d->sourceScanTmr.blockSignals(false);
 }
 
-void Python::SyntaxHighlighter::rehighlight()
+void PythonSyntaxHighlighter::rehighlight()
 {
     Gui::SyntaxHighlighter::rehighlight();
     d->srcScanBlocks.clear();
     Python::SourceRoot::instance()->scanCompleteModule(Python::Lexer::filePath(), this);
 }
 
-QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *token) const
+QTextCharFormat PythonSyntaxHighlighter::getFormatToken(const Python::Token *token) const
 {
     assert(token != nullptr && "Need a valid pointer");
 
@@ -255,9 +253,9 @@ QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *t
     return format;
 }
 
-void Python::SyntaxHighlighter::tokenTypeChanged(const Python::Token *tok) const
+void PythonSyntaxHighlighter::tokenTypeChanged(const Python::Token *tok) const
 {
-    Python::TextBlockData *txtBlock = dynamic_cast<Python::TextBlockData*>(tok->ownerLine());
+    PythonTextBlockData *txtBlock = dynamic_cast<PythonTextBlockData*>(tok->ownerLine());
     if (!txtBlock || !txtBlock->block().isValid())
         return;
 
@@ -265,9 +263,9 @@ void Python::SyntaxHighlighter::tokenTypeChanged(const Python::Token *tok) const
                  static_cast<int>(tok->textLength()), getFormatToken(tok));
 }
 
-void Python::SyntaxHighlighter::setMessage(const Python::Token *tok) const
+void PythonSyntaxHighlighter::setMessage(const Python::Token *tok) const
 {
-    Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(tok->ownerLine());
+    PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(tok->ownerLine());
     if (!txtData || !txtData->block().isValid())
         return;
 
@@ -278,9 +276,9 @@ void Python::SyntaxHighlighter::setMessage(const Python::Token *tok) const
                      static_cast<int>(tok->textLength()), format);
 }
 
-void Python::SyntaxHighlighter::setIndentError(const Python::Token *tok) const
+void PythonSyntaxHighlighter::setIndentError(const Python::Token *tok) const
 {
-    Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(tok->ownerLine());
+    PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(tok->ownerLine());
     if (!txtData || !txtData->block().isValid())
         return;
 
@@ -291,9 +289,9 @@ void Python::SyntaxHighlighter::setIndentError(const Python::Token *tok) const
                      static_cast<int>(tok->textLength()), format);
 }
 
-void Python::SyntaxHighlighter::setSyntaxError(const Python::Token *tok) const
+void PythonSyntaxHighlighter::setSyntaxError(const Python::Token *tok) const
 {
-    Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(tok->ownerLine());
+    PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(tok->ownerLine());
     if (!txtData || !txtData->block().isValid())
         return;
 
@@ -304,9 +302,9 @@ void Python::SyntaxHighlighter::setSyntaxError(const Python::Token *tok) const
                      static_cast<int>(tok->textLength()), format);
 }
 
-void Python::SyntaxHighlighter::newFormatToken(const Python::Token *tok, QTextCharFormat format) const
+void PythonSyntaxHighlighter::newFormatToken(const Python::Token *tok, QTextCharFormat format) const
 {
-    Python::TextBlockData *txtBlock = dynamic_cast<Python::TextBlockData*>(tok->ownerLine());
+    PythonTextBlockData *txtBlock = dynamic_cast<PythonTextBlockData*>(tok->ownerLine());
     if (!txtBlock || !txtBlock->block().isValid())
         return;
 
@@ -314,18 +312,18 @@ void Python::SyntaxHighlighter::newFormatToken(const Python::Token *tok, QTextCh
               static_cast<int>(tok->textLength()), format);
 }
 
-void Python::SyntaxHighlighter::tokenUpdated(const Python::Token *tok)
+void PythonSyntaxHighlighter::tokenUpdated(const Python::Token *tok)
 {
     int pos = tok->startPosInt();
     int len = tok->endPosInt() - pos;
     setFormat(pos, len, getFormatToken(tok));
 }
 
-void Python::SyntaxHighlighter::sourceScanTmrCallback() {
+void PythonSyntaxHighlighter::sourceScanTmrCallback() {
     for(int row : d->srcScanBlocks) {
         QTextBlock block = document()->findBlockByNumber(row);
         if (block.isValid()) {
-            Python::TextBlockData *txtData = dynamic_cast<Python::TextBlockData*>(block.userData());
+            PythonTextBlockData *txtData = dynamic_cast<PythonTextBlockData*>(block.userData());
             if (txtData)
                 Python::SourceRoot::instance()->scanSingleRowModule(
                             Python::Lexer::filePath(), txtData, this);
@@ -334,7 +332,7 @@ void Python::SyntaxHighlighter::sourceScanTmrCallback() {
     d->srcScanBlocks.clear();
 }
 
-void Python::SyntaxHighlighter::setFilePath(QString filePath)
+void PythonSyntaxHighlighter::setFilePath(QString filePath)
 {
     Python::Lexer::setFilePath(filePath.toStdString());
 #ifdef BUILD_PYTHON_DEBUGTOOLS
@@ -350,7 +348,7 @@ void Python::SyntaxHighlighter::setFilePath(QString filePath)
     d->srcScanBlocks.clear();
 }
 
-QString Python::SyntaxHighlighter::filePath() const
+QString PythonSyntaxHighlighter::filePath() const
 {
     return QString::fromStdString(Python::Lexer::filePath());
 }
@@ -358,28 +356,28 @@ QString Python::SyntaxHighlighter::filePath() const
 // --------------------------------------------------------------------------------------------
 
 
-Python::MatchingCharInfo::MatchingCharInfo():
+PythonMatchingCharInfo::PythonMatchingCharInfo():
     character(0), position(0)
 {
 }
 
-Python::MatchingCharInfo::MatchingCharInfo(const MatchingCharInfo &other)
+PythonMatchingCharInfo::PythonMatchingCharInfo(const PythonMatchingCharInfo &other)
 {
     character = other.character;
     position = other.position;
 }
 
-Python::MatchingCharInfo::MatchingCharInfo(char chr, int pos):
+PythonMatchingCharInfo::PythonMatchingCharInfo(char chr, int pos):
     character(chr), position(pos)
 {
 }
 
-Python::MatchingCharInfo::~MatchingCharInfo()
+PythonMatchingCharInfo::~PythonMatchingCharInfo()
 {
 }
 
 //static
-char Python::MatchingCharInfo::matchChar(char match)
+char PythonMatchingCharInfo::matchChar(char match)
 {
     switch (match) {
     case '(':
@@ -399,61 +397,61 @@ char Python::MatchingCharInfo::matchChar(char match)
     }
 }
 
-char Python::MatchingCharInfo::matchingChar() const
+char PythonMatchingCharInfo::matchingChar() const
 {
-    return MatchingCharInfo::matchChar(character);
+    return PythonMatchingCharInfo::matchChar(character);
 }
 
 // -------------------------------------------------------------------------------------------
 
-Python::TextBlockData::TextBlockData(QTextBlock block, Python::TokenList *tokenList,
+PythonTextBlockData::PythonTextBlockData(QTextBlock block, Python::TokenList *tokenList,
                                      Python::Token *startTok) :
     Gui::TextEditBlockData(block),
     Python::TokenLine(tokenList, startTok, block.text().toStdString())
 {
 }
 
-Python::TextBlockData::TextBlockData(const Python::TextBlockData &other) :
+PythonTextBlockData::PythonTextBlockData(const PythonTextBlockData &other) :
     Gui::TextEditBlockData(other),
     Python::TokenLine(other)
 {
 }
 
-Python::TextBlockData::~TextBlockData()
+PythonTextBlockData::~PythonTextBlockData()
 {
 }
 
-Python::TextBlockData *Python::TextBlockData::pyBlockDataFromCursor(const QTextCursor &cursor)
+PythonTextBlockData *PythonTextBlockData::pyBlockDataFromCursor(const QTextCursor &cursor)
 {
-    return dynamic_cast<Python::TextBlockData*>(blockDataFromCursor(cursor));
+    return dynamic_cast<PythonTextBlockData*>(blockDataFromCursor(cursor));
 }
 
-Python::TextBlockData *Python::TextBlockData::nextBlock() const
+PythonTextBlockData *PythonTextBlockData::nextBlock() const
 {
-    return dynamic_cast<Python::TextBlockData*>(TextEditBlockData::nextBlock());
+    return dynamic_cast<PythonTextBlockData*>(TextEditBlockData::nextBlock());
 }
 
-Python::TextBlockData *Python::TextBlockData::previousBlock() const
+PythonTextBlockData *PythonTextBlockData::previousBlock() const
 {
-    return dynamic_cast<Python::TextBlockData*>(TextEditBlockData::previousBlock());
+    return dynamic_cast<PythonTextBlockData*>(TextEditBlockData::previousBlock());
 }
 
 // static
-Python::Token *Python::TextBlockData::tokenAt(const QTextCursor &cursor)
+Python::Token *PythonTextBlockData::tokenAt(const QTextCursor &cursor)
 {
-    Python::TextBlockData *textData = pyBlockDataFromCursor(cursor);
+    PythonTextBlockData *textData = pyBlockDataFromCursor(cursor);
     if (!textData)
         return nullptr;
 
     return textData->tokenAt(cursor.position() - cursor.block().position());
 }
 
-Python::Token *Python::TextBlockData::tokenAt(int pos) const
+Python::Token *PythonTextBlockData::tokenAt(int pos) const
 {
     return Python::TokenLine::tokenAt(pos);
 }
 
-bool Python::TextBlockData::isMatchAt(int pos, Python::Token::Type tokType) const
+bool PythonTextBlockData::isMatchAt(int pos, Python::Token::Type tokType) const
 {
     const Python::Token *tok = tokenAt(pos);
     if (!tok)
@@ -461,7 +459,7 @@ bool Python::TextBlockData::isMatchAt(int pos, Python::Token::Type tokType) cons
     return tokType == tok->type();
 }
 
-bool Python::TextBlockData::isMatchAt(int pos, const QList<Python::Token::Type> tokTypes) const
+bool PythonTextBlockData::isMatchAt(int pos, const QList<Python::Token::Type> tokTypes) const
 {
     Python::Token *tok = Python::TokenLine::tokenAt(pos);
     if (tok) {
@@ -473,27 +471,27 @@ bool Python::TextBlockData::isMatchAt(int pos, const QList<Python::Token::Type> 
     return false;
 }
 
-Python::TextBlockScanInfo *Python::TextBlockData::scanInfo() const
+PythonTextBlockScanInfo *PythonTextBlockData::scanInfo() const
 {
-    return dynamic_cast<Python::TextBlockScanInfo*>(Gui::TextEditBlockData::scanInfo());
+    return dynamic_cast<PythonTextBlockScanInfo*>(Gui::TextEditBlockData::scanInfo());
 }
 
-void Python::TextBlockData::setScanInfo(Python::TextBlockScanInfo *scanInfo)
+void PythonTextBlockData::setScanInfo(PythonTextBlockScanInfo *scanInfo)
 {
     m_scanInfo = scanInfo;
 }
 
-int Python::TextBlockData::blockState() const
+int PythonTextBlockData::blockState() const
 {
     return Python::TokenLine::blockState();
 }
 
-int Python::TextBlockData::incBlockState()
+int PythonTextBlockData::incBlockState()
 {
     return Python::TokenLine::incBlockState();
 }
 
-int Python::TextBlockData::decBlockState()
+int PythonTextBlockData::decBlockState()
 {
     return Python::TokenLine::decBlockState();
 }
@@ -501,42 +499,42 @@ int Python::TextBlockData::decBlockState()
 // -------------------------------------------------------------------------------------
 
 
-Python::TextBlockScanInfo::TextBlockScanInfo() :
+PythonTextBlockScanInfo::PythonTextBlockScanInfo() :
     Gui::TextEditBlockScanInfo()
 {
 }
 
-Python::TextBlockScanInfo::~TextBlockScanInfo()
+PythonTextBlockScanInfo::~PythonTextBlockScanInfo()
 {
 }
 
-void Python::TextBlockScanInfo::setParseMessage(const Python::Token *tok, QString message,
+void PythonTextBlockScanInfo::setParseMessage(const Python::Token *tok, QString message,
                                               MsgType type)
 {
     Gui::TextEditBlockScanInfo::setParseMessage(tok->startPosInt(), tok->endPosInt(), message, type);
 }
 
-const Python::TextBlockScanInfo::ParseMsg
-*Python::TextBlockScanInfo::getParseMessage(const Python::Token *tok,
-                                          Python::TextBlockScanInfo::MsgType type) const
+const PythonTextBlockScanInfo::ParseMsg
+*PythonTextBlockScanInfo::getParseMessage(const Python::Token *tok,
+                                          PythonTextBlockScanInfo::MsgType type) const
 {
     return Gui::TextEditBlockScanInfo::getParseMessage(tok->startPosInt(), tok->endPosInt(), type);
 }
 
-QString Python::TextBlockScanInfo::parseMessage(const Python::Token *tok, MsgType type) const
+QString PythonTextBlockScanInfo::parseMessage(const Python::Token *tok, MsgType type) const
 {
     return Gui::TextEditBlockScanInfo::parseMessage(tok->startPosInt(), type);
 }
 
 
-void Python::TextBlockScanInfo::clearParseMessage(const Python::Token *tok)
+void PythonTextBlockScanInfo::clearParseMessage(const Python::Token *tok)
 {
     Gui::TextEditBlockScanInfo::clearParseMessage(tok->startPosInt());
 }
 
 // -------------------------------------------------------------------------------------
 
-Python::MatchingChars::MatchingChars(PythonEditor *parent):
+PythonMatchingChars::PythonMatchingChars(PythonEditor *parent):
     QObject(parent),
     m_editor(parent)
 {
@@ -545,7 +543,7 @@ Python::MatchingChars::MatchingChars(PythonEditor *parent):
             this, SLOT(cursorPositionChange()));
 }
 
-Python::MatchingChars::MatchingChars(PythonConsoleTextEdit *parent):
+PythonMatchingChars::PythonMatchingChars(PythonConsoleTextEdit *parent):
     QObject(parent),
     m_editor(parent)
 {
@@ -554,12 +552,12 @@ Python::MatchingChars::MatchingChars(PythonConsoleTextEdit *parent):
             this, SLOT(cursorPositionChange()));
 }
 
-Python::MatchingChars::~MatchingChars()
+PythonMatchingChars::~PythonMatchingChars()
 {
 }
 
 
-void Python::MatchingChars::cursorPositionChange()
+void PythonMatchingChars::cursorPositionChange()
 {
 
     QTextCharFormat format;
@@ -588,7 +586,7 @@ void Python::MatchingChars::cursorPositionChange()
     QTextBlockUserData *rawTextData = currentBlock.userData();
     if (!rawTextData)
         return;
-    Python::TextBlockData *textData = dynamic_cast<Python::TextBlockData*>(rawTextData);
+    PythonTextBlockData *textData = dynamic_cast<PythonTextBlockData*>(rawTextData);
     if (!textData)
         return;
 
@@ -680,8 +678,8 @@ void Python::MatchingChars::cursorPositionChange()
                 --innerCount;
             if (innerCount < 0 && tokenObj->type() == token2) {
                 // found it!
-                Python::TextBlockData *pyBlock =
-                        dynamic_cast<Python::TextBlockData*>(tokenObj->ownerLine());
+                PythonTextBlockData *pyBlock =
+                        dynamic_cast<PythonTextBlockData*>(tokenObj->ownerLine());
                 if (!pyBlock)
                     return;
                 pos2 = tokenObj->startPosInt() + pyBlock->block().position();

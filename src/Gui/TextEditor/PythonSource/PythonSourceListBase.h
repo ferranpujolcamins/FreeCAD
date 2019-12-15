@@ -5,8 +5,6 @@
 #include "PythonSourceItemBase.h"
 #include <TextEditor/PythonSyntaxHighlighter.h>
 
-
-namespace  Gui {
 namespace Python {
 
 class SourceListParentBase;
@@ -104,8 +102,5 @@ protected:
 };
 
 } // namespace Python
-
-} // namespace Gui
-
 
 #endif // PYTHONSOURCELISTBASE_H
