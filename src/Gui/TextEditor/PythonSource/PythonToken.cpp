@@ -50,10 +50,10 @@ class LexerP {
         keywords[hash] = cstr;
     }
 public:
-    LexerP() :
-        tokenList(),
+    LexerP(Python::Lexer *lexer) :
+        tokenList(lexer),
         endStateOfLastPara(Python::Token::T_Invalid),
-        activeLine(nullptr)
+        activeLine(nullptr), insertDedent(false)
     {
         reGenerate();
     }
@@ -161,6 +161,7 @@ public:
     Python::Token::Type endStateOfLastPara;
     Python::TokenLine *activeLine;
     std::string filePath;
+    bool insertDedent;
 
     // these hashes are constant and wont change, use for quicker lookup
     static const std::size_t defHash, classHash, importHash, fromHash, andHash,
@@ -523,6 +524,12 @@ bool Python::Token::isIdentifierDeclaration() const {
            m_type < T__IdentifierDeclarationEnd;
 }
 
+bool Python::Token::isIdentifierFrameStart() const
+{
+    return m_type > T__IdentifierFrameStartTokenStart &&
+           m_type < T__IdentifierFrameStartTokenEnd;
+}
+
 bool Python::Token::isNewLine() const
 {
     if (m_type != T_DelimiterNewLine)
@@ -583,10 +590,10 @@ void Python::Token::detachReference(Python::TokenWrapperBase *tokWrapper)
 
 // -------------------------------------------------------------------------------------------
 
-Python::TokenList::TokenList() :
+Python::TokenList::TokenList(Lexer *lexer) :
     m_first(nullptr), m_last(nullptr),
     m_firstLine(nullptr), m_lastLine(nullptr),
-    m_size(0)
+    m_size(0), m_lexer(lexer)
 {
 #ifdef DEBUG_DELETES
     std::cout << "new TokenLine: " << std::hex << this << std::endl;
@@ -596,7 +603,7 @@ Python::TokenList::TokenList() :
 Python::TokenList::TokenList(const Python::TokenList &other) :
     m_first(other.m_first), m_last(other.m_last),
     m_firstLine(other.m_firstLine), m_lastLine(other.m_lastLine),
-    m_size(other.m_size)
+    m_size(other.m_size), m_lexer(other.m_lexer)
 {
 #ifdef DEBUG_DELETES
     std::cout << "cpy TokenLine: " << std::hex << this
@@ -807,9 +814,11 @@ Python::TokenLine *Python::TokenList::lineAt(int32_t lineNr) const
     if (!m_firstLine || !m_lastLine)
         return nullptr;
 
+    Python::TokenLine *line;
+
     if (lineNr < 0) {
         // lookup from the back
-        Python::TokenLine *line = m_lastLine;
+        line = m_lastLine;
         for (int32_t idx = lineNr; idx < 0 && line; ++idx) {
             line = line->m_previousLine;
         }
@@ -817,7 +826,7 @@ Python::TokenLine *Python::TokenList::lineAt(int32_t lineNr) const
     }
 
     // lookup from start
-    Python::TokenLine *line = m_firstLine;
+    line = m_firstLine;
     for (int32_t idx = 0; idx < lineNr && line; ++idx) {
         line = line->m_nextLine;
     }
@@ -1100,7 +1109,7 @@ uint Python::TokenLine::count() const
     return cnt;
 }
 
-int Python::TokenLine::indent() const
+uint Python::TokenLine::indent() const
 {
     return m_indentCharCount;
 }
@@ -1155,9 +1164,7 @@ Python::Token *Python::TokenLine::tokenAt(int idx) const
 {
     Python::Token *iter = m_frontTok;
     uint guard = m_ownerList->max_size();
-    while(iter && (--guard)) {
-        if (iter->m_ownerLine != this)
-            break;
+    while(iter && iter->m_ownerLine == this && (--guard)) {
         if (iter->startPosInt() <= idx && iter->endPosInt() > idx)
             return iter;
         iter = iter->m_next;
@@ -1269,9 +1276,15 @@ void Python::TokenLine::push_back(Python::Token *tok)
     assert(tok->m_ownerLine == this && "tok already added to a Line");
     assert(m_ownerList != nullptr && "Line must be inserted to a list to add tokens");
     tok->m_ownerLine = this;
-    m_ownerList->push_back(tok);
-    if (!m_frontTok)
+    Token *beforeTok;
+    if (!m_frontTok) {
         m_frontTok = tok;
+        Python::TokenLine *line = m_ownerList->lexer()->previousCodeLine(m_previousLine);
+        beforeTok = line ? line->m_backTok : nullptr;
+    } else {
+        beforeTok = m_backTok;
+    }
+    m_ownerList->insert(beforeTok, tok);
     m_backTok = tok;
 }
 
@@ -1427,15 +1440,55 @@ Python::TokenScanInfo *Python::TokenLine::tokenScanInfo(bool initScanInfo)
     return m_tokenScanInfo;
 }
 
+void Python::TokenLine::setIndentErrorMsg(const Python::Token *tok, const std::string &msg)
+{
+    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+
+    scanInfo->setParseMessage(tok, msg, TokenScanInfo::IndentError);
+    m_ownerList->lexer()->setIndentError(tok);
+}
+
+void Python::TokenLine::setLookupErrorMsg(const Python::Token *tok, const std::string &msg)
+{
+    assert(tok);
+    assert(tok->ownerLine() == instance());
+    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+
+    if (msg.empty())
+        scanInfo->setParseMessage(tok, "Can't lookup identifier '" + tok->text() + "'",
+                                  TokenScanInfo::LookupError);
+    else
+        scanInfo->setParseMessage(tok, msg, TokenScanInfo::LookupError);
+}
+
+void Python::TokenLine::setSyntaxErrorMsg(const Python::Token *tok, const std::string &msg)
+{
+    assert(tok);
+    assert(tok->ownerLine() == instance());
+
+    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    scanInfo->setParseMessage(tok, msg, TokenScanInfo::SyntaxError);
+    m_ownerList->lexer()->setSyntaxError(tok);
+}
+
+void Python::TokenLine::setMessage(const Python::Token *tok, const std::string &msg)
+{
+    assert(tok);
+    assert(tok->ownerLine() == instance());
+
+    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    scanInfo->setParseMessage(tok, msg, TokenScanInfo::Message);
+}
+
 void Python::TokenLine::setIndentCount(uint count)
 {
-    m_indentCharCount = static_cast<int>(count);
+    m_indentCharCount = count;
 }
 
 // --------------------------------------------------------------------------------
 
 Python::Lexer::Lexer() :
-    d_lex(new LexerP())
+    d_lex(new LexerP(this))
 {
 }
 
@@ -1475,6 +1528,16 @@ void Python::Lexer::setVersion(Version::versions value)
 {
     LexerP::version.setVersion(value);
     LexerP::reGenerate();
+}
+
+// static
+Python::TokenLine *Python::Lexer::previousCodeLine(Python::TokenLine *line)
+{
+    // get the nearest sibling above that has code
+    uint guard = TokenList::max_size();
+    while (line && !line->isCodeLine() && (--guard))
+        line = line->m_previousLine;
+    return line;
 }
 
 uint Python::Lexer::tokenize(TokenLine *tokLine)
@@ -1753,6 +1816,9 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
                 }
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
+                if (d_lex->insertDedent)
+                    insertDedent();
+                checkForDedent(); // this line might dedent a previous line
                 break;
             case '\n':
                 // newline token should not be generated for empty and comment only lines
@@ -1761,6 +1827,9 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     !d_lex->activeLine->isCodeLine())
                     break;
                 setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
+                if (d_lex->insertDedent)
+                    insertDedent();
+                checkForDedent(); // this line might dedent a previous line
                 break;
             case '[':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenBracket);
@@ -1992,8 +2061,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 if ( len > 0) {
                     setNumber(i, len, numberType(text.substr(i, len)));
                     break;
-                } else if (thisCh == '\\')// && i == text.length() - 1)
-                {
+                } else if (thisCh == '\\') {
                     setDelimiter(i, 1, Python::Token::T_DelimiterBackSlash);
                     break;
                 }
@@ -2342,10 +2410,115 @@ void Python::Lexer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
 
 void Python::Lexer::setIndentation(uint &pos, uint len, uint count)
 {
-    Python::Token *tok = d_lex->activeLine->newDeterminedToken(Python::Token::T_Indent, pos, len);
     d_lex->activeLine->setIndentCount(count);
-    tokenUpdated(tok);
-    pos += len -1;
+
+    // get the nearest sibling above that has code
+    Python::TokenLine *prevLine = previousCodeLine(d_lex->activeLine->m_previousLine);
+
+    uint guard = TokenList::max_size();
+    Python::Token *tok = nullptr;
+
+    do { // break out block
+        if (!prevLine) {
+            if (count > 0)
+                tok = createIndentError("Unexpected Indent at begining of file");
+            break;
+        }
+        if (count == prevLine->m_indentCharCount) {
+            if (prevLine->back() && prevLine->back()->type() == Token::T_Dedent) {
+                // remove a previous dedent token at the same level
+                prevLine->remove(prevLine->back(), true);
+                prevLine->incBlockState();
+                d_lex->insertDedent = true; // defer insert to last token scanned
+            }
+            break;
+        }
+
+        // its not a blockstart/blockend
+        if (prevLine->m_parenCnt > 0 || prevLine->m_braceCnt > 0 || prevLine->m_bracketCnt > 0)
+            break;
+
+        // when we get here we have a cahnge in indentation to previous line
+        if (prevLine->m_indentCharCount < count) {
+            // increase indent by one block
+
+            // check so we have a valid ':'
+            Python::Token *lookupTok = prevLine->back();
+            while(lookupTok && lookupTok->ownerLine() == prevLine &&
+                  lookupTok->type() != Python::Token::T_DelimiterColon && (--guard))
+            {
+                lookupTok = lookupTok->previous();
+            }
+
+            if (!lookupTok || lookupTok->ownerLine() != prevLine) {
+                tok = createIndentError("Blockstart without ':'");
+            } else {
+                prevLine->incBlockState();
+                tok = d_lex->activeLine->newDeterminedToken(Python::Token::T_Indent, pos, len);
+            }
+        }
+    } while(false); // breakout block
+
+    if (tok)
+        tokenUpdated(tok);
+
+    pos += len - 1;
+}
+
+Python::Token *Python::Lexer::createIndentError(const std::string &msg)
+{
+    Python::Token *tok = d_lex->activeLine->m_frontTok;
+    if (!tok || tok->type() != Python::Token::T_IndentError) {
+        tok = new Python::Token(Python::Token::T_IndentError, 0, d_lex->activeLine->indent(), d_lex->activeLine);
+        d_lex->activeLine->push_front(tok);
+    }
+    d_lex->activeLine->setIndentErrorMsg(tok, msg);
+    return tok;
+}
+
+Python::Token *Python::Lexer::insertDedent()
+{
+    d_lex->insertDedent = false;
+    d_lex->activeLine->decBlockState();
+    return d_lex->activeLine->newDeterminedToken(Python::Token::T_Dedent,
+                                                 d_lex->activeLine->back()->endPos(), 0);
+}
+
+void Python::Lexer::checkForDedent()
+{
+    Python::TokenLine *prevLine = previousCodeLine(d_lex->activeLine->m_previousLine);
+    uint guard = d_lex->tokenList.max_size();
+
+    if (prevLine && prevLine->back() &&
+        prevLine->m_indentCharCount > d_lex->activeLine->m_indentCharCount &&
+        prevLine->back()->type() != Token::T_Dedent)
+    {
+        // decrease indent
+        // first find out the indent count that triggered the indent
+        Python::TokenLine *startLine = prevLine;
+        int dedentCnt = 0, indentCnt = 0;
+        while (startLine && (--guard)) {
+            if (startLine->back() && startLine->back()->type() == Python::Token::T_Dedent) {
+                --dedentCnt;
+            }
+            if (startLine->front() && startLine->front()->type() == Python::Token::T_Indent) {
+                ++indentCnt;
+            }
+
+            if (startLine->isCodeLine() && startLine->m_indentCharCount < prevLine->m_indentCharCount)
+                break; // we are finished
+
+            startLine = startLine->m_previousLine;
+        }
+
+        // insert dedents
+        while ((indentCnt + dedentCnt) > 0) {
+            --dedentCnt;
+            prevLine->decBlockState();
+            tokenUpdated(prevLine->newDeterminedToken(Python::Token::T_Dedent, prevLine->back()->endPos(), 0));
+        }
+
+    }
 }
 
 // ------------------------------------------------------------------------------------
@@ -2512,3 +2685,4 @@ void Python::TokenWrapperInherit::tokenDeleted()
     m_token = nullptr;
     tokenDeletedCallback();
 }
+

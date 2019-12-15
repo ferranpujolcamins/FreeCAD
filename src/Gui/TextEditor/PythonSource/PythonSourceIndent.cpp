@@ -88,13 +88,15 @@ void Python::SourceIndent::pushBlock(int currentIndent)
 
 void Python::SourceIndent::popBlock()
 {
+    // keep rootframe
     if (m_indentStack.size() < 2)
         return;
-    m_indentStack.pop_back();
+
+    // might have a frame block
     Indent ind = m_indentStack.back();
-    if (ind.frameIndent >= ind.currentBlockIndent) {
+    m_indentStack.pop_back();
+    if (ind.frameIndent > m_indentStack.back().frameIndent) {
         // pop a framestarter
-        m_indentStack.pop_back();
         ++m_framePopCnt; // store that we have popped a frame
     }
 }
@@ -107,14 +109,15 @@ int Python::SourceIndent::framePopCntDecr()
 }
 
 
-bool Python::SourceIndent::validIndentLine(Python::Token *tok)
+bool Python::SourceIndent::validIndentLine(const Python::Token *tok)
 {
     DEFINE_DBG_VARS
 
     // make sure we don't dedent on a comment or a string
-    for(Python::Token *tmpTok : tok->ownerLine()->tokens()) {
-        DBG_TOKEN(tmpTok)
-        switch (tmpTok->type()) {
+    Python::Token *itTok = tok->ownerLine()->front();
+    while(itTok && itTok->ownerLine() == tok->ownerLine()) {
+        DBG_TOKEN(itTok)
+        switch (itTok->type()) {
         case Python::Token::T_LiteralBlockDblQuote:
         case Python::Token::T_LiteralBlockSglQuote:
         case Python::Token::T_LiteralDblQuote:
@@ -122,9 +125,10 @@ bool Python::SourceIndent::validIndentLine(Python::Token *tok)
         case Python::Token::T_Comment:
             return false;// ignore indents if we are at a multiline string
         default:
-            if (tmpTok->isCode())
+            if (itTok->isCode())
                 return true;
         }
+        itTok = itTok->next();
     }
 
     return true;

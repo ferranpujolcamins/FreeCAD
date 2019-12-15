@@ -51,6 +51,7 @@ public:
     Python::Lexer *lexer() const { return m_lexer; }
     void tokenTypeChanged(const Python::Token *tok) const;
 
+    /*
     /// stores a syntax error at tok with message and sets up for repaint
     void setSyntaxError(const Python::Token *tok, const std::string &parseMessage) const;
 
@@ -62,6 +63,7 @@ public:
 
     /// stores a message at tok
     void setMessage(const Python::Token *tok, const std::string &parseMessage) const;
+    */
 
     /// returns the frame for given token
     const Python::SourceFrame *getFrameForToken(const Python::Token *tok,
@@ -82,7 +84,7 @@ protected:
 
 
 private:
-    int _currentBlockIndent(const Python::Token *tok) const;
+    uint _currentBlockIndent(const Python::Token *tok) const;
 };
 
 // --------------------------------------------------------------------------

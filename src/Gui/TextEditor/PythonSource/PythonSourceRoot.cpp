@@ -552,7 +552,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         switch (tok->type()) {
         case Python::Token::T_DelimiterOpenParen:
             if (parenOpenCnt != parenCloseCnt) {
-                frame->module()->setSyntaxError(tok, "Parens mismatch '('..')' in statement");
+                tok->ownerLine()->setSyntaxErrorMsg(tok, "Parens mismatch '('..')' in statement");
                 return typeInfo;
             }
             parenPos.push_front(pos);
@@ -562,13 +562,13 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
             parenPos.push_front(pos);
             parenCloseCnt++;
             if (parenOpenCnt != parenCloseCnt) {
-                frame->module()->setSyntaxError(tok, "Parens mismatch '('..')' in statement");
+                tok->ownerLine()->setSyntaxErrorMsg(tok, "Parens mismatch '('..')' in statement");
                 return typeInfo;
             }
             break;
         case Python::Token::T_DelimiterOpenBrace:
             if (braceOpenCnt != braceCloseCnt) {
-                frame->module()->setSyntaxError(startToken, "Braces mismatch in statement '{'..'}'");
+                tok->ownerLine()->setSyntaxErrorMsg(startToken, "Braces mismatch in statement '{'..'}'");
                 return typeInfo;
             }
             braceOpenCnt++;
@@ -576,13 +576,13 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         case Python::Token::T_DelimiterCloseBrace:
             braceCloseCnt++;
             if (braceOpenCnt != braceCloseCnt) {
-                frame->module()->setSyntaxError(startToken, "Braces mismatch in statement '{'..'}'");
+                tok->ownerLine()->setSyntaxErrorMsg(startToken, "Braces mismatch in statement '{'..'}'");
                 return typeInfo;
             }
             break;
         case Python::Token::T_DelimiterOpenBracket:
             if (bracketOpenCnt != bracketCloseCnt) {
-                frame->module()->setSyntaxError(startToken, "Brackets mismatch in statment '['..']'");
+                tok->ownerLine()->setSyntaxErrorMsg(startToken, "Brackets mismatch in statment '['..']'");
                 return typeInfo;
             }
             bracketOpenCnt++;
@@ -590,7 +590,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         case Python::Token::T_DelimiterCloseBracket:
             bracketCloseCnt++;
             if (bracketOpenCnt != bracketCloseCnt) {
-                frame->module()->setSyntaxError(startToken, "Brackets mismatch in statment '['..']'");
+                tok->ownerLine()->setSyntaxErrorMsg(startToken, "Brackets mismatch in statment '['..']'");
                 return typeInfo;
             }
             break;
@@ -607,7 +607,7 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
 
     // track a dangling ( at end
     if (parenPos.size() % 2) {
-        frame->module()->setSyntaxError(startToken, "Parens mismatch '('..')' in statement");
+        tok->ownerLine()->setSyntaxErrorMsg(startToken, "Parens mismatch '('..')' in statement");
         return typeInfo;
     }
 

@@ -68,10 +68,11 @@ private:
      * @brief handleIndent calculates the indent, pushes and pops indent blocks
      * @param tok = Starttoken
      * @param indent = indent class to mutate
-     * @param direction = -1: only calc deindent, 1: only calc indent and push frames instead of block, 0 do both
      * @return
      */
-    void handleIndent(Python::SourceIndent &indent, int direction);
+    void handleIndent(Python::SourceIndent &indent);
+    void handleDedent(Python::SourceIndent &indent);
+    const TokenLine *frameStartLine(const Python::Token *semiColonTok);
 
     // set identifier and sets up reference to RValue
     void scanIdentifier();

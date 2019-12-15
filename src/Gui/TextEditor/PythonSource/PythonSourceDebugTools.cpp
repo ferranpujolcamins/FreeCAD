@@ -28,6 +28,7 @@ const char *Gui::Python::tokenToCStr(Token::Type tok)
     case Token::T_Undetermined:        return "T_Undetermined";     // Parser looks tries to figure out next char also Standard text
         // python
     case Token::T_Indent:              return "T_Indent";
+    case Token::T_Dedent:              return "T_Dedent";
     case Token::T_Comment:             return "T_Comment";     // Comment begins with #
     case Token::T_SyntaxError:         return "T_SyntaxError";
     case Token::T_IndentError:         return "T_IndentError";  // to signify that we have a indent error, set by PythonSourceRoot

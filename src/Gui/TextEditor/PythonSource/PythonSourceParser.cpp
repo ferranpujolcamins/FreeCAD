@@ -70,13 +70,6 @@ void Python::SourceParser::startSubFrame(Python::SourceIndent &indent,
     DEFINE_DBG_VARS
     DBG_TOKEN(m_tok)
 
-    // first handle indents to get de-dent
-    handleIndent(indent, -1);
-    if (indent.framePopCnt()) {
-        movePrevious();
-        return;
-    }
-
     // add function frame
     bool classFrm = type == Python::SourceRoot::ClassType;
     Python::SourceFrame *funcFrm = new Python::SourceFrame(m_activeFrame, m_activeModule, m_activeFrame, classFrm),
@@ -89,16 +82,28 @@ void Python::SourceParser::startSubFrame(Python::SourceIndent &indent,
     typeInfo.type = type;
     m_activeFrame->m_identifiers.setIdentifier(m_tok, typeInfo);
 
+    // find out indent and push frameblock
+    // def func(arg1):     <- frameIndent
+    //     var1 = None     <- previousBlockIndent
+    //     if (arg1):      <- triggers change in currentBlockIndent
+    //         var1 = arg1 <- currentBlockIndent
+    uint frameIndent = m_tok->ownerLine()->indent();
+    const Python::Token *tokIt = m_tok;
+    uint guard = 1000;
+    while (tokIt && (tokIt = tokIt->next()) && (--guard)) {
+        if (tokIt->type() == Token::T_Indent) {
+            indent.pushFrameBlock(frameIndent,
+                                  tokIt->ownerLine()->indent());
+            break;
+        }
+
+    }
+
     // scan this frame
-    int lineIndent = m_tok->ownerLine()->indent();
-    if (indent.frameIndent() < lineIndent)
-         indent.pushFrameBlock(lineIndent, lineIndent);
     m_activeFrame = funcFrm;
     scanFrame(m_tok, indent);
     m_activeFrame = oldFrm;
     DBG_TOKEN(m_tok)
-    //if (m_tok && m_lastToken.token() && (*m_lastToken.token() < *m_tok))
-    //    m_lastToken.setToken(m_tok);
 }
 
 Python::Token *Python::SourceParser::scanFrame(Python::Token *startToken, Python::SourceIndent &indent)
@@ -177,23 +182,13 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
     if (!frmStartTok)
         return frmStartTok;
 
-    // T_Indent or code on pos 0
-    handleIndent(indent, -1);
-    if (indent.framePopCnt())
-        return m_tok->previous(); // exit a frame and continue with
-                                // caller frame on this token (incr in scanFrame)
-
     if (m_activeFrame->isModule())
         m_activeFrame->m_type.type = Python::SourceRoot::ModuleType;
 
     // do framestart if it is first row in document
     bool isFrameStarter = m_tok->line() == 0;
 
-    if (m_tok->type() == Python::Token::T_IdentifierFunction ||
-        m_tok->type() == Python::Token::T_IdentifierMethod ||
-        m_tok->type() == Python::Token::T_IdentifierSuperMethod ||
-        m_tok->type() == Python::Token::T_IdentifierClass ||
-        isFrameStarter)
+    if (m_tok->isIdentifierFrameStart() || isFrameStarter)
     {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         if (isFrameStarter)
@@ -224,12 +219,18 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
     }
 
     // do increasing indents
-    handleIndent(indent, 1);
+    //handleIndent(indent);
+    if (startToken->type() == Token::T_Indent &&
+        indent.currentBlockIndent() < startToken->ownerLine()->indent())
+    {
+        indent.pushBlock(startToken->ownerLine()->indent());
+    }
 
 
     guard = 200; // max number of tokens in this line, unhang locked loop
     // scan document
     while (m_tok && (guard--)) {
+        DBG_TOKEN(m_tok)
         switch(m_tok->type()) {
         case Python::Token::T_KeywordReturn:
             scanReturnStmt();
@@ -246,11 +247,10 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
                 PREV_TOKEN(tmpTok)
 
             if (tmpTok && tmpTok->type() != Python::Token::T_DelimiterCloseParen)
-                m_activeModule->setSyntaxError(m_tok, std::string("Unexpected '") +
-                                               tmpTok->text() + "' before '->'");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, std::string("Unexpected '") +
+                                                    tmpTok->text() + "' before '->'");
             else {
                 // its a valid typehint
-
                 Python::SourceRoot::TypeInfo typeInfo;
                 const Python::SourceIdentifier *ident;
                 Python::Token *typeHintTok = m_tok->next();
@@ -268,30 +268,21 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
 
         } break;
         case Python::Token::T_DelimiterNewLine:
-            if (!Python::SourceRoot::instance()->isLineEscaped(m_tok)){
-                // insert Blockstart if we have a semicolon, non code tokens might exist before
-                Python::Token *prevTok = m_beforeTok; //m_tok->previous();
-                int guard = 10;
-                while (prevTok && (--guard)) {
-                    if (prevTok->isCode()) {
-                        if (prevTok->type() == Python::Token::T_DelimiterColon)
-                            m_activeModule->insertBlockStart(prevTok);
-                        break;
-                    }
-                    PREV_TOKEN(prevTok)
-                }
-
+            if (!Python::SourceRoot::instance()->isLineEscaped(m_tok)) {
+                // store the last token
                 if (m_activeFrame->m_lastToken.token() && (*m_activeFrame->m_lastToken.token() < *m_tok))
                     m_activeFrame->m_lastToken.setToken(m_tok);
+
+                // pop indent stack
+                while (m_tok->next() && m_tok->next()->type() == Token::T_Dedent) {
+                    indent.popBlock();
+                    moveNext();
+                }
+
                 return m_tok;
             }
             break;
         case Python::Token::T_IdentifierDefUnknown: {
-            // first handle indents to get de-dent
-            handleIndent(indent, -1);
-            if (indent.framePopCnt())
-                return m_beforeTok; //m_tok->previous();
-
             // a function that can be function or method
             // determine what it is
             if (m_activeFrame->m_isClass && indent.frameIndent() == m_tok->ownerLine()->indent()) {
@@ -338,7 +329,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
             FALLTHROUGH
         case Python::Token::T_IdentifierMethod: {
             if (!m_activeFrame->m_isClass)
-                m_activeModule->setSyntaxError(m_tok, "Method without class");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Method without class");
 
             startSubFrame(indent, Python::SourceRoot::MethodType);
             DBG_TOKEN(m_tok)
@@ -406,7 +397,7 @@ void Python::SourceParser::scanIdentifier()
                     if (tmpIdent && !tmpIdent->isCallable(identifierTok)) {
                         std::string msg = "Calling '" + identifierTok->text() +
                                                 "' is a non callable";
-                        m_activeModule->setLookupError(identifierTok, msg);
+                        m_tok->ownerLine()->setLookupErrorMsg(identifierTok, msg);
                     }
 
                 } else if (identifierTok->type() == Python::Token::T_IdentifierBuiltin) {
@@ -415,7 +406,7 @@ void Python::SourceParser::scanIdentifier()
                    if (!tpPair.thisType.isCallable()) {
                        std::string msg = "Calling builtin '" + identifierTok->text() +
                                                 "' is a non callable";
-                       m_activeModule->setLookupError(identifierTok, msg);
+                       m_tok->ownerLine()->setLookupErrorMsg(identifierTok, msg);
                    }
                 }
 
@@ -433,10 +424,10 @@ void Python::SourceParser::scanIdentifier()
 
                 if (!parentIdent) {
                     identifierTok->changeType(Python::Token::T_IdentifierInvalid);
-                    m_activeModule->setLookupError(identifierTok);
+                    m_tok->ownerLine()->setLookupErrorMsg(identifierTok);
                 }
             } else {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected '.'");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected '.'");
                 return;
             }
             break;
@@ -450,7 +441,7 @@ void Python::SourceParser::scanIdentifier()
         case Python::Token::T_OperatorIs:
             // booltest
             if (!identifierTok) {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected " + m_tok->text());
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected " + m_tok->text());
             } else {
                 typeInfo.type = Python::SourceRoot::BoolType;
                 ident = m_activeFrame->m_identifiers.setIdentifier(identifierTok, typeInfo);
@@ -464,7 +455,7 @@ void Python::SourceParser::scanIdentifier()
         case Python::Token::T_OperatorEqual:
             // assigment
             if (!identifierTok) {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected " + m_tok->text());
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected " + m_tok->text());
             } else {
                 scanRValue(typeInfo, false);
                 ident = m_activeFrame->m_identifiers.setIdentifier(identifierTok, typeInfo);
@@ -482,10 +473,10 @@ void Python::SourceParser::scanIdentifier()
                     lookupIdentifierReference(identifierTok);
                 return;
             } else if (ident) {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected ':'");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected ':'");
                 return;
             } else if (!identifierTok) {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected =");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected =");
             } else {
                 ident = m_activeFrame->m_identifiers.setIdentifier(identifierTok, typeInfo);
                 scanRValue(typeInfo, true);
@@ -506,7 +497,7 @@ parent_check:
                     parentIdent = frm->getIdentifier(parentIdent->hash());
                     if (!parentIdent) {
                         identifierTok->changeType(Python::Token::T_IdentifierInvalid);
-                        m_activeModule->setLookupError(m_tok->previous());
+                        m_tok->ownerLine()->setLookupErrorMsg(m_tok->previous());
                     } else {
                         identifierTok->changeType(Python::Token::T_IdentifierDefined);
                     }
@@ -566,7 +557,7 @@ const Python::SourceIdentifier *Python::SourceParser::lookupIdentifierReference(
         tok->changeType(Python::Token::T_IdentifierInvalid);
 
         if (!tmpIdent) {
-            m_activeModule->setLookupError(tok);
+            tok->ownerLine()->setLookupErrorMsg(tok);
         } else {
             assign = tmpIdent->getFromPos(lookFromToken);
             if (assign && assign->typeInfo().isValid()) {
@@ -638,7 +629,7 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
         case Python::Token::T_DelimiterColon:
             if (!isTypeHint) {
                 std::string msg = "Unexpected '" + m_tok->text() + "'";
-                m_activeModule->setSyntaxError(m_tok, msg);
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
                 return;
             }
             // else do next token
@@ -701,11 +692,11 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
                             }
                         } else if (isTypeHint) {
                             std::string msg = "Unknown type '" + text + "'";
-                            m_activeModule->setLookupError(m_tok, msg);
+                            m_tok->ownerLine()->setLookupErrorMsg(m_tok, msg);
                         } else {
                             // new identifier
                             std::string msg = "Unbound variable in RValue context '" + text + "'";
-                            m_activeModule->setLookupError(m_tok, msg);
+                            m_tok->ownerLine()->setLookupErrorMsg(m_tok, msg);
                             typeInfo.type = Python::SourceRoot::ReferenceType;
                         }
                     }
@@ -727,7 +718,7 @@ void Python::SourceParser::scanRValue(Python::SourceRoot::TypeInfo &typeInfo,
                              !m_tok->isOperatorArithmetic())
                     {
                         std::string msg =  "Unexpected code (" + text + ")";
-                        m_activeModule->setSyntaxError(m_tok, msg);
+                        m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
                     }
                     return;
                 }
@@ -758,7 +749,7 @@ void Python::SourceParser::scanImports()
         case Python::Token::T_KeywordFrom:
             if (isImports) {
                 std::string msg = "Unexpected token '" + text + "'";
-                m_activeFrame->m_module->setSyntaxError(m_tok, msg);
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
             }
             break;
         case Python::Token::T_KeywordAs:
@@ -769,7 +760,7 @@ void Python::SourceParser::scanImports()
                 guard = 0; // we are finished, bail out
                 if (modules.size() > 0) {
                     if (isAlias)
-                        m_activeFrame->m_module->setSyntaxError(m_tok, "Expected aliasname before newline");
+                        m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Expected aliasname before newline");
                     goto store_module;
                 }
             }
@@ -797,7 +788,7 @@ void Python::SourceParser::scanImports()
         case Python::Token::T_IdentifierModuleAlias:
             if (!isAlias) {
                 std::string msg = "Parsed as Alias but analyzer disagrees. '" + text + "'";
-                m_activeModule->setSyntaxError(m_tok, msg);
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
             }
             goto set_identifier;
         default:
@@ -807,7 +798,7 @@ void Python::SourceParser::scanImports()
                        //                     ^
             if (m_tok->isCode()) {
                 std::string msg = "Unexpected token '" + text + "'";
-                m_activeModule->setSyntaxError(m_tok, msg);
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
             }
             break;
         }
@@ -895,7 +886,7 @@ void Python::SourceParser::scanYieldStmt()
     {
         // we have other tokens !
         std::string msg = "Setting yield in a function with a return statement\n";
-        m_activeModule->setMessage(m_tok, msg);
+        m_tok->ownerLine()->setMessage(m_tok, msg);
     }
     // TODO implement yield
 
@@ -918,7 +909,7 @@ void Python::SourceParser::scanCodeAfterReturnOrYield(const std::string &name)
         if (tokLine && tokLine->isCodeLine()) {
             if (tokLine->indent() == m_tok->ownerLine()->indent()) {
                 std::string msg = "Code after a '" + name + "' will never run.";
-                m_activeModule->setMessage(tokLine->firstCodeToken(), msg);
+                tokLine->setMessage(tokLine->firstCodeToken(), msg);
             }
             break;
         }
@@ -1011,13 +1002,13 @@ void Python::SourceParser::scanParameter(int &parenCount, bool isInitFunc)
             if (paramType != Python::SourceParameter::Positional &&
                 paramType != Python::SourceParameter::PositionalDefault)
             {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected ':'");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected ':'");
             }
             break;
         case Python::Token::T_OperatorEqual:
             // we have a default value, actual reference is handled dynamically when we call getReferenceBy on this identifier
             if (paramType != Python::SourceParameter::PositionalDefault) {
-                m_activeModule->setSyntaxError(m_tok, "Unexpected '='");
+                m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Unexpected '='");
             }
             if (parenCount == 1) {
                 do { // clear this identifier
@@ -1075,7 +1066,7 @@ void Python::SourceParser::scanParameter(int &parenCount, bool isInitFunc)
                            paramType != Python::SourceParameter::InValid)
                 {
                     std::string msg = "Expected identifier, got '" + m_tok->text() + "'";
-                    m_activeModule->setSyntaxError(m_tok, msg);
+                    m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, msg);
                 }
             }
         }
@@ -1127,105 +1118,146 @@ void Python::SourceParser::gotoNextLine()
     }
 }
 
-void Python::SourceParser::handleIndent(Python::SourceIndent &indent,
-                                             int direction)
+void Python::SourceParser::handleDedent(Python::SourceIndent &indent)
 {
     DEFINE_DBG_VARS
     DBG_TOKEN(m_tok)
     if (!m_tok)
-            return;
+        return;
 
-    int ind = m_tok->ownerLine()->indent();
+    // rationale here is to back up until we find a line with less indent
+    // def func(arg1):     <- frameIndent
+    //     var1 = None     <- previousBlockIndent
+    //     if (arg1):      <- triggers change in currentBlockIndent
+    //         var1 = arg1 <- currentBlockIndent
 
     if (!indent.validIndentLine(m_tok))
         return;
 
-    if (ind < indent.currentBlockIndent() && direction < 1) {
+    uint ind = m_tok->ownerLine()->indent();
+
+    if (ind < indent.currentBlockIndent()) {
         // dedent
 
         // backup until last codeline
-        int guard = 20;
-        Python::TokenLine *linePrev = m_tok->ownerLine()->previousLine();
-        while(linePrev && !linePrev->isCodeLine() && (guard--))
-            linePrev = linePrev->previousLine();
+        Python::TokenLine *linePrev = m_activeModule->lexer()->previousCodeLine(
+                                                m_tok->ownerLine()->previousLine());
 
         if (ind > indent.previousBlockIndent()) {
-            m_activeModule->setIndentError(m_tok); // uneven indentation
+            m_tok->ownerLine()->setIndentErrorMsg(m_tok, "Uneven indentation"); // uneven indentation
         } else if (linePrev){
 
-            // last token -1 to get before newlinetoken
-            Python::Token *lastTok = linePrev->back()->previous();
-            do { // handle when multiple blocks dedent in a single row
+            Python::Token *tok = linePrev->back();
+            DBG_TOKEN(tok)
+            int indStackSize = indent.atIndentBlock();
+            while(tok && tok->type() == Token::T_Dedent) {
                 indent.popBlock();
-                if (linePrev) {// notify that this block has ended
-                    lastTok = m_activeModule->insertBlockEnd(lastTok);
-                    DBG_TOKEN(lastTok)
-                }
-            } while(lastTok && indent.currentBlockIndent() > ind);
+                PREV_TOKEN(tok)
+            }
+
+            if (indStackSize <= indent.atIndentBlock())
+                m_tok->ownerLine()->setIndentErrorMsg(m_tok, "No previous dedent token");
 
             if (indent.framePopCnt() > 0) {
                 // save end token for this frame
-                Python::TokenLine *line = m_tok->ownerLine()->previousLine();
-                if (line)
-                    m_activeFrame->setLastToken(line->back());
+                if (linePrev)
+                    m_activeFrame->setLastToken(linePrev->back());
                 return;
             }
         }
-    } else if (ind > indent.currentBlockIndent() && direction > -1) {
-        // indent
-        // find previous ':'
-        const Python::Token *prev = m_beforeTok,
-                            *nextTok = m_tok;
-        DBG_TOKEN(prev)
-        int guard = 200000;
-        while(prev && (guard--)) {
-            switch (prev->type()) {
-            case Python::Token::T_DelimiterColon:
-                //m_module->insertBlockStart(m_tok);
-                // fallthrough
-            case Python::Token::T_BlockStart:
-                indent.pushBlock(ind);
-                prev = nullptr; // break while loop
-                break;
-            case Python::Token::T_Comment:
-            case Python::Token::T_LiteralDblQuote:
-            case Python::Token::T_LiteralBlockDblQuote:
-            case Python::Token::T_LiteralSglQuote:
-            case Python::Token::T_LiteralBlockSglQuote:
-                nextTok = prev;
-                PREV_TOKEN(prev)
-                break;
-            case Python::Token::T_DelimiterBackSlash:
-                if (nextTok->type() == Python::Token::T_DelimiterNewLine)
-                    prev = nullptr;
-                else
-                    PREV_TOKEN(prev)
-                break;
-            default:
-                if (!prev->isCode() || prev->ownerLine()->indent())
-                {
-                    nextTok = prev;
-                    PREV_TOKEN(prev)
-                    break;
-                }
+    }
+}
 
-                if (prev->ownerLine()->parenCnt() != 0 ||
-                    prev->ownerLine()->braceCnt() != 0 ||
-                    prev->ownerLine()->bracketCnt() != 0)
-                {
-                    return;
-                }
-                // syntax error
-                m_activeModule->setSyntaxError(m_tok, "Blockstart without ':'");
-                if (direction > 0)
+const Python::TokenLine *Python::SourceParser::frameStartLine(const Python::Token *semiColonTok)
+{
+    DEFINE_DBG_VARS
+    DBG_TOKEN(semiColonTok)
+
+
+    // rationale here is to back up until we find a line with less indent
+    // def func(arg1):     <- frameIndent
+    //     var1 = None     <- previousBlockIndent
+    //     if (arg1):      <- triggers change in currentBlockIndent
+    //         var1 = arg1 <- currentBlockIndent
+
+    // is it a frame or just a block
+    const Python::Token *tok = semiColonTok;
+    const Python::TokenLine *line = tok->ownerLine();
+    DBG_TOKEN(tok)
+    uint guard = 1000;
+    while (tok && (--guard)) {
+        if (tok->isIdentifierFrameStart())
+            return line;
+        if (tok->ownerLine() != line) {
+            if (tok->ownerLine()->parenCnt() > 0 &&
+                tok->ownerLine()->braceCnt() > 0 &&
+                tok->ownerLine()->bracketCnt() >0)
+            {
+                line = tok->ownerLine();
+            } else
+                return nullptr;
+        }
+        PREV_TOKEN(tok)
+    }
+
+    return nullptr;
+}
+
+void Python::SourceParser::handleIndent(Python::SourceIndent &indent)
+{
+    DEFINE_DBG_VARS
+    DBG_TOKEN(m_tok)
+    if (!m_tok)
+        return;
+
+    //if (!indent.validIndentLine(m_tok))
+    //    return;
+
+    uint ind = m_tok->ownerLine()->indent();
+
+    if (ind > indent.currentBlockIndent()) {
+        // indent detected
+       if (m_tok->ownerLine()->front()->type() != Token::T_Indent)
+           m_tok->ownerLine()->setIndentErrorMsg(m_tok, "No indentToken");
+
+        // find previous ':'
+        // backup until last codeline
+        Python::TokenLine *linePrev = m_activeModule->lexer()->previousCodeLine(
+                                                m_tok->ownerLine()->previousLine());
+        if (!linePrev)
+            return;
+
+        const Python::Token *tokIt = linePrev->back();
+        DBG_TOKEN(tokIt)
+        int guard = 100;
+        while (tokIt && tokIt->ownerLine() == linePrev && (--guard)) {
+            if (tokIt->type() == Token::T_DelimiterColon && tokIt->previous() &&
+                tokIt->previous()->type() != Token::T_DelimiterBackSlash)
+            {
+                // is it a frame or just a block
+                auto frmLine = frameStartLine(tokIt);
+                if (frmLine)
                     indent.pushFrameBlock(indent.currentBlockIndent(), ind);
                 else
                     indent.pushBlock(ind);
-                prev = nullptr; // break while loop
-                break;
+                return;
             }
+            PREV_TOKEN(tokIt)
         }
-        DBG_TOKEN(m_tok)
+
+        // it might be an indent froma continued line
+        if (linePrev->parenCnt() != 0 || linePrev->braceCnt() != 0 ||
+            linePrev->bracketCnt() != 0)
+        {
+            return;
+        }
+
+        // syntax error
+        m_tok->ownerLine()->setSyntaxErrorMsg(m_tok, "Blockstart without ':'");
+        //if (direction > 0)
+        //    indent.pushFrameBlock(indent.currentBlockIndent(), ind);
+        //else
+            indent.pushBlock(ind);
     }
 }
 

@@ -108,7 +108,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
                         traversedBlocks.push_back(currentIndent);
                     break;
                 } else if (tokLine->indent() < indent) {
-                    setSyntaxError(lastLine->front(), "Blockstart without ':'");
+                    //lastLine->setSyntaxError(lastLine->front(), "Blockstart without ':'");
                     break;
                 }
             }
@@ -130,7 +130,7 @@ Python::SourceIndent Python::SourceModule::currentBlockIndent(const Python::Toke
     return ind;
 }
 
-int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
+uint Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
 {
     DEFINE_DBG_VARS
 
@@ -144,9 +144,9 @@ int Python::SourceModule::_currentBlockIndent(const Python::Token *tok) const
         case Python::Token::T_DelimiterBackSlash:
             --newLines; // newline escaped
             break;
-        case Python::Token::T_DelimiterColon:
-            insertBlockStart(beginTok);
-            break;
+//        case Python::Token::T_DelimiterColon:
+//            insertBlockStart(beginTok);
+//            break;
         case Python::Token::T_DelimiterNewLine:
             ++newLines;
             break;
@@ -256,7 +256,7 @@ void Python::SourceModule::insertBlockStart(const Python::Token *colonTok) const
                     new Python::Token(Python::Token::T_BlockStart,
                                       colonTok->startPos(), colonTok->startPos(),
                                       colonTok->ownerLine()));
-        colonTok->ownerLine()->incBlockState();
+        //colonTok->ownerLine()->incBlockState();
     }
 }
 
@@ -269,7 +269,7 @@ Python::Token *Python::SourceModule::insertBlockEnd(const Python::Token *newLine
                                         new Python::Token(Python::Token::T_BlockEnd,
                                                 newLineTok->startPos(), newLineTok->endPos(),
                                                           newLineTok->ownerLine()));
-        newLineTok->ownerLine()->decBlockState();
+        //newLineTok->ownerLine()->decBlockState();
         return newLineTok->ownerLine()->tokenAt(newPos);
     }
     return nullptr;
@@ -308,7 +308,7 @@ void Python::SourceModule::reparseInvalidTokens()
     }
 }
 
-
+/*
 void Python::SourceModule::setSyntaxError(const Python::Token *tok, const std::string &parseMessage) const
 {
     DEFINE_DBG_VARS
@@ -392,7 +392,7 @@ void Python::SourceModule::setMessage(const Python::Token *tok, const std::strin
 
     m_lexer->setMessage(tok);
 }
-
+*/
 
 
 // -----------------------------------------------------------------------

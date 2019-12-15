@@ -54,7 +54,7 @@ public:
     int framePopCntDecr();
 
     /// returns true if line pointed to by tok is valid, ie: no comment string etc
-    bool validIndentLine(Python::Token *tok);
+    bool validIndentLine(const Token *tok);
 private:
     std::list<Indent> m_indentStack;
     Indent _current() const;

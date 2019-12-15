@@ -92,7 +92,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
         auto line = getTokenLine(parentline - 1);
         if (line) {
             const std::list<Python::Token*> &tokens = line->tokens();
-            if (line->tokens().size() > tokIdx) {
+            if (tokens.size() > tokIdx) {
                 const Python::Token *tok = *std::next(tokens.begin(), tokIdx);
                 if (tok) {
                     DBG_TOKEN(tok)
@@ -144,7 +144,7 @@ QModelIndex TokenModel::index(int row, int column, const QModelIndex &parent) co
         // its the tokens row
         std::intptr_t idx = reinterpret_cast<std::intptr_t>(parent.internalPointer());
         auto line = getTokenLine((idx >> SRC_ROW_SHIFT) -1);
-        if (line && static_cast<uint>(row) < line->tokens().size()){
+        if (line && static_cast<uint>(row) < line->count()){
             idx = (idx & SRC_ROW_MASK) | row;
             return createIndex(row, column, reinterpret_cast<void*>(idx));
         }
@@ -153,7 +153,7 @@ QModelIndex TokenModel::index(int row, int column, const QModelIndex &parent) co
         auto line = getTokenLine(row);
         int idx = ((row + 1) << SRC_ROW_SHIFT) | SRC_ROW_FLAG;
         if (line){
-            idx |= line->tokens().size();
+            idx |= line->count();
         }
         return createIndex(row, column, reinterpret_cast<void*>(idx));
     }
@@ -173,7 +173,7 @@ QModelIndex TokenModel::parent(const QModelIndex &index) const
         idx |= (idx & SRC_ROW_MASK) | SRC_ROW_FLAG;
         auto txtData = getTokenLine(parentline);
         if (txtData)
-            idx |= txtData->tokens().size();
+            idx |= txtData->count();
         return createIndex(parentline -1, 0 , reinterpret_cast<void*>(idx));
     }
 
@@ -192,7 +192,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
             // its a src row
             auto txtData = getTokenLine(line -1);
             if (txtData)
-                return static_cast<int>(txtData->tokens().size());
+                return static_cast<int>(txtData->count());
         }
         // its a tokens row or fail txtData
         return 0;

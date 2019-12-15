@@ -58,6 +58,7 @@ public:
         T_Undetermined     = 0,     // Parser looks tries to figure out next char also Standard text
         // python
         T_Indent,
+        T_Dedent,
         T_Comment,     // Comment begins with #
         T_SyntaxError,
         T_IndentError,     // to signify that we have a indent error, set by PythonSourceRoot
@@ -228,13 +229,17 @@ public:
         T__IdentifierImportEnd,
 
         T__IdentifierDeclarationStart = T__IdentifierImportEnd,
+        T__IdentifierFrameStartTokenStart = T__IdentifierDeclarationStart,
         T_IdentifierFunction,                // its a function definition
         T_IdentifierMethod,                  // its a method definition
         T_IdentifierClass,                   // its a class definition
         T_IdentifierSuperMethod,             // its a method with name: __**__
-        T_IdentifierDecorator,               // member decorator like: @property
         T_IdentifierDefUnknown,              // before system has determined if its a
                                              // method or function yet
+        T__IdentifierFrameStartTokenEnd,
+        T_IdentifierDecorator,               // member decorator like: @property
+
+
         T_IdentifierNone,                    // The None keyword
         T_IdentifierTrue,                    // The bool True
         T_IdentifierFalse,                   // The bool False
@@ -328,6 +333,7 @@ public:
     bool isIdentifier() const;
     bool isIdentifierVariable() const;
     bool isIdentifierDeclaration() const;
+    bool isIdentifierFrameStart() const;
     bool isNewLine() const; // might be escaped this checks for that
     bool isInValid() const;
     bool isUndetermined() const;
@@ -374,10 +380,14 @@ class TokenList {
     Python::TokenLine *m_firstLine,
                       *m_lastLine;
     uint32_t m_size;
+    Python::Lexer *m_lexer;
 public:
-    explicit TokenList();
+    explicit TokenList(Python::Lexer *lexer);
     explicit TokenList(const TokenList &other);
     virtual ~TokenList();
+
+    // owner
+    Python::Lexer *lexer() const { return m_lexer; }
 
     // accessor methods
     Python::Token *front() const { return m_first; }
@@ -389,7 +399,7 @@ public:
     // info
     bool empty() const { return m_first == nullptr && m_last == nullptr; }
     uint32_t count() const;
-    uint32_t max_size() const { return 20000000u; }
+    static uint32_t max_size() { return 20000000u; }
 
     // modifiers for tokens
     void clear();
@@ -470,7 +480,7 @@ class TokenLine {
 
     std::list<int> m_unfinishedTokenIndexes; // index to m_tokens where a undetermined is at
                                             //  (so context parser can determine it later)
-    int m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
+    uint m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
     int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
     int m_line;
     bool m_isParamLine;
@@ -497,7 +507,7 @@ public:
     bool empty() const { return m_frontTok == nullptr; }
 
     /// returns the number of chars that starts this line
-    int indent() const;
+    uint indent() const;
 
     /// isCodeLine checks if line has any code
     /// lines with only indent or comments return false
@@ -597,6 +607,12 @@ public:
     /// if initScanInfo is true it also creates a container if not existing
     TokenScanInfo *tokenScanInfo(bool initScanInfo = false);
 
+    /// set a indent error message
+    void setIndentErrorMsg(const Python::Token *tok, const std::string &msg);
+    void setLookupErrorMsg(const Python::Token *tok, const std::string &msg  = std::string());
+    void setSyntaxErrorMsg(const Python::Token *tok, const std::string &msg);
+    void setMessage(const Python::Token *tok, const std::string &msg);
+
 
 private:
     /// set indentcount
@@ -638,6 +654,9 @@ public:
     static Version version();
     static void setVersion(Version::versions value);
 
+    /// returns the nearest previous line that contains code
+    static Python::TokenLine *previousCodeLine(TokenLine *line);
+
 protected:
     Python::LexerP *d_lex;
 
@@ -673,6 +692,10 @@ private:
     void setSyntaxError(uint &pos, uint len);
     void setLiteral(uint &pos, uint len, Python::Token::Type tokType);
     void setIndentation(uint &pos, uint len, uint count);
+
+    Python::Token *createIndentError(const std::string &msg);
+    Python::Token *insertDedent();
+    void checkForDedent();
 
 };
 
