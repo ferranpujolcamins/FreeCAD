@@ -235,7 +235,7 @@ QTextCharFormat Python::SyntaxHighlighter::getFormatToken(const Python::Token *t
     case Python::Token::T_MetaData:
         colorIdx = SyntaxHighlighter::MetaData; break;
     default:
-        // all operators Whichh arent specialcased above
+        // all operators Which arent specialcased above
         if (token->isKeyword() || token->isOperatorCompareKeyword()) {
             colorIdx = SyntaxHighlighter::Keyword;
             format.setFontWeight(QFont::Bold);
