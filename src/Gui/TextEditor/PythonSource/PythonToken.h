@@ -484,6 +484,8 @@ class TokenLine {
     int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
     int m_line;
     bool m_isParamLine;
+    bool m_isContinuation; // this line is a continuation of previous line
+                           // indent is not used on this line
 
 public:
     explicit TokenLine(Python::TokenList *ownerList,
@@ -520,7 +522,7 @@ public:
     /// Can be negative if this line has more closing parens than opening ones
     int parenCnt() const { return  m_parenCnt; }
     /// number of brackets '[' int this line, see as parenCnt description
-    int bracketCnt() const { return m_braceCnt; }
+    int bracketCnt() const { return m_bracketCnt; }
     /// number of braces '{' in this line, see parenCnt for description
     int braceCnt() const { return m_braceCnt; }
 

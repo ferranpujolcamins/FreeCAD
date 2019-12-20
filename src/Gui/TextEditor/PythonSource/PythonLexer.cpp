@@ -48,9 +48,9 @@ class LexerP {
 public:
     LexerP(Python::Lexer *lexer) :
         tokenList(lexer),
+        activeLine(nullptr),
         endStateOfLastPara(Python::Token::T_Invalid),
-        activeLine(nullptr), insertDedent(false),
-        isCodeLine(false)
+        insertDedent(false), isCodeLine(false)
     {
         reGenerate();
     }
@@ -155,10 +155,11 @@ public:
     static std::unordered_map<std::size_t, std::string> keywords;
     static std::unordered_map<std::size_t, std::string> builtins;
     Python::TokenList tokenList;
-    Python::Token::Type endStateOfLastPara;
     std::string filePath;
     Python::TokenLine *activeLine;
+    Python::Token::Type endStateOfLastPara;
     bool insertDedent, isCodeLine;
+    uint8_t __pad[2];
 
     // these hashes are constant and wont change, use for quicker lookup
     static const std::size_t defHash, classHash, importHash, fromHash, andHash,
@@ -275,6 +276,15 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
         tokLine->m_braceCnt = tokLine->m_previousLine->m_braceCnt;
         tokLine->m_bracketCnt = tokLine->m_previousLine->m_bracketCnt;
         tokLine->m_parenCnt = tokLine->m_previousLine->m_parenCnt;
+        // determine if line is continued from prevoius line
+        if (tokLine->m_previousLine->m_backTok)
+            tokLine->m_isContinuation = tokLine->m_previousLine->m_backTok->type() == Token::T_DelimiterBackSlash;
+        if (!tokLine->m_isContinuation) {
+            tokLine->m_isContinuation = tokLine->m_braceCnt> 0 ||
+                                        tokLine->m_bracketCnt > 0 ||
+                                        tokLine->m_parenCnt > 0;
+        }
+
     }
 
     uint prefixLen = 0;
@@ -1149,6 +1159,8 @@ void Python::Lexer::setIndentation()
 {
     // get the nearest sibling above that has code
     Python::TokenLine *prevLine = previousCodeLine(d_lex->activeLine->m_previousLine);
+    while (prevLine && prevLine->m_isContinuation)
+        prevLine = previousCodeLine(prevLine->m_previousLine);
 
     uint guard = TokenList::max_size();
     Python::Token *tok = nullptr;
@@ -1170,22 +1182,25 @@ void Python::Lexer::setIndentation()
         }
 
         // its not a blockstart/blockend
-        if (prevLine->m_parenCnt > 0 || prevLine->m_braceCnt > 0 || prevLine->m_bracketCnt > 0)
+        if (d_lex->activeLine->m_isContinuation)
             break;
 
-        // when we get here we have a cahnge in indentation to previous line
+        // when we get here we have a clean
+        // when we get here we have a change in indentation to previous line
         if (prevLine->m_indentCharCount < d_lex->activeLine->indent()) {
             // increase indent by one block
 
             // check so we have a valid ':'
-            Python::Token *lookupTok = prevLine->back();
-            while(lookupTok && lookupTok->ownerLine() == prevLine &&
+            Python::TokenLine *line = previousCodeLine(d_lex->activeLine->m_previousLine);
+            if (!line) break;
+            Python::Token *lookupTok = line->m_backTok;
+            while(lookupTok && lookupTok->ownerLine() == line &&
                   lookupTok->type() != Python::Token::T_DelimiterColon && (--guard))
             {
                 lookupTok = lookupTok->previous();
             }
 
-            if (!lookupTok || lookupTok->ownerLine() != prevLine) {
+            if (!lookupTok || lookupTok->ownerLine() != line) {
                 tok = createIndentError("Blockstart without ':'");
             } else {
                 prevLine->incBlockState();
@@ -1241,11 +1256,11 @@ void Python::Lexer::checkForDedent()
             {
                 if (startLine->back() && startLine->back()->type() == Python::Token::T_Dedent) {
                     --dedentCnt;
-                    lastIndent = startLine->m_indentCharCount;
+                    lastIndent = previousCodeLine(startLine->m_previousLine)->m_indentCharCount;
                 }
                 if (startLine->front() && startLine->front()->type() == Python::Token::T_Indent) {
                     ++indentCnt;
-                    lastIndent = startLine->m_indentCharCount;
+                    lastIndent = previousCodeLine(startLine->m_previousLine)->m_indentCharCount;
                 }
             }
 

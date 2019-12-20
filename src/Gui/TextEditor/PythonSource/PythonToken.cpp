@@ -831,7 +831,7 @@ Python::TokenLine::TokenLine(Python::TokenList *ownerList,
     m_ownerList(ownerList), m_frontTok(startTok), m_backTok(startTok),
     m_nextLine(nullptr), m_previousLine(nullptr), m_tokenScanInfo(nullptr),
     m_indentCharCount(0), m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0),
-    m_blockStateCnt(0), m_line(-1),  m_isParamLine(false)
+    m_blockStateCnt(0), m_line(-1),  m_isParamLine(false), m_isContinuation(false)
 {
     // strip newline chars
     size_t trimChrs = 0;
@@ -858,7 +858,7 @@ Python::TokenLine::TokenLine(const TokenLine &other) :
     m_text(other.m_text), m_indentCharCount(other.m_indentCharCount),
     m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
     m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt),
-    m_line(-1), m_isParamLine(false)
+    m_line(-1), m_isParamLine(false), m_isContinuation(other.m_isContinuation)
 {
 #ifdef DEBUG_DELETES
     std::cout << "cpy TokenLine: " << std::hex << this << " " << m_text << std::endl;
