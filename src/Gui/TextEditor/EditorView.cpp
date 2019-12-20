@@ -1147,7 +1147,8 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
     // cleanup and memory release
     EditorViewSingleton::instance()->removeWrapper(this);
     if (d->textEdit) {
-        d->textEdit->deleteLater();
+        d->textEdit->setDocument(nullptr);
+        delete d->textEdit;
         d->textEdit = nullptr;
     }
 

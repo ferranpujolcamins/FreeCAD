@@ -197,6 +197,9 @@ class GuiExport EditorViewWrapper
 {
     EditorViewWrapperP *d;
 public:
+    /// Constructor
+    /// editor = pointer to a editor in heap, wrapper takes ownership
+    /// fn = filename
     EditorViewWrapper(TextEditor *editor, const QString &fn);
     ~EditorViewWrapper();
 
