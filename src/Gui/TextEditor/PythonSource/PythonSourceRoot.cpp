@@ -702,7 +702,7 @@ const Python::Token
                 if (ident) {
                     // get the last assignment to this variable
                     assign = ident->getFromPos(tok); //ident->token());
-                    if (assign->typeInfo().isValid()) {
+                    if (assign && assign->typeInfo().isValid()) {
                         if (assign->typeInfo().isCallable()) {
                             // maybe this frame has a return typehint
                             typeInfo = ident->frame()->returnTypeHint();
