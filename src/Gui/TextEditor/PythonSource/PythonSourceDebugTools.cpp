@@ -87,6 +87,7 @@ const char *Python::tokenToCStr(Token::Type tok)
 
         // assigment
     case Token::T_OperatorEqual:         return     "T_OperatorEqual";          // =,
+    case Token::T_OperatorWalrus:        return     "T_OperatorWalrus";
     case Token::T_OperatorPlusEqual:     return     "T_OperatorPlusEqual";      // +=,
     case Token::T_OperatorMinusEqual:    return     "T_OperatorMinusEqual";     // -=,
     case Token::T_OperatorMulEqual:      return     "T_OperatorMulEqual";       // *=,

@@ -1277,7 +1277,7 @@ void Python::TokenLine::push_back(Python::Token *tok)
     if (!m_frontTok) {
         m_frontTok = tok;
         Python::TokenLine *line = m_previousLine;
-        while (line && line->m_previousLine && !line->m_previousLine->m_backTok)
+        while (line && !line->m_backTok)
             line = line->m_previousLine;
         beforeTok = line ? line->m_backTok : nullptr;
     } else {
@@ -1878,7 +1878,13 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 setDelimiter(i, 1, Python::Token::T_DelimiterSemiColon);
                 break;
             case ':':
-                setDelimiter(i, 1, Python::Token::T_DelimiterColon);
+                if (nextCh == '=') {
+                    if (d_lex->version.version() >= Version::v3_8)
+                        setDelimiter(i, 2, Token::T_OperatorWalrus);
+                    else
+                        setSyntaxError(i, 2);
+                } else
+                    setDelimiter(i, 1, Python::Token::T_DelimiterColon);
                 break;
             case '@':
             {   // decorator or matrix add
@@ -1891,7 +1897,10 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     setWord(i, len +1, Python::Token::T_IdentifierDecorator);
                     break;
                 } else if (nextCh == '=') {
-                    setOperator(i, 2, Python::Token::T_OperatorMatrixMulEqual);
+                    if (d_lex->version.version() >= Version::v3_5)
+                        setOperator(i, 2, Python::Token::T_OperatorMatrixMulEqual);
+                    else
+                        setSyntaxError(i, 2);
                     break;
                 }
 

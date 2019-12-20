@@ -141,6 +141,7 @@ public:
         // assignment operators
         T__OperatorAssignmentStart   = T__OperatorBitwiseEnd,
         T_OperatorEqual,              // =,
+        T_OperatorWalrus,             // := introduced in py 3.8
         T_OperatorPlusEqual,          // +=,
         T_OperatorMinusEqual,         // -=,
         T_OperatorMulEqual,           // *=,
