@@ -27,6 +27,7 @@ list(APPEND Common_LIBS
 
 # The editor sources
 SET(PythonSource_CPP_SRCS
+    PythonLexer.cpp
     PythonSource.cpp
     PythonSourceFrames.cpp
     PythonSourceIdentifiers.cpp
@@ -42,6 +43,7 @@ SET(PythonSource_CPP_SRCS
     PythonToken.cpp
 )
 SET(PythonSource_HPP_SRCS
+    PythonLexer.h
     PythonSource.h
     PythonSourceFrames.h
     PythonSourceIdentifiers.h

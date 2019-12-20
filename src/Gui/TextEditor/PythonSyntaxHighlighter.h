@@ -3,9 +3,10 @@
 
 #include "PreCompiled.h"
 #include "SyntaxHighlighter.h"
-#include <Gui/TextEditor/PythonSource/PythonToken.h>
 #include "TextEditor.h"
 #include <Base/Parameter.h>
+#include <Gui/TextEditor/PythonSource/PythonToken.h>
+#include <Gui/TextEditor/PythonSource/PythonLexer.h>
 
 QT_BEGIN_NAMESPACE
 class QPlainTextEdit;
@@ -17,11 +18,12 @@ class PyExceptionInfo;
 }
 
 namespace Gui {
-class TextEditBlockScanInfo;
 class PythonEditor;
 class PythonConsoleTextEdit;
 
 class TextBlockData;
+class PythonTextBlockData;
+class PythonTextBlockScanInfo;
 class PythonSyntaxHighlighterP;
 
 /**
@@ -99,8 +101,6 @@ struct PythonMatchingCharInfo
 
 // --------------------------------------------------------------------
 
-
-
 /**
  * @brief The PythonMatchingChars highlights the opposite (), [] or {}
  */
@@ -121,9 +121,9 @@ private:
 };
 
 // -----------------------------------------------------------------------
-class PythonTextBlockScanInfo;
+
 class PythonTextBlockData : public Gui::TextEditBlockData,
-                      public Python::TokenLine
+                            public Python::TokenLine
 {
 public:
     //typedef QVector<Python::Token*> tokens_t;
