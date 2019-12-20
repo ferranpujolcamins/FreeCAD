@@ -1,6 +1,6 @@
 #include "PythonSourceDebugTools.h"
 
-#include <TextEditor/PythonCodeDebugTools.h>
+//#include <TextEditor/PythonCodeDebugTools.h>
 
 #include "PythonSource.h"
 #include "PythonSourceRoot.h"

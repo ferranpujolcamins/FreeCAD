@@ -2,6 +2,7 @@
 #include "PythonSource.h"
 #include "PythonSourceModule.h"
 #include "PythonSourceFrames.h"
+#include "PythonLexer.h"
 
 DBG_TOKEN_FILE
 

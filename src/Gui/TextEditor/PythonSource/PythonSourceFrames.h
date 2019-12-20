@@ -1,6 +1,7 @@
 #ifndef PYTHONSOURCEFRAMES_H
 #define PYTHONSOURCEFRAMES_H
 
+#include <map>
 #include "PythonSourceIdentifiers.h"
 #include "PythonSource.h"
 #include "PythonSourceListBase.h"
@@ -9,7 +10,6 @@
 #include "PythonSourceIndent.h"
 #include "PythonSourceRoot.h"
 #include "PythonToken.h"
-#include <map>
 
 namespace Python {
 

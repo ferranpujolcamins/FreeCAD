@@ -4,7 +4,6 @@
 #include "PythonSourceRoot.h"
 #include "PythonSourceModule.h"
 #include <list>
-#include <QDebug>
 
 DBG_TOKEN_FILE
 

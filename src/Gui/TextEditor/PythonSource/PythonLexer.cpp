@@ -1,8 +1,10 @@
+
+#include "Python.h"
 #include "PythonLexer.h"
 
 #include "PythonToken.h"
 #include "PythonSource.h"
-#include "Python.h"
+
 
 #include <algorithm>
 #include <unordered_map>

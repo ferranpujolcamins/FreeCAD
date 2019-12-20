@@ -1,7 +1,6 @@
 #include "PythonSourceModule.h"
 #include "PythonSourceParser.h"
-#include <TextEditor/PythonCode.h>
-#include <TextEditor/PythonSyntaxHighlighter.h>
+#include "PythonLexer.h"
 #include <iostream>
 
 DBG_TOKEN_FILE

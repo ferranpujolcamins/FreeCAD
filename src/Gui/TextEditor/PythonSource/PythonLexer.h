@@ -74,6 +74,6 @@ private:
 
 };
 
-}; // namespace Python
+} // namespace Python
 
 #endif // PYTHONLEXER_H

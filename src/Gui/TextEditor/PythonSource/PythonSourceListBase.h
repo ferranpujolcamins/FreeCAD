@@ -3,7 +3,6 @@
 
 #include "PythonSource.h"
 #include "PythonSourceItemBase.h"
-#include <TextEditor/PythonSyntaxHighlighter.h>
 
 namespace Python {
 

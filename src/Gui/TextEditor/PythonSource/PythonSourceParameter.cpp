@@ -4,7 +4,6 @@
 #include "PythonSourceFrames.h"
 #include "PythonSourceIdentifiers.h"
 
-#include <PythonSyntaxHighlighter.h>
 #include <map>
 
 DBG_TOKEN_FILE

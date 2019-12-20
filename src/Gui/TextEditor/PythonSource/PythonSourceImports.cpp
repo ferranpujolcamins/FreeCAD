@@ -348,6 +348,6 @@ Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::lis
 Python::SourceModule *Python::SourceImportList::setModuleGlob(const std::list<const std::string> &rootPackage)
 {
     // FIXME implement
-    Q_UNUSED(rootPackage)
+    (void)rootPackage;
     return nullptr;
 }

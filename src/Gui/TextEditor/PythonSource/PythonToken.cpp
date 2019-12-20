@@ -1,17 +1,16 @@
 
-//#include "PreCompiled.h"
 #include "PythonToken.h"
 #include "PythonSourceListBase.h"
-#include "PythonSyntaxHighlighter.h"
 #include "PythonLexer.h"
 
 #include <algorithm>
-#include <cctype>
-#include <string>
+#include <assert.h>
+//#include <cctype>
+//#include <string>
 
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-# include <TextEditor/PythonCodeDebugTools.h>
+//# include <TextEditor/PythonCodeDebugTools.h>
 //# define DEBUG_DELETES
 #endif
 

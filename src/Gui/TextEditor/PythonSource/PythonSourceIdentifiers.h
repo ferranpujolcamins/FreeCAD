@@ -4,10 +4,6 @@
 #include "PythonSource.h"
 #include "PythonSourceListBase.h"
 #include "PythonSourceRoot.h"
-//#include "PythonSourceImports.h"
-//#include "PythonSourceModule.h"
-
-#include <TextEditor/PythonSyntaxHighlighter.h>
 
 namespace Python {
 

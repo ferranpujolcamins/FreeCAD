@@ -3,8 +3,6 @@
 #include "PythonSourceModule.h"
 
 
-#include <TextEditor/PythonSyntaxHighlighter.h>
-
 DBG_TOKEN_FILE
 
 Python::SourceIdentifierAssignment::SourceIdentifierAssignment(Python::SourceIdentifier *owner,

@@ -3,7 +3,6 @@
 
 #include "PythonSource.h"
 #include "PythonSourceRoot.h"
-//#include "PythonSourceListBase.h"
 #include "PythonSourceItemBase.h"
 
 namespace Python {

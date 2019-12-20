@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.3 FATAL_ERROR)
 SET(LibName PythonSource)
 
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -15,17 +16,12 @@ IF(CMAKE_BUILD_TYPE)
     add_definitions(-DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}")
 ENDIF(CMAKE_BUILD_TYPE)
 
-if(WIN32)
-    add_definitions(-DFCGui) # For GUIExport to work
-endif(WIN32)
-
 # dependencies
-list(APPEND Common_LIBS
-    FreeCADBase FreeCADApp TextEditor)
+list(APPEND Common_LIBS ${PYTHON_LIBRARIES})
 
 # -------------------------------------------------------------------------------------
 
-# The editor sources
+# The python analyzer sources
 SET(PythonSource_CPP_SRCS
     PythonLexer.cpp
     PythonSource.cpp
@@ -86,31 +82,22 @@ SET(PythonSource_Dlg_SRCS
     ${PythonSource_Dlg_MOC_SRCS}
 )
 
-# wrap it all up for lib TextEditor
+# wrap it all up for lib PythonSource
 SET(PythonSourceAll_SRCS ${PythonSource_SRCS}
-                       ${PythonSource_Dlg_SRCS}
-                       ${PythonSource_QRC_SRCS}
-                       ${PythonSource_UIC_HDRS}
                        ${PythonSource_DbgTools_SRCS}
 )
 SOURCE_GROUP("PythonSource" FILES ${PythonSourceAll_SRCS})
 
 
-# precompiled?
-if (BUILD_USE_PCH)
-    add_definitions(-D_PreComp_)
-    ADD_MSVC_PRECOMPILED_HEADER(${LibName} PreCompiled.h PreCompiled.cpp TextEditor_CPP_SRCS)
-endif(BUILD_USE_PCH)
-
 #create library
-ADD_LIBRARY(${LibName} STATIC ${PythonSourceAll_SRCS})
+ADD_LIBRARY(${LibName} SHARED ${PythonSourceAll_SRCS})
 TARGET_LINK_LIBRARIES(${LibName} ${Common_LIBS} ${TextEditor})
 
 # install to default target defined by
 INSTALL(TARGETS ${LibName}
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 # -------------------------------------------------------------------------------

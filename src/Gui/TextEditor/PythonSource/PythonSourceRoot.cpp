@@ -3,14 +3,12 @@
 #include "PythonSourceModule.h"
 #include "PythonSourceDebugTools.h"
 #include "PythonToken.h"
+#include "PythonLexer.h"
 
 
 #include <FCConfig.h>
 #include "Base/Interpreter.h"
-//#include <TextEditor/PythonCode.h>
-//#include <TextEditor/PythonSyntaxHighlighter.h>
 
-#include <QFileInfo>
 
 #include <map>
 #include <string>
@@ -210,7 +208,7 @@ Python::SourceRoot::TypeInfoPair Python::SourceRoot::identifierType(const Python
 
 Python::SourceRoot::TypeInfoPair Python::SourceRoot::builtinType(const Python::Token *tok, const Python::SourceFrame *frame) const
 {
-    Q_UNUSED(frame)
+    (void)frame;
     TypeInfoPair tp;
 
     if (tok && tok->type() == Python::Token::T_IdentifierBuiltin) {
@@ -443,10 +441,10 @@ Python::SourceRoot::CustomNameIdx_t Python::SourceRoot::indexOfCustomTypeName(co
 }
 
 Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &filePath,
-                                                            Python::Lexer *tokenizer)
+                                                            Python::Lexer *lexer)
 {
     DEFINE_DBG_VARS
-    assert(tokenizer != nullptr && "Must have a valid tokenizer");
+    assert(lexer != nullptr && "Must have a valid lexer");
 
     // delete old data
     Python::SourceModule *mod = moduleFromPath(filePath);
@@ -456,15 +454,15 @@ Python::SourceModule *Python::SourceRoot::scanCompleteModule(const std::string &
     }
 
     // create a new module
-    mod = new Python::SourceModule(this, tokenizer);
+    mod = new Python::SourceModule(this, lexer);
     mod->setFilePath(filePath);
     Python::FileInfo fi(filePath);
     mod->setModuleName(fi.baseName());
     m_modules->insert(mod);
 
     // find the first token of any kind
-    if (!tokenizer->list().empty()) {
-        Python::Token *tok = tokenizer->list().front();
+    if (!lexer->list().empty()) {
+        Python::Token *tok = lexer->list().front();
         assert(tok != nullptr && "Tokenizer !empty but has no front item");
         DBG_TOKEN(tok)
         mod->scanFrame(tok);
@@ -540,8 +538,8 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
 
     // first we scan to end of statement
     // then operate on that list
-    QList<const Python::Token*> allTokens;
-    QList<int> parenPos;
+    std::list<const Python::Token*> allTokens;
+    std::list<int> parenPos;
 
 
     static const int maxStatements = 50;
@@ -614,13 +612,18 @@ Python::SourceRoot::statementResultType(const Python::Token *startToken,
         return typeInfo;
 
     // split on paren sub statements ie var1 * (var2 +1)
-    QList<QList<const Python::Token*> > subStatements;
+    std::list<std::list<const Python::Token*> > subStatements;
     int endPos = 0;
     for (int pos : parenPos) {
         // close paren is stored first ie even pos
         if (endPos % 2) {
             // opening paren
-            subStatements.push_back(allTokens.mid(pos+1, pos+1 - endPos-1));
+            auto tokIt = allTokens.begin();
+            std::advance(tokIt, pos+1);
+            std::list<const Python::Token*> tokens;
+            for(int j = pos+1; j < pos+1-endPos-1; ++j, ++tokIt)
+                tokens.push_back(*tokIt);
+            subStatements.push_back(tokens);
         } else {
             // closing paren
             endPos = pos;

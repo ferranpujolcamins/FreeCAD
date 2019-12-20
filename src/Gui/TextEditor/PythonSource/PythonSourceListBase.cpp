@@ -1,5 +1,7 @@
 #include "PythonSourceListBase.h"
 #include "PythonSource.h"
+#include "PythonSourceRoot.h"
+#include <assert.h>
 
 DBG_TOKEN_FILE
 
