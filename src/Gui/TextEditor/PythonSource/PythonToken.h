@@ -383,9 +383,10 @@ class TokenList {
                       *m_lastLine;
     uint32_t m_size;
     Python::Lexer *m_lexer;
+    explicit TokenList(const TokenList &other);
+    TokenList& operator=(const TokenList &other);
 public:
     explicit TokenList(Python::Lexer *lexer);
-    explicit TokenList(const TokenList &other);
     virtual ~TokenList();
 
     // owner
@@ -663,7 +664,7 @@ public:
     void setParseMessage(const Python::Token *tok, const std::string &msg, MsgType type);
     /// get all parseMessage attached to token
     /// filter by type
-    const std::list<const ParseMsg*> getParseMessages(const Python::Token *tok,
+    const std::list<const ParseMsg*> parseMessages(const Python::Token *tok,
                                                       MsgType type = AllMsgTypes) const;
     /// remove all messages attached to tok, returns number of deleted parseMessages
     /// filter by type
@@ -696,23 +697,27 @@ protected:
 
 /// this class attaches to pointer token.
 /// When token is deleted, gets notified when token is deleted
-template<typename TOwner, void (TOwner::*tokenDelCallback)(TokenWrapperBase *wrapper)>
+template<typename TOwner>
 class TokenWrapper : public TokenWrapperBase
 {
     friend class Token;
     TOwner *m_owner;
+public:
+    typedef void (TOwner::*tokenDelCallbackPtr)(TokenWrapperBase *wrapper);
+    explicit TokenWrapper(Python::Token *token, TOwner *owner, tokenDelCallbackPtr callback) :
+             TokenWrapperBase(token),
+        m_owner(owner),
+        m_callBackPtr(callback)
+    { }
+    ~TokenWrapper() override { }
+private:
+    tokenDelCallbackPtr m_callBackPtr;
     void tokenDeleted() override
     {
         if (m_owner)
-            (m_owner->*tokenDelCallback)(this);
+            (m_owner->*m_callBackPtr)(this);
         m_token = nullptr;
     }
-public:
-    explicit TokenWrapper(Python::Token *token, TOwner *owner) :
-             TokenWrapperBase(token),
-        m_owner(owner)
-    { }
-    ~TokenWrapper() override { }
 };
 
 // ----------------------------------------------------------------------------------------

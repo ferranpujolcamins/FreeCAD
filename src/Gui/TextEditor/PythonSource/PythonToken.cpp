@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <assert.h>
 //#include <cctype>
-//#include <string>
+#include <string>
+#include <iostream>
 
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
@@ -411,6 +412,12 @@ Python::TokenList::TokenList(const Python::TokenList &other) :
 #endif
 }
 
+Python::TokenList &Python::TokenList::operator=(const Python::TokenList &other)
+{
+    (void)other;
+    return *this;
+}
+
 Python::TokenList::~TokenList()
 {
 #ifdef DEBUG_DELETES
@@ -559,9 +566,6 @@ bool Python::TokenList::remove(Python::Token *tok, bool deleteTok)
 
     assert(m_size > 0 && "Size cache out of order");
     --m_size;
-
-    if (tok->m_ownerLine->m_tokenScanInfo)
-        tok->m_ownerLine->m_tokenScanInfo->clearParseMessages(tok);
 
     if (deleteTok)
         delete tok;
@@ -1143,6 +1147,9 @@ Python::Token *Python::TokenLine::pop_back()
     assert(m_ownerList != nullptr && "Line must be inserted to a list to remove tokens");
     Python::Token *tok = m_backTok;
     if (tok) {
+        if (m_tokenScanInfo)
+            m_tokenScanInfo->clearParseMessages(tok);
+        tok->m_ownerLine = nullptr;
         m_ownerList->remove(tok, false);
         if (tok == m_frontTok)
             m_frontTok = m_backTok = nullptr;
@@ -1159,6 +1166,9 @@ Python::Token *Python::TokenLine::pop_front()
 {
     assert(m_ownerList != nullptr && "Line must be inserted to a list to remove tokens");
     if (m_frontTok) {
+        if (m_tokenScanInfo)
+            m_tokenScanInfo->clearParseMessages(m_frontTok);
+        m_frontTok->m_ownerLine = nullptr;
         m_ownerList->remove(m_frontTok, false);
         m_frontTok = m_frontTok->m_next;
         if (!m_frontTok)
@@ -1181,7 +1191,7 @@ void Python::TokenLine::insert(Python::Token *tok)
         prevTok = m_previousLine->back();
 
     uint guard = m_ownerList->max_size();
-    if (*prevTok < *tok) {
+    if (prevTok && *prevTok < *tok) {
         while (prevTok && prevTok->m_next && prevTok->m_next->m_ownerLine == this && (--guard)) {
             prevTok = prevTok->m_next;
         }
@@ -1251,7 +1261,17 @@ bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
         else
             m_frontTok =  m_backTok = nullptr;
     }
+    if (tok == m_backTok) {
+        if (tok->previous() && tok->m_previous->m_ownerLine == instance())
+            m_backTok = m_backTok->m_previous;
+        else
+            m_frontTok = m_backTok = nullptr;
+    }
 
+    if (m_tokenScanInfo)
+        m_tokenScanInfo->clearParseMessages(tok);
+
+    tok->m_ownerLine = nullptr;
     return m_ownerList->remove(tok, deleteTok);
 }
 
@@ -1272,6 +1292,11 @@ bool Python::TokenLine::remove(Python::Token *tok, Python::Token *endTok, bool d
             m_frontTok = nullptr;
         m_backTok = nullptr;
     }
+
+    if (m_tokenScanInfo)
+        m_tokenScanInfo->clearParseMessages(tok);
+
+    tok->m_ownerLine = nullptr;
 
     bool ret = m_ownerList->remove(tok, endTok, deleteTok);
     if (!m_frontTok)
@@ -1354,14 +1379,14 @@ Python::TokenScanInfo::ParseMsg::ParseMsg(const std::string &message, const Toke
     m_message(message), m_token(tok), m_type(type)
 {
 #ifdef DEBUG_DELETES
-    std::clog << "new ParseMsg " << std::hex << this << std::endl;
+    std::clog << "new ParseMsg " << std::hex << this << " " << m_message << std::endl;
 #endif
 }
 
 Python::TokenScanInfo::ParseMsg::~ParseMsg()
 {
 #ifdef DEBUG_DELETES
-    std::clog << "del ParseMsg " << std::hex << this << std::endl;
+    std::clog << "del ParseMsg " << std::hex << this << " " << m_message << std::endl;
 #endif
 }
 
@@ -1409,8 +1434,12 @@ Python::TokenScanInfo::~TokenScanInfo()
     std::clog << "del TokenScanInfo " << std::hex << this << std::endl;
 #endif
 
-    for (auto &msg : m_parseMsgs)
-        delete msg;
+    for (auto it = m_parseMsgs.begin();
+         it != m_parseMsgs.end();)
+    {
+        auto tmpIt = it++;
+        delete *tmpIt;
+    }
 }
 
 void Python::TokenScanInfo::setParseMessage(const Python::Token *tok,
@@ -1421,7 +1450,7 @@ void Python::TokenScanInfo::setParseMessage(const Python::Token *tok,
 }
 
 const std::list<const Python::TokenScanInfo::ParseMsg *>
-Python::TokenScanInfo::getParseMessages(const Python::Token *tok,
+Python::TokenScanInfo::parseMessages(const Python::Token *tok,
                                         Python::TokenScanInfo::MsgType type) const
 {
     std::list<const ParseMsg*> ret;
@@ -1436,21 +1465,22 @@ Python::TokenScanInfo::getParseMessages(const Python::Token *tok,
     return ret;
 }
 
-int Python::TokenScanInfo::clearParseMessages(const Python::Token *tok, MsgType filterType)
+int Python::TokenScanInfo::clearParseMessages(const Python::Token *tok,
+                                              MsgType filterType)
 {
-    auto eraseFrom = std::remove_if(m_parseMsgs.begin(), m_parseMsgs.end(),
-                   [tok, filterType](const Python::TokenScanInfo::ParseMsg *msg) {
-                        if (*msg->token() == *tok) {
-                            if (filterType != AllMsgTypes)
-                                return msg->type() == filterType;
-                            return true;
-                        }
-                        return false;
-    });
-    int cnt = static_cast<int>(std::distance(eraseFrom, m_parseMsgs.end()));
-    for (auto it = eraseFrom; it != m_parseMsgs.end(); ++it)
-        delete *it;
-    m_parseMsgs.erase(eraseFrom, m_parseMsgs.end());
+    int cnt = 0;
+    for (auto it = m_parseMsgs.begin();
+         it != m_parseMsgs.end();)
+    {
+        auto tmpIt = it++;
+        if ((*tmpIt)->token() == tok &&
+            (filterType == AllMsgTypes || (*tmpIt)->type() == filterType))
+        {
+            m_parseMsgs.remove(*tmpIt);
+            delete *tmpIt;
+            ++cnt;
+        }
+    }
 
     return cnt;
 }
