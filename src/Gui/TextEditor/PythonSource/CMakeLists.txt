@@ -102,4 +102,8 @@ INSTALL(TARGETS ${LibName}
 
 # -------------------------------------------------------------------------------
 
-
+if(BUILD_TEST)
+    enable_testing()
+    include(GoogleTest)
+    add_subdirectory(tests)
+endif(BUILD_TEST)

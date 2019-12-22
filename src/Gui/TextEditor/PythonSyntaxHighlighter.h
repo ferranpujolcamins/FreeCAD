@@ -127,8 +127,7 @@ class PythonTextBlockData : public Gui::TextEditBlockData,
 {
 public:
     //typedef QVector<Python::Token*> tokens_t;
-    explicit PythonTextBlockData(QTextBlock block, Python::TokenList *tokenList,
-                           Python::Token *startTok = nullptr);
+    explicit PythonTextBlockData(QTextBlock block, Python::Token *startTok = nullptr);
     PythonTextBlockData(const PythonTextBlockData &other);
     ~PythonTextBlockData() override;
 

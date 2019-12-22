@@ -80,7 +80,7 @@ void PythonSyntaxHighlighter::highlightBlock (const QString &text)
     d->sourceScanTmr.stop();
 
     // create new userData, copy bookmark etc
-    PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock(), &list()),
+    PythonTextBlockData *txtBlock = new PythonTextBlockData(currentBlock()),
                         *curBlock = nullptr;
     if (currentBlock().isValid())
         curBlock = dynamic_cast<PythonTextBlockData*>(currentBlock().userData());
@@ -404,10 +404,9 @@ char PythonMatchingCharInfo::matchingChar() const
 
 // -------------------------------------------------------------------------------------------
 
-PythonTextBlockData::PythonTextBlockData(QTextBlock block, Python::TokenList *tokenList,
-                                     Python::Token *startTok) :
+PythonTextBlockData::PythonTextBlockData(QTextBlock block, Python::Token *startTok) :
     Gui::TextEditBlockData(block),
-    Python::TokenLine(tokenList, startTok, block.text().toStdString())
+    Python::TokenLine(startTok, block.text().toStdString())
 {
 }
 

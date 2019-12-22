@@ -282,6 +282,8 @@ public:
             return true;
         if (myLine < rhsLine)
             return false;
+        if (m_startPos == rhs.m_startPos)
+            return m_previous == &rhs;
         return m_startPos > rhs.m_startPos;
     }
     bool operator < (const Token &rhs) const { return (rhs > *this); }
@@ -397,12 +399,15 @@ public:
     Python::Token *operator[] (int32_t idx);
 
     // info
-    bool empty() const { return m_first == nullptr && m_last == nullptr; }
+    bool empty() const {
+        return m_first == nullptr && m_last == nullptr &&
+               m_firstLine == nullptr && m_lastLine == nullptr;
+    }
     uint32_t count() const;
     static uint32_t max_size() { return 20000000u; }
 
     // modifiers for tokens
-    void clear();
+    void clear(bool deleteLine = true);
 
     //lines
     /// get the first line for this list/document
@@ -425,7 +430,7 @@ public:
 
     /// insert line at lineNr, list takes ownership of line and its tokens
     /// lineNr is 0 based (ie. first row == 0), last row == -1
-    void insertLine(int32_t lineNr, Python::TokenLine *insertLine);
+    void insertLine(int32_t lineNr, Python::TokenLine *lineToInsert);
     /// insert line directly after previousLine, list takes ownership of line and its tokens
     void insertLine(Python::TokenLine *previousLine, Python::TokenLine *insertLine);
 
@@ -488,8 +493,7 @@ class TokenLine {
                            // indent is not used on this line
 
 public:
-    explicit TokenLine(Python::TokenList *ownerList,
-                       Python::Token *startTok,
+    explicit TokenLine(Python::Token *startTok,
                        const std::string &text);
     TokenLine(const Python::TokenLine &other);
     virtual ~TokenLine();
@@ -546,6 +550,7 @@ public:
     Python::TokenLine *previousLine() const { return m_previousLine; }
     /// returns the token at idx position in line or nullptr
     Python::Token *operator[] (int idx) const;
+    /// returns the token at idx char in line str
     Python::Token *tokenAt(int idx) const;
     /// return what pos tok is at, returns the idx, ...[idx] for tok or -1 if not found
     int tokenPos(const Python::Token *tok) const;
@@ -615,11 +620,11 @@ public:
     void setSyntaxErrorMsg(const Python::Token *tok, const std::string &msg);
     void setMessage(const Python::Token *tok, const std::string &msg);
 
-
-private:
+protected:
     /// set indentcount
     void setIndentCount(uint count);
 
+private:
     /// needed because offset when multiple inheritance
     /// returns the real pointer to this instance, not to subclass
     Python::TokenLine *instance() const {
