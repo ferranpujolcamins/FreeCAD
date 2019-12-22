@@ -2,6 +2,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <PythonToken.h>
+#include <PythonLexer.h>
 
 using namespace testing;
 using namespace Python;
@@ -25,19 +26,64 @@ static const char *srcText[lineCnt] = {
 
 // -----------------------------------------------------------------------
 
+class TokenLinkInherit : public TokenWrapperInherit {
+    bool m_notified;
+public:
+    TokenLinkInherit(Token *tok) :
+        TokenWrapperInherit(tok),
+        m_notified(false)
+    {}
+    ~TokenLinkInherit() override;
+    bool isNotified() const { return m_notified; }
+protected:
+    void tokenDeletedCallback() override {
+        m_notified = true;
+    }
+};
+TokenLinkInherit::~TokenLinkInherit() {}
+
+class TokenLinkTemplate {
+    bool m_notified;
+    TokenWrapper<TokenLinkTemplate> m_wrapper;
+public:
+    TokenLinkTemplate(Token *tok) :
+        m_notified(false), m_wrapper(tok, this, &TokenLinkTemplate::tokenDelCallback)
+    {
+    }
+    bool isNotified() const { return m_notified; }
+    void tokenDelCallback(TokenWrapperBase *wrapper) {
+        (void)wrapper;
+        m_notified = true;
+    }
+};
+
+// -----------------------------------------------------------------------
+
+class TstVersion : public ::testing::Test
+{
+protected:
+    Version version;
+public:
+    TstVersion() : version(Version::v3_7) {}
+    ~TstVersion() override {}
+    void SetUp() override {}
+    void TearDown() override;
+};
+void TstVersion::TearDown() {}
+
+// -----------------------------------------------------------------------
+
 class TstPythonTokenList : public ::testing::Test
 {
 protected:
     TokenList *_list;
 public:
-    TstPythonTokenList() {}
-    ~TstPythonTokenList() override {}
-    void SetUp() override {
+    TstPythonTokenList() : ::testing::Test() {
         _list = new TokenList(nullptr);
     }
-    void TearDown() override;
+    ~TstPythonTokenList() override;
 };
-void TstPythonTokenList::TearDown() {
+TstPythonTokenList::~TstPythonTokenList() {
     delete _list;
 }
 
@@ -48,22 +94,19 @@ class TstPythonTokenLine : public TstPythonTokenList
 protected:
     TokenLine* _line[lineCnt];
 public:
-    TstPythonTokenLine()  {}
-    ~TstPythonTokenLine() override {}
-    void SetUp() override {
-        TstPythonTokenList::SetUp();
-        for(size_t i = 0; i< lineCnt; ++i) {
+    TstPythonTokenLine() :
+        TstPythonTokenList()
+    {
+        for(size_t i = 0; i< lineCnt; ++i)
             _line[i] = new TokenLine(nullptr, srcText[i]);
-        }
     }
-    void TearDown() override;
+    ~TstPythonTokenLine() override;
 };
-void TstPythonTokenLine::TearDown() {
-    while(_list->lineCount()) {
+TstPythonTokenLine::~TstPythonTokenLine() {
+    while(!_list->empty()) {
         auto l = _list->lastLine();
         delete l;
     }
-    TstPythonTokenList::TearDown();
 }
 
 // -----------------------------------------------------------------------
@@ -211,7 +254,41 @@ void TstPythonToken::TearDown() {
 }
 // ----------------------------------------------------------------------
 
-// start tests for tokenList
+// start tests for PythonVersion
+TEST_F(TstVersion, testVersion) {
+    EXPECT_EQ(version.version(), Version::v3_7);
+    EXPECT_EQ(version.minorVersion(), 7u);
+    EXPECT_EQ(version.majorVersion(), 3u);
+    EXPECT_STREQ(version.versionAsString().c_str(), "3.7");
+    version.setVersion(Version::v3_0);
+    EXPECT_EQ(version.version(), Version::v3_0);
+    EXPECT_EQ(version.minorVersion(), 0u);
+    EXPECT_EQ(version.majorVersion(), 3u);
+    EXPECT_STREQ(version.versionAsString().c_str(), "3.0");
+    version.setVersion(Version::Latest);
+    EXPECT_EQ(version.version(), Version::Latest);
+    EXPECT_EQ(version.minorVersion(), 9u);
+    EXPECT_EQ(version.majorVersion(), 3u);
+    EXPECT_STREQ(version.versionAsString().c_str(), "Latest");
+
+    auto available = Version::availableVersions();
+    EXPECT_EQ(available.begin()->second, "2.6");
+    EXPECT_EQ(available.rbegin()->second, "Latest");
+
+    EXPECT_STREQ(Version::versionAsString(Version::v3_0).c_str(), "3.0");
+}
+
+TEST_F(TstVersion, testVersionCopy) {
+    version.setVersion(Version::v2_7);
+    Version ver2(version);
+    EXPECT_EQ(ver2.version(), Version::v2_7);
+    ver2.setVersion(Version::v3_5);
+    Version ver3 = ver2;
+    EXPECT_EQ(ver3.version(), Version::v3_5);
+}
+
+
+// start tests for tokenList, TokenLine, Token
 TEST_F(TstPythonTokenList, testPythonTokenListDefaults) {
     ASSERT_EQ(_list->count(), 0u);
     ASSERT_EQ(_list->lexer(), nullptr);
@@ -260,6 +337,10 @@ TEST_F(TstPythonTokenLine, testPythonTokenListAppendLine) {
     ASSERT_EQ(_list->lineAt(1), _line[0]);
     ASSERT_EQ(_list->firstLine(), _line[1]);
     ASSERT_EQ(_list->lastLine(), _line[2]);
+
+    // delete the lines we don't use here
+    for (size_t i = 3; i < lineCnt; ++i)
+        delete _line[i];
 }
 
 TEST_F(TstPythonTokenLine, testPythonTokenListInsertLine) {
@@ -593,4 +674,122 @@ TEST_F(TstPythonToken, testPythonTokenTypeTest) {
     EXPECT_EQ((*_line[7])[3]->isBoolean(), true);
     EXPECT_EQ((*_line[9])[6]->isString(), true);
 }
+
+TEST_F(TstPythonToken, testPythonTokenRemove) {
+    fillAllLines();
+    EXPECT_EQ(_list->count(), 76u);
+    EXPECT_EQ(_line[12]->count(), 10u);
+    EXPECT_EQ(_line[12]->back()->type(), Token::T_Dedent);
+    EXPECT_EQ(_line[0]->front()->type(), Token::T_KeywordClass);
+    _list->lastLine()->pop_back();
+    EXPECT_EQ(_list->count(), 75u);
+    EXPECT_EQ(_line[12]->count(), 9u);
+    EXPECT_EQ(_line[12]->back()->type(), Token::T_DelimiterNewLine);
+    _list->firstLine()->pop_front();
+    EXPECT_EQ(_list->count(), 74u);
+    EXPECT_EQ(_line[0]->front()->type(), Token::T_IdentifierClass);
+    EXPECT_EQ(_line[0]->count(), 5u);
+    _list->lineAt(5)->remove((*_line[5])[4]);
+    EXPECT_EQ(_list->count(), 73u);
+    EXPECT_EQ(_line[5]->count(), 8u);
+    EXPECT_EQ((*_line[5])[4]->type(), Token::T_OperatorMoreEqual);
+    EXPECT_EQ((*_line[5])[3]->type(), Token::T_DelimiterPeriod);
+}
+
+
+
+/*
+TEST_F(TstPythonToken, testPythonTokenSegfault) {
+    fillAllLines();
+    std::cout << "-----begin-----------------------------------------------------------" << std::endl;
+    _line[0]->tokenScanInfo(true);
+    _line[0]->tokenScanInfo()->setParseMessage(_line[0]->front(), "Test indentError", TokenScanInfo::IndentError);
+    _line[0]->tokenScanInfo()->setParseMessage(_line[0]->front(), "Test Message", TokenScanInfo::Message);
+    _line[0]->tokenScanInfo()->setParseMessage(_line[0]->back(), "Test lookupError", TokenScanInfo::LookupError);
+    _line[0]->tokenScanInfo()->setParseMessage((*_line[0])[1], "Test Issue", TokenScanInfo::Issue);
+
+    _line[0]->remove((*_line[0])[0]);
+    std::cout << "-----end-----------------------------------------------------------" << std::endl;
+}
+
+TEST_F(TstPythonToken, testSeg) {
+    fillAllLines();
+}
+*/
+
+TEST_F(TstPythonToken, testPythonTokenScanInfo) {
+    fillAllLines();
+    _line[0]->tokenScanInfo(true)->setParseMessage(_line[0]->front(), "Test indentError", TokenScanInfo::IndentError);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->allMessages().size(), 1u);
+    _line[0]->tokenScanInfo()->setParseMessage(_line[0]->front(), "Test Message", TokenScanInfo::Message);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->allMessages().size(), 2u);
+    EXPECT_STREQ(_line[0]->tokenScanInfo()->allMessages().front()->message().c_str(), "Test indentError");
+    EXPECT_EQ(_line[0]->tokenScanInfo()->allMessages().front()->type(), TokenScanInfo::IndentError);
+    EXPECT_STREQ(_line[0]->tokenScanInfo()->allMessages().back()->message().c_str(), "Test Message");
+    EXPECT_STREQ(_line[0]->tokenScanInfo()->allMessages().front()->msgTypeAsString().c_str(), "IndentError");
+
+    _line[0]->tokenScanInfo()->setParseMessage(_line[0]->back(), "Test lookupError", TokenScanInfo::LookupError);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->allMessages().size(), 3u);
+    EXPECT_STREQ(_line[0]->tokenScanInfo()->allMessages().back()->message().c_str(), "Test lookupError");
+
+    EXPECT_EQ(_line[0]->tokenScanInfo()->parseMessages(_line[0]->front()).front()->type(),
+                                                          TokenScanInfo::IndentError);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->parseMessages((*_line[0])[1]).empty(), true);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->parseMessages((*_line[0])[0], TokenScanInfo::Message).size(), 1u);
+
+    _line[0]->tokenScanInfo()->setParseMessage((*_line[0])[1], "Test Issue", TokenScanInfo::Issue);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->parseMessages((*_line[0])[1]).front()->type(), TokenScanInfo::Issue);
+    EXPECT_STREQ(_line[0]->tokenScanInfo()->parseMessages((*_line[0])[1]).front()->message().c_str(), "Test Issue");
+
+    _line[0]->remove((*_line[0])[0]);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->allMessages().size(),2u);
+
+    _line[0]->remove((*_line[0])[1]);
+    EXPECT_EQ(_line[0]->tokenScanInfo()->parseMessages(_line[0]->back()).size(), 1u);
+
+    _line[0]->remove(_line[0]->back());
+    EXPECT_NE(_line[0]->tokenScanInfo(), nullptr);
+}
+
+
+TEST_F(TstPythonToken, testTokenWrapper) {
+    fillAllLines();
+    TokenLinkInherit link(_line[0]->front());
+    ASSERT_EQ(link.isNotified(), false);
+
+    Token *tok = _line[0]->front();
+    _line[0]->remove(tok, false);
+    ASSERT_EQ(link.isNotified(), false);
+    delete tok;
+    ASSERT_EQ(link.isNotified(), true);
+
+    TokenLinkInherit link1(_line[0]->front()),
+                     link2(_line[0]->front());
+    ASSERT_EQ(link1.isNotified(), false);
+    ASSERT_EQ(link2.isNotified(), false);
+    _line[0]->remove(_line[0]->front());
+    ASSERT_EQ(link1.isNotified(), true);
+    ASSERT_EQ(link2.isNotified(), true);
+
+}
+
+TEST_F(TstPythonToken, testTokenWrapperTemplate) {
+    fillAllLines();
+    TokenLinkTemplate link(_line[0]->front());
+    ASSERT_EQ(link.isNotified(), false);
+    Token *tok = _line[0]->front();
+    _line[0]->remove(tok, false);
+    ASSERT_EQ(link.isNotified(), false);
+    delete tok;
+    ASSERT_EQ(link.isNotified(), true);
+
+    TokenLinkTemplate link1(_line[0]->front()),
+                      link2(_line[0]->front());
+    ASSERT_EQ(link1.isNotified(), false);
+    ASSERT_EQ(link2.isNotified(), false);
+    _line[0]->remove(_line[0]->front());
+    ASSERT_EQ(link1.isNotified(), true);
+    ASSERT_EQ(link2.isNotified(), true);
+}
+
 
