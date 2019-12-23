@@ -11,6 +11,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 
 bool isNumber(char ch)
@@ -1331,15 +1332,27 @@ bool Python::LexerReader::readFile()
     if (!FileInfo::fileExists(fi.absolutePath()))
         return false;
 
+
     std::ifstream pyFile(fi.absolutePath(), std::ios::in);
     if (pyFile.is_open()) {
         if (!d_lex->tokenList.empty())
             d_lex->tokenList.clear();
         std::string line;
+
+        std::chrono::duration<double> elapsed_seconds;
+
         while (std::getline(pyFile, line)) {
             d_lex->tokenList.appendLine(new TokenLine(nullptr, line));
+
+            auto start = std::chrono::system_clock::now();
+
             tokenize(d_lex->tokenList.lastLine());
+
+            auto end = std::chrono::system_clock::now();
+            elapsed_seconds += end - start;
         }
+
+        std::cout << "time to tokenize " << d_lex->filePath << ": " << elapsed_seconds.count() << "s\n";
 
         pyFile.close();
 

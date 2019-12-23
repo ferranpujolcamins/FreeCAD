@@ -63,7 +63,7 @@ public:
         ::testing::Test(),
         _lexReader("/usr/lib/python:/usr/local/lib/python")
     {
-        _lexReader.setFilePath("testscripts/test1.py");
+        _lexReader.setFilePath("testscripts/Draft.py");
         _read = _lexReader.readFile();
     }
     ~TstLexerReader() override;
