@@ -102,11 +102,15 @@ bool Python::FileInfo::dirExists() const
 // static
 bool Python::FileInfo::fileExists(const std::string &file)
 {
+#ifdef _WIN32
+    struct _stat info;
+    if(_stat(file.c_str(), &info ) == 0 &&
+       info.st_mode & _S_IFREG)
+#else
     struct stat info;
-    std::cout << file << std::endl;
-
     if(stat(file.c_str(), &info ) == 0 &&
        info.st_mode & S_IFREG)
+#endif
     {
         return true;
     }
@@ -116,10 +120,16 @@ bool Python::FileInfo::fileExists(const std::string &file)
 // static
 bool Python::FileInfo::dirExists(const std::string &dir)
 {
+#ifdef _WIN32
+    struct _stat info;
+    if(_stat(dir.c_str(), &info ) == 0 &&
+       info.st_mode & _S_IFDIR)
+#else
     struct stat info;
-
     if(stat(dir.c_str(), &info ) == 0 &&
        info.st_mode & S_IFDIR)
+#endif
+
     {
         return true;
     }
