@@ -42,3 +42,10 @@ add_executable(testPythonSource main.cpp ${TestSRCS}
                ${GMockSrc}/src/gmock-all.cc)
 add_test(testPythonSource COMMAND testPythonSource)
 target_link_libraries(testPythonSource PRIVATE Threads::Threads PythonSource)
+
+# copy the test scripts to build dir
+add_custom_target(copy-test-scripts ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/testscripts
+    ${CMAKE_CURRENT_BINARY_DIR}/testscripts
+)
