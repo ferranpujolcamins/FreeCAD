@@ -11,7 +11,10 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-SET(TestSRCS tst_PythonToken.cpp)
+SET(TestSRCS
+    tst_PythonToken.cpp
+    tst_PythonLexer.cpp
+)
 
 find_package(Threads REQUIRED)
 

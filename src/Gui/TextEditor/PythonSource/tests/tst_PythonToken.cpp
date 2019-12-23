@@ -2,7 +2,6 @@
 #include <gmock/gmock-matchers.h>
 
 #include <PythonToken.h>
-#include <PythonLexer.h>
 
 using namespace testing;
 using namespace Python;
