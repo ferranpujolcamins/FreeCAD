@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <string>
 #include <iostream>
+#include <fstream>
 
 
 bool isNumber(char ch)
@@ -300,6 +301,9 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
 
         switch ( d_lex->endStateOfLastPara )
         {
+        case Python::Token::T_Invalid:
+            d_lex->endStateOfLastPara = Token::T_Undetermined;
+            continue;
         case Python::Token::T_Undetermined:
         {
             char thisCh = text[i],
@@ -312,11 +316,12 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             switch (thisCh)
             {
             // all these chars are described at: https://docs.python.org/3/reference/lexical_analysis.html
-            case '#':
+            case '#': {
                 // begin a comment
                 // it goes on to the end of the row
-                setRestOfLine(i, text, Python::Token::T_Comment); // function advances i
-                break;
+                uint e = static_cast<uint>(text.length()) - i -1; // allow the \n line end to be handled correctly
+                setWord(i, e, Python::Token::T_Comment); // function advances i
+            }   break;
             case '"': case '\'':
             {
                 // Begin either string literal or block string
@@ -1114,7 +1119,8 @@ void Python::Lexer::setWord(uint &pos, uint len, Python::Token::Type tokType)
     tokenUpdated(tok);
     if (!d_lex->isCodeLine)
         d_lex->isCodeLine = tok->isCode();
-    pos += len -1;
+    if (len > 0)
+        pos += len -1;
 }
 
 void Python::Lexer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
@@ -1293,4 +1299,67 @@ void Python::Lexer::checkLineEnd()
     checkForDedent(); // this line might dedent a previous line
 }
 
+// -------------------------------------------------------------------------------------
 
+Python::LexerReader::LexerReader(const std::string &pyPath) :
+    Lexer()
+{
+    // split by ':'
+    std::size_t left = 0, right = 0;
+    while(left != std::string::npos) {
+        right = pyPath.find(":", left);
+        if (right != std::string::npos) {
+            m_pyPaths.push_back(pyPath.substr(left, right - left));
+            left = right +2;
+        } else {
+            m_pyPaths.push_back(pyPath.substr(left));
+            break;
+        }
+    }
+}
+
+Python::LexerReader::~LexerReader()
+{
+}
+
+bool Python::LexerReader::readFile()
+{
+    if (d_lex->filePath.empty())
+        return false;
+
+    FileInfo fi(d_lex->filePath);
+    if (!FileInfo::fileExists(fi.absolutePath()))
+        return false;
+
+    std::ifstream pyFile(fi.absolutePath(), std::ios::in);
+    if (pyFile.is_open()) {
+        if (!d_lex->tokenList.empty())
+            d_lex->tokenList.clear();
+        std::string line;
+        while (std::getline(pyFile, line)) {
+            d_lex->tokenList.appendLine(new TokenLine(nullptr, line));
+            tokenize(d_lex->tokenList.lastLine());
+        }
+
+        pyFile.close();
+
+        return true;
+    }
+
+    return false;
+}
+
+std::string Python::LexerReader::pythonPath() const
+{
+    // join with ':'
+    auto it = m_pyPaths.begin();
+    std::string paths = m_pyPaths.empty() ? "" : *it;
+    while (++it != m_pyPaths.end())
+        paths += *it;
+    return paths;
+}
+
+const std::list<std::string> &Python::LexerReader::paths() const
+{
+    return m_pyPaths;
+}

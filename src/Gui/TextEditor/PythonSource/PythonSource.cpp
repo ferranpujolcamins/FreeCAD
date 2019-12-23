@@ -5,6 +5,7 @@
 #include <string>
 #include <limits.h>
 #include <cstring>
+#include <iostream>
 
 #if defined(_WIN32)
 # include <windows.h>
@@ -102,6 +103,7 @@ bool Python::FileInfo::dirExists() const
 bool Python::FileInfo::fileExists(const std::string &file)
 {
     struct stat info;
+    std::cout << file << std::endl;
 
     if(stat(file.c_str(), &info ) == 0 &&
        info.st_mode & S_IFREG)
@@ -201,7 +203,7 @@ std::string Python::FileInfo::dirPath(int parentFolderCnt) const
 // static
 std::string Python::FileInfo::dirPath(const std::string &path, int parentFolderCnt)
 {
-    std::string dirSeparator = {dirSep, 0};
+    std::string dirSeparator = {dirSep};
     auto end = path.end();
     auto posRight = end;
     auto posLeft = end;
@@ -230,18 +232,19 @@ std::string Python::FileInfo::cdUp(uint numberOfDirs) const
 
 std::string Python::FileInfo::cdUp(const std::string &dirPath, uint numberOfDirs)
 {
-    auto end = dirPath.end();
+    size_t pos = dirPath.length();
     while (dirPath.back() == dirSep)
-        --end; // trim trailing '/'
+        --pos; // trim trailing '/'
 
-    std::string dirSeparator = {dirSep, 0};
-    auto pos = end;
-    for (uint i = 0; i < numberOfDirs; ++i) {
-        pos = std::find_end(dirPath.begin(), pos,
-                            dirSeparator.begin(), dirSeparator.end());
+    if (dirPath.empty())
+        return "";
+
+    std::string dirSeparator = {dirSep};
+    for (uint i = 0; i < numberOfDirs && pos != std::string::npos; ++i) {
+        pos = dirPath.rfind(dirSeparator, pos -1);
     }
 
-    return std::string(dirPath.begin(), pos);
+    return dirPath.substr(0, pos);
 }
 
 std::string Python::FileInfo::ext() const
@@ -252,15 +255,19 @@ std::string Python::FileInfo::ext() const
 // static
 std::string Python::FileInfo::absolutePath(const std::string &relativePath)
 {
-    std::string cdUpStr = {'.', '.', dirSep, 0};
+    std::string cdUpStr = {'.', '.', dirSep};
     uint cdUpCnt = 0;
-    auto end = relativePath.end();
-    auto pos = relativePath.begin();
-    while ((pos = std::find_first_of(pos, end, cdUpStr.begin(), cdUpStr.end())) != end)
+    size_t pos = 0;
+    while((pos = relativePath.find(cdUpStr, pos)) != std::string::npos) {
+        ++cdUpCnt;
+        pos += 2;
+    }
+
+    if (relativePath.back() != dirSep)
         ++cdUpCnt;
 
     std::string path = cdUp(applicationPath(), cdUpCnt) + dirSep;
-    path.append(pos, end);
+    path.append(relativePath.substr(pos!=std::string::npos ? pos : 0));
     return path;
 }
 
@@ -271,8 +278,8 @@ std::string Python::FileInfo::absolutePath() const
 
 // static
 #ifdef _WIN32
-const char Python::FileInfo::dirSep = '/';
-#else
 const char Python::FileInfo::dirSep = '\\';
+#else
+const char Python::FileInfo::dirSep = '/';
 #endif
 

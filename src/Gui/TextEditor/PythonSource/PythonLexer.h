@@ -31,10 +31,11 @@ public:
     /// returns the nearest previous line that contains code
     static Python::TokenLine *previousCodeLine(TokenLine *line);
 
+    /// tokenizes the string given by tokLine
+    uint tokenize(Python::TokenLine *tokLine);
+
 protected:
     Python::LexerP *d_lex;
-
-    uint tokenize(Python::TokenLine *tokLine);
 
     /// this method is called when we cant tokenize a char
     /// subclasses should implement this function
@@ -72,6 +73,17 @@ private:
     void checkForDedent();
     void checkLineEnd();
 
+};
+
+class LexerReader : public Lexer
+{
+    std::list<std::string> m_pyPaths;
+public:
+    LexerReader(const std::string &pyPath);
+    ~LexerReader();
+    bool readFile();
+    std::string pythonPath() const;
+    const std::list<std::string> &paths() const;
 };
 
 } // namespace Python
