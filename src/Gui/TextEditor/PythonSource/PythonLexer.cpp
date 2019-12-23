@@ -1376,3 +1376,131 @@ const std::list<std::string> &Python::LexerReader::paths() const
 {
     return m_pyPaths;
 }
+
+// -------------------------------------------------------------------------------------
+
+Python::LexerPersistent::LexerPersistent(Lexer *lexer) :
+    m_lexer(lexer)
+{
+}
+
+Python::LexerPersistent::~LexerPersistent()
+{
+}
+
+const std::string Python::LexerPersistent::dumpToString() const
+{
+    assert(m_lexer && "Must have a vaid lexer");
+    std::string dmp = m_lexer->filePath() + "\n";
+
+    auto line = m_lexer->list().firstLine();
+    uint guard = m_lexer->list().max_size();
+    while (line && (--guard)) {
+        dmp += std::to_string(line->lineNr()) + ";" +line->text();
+        auto tok = line->front();
+        while (tok && tok != line->end() && (--guard)) {
+            dmp +=  "\t" + std::to_string(tok->startPos()) + ";" + std::to_string(tok->endPos()) +
+                    ";" + std::string(Token::tokenToCStr(tok->type())) + "\n";
+            tok = tok->next();
+        }
+        line = line->nextLine();
+    }
+
+    return dmp;
+}
+
+bool Python::LexerPersistent::dumpToFile(const std::string &file) const
+{
+    FileInfo fi(file);
+    if (!FileInfo::dirExists(fi.absolutePath()))
+        return false;
+
+    std::ofstream dmpFile(fi.absolutePath(), std::ios::out | std::ios::trunc);
+    if (dmpFile.is_open()){
+        dmpFile << dumpToString();
+        return true;
+    }
+
+    return false;
+}
+
+bool Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) const
+{
+    assert(m_lexer && "Must have a valid lexer");
+    m_lexer->list().clear();
+
+    auto strList = split(dmpStr, '\n');
+    auto lineIt = strList.begin();
+
+    if (lineIt == strList.end())
+        return false;
+    // first line should alwas be filepath
+    m_lexer->setFilePath(*lineIt);
+    lineIt++;
+    uint guard = m_lexer->list().max_size();
+    // iterate the rows, one
+    while (lineIt != strList.end() && (--guard)) {
+        if (lineIt->front() == '\t') {
+            // its a token line
+            while (lineIt != strList.end() && lineIt->front() == '\t' && (--guard))
+            {
+                auto lineStr = *lineIt;
+                auto itmList = split(*lineIt, ';');
+                auto itmIt = itmList.begin();
+                if (itmList.size() != 3)
+                    return false;
+                uint16_t startPos = static_cast<uint16_t>(std::stoul(*itmIt)),
+                         endPos   = static_cast<uint16_t>(std::stoul(*(++itmIt)));
+                auto tok = new Token(Token::strToToken(*(++itmIt)), startPos, endPos, nullptr);
+                m_lexer->list().lastLine()->push_back(tok);
+                ++lineIt;
+            }
+            continue;
+        } else {
+            // its a row line
+            auto list = split(*lineIt, ';');
+            if (list.size() != 2 && list.size() != 1)
+                return false;
+            auto l =new TokenLine(nullptr, list.back());
+            m_lexer->list().appendLine(l);
+            if (!lineIt->empty() && l->lineNr() != std::stoul(list.front()))
+                return false;
+        }
+        ++lineIt;
+    }
+    return true;
+}
+
+bool Python::LexerPersistent::reconstructFromDmpFile(const std::string &file) const
+{
+    FileInfo fi(file);
+    if (!FileInfo::fileExists(fi.absolutePath()))
+        return false;
+
+
+    std::ifstream dmpFile(fi.absolutePath(), std::ios::in);
+    if (dmpFile.is_open()) {
+        if (!m_lexer->list().empty())
+            m_lexer->list().clear();
+
+        std::string dmpStr((std::istreambuf_iterator<char>(dmpFile)),
+                           (std::istreambuf_iterator<char>()));
+
+        /*dmpFile.seekg(std::ios::end);
+        std::streampos endpos = dmpFile.tellg();
+        dmpFile.seekg(std::ios::beg);
+
+        std::string dmpStr;
+        size_t size = static_cast<size_t>(endpos - dmpFile.tellg());
+        dmpStr.resize(size);
+        dmpFile.read(&dmpStr[0], size);
+*/
+        dmpFile.close();
+
+        return reconstructFromString(dmpStr);
+    }
+
+    return false;
+}
+
+

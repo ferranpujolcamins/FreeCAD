@@ -77,6 +77,21 @@ size_t Python::cstrToHash(const char *str, size_t len)
     return hash;
 }
 
+// ------------------------------------------------------------------------
+std::list<std::string> Python::split(std::string strToSplit, char delim)
+{
+    std::list<std::string> list;
+    std::size_t current, previous = 0;
+    current = strToSplit.find(delim);
+    while (current != std::string::npos) {
+        list.push_back(strToSplit.substr(previous, current - previous));
+        previous = current + 1;
+        current = strToSplit.find(delim, previous);
+    }
+    list.push_back(strToSplit.substr(previous, current - previous));
+    return list;
+}
+
 // -------------------------------------------------------------------------
 
 
@@ -120,13 +135,15 @@ bool Python::FileInfo::fileExists(const std::string &file)
 // static
 bool Python::FileInfo::dirExists(const std::string &dir)
 {
+    std::string path = dirPath(dir);
+
 #ifdef _WIN32
     struct _stat info;
-    if(_stat(dir.c_str(), &info ) == 0 &&
+    if(_stat(path.c_str(), &info ) == 0 &&
        info.st_mode & _S_IFDIR)
 #else
     struct stat info;
-    if(stat(dir.c_str(), &info ) == 0 &&
+    if(stat(path.c_str(), &info ) == 0 &&
        info.st_mode & S_IFDIR)
 #endif
 
@@ -213,7 +230,23 @@ std::string Python::FileInfo::dirPath(int parentFolderCnt) const
 // static
 std::string Python::FileInfo::dirPath(const std::string &path, int parentFolderCnt)
 {
-    std::string dirSeparator = {dirSep};
+    auto list = split(path, dirSep);
+    // trim file from foo/bar/baz.txt
+    if (path.back() != dirSep && list.size() > 1)
+        list.pop_back();
+    std::string ret;
+    // insert first '/'
+    if (path.front() == dirSep)
+        ret += dirSep;
+
+    for(auto &itm : list) {
+        if (!itm.empty())
+            ret += itm + dirSep;
+    }
+
+    return ret;
+
+    /*std::string dirSeparator = {dirSep};
     auto end = path.end();
     auto posRight = end;
     auto posLeft = end;
@@ -233,6 +266,7 @@ std::string Python::FileInfo::dirPath(const std::string &path, int parentFolderC
         return "";  // no separator char here
 
     return std::string(posLeft, posRight);
+    */
 }
 
 std::string Python::FileInfo::cdUp(uint numberOfDirs) const
@@ -292,4 +326,5 @@ const char Python::FileInfo::dirSep = '\\';
 #else
 const char Python::FileInfo::dirSep = '/';
 #endif
+
 

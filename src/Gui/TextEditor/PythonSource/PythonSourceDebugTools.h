@@ -9,9 +9,6 @@ class SourceModule;
 class SourceFrame;
 
 
-const char* tokenToCStr(Token::Type tok);
-
-
 // --------------------------------------------------------------------
 
 class DumpToFileBaseClass

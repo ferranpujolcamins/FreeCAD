@@ -52,7 +52,7 @@ class Token
 public:
     enum Type {
         //**
-        //* Any token added or removed here must also be added or removed in PythonCodeDebugTools
+        //* Any token added or removed here must also be added or removed in tokenToCstr
         // all these tokens must be in grouped order ie: All operators grouped, numbers grouped etc
         T_Undetermined     = 0,     // Parser looks tries to figure out next char also Standard text
         // python
@@ -258,11 +258,18 @@ public:
                       //                        dosomethingElse
                       //                       ^
         T_Invalid, // let compiler decide last +1
+        T__EndOfTokensMarker,
 
         // console specific
+        T__SpecialTokensStart,
         T_PythonConsoleOutput     = 1000,
-        T_PythonConsoleError      = 1001
+        T_PythonConsoleError      = 1001,
+        T__SpecialTokensEnd
     };
+    /// returns a string representation of token type
+    static const char* tokenToCStr(Token::Type tokType);
+    /// returns the correct token type from given str
+    static Type strToToken(const std::string &tokName);
 
     explicit Token(Type tokType, uint startPos, uint endPos, Python::TokenLine *line);
     Token(const Token &other);
@@ -298,12 +305,12 @@ public:
     // public properties
     Type type() const { return m_type; }
     void changeType(Type tokType);
-    uint startPos() const { return m_startPos; }
-    int startPosInt() const { return static_cast<int>(m_startPos); }
-    uint endPos() const { return m_endPos; }
-    int endPosInt() const { return  static_cast<int>(m_endPos); }
+    uint16_t startPos() const { return m_startPos; }
+    int16_t startPosInt() const { return static_cast<int16_t>(m_startPos); }
+    uint16_t endPos() const { return m_endPos; }
+    int16_t endPosInt() const { return  static_cast<int16_t>(m_endPos); }
 
-    uint textLength() const { return m_endPos - m_startPos; }
+    uint16_t textLength() const { return m_endPos - m_startPos; }
 
     /// token which has textlength has a hash for its text
     /// speeds up compares
@@ -355,7 +362,7 @@ public:
 
 private:
     Type m_type;
-    uint m_startPos, m_endPos;
+    uint16_t m_startPos, m_endPos;
     std::size_t m_hash;
     std::list<Python::TokenWrapperBase*> m_wrappers;
 

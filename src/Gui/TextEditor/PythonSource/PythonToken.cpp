@@ -8,12 +8,29 @@
 //#include <cctype>
 #include <string>
 #include <iostream>
+#include <unordered_map>
+#include <cstring>
 
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
 //# include <TextEditor/PythonCodeDebugTools.h>
 //# define DEBUG_DELETES
 #endif
+
+std::unordered_map<std::string, Python::Token::Type> createMapOfTokens()
+{
+    std::unordered_map<std::string, Python::Token::Type> map;
+    for(uint t = 0; t < Python::Token::T__EndOfTokensMarker; ++t)
+    {
+        auto type = static_cast<Python::Token::Type>(t);
+        std::string tokName = Python::Token::tokenToCStr(type);
+        if (strncmp(tokName.c_str(), "Unknown(", 8) != 0)
+            map[tokName] = type;
+    }
+    return map;
+}
+
+// -------------------------------------------------------------------------
 
 Python::Version::Version(uint8_t major, uint8_t minor)
 {
@@ -150,6 +167,179 @@ std::map<Python::Version::versions, const std::string> Python::Version::availabl
 
 
 // -------------------------------------------------------------------------------------------
+// static
+const char *Python::Token::tokenToCStr(Python::Token::Type tokType)
+{
+    switch(tokType) {
+    case T_Undetermined:        return "T_Undetermined";     // Parser looks tries to figure out next char also Standard text
+        // python
+    case T_Indent:              return "T_Indent";
+    case T_Dedent:              return "T_Dedent";
+    case T_Comment:             return "T_Comment";     // Comment begins with #
+    case T_SyntaxError:         return "T_SyntaxError";
+    case T_IndentError:         return "T_IndentError";  // to signify that we have a indent error, set by PythonSourceRoot
+
+        // numbers
+    case T_NumberDecimal:       return "T_NumberDecimal";     // Normal number
+    case T_NumberHex:           return "T_NumberHex";
+    case T_NumberBinary:        return "T_NumberBinary";
+    case T_NumberOctal:         return "T_NumberOctal";    // starting with 0 ie 011 = 9, different color to let it stand out
+    case T_NumberFloat:         return "T_NumberFloat";
+
+        // strings
+    case T_LiteralDblQuote:     return "T_LiteralDblQote";     // String literal beginning with "
+    case T_LiteralSglQuote:     return "T_LiteralSglQuote";     // Other string literal beginning with '
+    case T_LiteralBlockDblQuote: return "T_LiteralBlockDblQuote";     // Block comments beginning and ending with """
+    case T_LiteralBlockSglQuote: return "T_LiteralBlockSglQuote";     // Other block comments beginning and ending with '''
+
+        // Keywords
+    case T_Keyword:             return "T_Keyword";
+    case T_KeywordClass:        return "T_KeywordClass";
+    case T_KeywordDef:          return "T_KeywordDef";
+    case T_KeywordImport:       return "T_KeywordImport";
+    case T_KeywordFrom:         return "T_KeywordFrom";
+    case T_KeywordAs:           return "T_KeywordAs";
+    case T_KeywordYield:        return "T_KeywordYield";
+    case T_KeywordReturn:       return "T_KeywordReturn";
+    case T_KeywordIf:           return "T_KeywordIf";
+    case T_KeywordElIf:         return "T_KeywordElIf";
+    case T_KeywordElse:         return "T_KeywordElse";
+    case T_KeywordFor:          return "T_KeywordFor";
+    case T_KeywordWhile:        return "T_KeywordWhile";
+    case T_KeywordBreak:        return "T_KeywordBreak";
+    case T_KeywordContinue:     return "T_KeywordContinue";
+    case T_KeywordTry:          return "T_KeywordTry";
+    case T_KeywordExcept:       return "T_KeywordExcept";
+    case T_KeywordFinally:      return "T_KeywordFinally";
+        // leave some room for future keywords
+
+        // operators
+       // arithmetic
+    case T_OperatorPlus:          return     "T_OperatorPlus";           // +,
+    case T_OperatorMinus:         return     "T_OperatorMinus";          // -,
+    case T_OperatorMul:           return     "T_OperatorMul";            // *,
+    case T_OperatorExponential:   return     "T_OperatorExponential";    // **,
+    case T_OperatorDiv:           return     "T_OperatorDiv";            // /,
+    case T_OperatorFloorDiv:      return     "T_OperatorFloorDiv";       // //,
+    case T_OperatorModulo:        return     "T_OperatorModulo";         // %,
+    case T_OperatorMatrixMul:     return     "T_OperatorMatrixMul";      // @
+        //bitwise
+
+    case T_OperatorBitShiftLeft:  return     "T_OperatorBitShiftLeft";   // <<,
+    case T_OperatorBitShiftRight: return     "T_OperatorBitShiftRight";  // >>,
+    case T_OperatorBitAnd:        return     "T_OperatorBitAnd";         // &,
+    case T_OperatorBitOr:         return     "T_OperatorBitOr";          // |,
+    case T_OperatorBitXor:        return     "T_OperatorBitXor";         // ^,
+    case T_OperatorBitNot:        return     "T_OperatorBitNot";         // ~,
+
+        // assigment
+    case T_OperatorEqual:         return     "T_OperatorEqual";          // =,
+    case T_OperatorWalrus:        return     "T_OperatorWalrus";
+    case T_OperatorPlusEqual:     return     "T_OperatorPlusEqual";      // +=,
+    case T_OperatorMinusEqual:    return     "T_OperatorMinusEqual";     // -=,
+    case T_OperatorMulEqual:      return     "T_OperatorMulEqual";       // *=,
+    case T_OperatorDivEqual:      return     "T_OperatorDivEqual";       // /=,
+    case T_OperatorModuloEqual:   return     "T_OperatorModuloEqual";    // %=,
+    case T_OperatorFloorDivEqual: return     "T_OperatorFloorDivEqual";  // //=,
+    case T_OperatorExpoEqual:     return     "T_OperatorExpoEqual";      // **=,
+    case T_OperatorMatrixMulEqual:return     "T_OperatorMatrixMulEqual"; // @= introduced in py 3.5
+
+        // assigment bitwise
+    case T_OperatorBitAndEqual:   return     "T_OperatorBitAndEqual";    // &=,
+    case T_OperatorBitOrEqual:    return     "T_OperatorBitOrEqual";     // |=,
+    case T_OperatorBitXorEqual:   return     "T_OperatorBitXorEqual";    // ^=,
+    case T_OperatorBitNotEqual:   return     "T_OperatorBitNotEqual";    // ~=,
+    case T_OperatorBitShiftRightEqual:return "T_OperatorBitShiftRightEqual"; // >>=,
+    case T_OperatorBitShiftLeftEqual: return "T_OperatorBitShiftLeftEqual";  // <<=,
+
+        // compare
+    case T_OperatorCompareEqual:  return     "T_OperatorCompareEqual";   // ==,
+    case T_OperatorNotEqual:      return     "T_OperatorNotEqual";       // !=,
+    case T_OperatorLessEqual:     return     "T_OperatorLessEqual";      // <=,
+    case T_OperatorMoreEqual:     return     "T_OperatorMoreEqual";      // >=,
+    case T_OperatorLess:          return     "T_OperatorLess";           // <,
+    case T_OperatorMore:          return     "T_OperatorMore";           // >,
+    case T_OperatorAnd:           return     "T_OperatorAnd";            // 'and',
+    case T_OperatorOr:            return     "T_OperatorOr";             // 'or',
+    case T_OperatorNot:           return     "T_OperatorNot";            // 'not',
+    case T_OperatorIs:            return     "T_OperatorIs";             // 'is',
+    case T_OperatorIn:            return     "T_OperatorIn";             // 'in',
+
+        // special
+    case T_OperatorVariableParam: return     "T_OperatorVariableParam";  // * for function parameters ie (*arg1)
+    case T_OperatorKeyWordParam:  return     "T_OperatorKeyWordParam";   // ** for function parameters ir (**arg1)
+
+        // delimiters
+    case T_Delimiter:             return "T_Delimiter";   // all other non specified
+    case T_DelimiterOpenParen:    return "T_DelimiterOpenParen";   // (
+    case T_DelimiterCloseParen:   return "T_DelimiterCloseParen";   // )
+    case T_DelimiterOpenBracket:  return "T_DelimiterOpenBracket";   // [
+    case T_DelimiterCloseBracket: return "T_DelimiterCloseBracket";   // ]
+    case T_DelimiterOpenBrace:    return "T_DelimiterOpenBrace";   // {
+    case T_DelimiterCloseBrace:   return "T_DelimiterCloseBrace";   // }
+    case T_DelimiterPeriod:       return "T_DelimiterPeriod";   // .
+    case T_DelimiterComma:        return "T_DelimiterComma";   // ,
+    case T_DelimiterColon:        return "T_DelimiterColon";   // :
+    case T_DelimiterSemiColon:    return "T_DelimiterSemiColon";   // ;
+    case T_DelimiterEllipsis:     return "T_DelimiterEllipsis";    // ...
+        // metadata such def funcname(arg: "documentation") ->
+        //                            "returntype documentation":
+    case T_DelimiterMetaData:     return "T_DelimiterMetaData";   // -> might also be ':' inside arguments
+    case T_DelimiterBackSlash:    return "T_DelimiterBackSlash";   // when end of line is escaped like so '\'
+    case T_DelimiterNewLine:      return "T_DelimiterNewLine";   // each new line
+        // identifiers
+    case T_IdentifierUnknown:     return "T_IdentifierUnknown"; // name is not identified at this point
+    case T_IdentifierDefined:     return "T_IdentifierDefined"; // variable is in current context
+    case T_IdentifierModule:      return "T_IdentifierModule"; // its a module definition
+    case T_IdentifierModuleAlias: return "T_IdentifierModuleAlias"; // alias for import. ie: import Something as Alias
+    case T_IdentifierModulePackage: return "T_IdentifierModulePackage"; // identifier is a package, ie: root for other modules
+    case T_IdentifierModuleGlob:  return "T_IdentifierModuleGlob"; // from mod import * <- glob
+    case T_IdentifierFunction:    return "T_IdentifierFunction"; // its a function definition
+    case T_IdentifierMethod:      return "T_IdentifierMethod"; // its a method definition
+    case T_IdentifierClass:       return "T_IdentifierClass"; // its a class definition
+    case T_IdentifierSuperMethod: return "T_IdentifierSuperMethod"; // its a method with name: __**__
+    case T_IdentifierBuiltin:     return "T_IdentifierBuiltin"; // its builtin
+    case T_IdentifierDecorator:   return "T_IdentifierDecorator"; // member decorator like: @property
+    case T_IdentifierDefUnknown:  return "T_IdentifierDefUnknown"; // before system has determined if its a
+                                                                                            // method or function yet
+    case T_IdentifierNone:        return "T_IdentifierNone";  // The None keyword
+    case T_IdentifierTrue:        return "T_IdentifierTrue";  // The bool True
+    case T_IdentifierFalse:       return "T_IdentifierFalse"; // The bool False
+    case T_IdentifierSelf:        return "T_IdentifierSelf";
+    case T_IdentifierInvalid:     return "T_IdentifierInvalid";
+
+        // metadata such def funcname(arg: "documentaion") -> "returntype documentation":
+    case T_MetaData:              return "T_MetaData";
+        // these are inserted by PythonSourceRoot
+    case T_BlockStart:            return "T_BlockStart"; // indicate a new block ie if (a is True):
+                                                                                  //                                       ^
+    case T_BlockEnd:              return "T_BlockEnd";   // indicate block end ie:    dosomething
+                                                                                  //                        dosomethingElse
+                                                                                  //                       ^
+
+
+    case T_Invalid:               return "T_Invalid";
+    case T_PythonConsoleOutput:   return "T_PythonConsoleOutput";
+    case T_PythonConsoleError:    return "T_PythonConsoleError";
+    default:
+        static char str[50];
+        sprintf(str, "Unknown(%d)", static_cast<int>(tokType));
+        char *closeParenCh = strchr(str, ')');
+        closeParenCh++;
+        closeParenCh = nullptr; // terminate str
+        return str;
+    }
+}
+
+Python::Token::Type Python::Token::strToToken(const std::string &tokName)
+{
+    static std::unordered_map<std::string, Token::Type> tokens = createMapOfTokens();
+    if (tokens.find(tokName) != tokens.end())
+        return tokens[tokName];
+    return T_Invalid;
+}
+
+
 Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
     m_hash(0), m_next(nullptr), m_previous(nullptr),

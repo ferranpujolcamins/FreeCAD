@@ -75,6 +75,7 @@ private:
 
 };
 
+/// reads a file into tokens
 class LexerReader : public Lexer
 {
     std::list<std::string> m_pyPaths;
@@ -84,6 +85,20 @@ public:
     bool readFile();
     std::string pythonPath() const;
     const std::list<std::string> &paths() const;
+};
+
+class LexerPersistent
+{
+    Lexer *m_lexer;
+public:
+    /// construct a persitent (cache) lexed output
+    /// this class does NOT take ownership of lexer
+    explicit LexerPersistent(Lexer *lexer);
+    virtual ~LexerPersistent();
+    const std::string dumpToString() const;
+    bool dumpToFile(const std::string &file) const;
+    bool reconstructFromString(const std::string &dmpStr) const;
+    bool reconstructFromDmpFile(const std::string &file) const;
 };
 
 } // namespace Python

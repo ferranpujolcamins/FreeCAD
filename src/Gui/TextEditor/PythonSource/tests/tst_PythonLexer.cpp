@@ -234,3 +234,14 @@ TEST_F(TstLexerReader, testLexerRead) {
     EXPECT_EQ(_lexReader.list().empty(), false);
 }
 
+TEST_F(TstLexerTokenize, testLexerPersistent) {
+    LexerPersistent lexP(lex);
+    ASSERT_EQ(lexP.dumpToFile("test.dmp"), true);
+    std::unique_ptr<Lexer> newLexp(new Lexer());
+    LexerPersistent lexP2(newLexp.get());
+    ASSERT_EQ(lexP2.reconstructFromDmpFile("test.dmp"), true);
+
+    EXPECT_EQ(lex->list().count(), newLexp->list().count());
+    EXPECT_EQ(lex->list().lineCount(), newLexp->list().lineCount());
+}
+

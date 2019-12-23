@@ -44,7 +44,7 @@ const char *TOKEN_TEXT = TOKEN_TEXT_BUF, \
     (void)TOKEN_INFO; \
     (void)TOKEN_SRC_LINE;
 #define DBG_TOKEN(TOKEN) if (TOKEN){\
-    strncpy(TOKEN_NAME_BUF, Python::tokenToCStr(TOKEN->type()), sizeof TOKEN_NAME_BUF); \
+    strncpy(TOKEN_NAME_BUF, Python::Token::tokenToCStr(TOKEN->type()), sizeof TOKEN_NAME_BUF); \
     snprintf(TOKEN_INFO_BUF, sizeof TOKEN_INFO_BUF, "line:%d,start:%d,end:%d", \
                     TOKEN->line(), TOKEN->startPos(), TOKEN->endPos()); \
     strncpy(TOKEN_SRC_LINE_BUF, TOKEN->ownerLine()->text().c_str(), sizeof TOKEN_SRC_LINE_BUF); \
@@ -85,6 +85,7 @@ struct Hash
 
 size_t cstrToHash(const char *str, size_t len);
 
+std::list<std::string> split(std::string strToSplit, char delim = ' ');
 
 // ----------------------------------------------------------------------------------------
 

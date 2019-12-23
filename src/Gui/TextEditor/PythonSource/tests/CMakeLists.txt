@@ -17,13 +17,17 @@ SET(TestSRCS
 )
 
 find_package(Threads REQUIRED)
+find_package(GTest)
 
-if ($ENV{GOOGLETEST_DIR})
+if (${GTEST_FOUND})
+    set(GOOGLETEST_DIR ${GTEST_ROOT})
+elseif ($ENV{GOOGLETEST_DIR})
     set(GOOGLETEST_DIR $ENV{GOOGLETEST_DIR})
 else ()
     message(WARNING "Using googletest src dir specified at Qt Creator wizard")
     set(GOOGLETEST_DIR "/usr/src/googletest")
 endif ()
+
 if (EXISTS ${GOOGLETEST_DIR})
     set(GTestSrc ${GOOGLETEST_DIR}/googletest)
     set(GMockSrc ${GOOGLETEST_DIR}/googlemock)
