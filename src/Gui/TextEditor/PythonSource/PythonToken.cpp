@@ -176,46 +176,46 @@ std::map<Python::Version::versions, const std::string> Python::Version::availabl
 
 // -------------------------------------------------------------------------------------------
 
-Python::TokenListIterator::TokenListIterator(Python::Token *startTok) :
+Python::TokenIterator::TokenIterator(Python::Token *startTok) :
     m_start(startTok)
 {
 }
 
-Python::TokenListIterator::TokenListIterator(const Python::TokenListIterator &other) :
+Python::TokenIterator::TokenIterator(const Python::TokenIterator &other) :
     m_start(other.m_start)
 {
 }
 
-Python::TokenListIterator::~TokenListIterator()
+Python::TokenIterator::~TokenIterator()
 {
 }
 
-Python::TokenListIterator &Python::TokenListIterator::operator++()
+Python::TokenIterator &Python::TokenIterator::operator++()
 {
     // preincrement '++it'
     m_start = m_start->next();
     return *this;
 }
 
-Python::TokenListIterator Python::TokenListIterator::operator++(int)
+Python::TokenIterator Python::TokenIterator::operator++(int)
 {
     // postincrement 'it++'
-    TokenListIterator beforeIt(*this);
+    TokenIterator beforeIt(*this);
     m_start = m_start->next();
     return beforeIt;
 }
 
-Python::TokenListIterator &Python::TokenListIterator::operator--()
+Python::TokenIterator &Python::TokenIterator::operator--()
 {
     // predecrement
     m_start = m_start->previous();
     return *this;
 }
 
-Python::TokenListIterator Python::TokenListIterator::operator--(int)
+Python::TokenIterator Python::TokenIterator::operator--(int)
 {
     // postdecrement
-    TokenListIterator beforeIt(*this);
+    TokenIterator beforeIt(*this);
     m_start = m_start->previous();
     return beforeIt;
 }
@@ -1207,19 +1207,6 @@ bool Python::TokenLine::isCodeLine() const
         tok = tok->next();
     }
     return false;
-}
-
-Python::Token *Python::TokenLine::back() const {
-
-    return m_backTok;
-}
-
-Python::Token *Python::TokenLine::end() const {
-    return m_backTok ? m_backTok->m_next : nullptr;
-}
-
-Python::Token *Python::TokenLine::rend() const {
-    return m_frontTok ? m_frontTok->m_previous : nullptr;
 }
 
 Python::Token *Python::TokenLine::operator[](int idx) const

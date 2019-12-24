@@ -53,13 +53,13 @@ private:
 
 // ------------------------------------------------------------------------------------
 
-class TokenListIterator
+class TokenIterator
 {
     Token *m_start;
 public:
-    explicit TokenListIterator(Token *startTok);
-    TokenListIterator(const TokenListIterator &other);
-    ~TokenListIterator();
+    explicit TokenIterator(Token *startTok);
+    TokenIterator(const TokenIterator &other);
+    ~TokenIterator();
     typedef Token                   value_type;
     typedef std::ptrdiff_t          difference_type;
     typedef Token*                  pointer;
@@ -67,10 +67,10 @@ public:
     typedef std::bidirectional_iterator_tag iterator_category;
     Token &operator*() const { return *m_start; }
     Token *operator->() const { return m_start; }
-    bool operator==(const TokenListIterator& other) const {
+    bool operator==(const TokenIterator& other) const {
         return m_start == other.m_start;
     }
-    bool operator!=(const TokenListIterator& other) const {
+    bool operator!=(const TokenIterator& other) const {
         return !(*this == other);
     }
     bool operator==(const Token &otherTok) const {
@@ -79,10 +79,10 @@ public:
     bool operator!=(const Token *otherTok) const {
         return !(*this == *otherTok);
     }
-    TokenListIterator &operator++(); // preincrement '++it'
-    TokenListIterator operator++(int); // postincrement 'it++'
-    TokenListIterator &operator--(); // predecrement '--it'
-    TokenListIterator operator--(int); // postdecrement 'it--'
+    TokenIterator &operator++(); // preincrement '++it'
+    TokenIterator operator++(int); // postincrement 'it++'
+    TokenIterator &operator--(); // predecrement '--it'
+    TokenIterator operator--(int); // postdecrement 'it--'
 };
 
 // -------------------------------------------------------------------------------------
@@ -443,10 +443,10 @@ public:
     // accessor methods
     Python::Token *front() const { return m_first; }
     Python::Token *back() const { return m_last; }
-    TokenListIterator begin() const { return TokenListIterator(m_first); }
-    TokenListIterator rbegin() const { return TokenListIterator(m_last); }
-    TokenListIterator end() const { return TokenListIterator(nullptr); }
-    TokenListIterator rend() const { return TokenListIterator(nullptr); }
+    TokenIterator begin() const { return TokenIterator(m_first); }
+    TokenIterator rbegin() const { return TokenIterator(m_last); }
+    TokenIterator end() const { return TokenIterator(nullptr); }
+    TokenIterator rend() const { return TokenIterator(nullptr); }
     Python::Token *operator[] (int32_t idx);
 
     // info
@@ -609,9 +609,20 @@ public:
 
     // accessor methods
     Python::Token *front() const { return m_frontTok; }
-    Python::Token *back() const;
-    Python::Token *end() const;
-    Python::Token *rend() const;
+    Python::Token *back() const { return m_backTok; }
+    TokenIterator begin() const {
+        return TokenIterator(m_frontTok);
+    }
+    TokenIterator rbegin() const {
+        return TokenIterator(m_backTok);
+    }
+    TokenIterator end() const {
+        return TokenIterator(m_backTok ? m_backTok->m_next : nullptr);
+    }
+    TokenIterator rend() const {
+        return TokenIterator(m_frontTok ? m_frontTok->m_previous : nullptr);
+    }
+
     /// gets the nextline sibling
     Python::TokenLine *nextLine() const { return m_nextLine; }
     Python::TokenLine *previousLine() const { return m_previousLine; }

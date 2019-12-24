@@ -1478,11 +1478,9 @@ const std::string Python::LexerPersistent::dumpToString() const
                 str += std::to_string(idx) + ";";
             dmp += " unfinished=" + str.substr(0, str.length()-1) + "\n"; // trim the last ';'
         }
-        auto tok = line->front();
-        while (tok && tok != line->end() && (--guard)) {
-            dmp +=  "\t" + std::to_string(tok->startPos()) + ";" + std::to_string(tok->endPos()) +
-                    ";" + std::string(Token::tokenToCStr(tok->type())) + "\n";
-            tok = tok->next();
+        for (auto &tok : *line) {
+            dmp +=  "\t" + std::to_string(tok.startPos()) + ";" + std::to_string(tok.endPos()) +
+                    ";" + std::string(Token::tokenToCStr(tok.type())) + "\n";
         }
         // this one must be inserted after tokens have been dumped so we can recreate in this order
         if (line->tokenScanInfo() && !line->tokenScanInfo()->allMessages().empty()) {

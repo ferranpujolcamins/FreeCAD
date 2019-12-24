@@ -588,10 +588,10 @@ TEST_F(TstPythonToken, testPythonTokenLineTokenInsert) {
     EXPECT_EQ(_list->front(), (*_line[0])[0]);
     EXPECT_EQ(_list->lastLine()->isCodeLine(), true);
     // test ined markers
-    EXPECT_EQ(_line[1]->end(), nullptr);
-    EXPECT_EQ(_line[1]->rend(), _line[0]->back());
-    EXPECT_EQ(_line[0]->rend(), nullptr);
-    EXPECT_EQ(_line[0]->end(), _line[1]->front());
+    EXPECT_EQ(&(*_line[1]->end()), nullptr);
+    EXPECT_EQ(&(*_line[1]->rend()), _line[0]->back());
+    EXPECT_EQ(&(*_line[0]->rend()), nullptr);
+    EXPECT_EQ(&(*_line[0]->end()), _line[1]->front());
 
     // test swapLine
     _list->swapLine(_line[1], _line[11]);
@@ -629,6 +629,39 @@ TEST_F(TstPythonToken, testPythonTokenListIterator) {
     while (itF != _list->end() && itR != _list->rend() && rpos > -1) {
         ASSERT_EQ((*_list)[++pos], &(*(++itF)));
         ASSERT_EQ((*_list)[--rpos], &(*(--itR)));
+    }
+}
+
+TEST_F(TstPythonToken, testPythonTokenLineIterator) {
+
+    fillAllLines();
+    uint sz = 0;
+    TokenLine *line = _list->lineAt(9u);
+    EXPECT_EQ(10u, line->count());
+    for (auto &tok : *line) {
+        ++sz;
+        (void)tok;
+    }
+    ASSERT_EQ(sz, line->count());
+    sz = 0;
+    for (auto it = line->rbegin(); it != line->rend(); --it)
+        ++sz;
+    ASSERT_EQ(sz, line->count());
+    sz = 0;
+    auto itF = line->begin();
+    auto itR = line->rbegin();
+    int pos = 0, rpos = static_cast<int>(line->count()) -1;
+    while (itF != line->end() && itR != line->rend() && rpos > -1) {
+        ASSERT_EQ((*line)[pos++], &(*itF++));
+        ASSERT_EQ((*line)[rpos--], &(*itR--));
+    }
+    EXPECT_EQ(&(*itF), line->nextLine()->front());
+    EXPECT_EQ(&(*itR), line->previousLine()->back());
+
+    pos = 0; rpos = static_cast<int>(line->count()) -1;
+    while (itF != line->end() && itR != line->rend() && rpos > -1) {
+        ASSERT_EQ((*line)[++pos], &(*(++itF)));
+        ASSERT_EQ((*line)[--rpos], &(*(--itR)));
     }
 }
 
