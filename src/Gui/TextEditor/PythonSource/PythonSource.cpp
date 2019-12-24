@@ -188,18 +188,26 @@ std::string Python::FileInfo::baseName() const
     return baseName(m_path);
 }
 
+std::string Python::FileInfo::stem(const std::string &filePath)
+{
+    std::string ret = baseName(filePath);
+    auto retList = split(ret, ".");
+    if (retList.size() > 1)
+        retList.pop_back();
+    return join(retList, ".");
+}
+
+std::string Python::FileInfo::stem() const
+{
+    return stem(m_path);
+}
+
 // static
 std::string Python::FileInfo::baseName(const std::string &filePath)
 {
-    std::string dirSeparator = { dirSep, 0};
-    auto pos = std::find_end(filePath.begin(), filePath.end(),
-                             dirSeparator.begin(), dirSeparator.end());
-    if (pos == filePath.end())
-        return filePath;  // no separator char here
-
-    std::string ret;
-    std::copy(pos, filePath.end(), ret.begin());
-    return ret;
+    std::string dirSeparator = { dirSep };
+    auto parts = split(filePath, dirSeparator);
+    return parts.back();
 }
 
 // static
@@ -282,26 +290,22 @@ std::string Python::FileInfo::dirPath(const std::string &path, uint parentFolder
     return ret;
 }
 
-std::string Python::FileInfo::cdUp(uint numberOfDirs) const
+std::string Python::FileInfo::cdUp(uint numberOfDirs)
 {
-    return cdUp(m_path, numberOfDirs);
+    m_path = cdUp(m_path, numberOfDirs);
+    return m_path;
 }
 
 std::string Python::FileInfo::cdUp(const std::string &dirPath, uint numberOfDirs)
 {
-    size_t pos = dirPath.length();
-    while (dirPath.back() == dirSep)
-        --pos; // trim trailing '/'
+    std::string dirSeparator = { dirSep };
+    auto parts = split(dirPath, dirSeparator);
+    for(uint i = 0; i < numberOfDirs && !parts.empty(); ++i)
+        parts.pop_back();
 
-    if (dirPath.empty())
-        return "";
-
-    std::string dirSeparator = {dirSep};
-    for (uint i = 0; i < numberOfDirs && pos != std::string::npos; ++i) {
-        pos = dirPath.rfind(dirSeparator, pos -1);
-    }
-
-    return dirPath.substr(0, pos);
+    if (parts.empty())
+        return std::string();
+    return join(parts, dirSeparator);
 }
 
 std::string Python::FileInfo::ext() const

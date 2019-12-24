@@ -14,6 +14,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 SET(TestSRCS
     tst_PythonToken.cpp
     tst_PythonLexer.cpp
+    tst_FileInfo.cpp
 )
 
 find_package(Threads REQUIRED)

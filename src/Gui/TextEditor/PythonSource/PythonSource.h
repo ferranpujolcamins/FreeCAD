@@ -98,7 +98,10 @@ public:
     explicit FileInfo(const std::string path);
     ~FileInfo();
 
-    /// true is file exists
+    /// return the current complete path
+    const std::string &path() const { return m_path; }
+
+    /// true fiis file exists
     bool fileExists() const;
     static bool fileExists(const std::string &file);
 
@@ -110,6 +113,12 @@ public:
     static std::string baseName(const std::string &filePath);
     std::string baseName() const;
 
+    /// gets the stem (filename without extension)
+    /// ie stem(file.txt) = file
+    ///    stem(file.next.dot.log) = file.next.dot
+    static std::string stem(const std::string &filePath);
+    std::string stem() const;
+
     /// get the directory path that contains this file/dir
     /// parentFolderCnt limit to this number of folders
     ///  ie it  cdUp count
@@ -118,7 +127,7 @@ public:
     static std::string dirPath(const std::string &path, uint parentFolderCnt = 0);
 
     /// returns a path which has moved up numberOfDirs
-    std::string cdUp(uint numberOfDirs = 1) const;
+    std::string cdUp(uint numberOfDirs = 1);
     static std::string cdUp(const std::string &dirPath, uint numberOfDirs = 1);
 
     /// gets the file extension
