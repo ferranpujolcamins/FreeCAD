@@ -53,3 +53,8 @@ add_custom_target(copy-test-scripts ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/testscripts
     ${CMAKE_CURRENT_BINARY_DIR}/testscripts
 )
+add_custom_target(copy-compare-files ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/compare
+    ${CMAKE_CURRENT_BINARY_DIR}/compare
+)
