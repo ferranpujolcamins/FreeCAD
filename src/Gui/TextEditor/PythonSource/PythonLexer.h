@@ -80,9 +80,9 @@ class LexerReader : public Lexer
 {
     std::list<std::string> m_pyPaths;
 public:
-    LexerReader(const std::string &pyPath);
+    LexerReader(const std::string &pyPath = std::string());
     ~LexerReader();
-    bool readFile();
+    bool readFile(const std::string &file = std::string());
     std::string pythonPath() const;
     const std::list<std::string> &paths() const;
 };
@@ -97,8 +97,10 @@ public:
     virtual ~LexerPersistent();
     const std::string dumpToString() const;
     bool dumpToFile(const std::string &file) const;
-    bool reconstructFromString(const std::string &dmpStr) const;
-    bool reconstructFromDmpFile(const std::string &file) const;
+    /// returns how many lines read, if negative=error on that line
+    /// ie -11 means it bailed out on line 11
+    int reconstructFromString(const std::string &dmpStr) const;
+    int reconstructFromDmpFile(const std::string &file) const;
 };
 
 } // namespace Python

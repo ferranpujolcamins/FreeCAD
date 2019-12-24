@@ -78,7 +78,8 @@ size_t Python::cstrToHash(const char *str, size_t len)
 }
 
 // ------------------------------------------------------------------------
-std::list<std::string> Python::split(std::string strToSplit, char delim)
+std::list<std::string> Python::split(const std::string &strToSplit,
+                                     const std::string &delim)
 {
     std::list<std::string> list;
     std::size_t current, previous = 0;
@@ -90,6 +91,26 @@ std::list<std::string> Python::split(std::string strToSplit, char delim)
     }
     list.push_back(strToSplit.substr(previous, current - previous));
     return list;
+}
+
+std::string Python::join(std::list<std::string> strsToJoin,
+                         const std::string &delim)
+{
+    size_t sz = 0u,
+           delimSz = strsToJoin.size() > 1 ? delim.length() : 0u;
+    for(auto &s : strsToJoin)
+        sz += s.length() + delimSz;
+
+    std::string str;
+    str.reserve(sz);
+    for(auto &s : strsToJoin) {
+        str += s;
+        if (delimSz)
+            str += delim;
+    }
+    if (delimSz)
+        return str.substr(0, str.length()-1); // trim trailing ';'
+    return str;
 }
 
 // -------------------------------------------------------------------------
@@ -222,15 +243,16 @@ std::string &Python::FileInfo::applicationPath()
 }
 
 
-std::string Python::FileInfo::dirPath(int parentFolderCnt) const
+std::string Python::FileInfo::dirPath(uint parentFolderCnt) const
 {
     return dirPath(m_path, parentFolderCnt);
 }
 
 // static
-std::string Python::FileInfo::dirPath(const std::string &path, int parentFolderCnt)
+std::string Python::FileInfo::dirPath(const std::string &path, uint parentFolderCnt)
 {
-    auto list = split(path, dirSep);
+    char sepStr[] = {dirSep, '\0'};
+    auto list = split(path, sepStr);
     // trim file from foo/bar/baz.txt
     if (path.back() != dirSep && list.size() > 1)
         list.pop_back();
@@ -239,7 +261,11 @@ std::string Python::FileInfo::dirPath(const std::string &path, int parentFolderC
     if (path.front() == dirSep)
         ret += dirSep;
 
+    size_t stopAt = list.size() - parentFolderCnt;
+
     for(auto &itm : list) {
+        if ((stopAt--) == 0)
+            break;
         if (!itm.empty())
             ret += itm + dirSep;
     }
@@ -326,5 +352,6 @@ const char Python::FileInfo::dirSep = '\\';
 #else
 const char Python::FileInfo::dirSep = '/';
 #endif
+
 
 

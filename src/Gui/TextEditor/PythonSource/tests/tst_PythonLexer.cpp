@@ -239,9 +239,243 @@ TEST_F(TstLexerTokenize, testLexerPersistent) {
     ASSERT_EQ(lexP.dumpToFile("test.dmp"), true);
     std::unique_ptr<Lexer> newLexp(new Lexer());
     LexerPersistent lexP2(newLexp.get());
-    ASSERT_EQ(lexP2.reconstructFromDmpFile("test.dmp"), true);
+    ASSERT_GT(lexP2.reconstructFromDmpFile("test.dmp"), 0);
 
+    // check so each token is restored
     EXPECT_EQ(lex->list().count(), newLexp->list().count());
+    uint guard = lex->list().max_size();
+    auto tok1 = lex->list().front();
+    auto tok2 = newLexp->list().front();
+    while (tok1 && tok2 && (--guard)) {
+        EXPECT_EQ(tok1->type(), tok2->type());
+        EXPECT_EQ(tok1->line(), tok2->line());
+        EXPECT_EQ(tok1->startPos(), tok2->startPos());
+        EXPECT_EQ(tok1->endPos(), tok2->endPos());
+        tok1 = tok1->next();
+        tok2 = tok2->next();
+    }
+    EXPECT_EQ(tok1, nullptr);
+    EXPECT_EQ(tok2, nullptr);
+    EXPECT_GT(guard, 0u);
+
+    // check so each line is restored
     EXPECT_EQ(lex->list().lineCount(), newLexp->list().lineCount());
+    guard = lex->list().max_size();
+    auto line1 = lex->list().firstLine();
+    auto line2 = newLexp->list().firstLine();
+    while (line1 && line2 && (--guard)) {
+        EXPECT_EQ(line1->lineNr(), line2->lineNr());
+        EXPECT_EQ(line1->indent(), line2->indent());
+        EXPECT_EQ(line1->blockState(), line2->blockState());
+        EXPECT_STREQ(line1->text().c_str(), line2->text().c_str());
+        EXPECT_EQ(line1->count(), line2->count());
+        EXPECT_EQ(line1->bracketCnt(), line2->bracketCnt());
+        EXPECT_EQ(line1->braceCnt(), line2->braceCnt());
+        EXPECT_EQ(line1->parenCnt(), line2->parenCnt());
+        EXPECT_EQ(line1->isParamLine(), line2->isParamLine());
+        EXPECT_EQ(line2->isContinuation(), line2->isContinuation());
+        // test line previous and next
+        if (line1 != lex->list().lastLine() && line2 != newLexp->list().lastLine()) {
+            EXPECT_EQ(line1->nextLine()->lineNr(), line2->nextLine()->lineNr());
+        }
+        if (line1 != lex->list().firstLine() && line2 != newLexp->list().firstLine()) {
+            EXPECT_EQ(line1->previousLine()->lineNr(), line2->previousLine()->lineNr());
+        }
+        // test unfinished tokens
+        EXPECT_EQ(line1->unfinishedTokens().size(), line2->unfinishedTokens().size());
+        auto it1 = line1->unfinishedTokens().begin();
+        auto it2 = line2->unfinishedTokens().begin();
+        for(;it1 != line1->unfinishedTokens().end() &&
+             it2 != line2->unfinishedTokens().end();
+            ++it1, ++it2)
+        {
+            EXPECT_EQ(*it1, *it2);
+        }
+        // test scaninfo for this line
+        if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
+            EXPECT_NE(line2->tokenScanInfo(), nullptr);
+            auto it1 = line1->tokenScanInfo()->allMessages().begin();
+            auto it2 = line2->tokenScanInfo()->allMessages().begin();
+            for(;it1 != line1->tokenScanInfo()->allMessages().end() &&
+                 it2 != line2->tokenScanInfo()->allMessages().end();
+                ++it1, ++it2)
+            {
+                EXPECT_EQ((*it1)->type(), (*it2)->type());
+                EXPECT_EQ(line1->tokenPos((*it1)->token()), line2->tokenPos((*it2)->token()));
+                EXPECT_STREQ((*it1)->message().c_str(), (*it2)->message().c_str());
+            }
+        }
+
+        line1 = line1->nextLine();
+        line2 = line2->nextLine();
+    }
+    EXPECT_EQ(line1, nullptr);
+    EXPECT_EQ(line2, nullptr);
+    EXPECT_GT(guard, 0u);
+}
+
+TEST(tstLexerPersistent, testLexerPersistentDumpStr) {
+    LexerReader lex;
+    lex.readFile("testscripts/test1.py");
+    LexerPersistent lexP(&lex);
+    auto str = lexP.dumpToString();
+    EXPECT_GT(str.length(), 100u);
+    Lexer lex2;
+    LexerPersistent lexP2(&lex2);
+    EXPECT_GT(lexP2.reconstructFromString(str), 0);
+
+    // check so each token is restored
+    EXPECT_EQ(lex.list().count(), lex2.list().count());
+    uint guard = lex.list().max_size();
+    auto tok1 = lex.list().front();
+    auto tok2 = lex2.list().front();
+    while (tok1 && tok2 && (--guard)) {
+        EXPECT_EQ(tok1->type(), tok2->type());
+        EXPECT_EQ(tok1->line(), tok2->line());
+        EXPECT_EQ(tok1->startPos(), tok2->startPos());
+        EXPECT_EQ(tok1->endPos(), tok2->endPos());
+        tok1 = tok1->next();
+        tok2 = tok2->next();
+    }
+    EXPECT_EQ(tok1, nullptr);
+    EXPECT_EQ(tok2, nullptr);
+    EXPECT_GT(guard, 0u);
+
+    // check so each line is restored
+    EXPECT_EQ(lex.list().lineCount(), lex2.list().lineCount());
+    guard = lex.list().max_size();
+    auto line1 = lex.list().firstLine();
+    auto line2 = lex2.list().firstLine();
+    while (line1 && line2 && (--guard)) {
+        EXPECT_EQ(line1->lineNr(), line2->lineNr());
+        EXPECT_EQ(line1->indent(), line2->indent());
+        EXPECT_EQ(line1->blockState(), line2->blockState());
+        EXPECT_STREQ(line1->text().c_str(), line2->text().c_str());
+        EXPECT_EQ(line1->count(), line2->count());
+        EXPECT_EQ(line1->bracketCnt(), line2->bracketCnt());
+        EXPECT_EQ(line1->braceCnt(), line2->braceCnt());
+        EXPECT_EQ(line1->parenCnt(), line2->parenCnt());
+        EXPECT_EQ(line1->isParamLine(), line2->isParamLine());
+        EXPECT_EQ(line2->isContinuation(), line2->isContinuation());
+        // test line previous and next
+        if (line1 != lex.list().lastLine() && line2 != lex2.list().lastLine()) {
+            EXPECT_EQ(line1->nextLine()->lineNr(), line2->nextLine()->lineNr());
+        }
+        if (line1 != lex.list().firstLine() && line2 != lex2.list().firstLine()) {
+            EXPECT_EQ(line1->previousLine()->lineNr(), line2->previousLine()->lineNr());
+        }
+        // test unfinished tokens
+        EXPECT_EQ(line1->unfinishedTokens().size(), line2->unfinishedTokens().size());
+        auto it1 = line1->unfinishedTokens().begin();
+        auto it2 = line2->unfinishedTokens().begin();
+        for(;it1 != line1->unfinishedTokens().end() &&
+             it2 != line2->unfinishedTokens().end();
+            ++it1, ++it2)
+        {
+            EXPECT_EQ(*it1, *it2);
+        }
+        // test scaninfo for this line
+        if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
+            EXPECT_NE(line2->tokenScanInfo(), nullptr);
+            auto it1 = line1->tokenScanInfo()->allMessages().begin();
+            auto it2 = line2->tokenScanInfo()->allMessages().begin();
+            for(;it1 != line1->tokenScanInfo()->allMessages().end() &&
+                 it2 != line2->tokenScanInfo()->allMessages().end();
+                ++it1, ++it2)
+            {
+                EXPECT_EQ((*it1)->type(), (*it2)->type());
+                EXPECT_EQ(line1->tokenPos((*it1)->token()), line2->tokenPos((*it2)->token()));
+                EXPECT_STREQ((*it1)->message().c_str(), (*it2)->message().c_str());
+            }
+        }
+
+        line1 = line1->nextLine();
+        line2 = line2->nextLine();
+    }
+    EXPECT_EQ(line1, nullptr);
+    EXPECT_EQ(line2, nullptr);
+    EXPECT_GT(guard, 0u);
+}
+
+TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
+    LexerReader lex;
+    lex.readFile("testscripts/Draft.py");
+    LexerPersistent lexP(&lex);
+    EXPECT_EQ(lexP.dumpToFile("testHelix.py.dmp"), true);
+    Lexer lex2;
+    LexerPersistent lexP2(&lex2);
+    EXPECT_GT(lexP2.reconstructFromDmpFile("testHelix.py.dmp"), 0);
+
+    // check so each token is restored
+    EXPECT_EQ(lex.list().count(), lex2.list().count());
+    uint guard = lex.list().max_size();
+    auto tok1 = lex.list().front();
+    auto tok2 = lex2.list().front();
+    while (tok1 && tok2 && (--guard)) {
+        EXPECT_EQ(tok1->type(), tok2->type());
+        EXPECT_EQ(tok1->line(), tok2->line());
+        EXPECT_EQ(tok1->startPos(), tok2->startPos());
+        EXPECT_EQ(tok1->endPos(), tok2->endPos());
+        tok1 = tok1->next();
+        tok2 = tok2->next();
+    }
+    EXPECT_EQ(tok1, nullptr);
+    EXPECT_EQ(tok2, nullptr);
+    EXPECT_GT(guard, 0u);
+
+    // check so each line is restored
+    EXPECT_EQ(lex.list().lineCount(), lex2.list().lineCount());
+    guard = lex.list().max_size();
+    auto line1 = lex.list().firstLine();
+    auto line2 = lex2.list().firstLine();
+    while (line1 && line2 && (--guard)) {
+        EXPECT_EQ(line1->lineNr(), line2->lineNr());
+        EXPECT_EQ(line1->indent(), line2->indent());
+        EXPECT_EQ(line1->blockState(), line2->blockState());
+        EXPECT_STREQ(line1->text().c_str(), line2->text().c_str());
+        EXPECT_EQ(line1->count(), line2->count());
+        EXPECT_EQ(line1->bracketCnt(), line2->bracketCnt());
+        EXPECT_EQ(line1->braceCnt(), line2->braceCnt());
+        EXPECT_EQ(line1->parenCnt(), line2->parenCnt());
+        EXPECT_EQ(line1->isParamLine(), line2->isParamLine());
+        EXPECT_EQ(line2->isContinuation(), line2->isContinuation());
+        // test line previous and next
+        if (line1 != lex.list().lastLine() && line2 != lex2.list().lastLine()) {
+            EXPECT_EQ(line1->nextLine()->lineNr(), line2->nextLine()->lineNr());
+        }
+        if (line1 != lex.list().firstLine() && line2 != lex2.list().firstLine()) {
+            EXPECT_EQ(line1->previousLine()->lineNr(), line2->previousLine()->lineNr());
+        }
+        // test unfinished tokens
+        EXPECT_EQ(line1->unfinishedTokens().size(), line2->unfinishedTokens().size());
+        auto it1 = line1->unfinishedTokens().begin();
+        auto it2 = line2->unfinishedTokens().begin();
+        for(;it1 != line1->unfinishedTokens().end() &&
+             it2 != line2->unfinishedTokens().end();
+            ++it1, ++it2)
+        {
+            EXPECT_EQ(*it1, *it2);
+        }
+        // test scaninfo for this line
+        if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
+            EXPECT_NE(line2->tokenScanInfo(), nullptr);
+            auto it1 = line1->tokenScanInfo()->allMessages().begin();
+            auto it2 = line2->tokenScanInfo()->allMessages().begin();
+            for(;it1 != line1->tokenScanInfo()->allMessages().end() &&
+                 it2 != line2->tokenScanInfo()->allMessages().end();
+                ++it1, ++it2)
+            {
+                EXPECT_EQ((*it1)->type(), (*it2)->type());
+                EXPECT_EQ(line1->tokenPos((*it1)->token()), line2->tokenPos((*it2)->token()));
+                EXPECT_STREQ((*it1)->message().c_str(), (*it2)->message().c_str());
+            }
+        }
+
+        line1 = line1->nextLine();
+        line2 = line2->nextLine();
+    }
+    EXPECT_EQ(line1, nullptr);
+    EXPECT_EQ(line2, nullptr);
+    EXPECT_GT(guard, 0u);
 }
 

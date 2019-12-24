@@ -85,7 +85,10 @@ struct Hash
 
 size_t cstrToHash(const char *str, size_t len);
 
-std::list<std::string> split(std::string strToSplit, char delim = ' ');
+std::list<std::string> split(const std::string &strToSplit,
+                             const std::string &delim = std::string());
+std::string join(std::list<std::string> strsToJoin,
+                 const std::string &delim = std::string());
 
 // ----------------------------------------------------------------------------------------
 
@@ -108,10 +111,11 @@ public:
     std::string baseName() const;
 
     /// get the directory path that contains this file/dir
-    /// parentFolderCnt limit to ths number of folders
+    /// parentFolderCnt limit to this number of folders
+    ///  ie it  cdUp count
     ///   default 0 == get complete path
-    std::string dirPath(int parentFolderCnt = 0) const;
-    static std::string dirPath(const std::string &path, int parentFolderCnt = 0);
+    std::string dirPath(uint parentFolderCnt = 0) const;
+    static std::string dirPath(const std::string &path, uint parentFolderCnt = 0);
 
     /// returns a path which has moved up numberOfDirs
     std::string cdUp(uint numberOfDirs = 1) const;

@@ -340,7 +340,8 @@ Python::Token::Type Python::Token::strToToken(const std::string &tokName)
 }
 
 
-Python::Token::Token(Python::Token::Type token, uint startPos, uint endPos, TokenLine *line) :
+Python::Token::Token(Python::Token::Type token, uint16_t startPos,
+                     uint16_t endPos, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
     m_hash(0), m_next(nullptr), m_previous(nullptr),
     m_ownerLine(line)
@@ -1050,9 +1051,10 @@ void Python::TokenList::decLineCount(Python::TokenLine *firstLineToDec) const
 Python::TokenLine::TokenLine(Python::Token *startTok,
                              const std::string &text) :
     m_ownerList(nullptr), m_frontTok(startTok), m_backTok(startTok),
-    m_nextLine(nullptr), m_previousLine(nullptr), m_tokenScanInfo(nullptr),
-    m_indentCharCount(0), m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0),
-    m_blockStateCnt(0), m_line(-1),  m_isParamLine(false), m_isContinuation(false)
+    m_nextLine(nullptr), m_previousLine(nullptr),
+    m_line(-1), m_tokenScanInfo(nullptr), m_indentCharCount(0),
+    m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0), m_blockStateCnt(0),
+    m_isParamLine(false), m_isContinuation(false)
 {
     // strip newline chars
     size_t trimChrs = 0;
@@ -1075,11 +1077,13 @@ Python::TokenLine::TokenLine(Python::Token *startTok,
 Python::TokenLine::TokenLine(const TokenLine &other) :
     m_ownerList(other.m_ownerList), m_frontTok(other.m_frontTok),
     m_backTok(other.m_backTok), m_nextLine(other.m_nextLine),
-    m_previousLine(other.m_previousLine), m_tokenScanInfo(other.m_tokenScanInfo),
-    m_text(other.m_text), m_indentCharCount(other.m_indentCharCount),
+    m_previousLine(other.m_previousLine),
+    m_text(other.m_text), m_line(-1),
+    m_tokenScanInfo(other.m_tokenScanInfo),
+    m_indentCharCount(other.m_indentCharCount),
     m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
     m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt),
-    m_line(-1), m_isParamLine(false), m_isContinuation(other.m_isContinuation)
+    m_isParamLine(false), m_isContinuation(other.m_isContinuation)
 {
 #ifdef DEBUG_DELETES
     std::cout << "cpy TokenLine: " << std::hex << this << " " << m_text << std::endl;
@@ -1131,7 +1135,7 @@ uint Python::TokenLine::count() const
     return cnt;
 }
 
-uint Python::TokenLine::indent() const
+uint16_t Python::TokenLine::indent() const
 {
     return m_indentCharCount;
 }
@@ -1557,11 +1561,6 @@ void Python::TokenLine::setMessage(const Python::Token *tok, const std::string &
     scanInfo->setParseMessage(tok, msg, TokenScanInfo::Message);
 }
 
-void Python::TokenLine::setIndentCount(uint count)
-{
-    m_indentCharCount = count;
-}
-
 // ------------------------------------------------------------------------------------
 
 Python::TokenScanInfo::ParseMsg::ParseMsg(const std::string &message, const Token *tok,
@@ -1582,7 +1581,13 @@ Python::TokenScanInfo::ParseMsg::~ParseMsg()
 
 const std::string Python::TokenScanInfo::ParseMsg::msgTypeAsString() const
 {
-    switch (m_type) {
+    return msgTypeAsString(m_type);
+}
+
+// static
+const std::string Python::TokenScanInfo::ParseMsg::msgTypeAsString(MsgType msgType)
+{
+    switch (msgType) {
     case Message:     return "Message";
     case LookupError: return "LookupError";
     case SyntaxError: return "SyntaxError";
@@ -1592,6 +1597,25 @@ const std::string Python::TokenScanInfo::ParseMsg::msgTypeAsString() const
     //case AllMsgTypes:
     default: return "";
     }
+}
+
+// static
+Python::TokenScanInfo::MsgType
+Python::TokenScanInfo::ParseMsg::strToMsgType(const std::string &msgTypeStr)
+{
+    if (msgTypeStr == "Message")
+        return Message;
+    if (msgTypeStr == "LookupError")
+        return LookupError;
+    if (msgTypeStr == "SyntaxError")
+        return SyntaxError;
+    if (msgTypeStr == "IndentError")
+        return IndentError;
+    if (msgTypeStr == "Warning")
+        return Warning;
+    if (msgTypeStr == "Issue")
+        return Issue;
+    return Invalid;
 }
 
 const std::string Python::TokenScanInfo::ParseMsg::message() const

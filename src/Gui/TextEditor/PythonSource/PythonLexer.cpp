@@ -207,6 +207,33 @@ const std::size_t Python::LexerP::tryHash = cstrToHash("try", 3);
 const std::size_t Python::LexerP::exceptHash = cstrToHash("except", 6);
 const std::size_t Python::LexerP::finallyHash = cstrToHash("finally", 7);
 
+
+// ---------------------------------------------------------------------------
+
+/// specialcase this one to get restore from disk to work on protected members
+class LexerPTokenLine : public TokenLine
+{
+public:
+    LexerPTokenLine(const std::string &text) :
+        TokenLine(nullptr, text)
+    {}
+    ~LexerPTokenLine() override;
+    void setIsParamLine(bool isParam) { m_isParamLine = isParam; }
+    void setIsContinuation(bool isCont) { m_isContinuation = isCont; }
+    void setParenCnt(int16_t parenCnt) { m_parenCnt = parenCnt; }
+    void setBraceCnt(int16_t braceCnt) { m_braceCnt = braceCnt; }
+    void setBracketCnt(int16_t bracketCnt) { m_bracketCnt = bracketCnt; }
+    void setBlockStateCnt(int16_t blockStateCnt) { m_blockStateCnt = blockStateCnt; }
+    void setIndentCnt(uint16_t indentCount) { m_indentCharCount = indentCount; }
+    void setUnfinishedTokenIdx(std::list<int> &idxs) {
+        for(auto idx : idxs)
+            m_unfinishedTokenIndexes.push_back(idx);
+    }
+};
+LexerPTokenLine::~LexerPTokenLine()
+{
+}
+
 } // namespace Python
 
 // -------------------------------------------------------------------------------------------
@@ -1109,7 +1136,7 @@ void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
         if (count > 0) {
             //setIndentation(pos, j, count);
             pos += j - 1;
-            d_lex->activeLine->m_indentCharCount = count;
+            d_lex->activeLine->m_indentCharCount = static_cast<uint16_t>(count);
         }
     }
 }
@@ -1323,9 +1350,11 @@ Python::LexerReader::~LexerReader()
 {
 }
 
-bool Python::LexerReader::readFile()
+bool Python::LexerReader::readFile(const std::string &file)
 {
-    if (d_lex->filePath.empty())
+    if (!file.empty())
+        d_lex->filePath = file;
+    else if (d_lex->filePath.empty())
         return false;
 
     FileInfo fi(d_lex->filePath);
@@ -1379,6 +1408,36 @@ const std::list<std::string> &Python::LexerReader::paths() const
 
 // -------------------------------------------------------------------------------------
 
+
+// fileformat for dumpstring:
+// each line has one thing in it, linetext, one token etc
+// firstline is filename
+// then comes lineNr;#firstline in code
+// then comes all properties of this line, one property per line
+//  propertylines starts with space ' '
+// then comes all tokens in this line, one token per line
+//  tokenlines starts with TAB '\t'
+//  then: starPos;endPos;TokenName
+// ex:
+// def firstLine():
+//     return "end of example"
+//
+// becomes:
+// /home/me/file1.py\n
+// def firstLine():\n
+//  indent=0\n
+//  paren=0\n
+//          0;3;T_KeywordDef\n <- TAB not spacesas indent
+//          4;13;T_IdentifierFunction\n
+//          13;14;T_DelimiterOpenParen\n
+//          14;15;T_DelimiterCloseParen\n
+//          15;16;T_DelimiterColon\n
+//          16;16;T_DelimiterNewLine\n
+//     return "end of example"\n
+//  indent=4\n
+//  paren=0\n
+//      4;10;T_KewordReturn\n
+//      11;27;T_LiteralDblQuote\n
 Python::LexerPersistent::LexerPersistent(Lexer *lexer) :
     m_lexer(lexer)
 {
@@ -1396,16 +1455,42 @@ const std::string Python::LexerPersistent::dumpToString() const
     auto line = m_lexer->list().firstLine();
     uint guard = m_lexer->list().max_size();
     while (line && (--guard)) {
-        dmp += std::to_string(line->lineNr()) + ";" +line->text();
+        dmp += std::to_string(line->lineNr()) + ";" + line->text(); // newline from line->text()
+        // space marks this line is a line property line
+        dmp += " indent=" + std::to_string(line->indent()) + "\n" +
+               " bracket=" + std::to_string(line->bracketCnt()) + "\n" +
+               " brace=" + std::to_string(line->braceCnt()) + "\n" +
+               " paren=" + std::to_string(line->parenCnt()) + "\n" +
+               " continue=" + std::to_string(line->isContinuation()) + "\n" +
+               " param=" + std::to_string(line->isParamLine()) + "\n" +
+               " blockstate=" + std::to_string(line->blockState()) + "\n";
+        if (!line->unfinishedTokens().empty()) {
+            std::string str;
+            for(auto idx : line->unfinishedTokens())
+                str += std::to_string(idx) + ";";
+            dmp += " unfinished=" + str.substr(0, str.length()-1) + "\n"; // trim the last ';'
+        }
         auto tok = line->front();
         while (tok && tok != line->end() && (--guard)) {
             dmp +=  "\t" + std::to_string(tok->startPos()) + ";" + std::to_string(tok->endPos()) +
                     ";" + std::string(Token::tokenToCStr(tok->type())) + "\n";
             tok = tok->next();
         }
+        // this one must be inserted after tokens have been dumped so we can recreate in this order
+        if (line->tokenScanInfo() && !line->tokenScanInfo()->allMessages().empty()) {
+            for(auto msg : line->tokenScanInfo()->allMessages()) {
+                auto msgList = split(msg->message(), "\n");
+                dmp += " scaninfo=" + msg->msgTypeAsString() + ";" +
+                        std::to_string(line->tokenPos(msg->token())) + ";" +
+                        join(msgList, "\033");
+            }
+
+        }
         line = line->nextLine();
     }
-
+    // prevent the last '\n'
+    if (dmp.back() == '\n')
+        return dmp.substr(0, dmp.length() - 1);
     return dmp;
 }
 
@@ -1424,54 +1509,99 @@ bool Python::LexerPersistent::dumpToFile(const std::string &file) const
     return false;
 }
 
-bool Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) const
+int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) const
 {
+    int readLines = 0;
     assert(m_lexer && "Must have a valid lexer");
     m_lexer->list().clear();
 
-    auto strList = split(dmpStr, '\n');
+    auto strList = split(dmpStr, "\n");
     auto lineIt = strList.begin();
 
     if (lineIt == strList.end())
-        return false;
-    // first line should alwas be filepath
+        return readLines;
+    LexerPTokenLine *activeLine = nullptr;
+    // first line should always be filepath
     m_lexer->setFilePath(*lineIt);
-    lineIt++;
-    uint guard = m_lexer->list().max_size();
-    // iterate the rows, one
-    while (lineIt != strList.end() && (--guard)) {
-        if (lineIt->front() == '\t') {
-            // its a token line
-            while (lineIt != strList.end() && lineIt->front() == '\t' && (--guard))
-            {
+    ++lineIt; ++readLines;
+    try {
+        uint guard = m_lexer->list().max_size();
+        // iterate the rows, one
+        while (lineIt != strList.end() && (--guard)) {
+            if (lineIt->front() == '\t') {
+                // its a token line
+                if (!activeLine)
+                    return -readLines;
                 auto lineStr = *lineIt;
-                auto itmList = split(*lineIt, ';');
+                auto itmList = split(*lineIt, ";");
                 auto itmIt = itmList.begin();
                 if (itmList.size() != 3)
-                    return false;
+                    return -readLines;
                 uint16_t startPos = static_cast<uint16_t>(std::stoul(*itmIt)),
-                         endPos   = static_cast<uint16_t>(std::stoul(*(++itmIt)));
+                        endPos   = static_cast<uint16_t>(std::stoul(*(++itmIt)));
                 auto tok = new Token(Token::strToToken(*(++itmIt)), startPos, endPos, nullptr);
-                m_lexer->list().lastLine()->push_back(tok);
-                ++lineIt;
+                activeLine->push_back(tok);
+            } else if(lineIt->front() == ' ') {
+                // its a line parameter line
+                // space marks this line is a line property line
+                auto list = split(lineIt->substr(1), "=");
+                if (list.size() != 2 || !activeLine)
+                    return -readLines;
+
+                if (list.front() == "indent")
+                    activeLine->setIndentCnt(static_cast<uint16_t>(std::stoi(list.back())));
+                else if (list.front() == "bracket")
+                    activeLine->setBracketCnt(static_cast<int16_t>(std::stoi(list.back())));
+                else if (list.front() == "brace")
+                    activeLine->setBraceCnt(static_cast<int16_t>(std::stoi(list.back())));
+                else if (list.front() == "paren")
+                    activeLine->setParenCnt(static_cast<int16_t>(std::stoi(list.back())));
+                else if (list.front() == "continue")
+                    activeLine->setIsContinuation(static_cast<bool>(std::stoi(list.back())));
+                else if (list.front() == "param")
+                    activeLine->setIsParamLine(static_cast<bool>(std::stoi(list.back())));
+                else if (list.front() == "blockstate")
+                    activeLine->setBlockStateCnt(static_cast<int16_t>(std::stoi(list.back())));
+                else if (list.front() == "unfinished") {
+                    std::list<int> idxs;
+                    for(auto &strIdx : split(list.back(), ";"))
+                        idxs.push_back(std::stoi(strIdx));
+                    activeLine->setUnfinishedTokenIdx(idxs);
+                } else if (list.front() == "scaninfo") {
+                    auto scanParts = split(list.back(), ";");
+                    if (scanParts.size() != 3u)
+                        return -readLines;
+                    auto scanPartIt = scanParts.begin();
+                    auto msgType = TokenScanInfo::ParseMsg::strToMsgType(*(scanPartIt++));
+                    Token *tok = (*activeLine)[std::stoi(*(scanPartIt++))];
+                    if (!tok || msgType == TokenScanInfo::Invalid)
+                        return -readLines;
+                    auto msgParts = split(*scanPartIt, "\033");
+                    std::string msg = join(msgParts, "\n");
+                    activeLine->tokenScanInfo(true)->setParseMessage(tok, msg, msgType);
+                }
+            } else {
+                // its a row line, code might contain ';' so we join all parts
+                auto list = split(*lineIt, ";");
+                if (list.size() < 1)
+                    return -readLines;
+                ulong lineNr = std::stoul(list.front());
+                list.pop_front(); // pop linenr
+                activeLine = new LexerPTokenLine(join(list, ";"));
+                m_lexer->list().appendLine(activeLine);
+                if (!lineIt->empty() && activeLine->lineNr() != lineNr)
+                    return -readLines;
             }
-            continue;
-        } else {
-            // its a row line
-            auto list = split(*lineIt, ';');
-            if (list.size() != 2 && list.size() != 1)
-                return false;
-            auto l =new TokenLine(nullptr, list.back());
-            m_lexer->list().appendLine(l);
-            if (!lineIt->empty() && l->lineNr() != std::stoul(list.front()))
-                return false;
+            ++lineIt;
+            ++readLines;
         }
-        ++lineIt;
+    } catch(...) {
+        return -readLines;
     }
-    return true;
+    return readLines;
 }
 
-bool Python::LexerPersistent::reconstructFromDmpFile(const std::string &file) const
+int Python::LexerPersistent::reconstructFromDmpFile(const std::string &file) const
 {
     FileInfo fi(file);
     if (!FileInfo::fileExists(fi.absolutePath()))
@@ -1486,15 +1616,6 @@ bool Python::LexerPersistent::reconstructFromDmpFile(const std::string &file) co
         std::string dmpStr((std::istreambuf_iterator<char>(dmpFile)),
                            (std::istreambuf_iterator<char>()));
 
-        /*dmpFile.seekg(std::ios::end);
-        std::streampos endpos = dmpFile.tellg();
-        dmpFile.seekg(std::ios::beg);
-
-        std::string dmpStr;
-        size_t size = static_cast<size_t>(endpos - dmpFile.tellg());
-        dmpStr.resize(size);
-        dmpFile.read(&dmpStr[0], size);
-*/
         dmpFile.close();
 
         return reconstructFromString(dmpStr);

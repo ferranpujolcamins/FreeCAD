@@ -271,7 +271,8 @@ public:
     /// returns the correct token type from given str
     static Type strToToken(const std::string &tokName);
 
-    explicit Token(Type tokType, uint startPos, uint endPos, Python::TokenLine *line);
+    explicit Token(Type tokType, uint16_t startPos,
+                   uint16_t endPos, Python::TokenLine *line);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
@@ -488,14 +489,19 @@ class TokenLine {
     Python::TokenList *m_ownerList;
     Python::Token *m_frontTok, *m_backTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
-    Python::TokenScanInfo *m_tokenScanInfo;
     std::string m_text;
+    int m_line;
+
+protected:
+    // these are protected so that restore from file can subclass and manipulate
+    Python::TokenScanInfo *m_tokenScanInfo;
 
     std::list<int> m_unfinishedTokenIndexes; // index to m_tokens where a undetermined is at
                                             //  (so context parser can determine it later)
-    uint m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
-    int m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
-    int m_line;
+
+    uint16_t m_indentCharCount; // as spaces NOTE according to python documentation a tab is 8 spaces
+
+    int16_t m_parenCnt, m_bracketCnt, m_braceCnt, m_blockStateCnt;
     bool m_isParamLine;
     bool m_isContinuation; // this line is a continuation of previous line
                            // indent is not used on this line
@@ -521,22 +527,33 @@ public:
     bool empty() const { return m_frontTok == nullptr; }
 
     /// returns the number of chars that starts this line
-    uint indent() const;
+    uint16_t indent() const;
 
     /// isCodeLine checks if line has any code
     /// lines with only indent or comments return false
     /// return true if line has code
     bool isCodeLine() const;
 
+    /// true if this line is within a prarameter list
+    /// ie def func(param1,.....
+    ///             param2 <- line continued paramline
+    bool isParamLine() const { return m_isParamLine; }
+
+    /// true if this line is a continuation from previous line
+    ///  indent is not in effect on this line
+    /// ie {prop1: blah, ....
+    ///     prop2: baz, <-  line is continued from previous line
+    bool isContinuation() const { return m_isContinuation; }
+
     /// number of parens in this line
     /// '(' = parenCnt++
     /// ')' = parenCnt--
     /// Can be negative if this line has more closing parens than opening ones
-    int parenCnt() const { return  m_parenCnt; }
+    int16_t parenCnt() const { return  m_parenCnt; }
     /// number of brackets '[' int this line, see as parenCnt description
-    int bracketCnt() const { return m_bracketCnt; }
+    int16_t bracketCnt() const { return m_bracketCnt; }
     /// number of braces '{' in this line, see parenCnt for description
-    int braceCnt() const { return m_braceCnt; }
+    int16_t braceCnt() const { return m_braceCnt; }
 
     /// blockState tells if this block starts a new block,
     ///         such as '{' in C like languages or ':' in python
@@ -628,10 +645,6 @@ public:
     void setSyntaxErrorMsg(const Python::Token *tok, const std::string &msg);
     void setMessage(const Python::Token *tok, const std::string &msg);
 
-protected:
-    /// set indentcount
-    void setIndentCount(uint count);
-
 private:
     /// needed because offset when multiple inheritance
     /// returns the real pointer to this instance, not to subclass
@@ -656,6 +669,8 @@ public:
         explicit ParseMsg(const std::string &message, const Python::Token *tok, MsgType type);
         ~ParseMsg();
         const std::string msgTypeAsString() const;
+        static const std::string msgTypeAsString(MsgType msgType);
+        static MsgType strToMsgType(const std::string &msgTypeStr);
         const std::string message() const;
         const Python::Token *token() const;
         MsgType type() const;
