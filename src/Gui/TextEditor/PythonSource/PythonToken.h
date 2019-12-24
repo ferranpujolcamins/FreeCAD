@@ -455,6 +455,7 @@ public:
                m_firstLine == nullptr && m_lastLine == nullptr;
     }
     uint32_t count() const;
+    size_t size() const { return static_cast<size_t>(m_size); }
     static uint32_t max_size() { return 20000000u; }
 
     // modifiers for tokens
@@ -565,6 +566,8 @@ public:
 
     /// returns the number of tokens
     uint count() const;
+    size_t size() const { return static_cast<size_t>(count()); }
+
     /// true if line is empty
     bool empty() const { return m_frontTok == nullptr; }
 
