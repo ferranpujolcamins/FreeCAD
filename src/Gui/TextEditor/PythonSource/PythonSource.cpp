@@ -7,6 +7,11 @@
 #include <cstring>
 #include <iostream>
 
+#ifndef _WIN32
+# include <sys/types.h>
+# include <dirent.h>
+#endif
+
 #if defined(_WIN32)
 # include <windows.h>
 #elif defined(__linux__)
@@ -271,28 +276,6 @@ std::string Python::FileInfo::dirPath(const std::string &path, uint parentFolder
     }
 
     return ret;
-
-    /*std::string dirSeparator = {dirSep};
-    auto end = path.end();
-    auto posRight = end;
-    auto posLeft = end;
-    int iterations = -1;
-    do {
-        posLeft = std::find_end(path.begin(), posRight,
-                                dirSeparator.begin(), dirSeparator.end());
-        if (posLeft != end) {
-            ++iterations;
-            posRight = posLeft;
-        }
-        if (iterations == parentFolderCnt)
-            break;
-    } while (posRight != path.begin());
-
-    if (posRight == end)
-        return "";  // no separator char here
-
-    return std::string(posLeft, posRight);
-    */
 }
 
 std::string Python::FileInfo::cdUp(uint numberOfDirs) const
@@ -344,6 +327,57 @@ std::string Python::FileInfo::absolutePath(const std::string &relativePath)
 std::string Python::FileInfo::absolutePath() const
 {
     return absolutePath(m_path);
+}
+
+std::vector<std::string> Python::FileInfo::filesInDir()
+{
+    return filesInDir(m_path);
+}
+
+std::vector<std::string> Python::FileInfo::filesInDir(const std::string &path)
+{
+    std::vector<std::string> ret;
+    std::string dir = dirPath(path);
+    if (!dirExists(path))
+        return ret;
+
+#ifdef _WIN32
+    std::string pattern(dir);
+    pattern.append("\\*");
+    WIN32_FIND_DATA data;
+    HANDLE hFind;
+    if ((hFind = FindFirstFile(pattern.c_str(), &data)) != INVALID_HANDLE_VALUE) {
+       do {
+           ret.push_back(data.cFileName);
+       } while (FindNextFile(hFind, &data) != 0);
+       FindClose(hFind);
+    }
+#else
+    DIR* dirp = opendir(dir.c_str());
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != nullptr) {
+        ret.push_back(dp->d_name);
+    }
+    closedir(dirp);
+#endif
+    return ret;
+}
+
+bool Python::FileInfo::dirContains(const std::string &searchName)
+{
+    return dirContains(m_path, searchName);
+}
+
+bool Python::FileInfo::dirContains(const std::string &dir, const std::string &searchName)
+{
+    if (dirExists(dir)) {
+        auto files = filesInDir(dir);
+        for(auto &file : files) {
+            if (baseName(file) == searchName)
+                return true;
+        }
+    }
+    return false;
 }
 
 // static

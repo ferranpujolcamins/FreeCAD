@@ -130,6 +130,15 @@ public:
     static std::string absolutePath(const std::string &relativePath);
     std::string absolutePath() const;
 
+    /// get a vector with all files in folder
+    /// is current path is a file it lists all it sibbling files incluing itself
+    std::vector<std::string> filesInDir();
+    static std::vector<std::string> filesInDir(const std::string &path);
+
+    /// return true if file is contained in dir
+    bool dirContains(const std::string &searchName);
+    static bool dirContains(const std::string &dir, const std::string &searchName);
+
     /// the system separator char in paths '\' or '/'
     static const char dirSep;
 
