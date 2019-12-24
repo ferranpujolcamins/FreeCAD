@@ -86,7 +86,7 @@ struct Hash
 size_t cstrToHash(const char *str, size_t len);
 
 std::list<std::string> split(const std::string &strToSplit,
-                             const std::string &delim = std::string());
+                             const std::string &delim = std::string(" "));
 std::string join(std::list<std::string> strsToJoin,
                  const std::string &delim = std::string());
 

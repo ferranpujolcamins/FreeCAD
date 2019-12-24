@@ -87,11 +87,15 @@ std::list<std::string> Python::split(const std::string &strToSplit,
                                      const std::string &delim)
 {
     std::list<std::string> list;
+    if (delim.empty()) {
+        list.push_back(strToSplit);
+        return list;
+    }
     std::size_t current, previous = 0;
     current = strToSplit.find(delim);
     while (current != std::string::npos) {
         list.push_back(strToSplit.substr(previous, current - previous));
-        previous = current + 1;
+        previous = current + delim.length();
         current = strToSplit.find(delim, previous);
     }
     list.push_back(strToSplit.substr(previous, current - previous));

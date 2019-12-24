@@ -149,6 +149,15 @@ std::string Python::Version::versionAsString(Python::Version::versions version)
     return "invalid";
 }
 
+Python::Version::versions Python::Version::strToVersion(const std::string &versionStr)
+{
+    for (auto &ver : availableVersions()) {
+        if (ver.second == versionStr)
+            return ver.first;
+    }
+    return Invalid;
+}
+
 // static
 std::map<Python::Version::versions, const std::string> Python::Version::availableVersions()
 {

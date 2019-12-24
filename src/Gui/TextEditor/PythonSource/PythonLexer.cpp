@@ -54,16 +54,21 @@ public:
         endStateOfLastPara(Python::Token::T_Invalid),
         insertDedent(false), isCodeLine(false)
     {
-        reGenerate();
+        if (LexerP::activeVersion != Version::Invalid)
+            reGenerate(LexerP::activeVersion);
+        else
+            reGenerate(Version::Latest);
     }
     ~LexerP()
     {
     }
 
-    static void reGenerate()
+    static void reGenerate(Version::versions ver)
     {
-        if (version.version() == activeVersion)
+        if (version.version() == ver)
             return;
+
+        LexerP::version.setVersion(ver);
 
         activeVersion = version.version();
 
@@ -279,8 +284,7 @@ Python::Version Python::Lexer::version()
 // static
 void Python::Lexer::setVersion(Version::versions value)
 {
-    LexerP::version.setVersion(value);
-    LexerP::reGenerate();
+    LexerP::reGenerate(value);
 }
 
 // static
@@ -844,9 +848,11 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 }
                 // its a error if we ever get here
                 setSyntaxError(i, 1);
+                d_lex->activeLine->setSyntaxErrorMsg(d_lex->activeLine->back(),
+                                                     "Illegal char at col:" + std::to_string(i) +
+                                                     " row: "+ std::to_string(d_lex->activeLine->lineNr()));
 
-
-                std::clog << "PythonSyntaxHighlighter error on char: " << ch <<
+                std::clog << "Lexer error on char: " << ch <<
                           " row:"<< std::to_string(d_lex->activeLine->lineNr() + 1) <<
                           " col:" << std::to_string(i) << std::endl;
 
@@ -1411,7 +1417,7 @@ const std::list<std::string> &Python::LexerReader::paths() const
 
 // fileformat for dumpstring:
 // each line has one thing in it, linetext, one token etc
-// firstline is filename
+// firstline is filename and python version separated by ';'
 // then comes lineNr;#firstline in code
 // then comes all properties of this line, one property per line
 //  propertylines starts with space ' '
@@ -1450,12 +1456,14 @@ Python::LexerPersistent::~LexerPersistent()
 const std::string Python::LexerPersistent::dumpToString() const
 {
     assert(m_lexer && "Must have a vaid lexer");
-    std::string dmp = m_lexer->filePath() + "\n";
+    std::string dmp = m_lexer->filePath() + ";" +
+                      m_lexer->version().versionAsString() + "\n";
 
     auto line = m_lexer->list().firstLine();
     uint guard = m_lexer->list().max_size();
     while (line && (--guard)) {
-        dmp += std::to_string(line->lineNr()) + ";" + line->text(); // newline from line->text()
+        dmp += "\n---------------------------------------------------------------------\n"
+                + std::to_string(line->lineNr()) + ";" + line->text(); // newline from line->text()
         // space marks this line is a line property line
         dmp += " indent=" + std::to_string(line->indent()) + "\n" +
                " bracket=" + std::to_string(line->bracketCnt()) + "\n" +
@@ -1482,7 +1490,7 @@ const std::string Python::LexerPersistent::dumpToString() const
                 auto msgList = split(msg->message(), "\n");
                 dmp += " scaninfo=" + msg->msgTypeAsString() + ";" +
                         std::to_string(line->tokenPos(msg->token())) + ";" +
-                        join(msgList, "\033");
+                        join(msgList, "\033") + "\n";
             }
 
         }
@@ -1511,7 +1519,7 @@ bool Python::LexerPersistent::dumpToFile(const std::string &file) const
 
 int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) const
 {
-    int readLines = 0;
+    int readLines = 1;
     assert(m_lexer && "Must have a valid lexer");
     m_lexer->list().clear();
 
@@ -1519,10 +1527,15 @@ int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) co
     auto lineIt = strList.begin();
 
     if (lineIt == strList.end())
-        return readLines;
+        return -readLines;
     LexerPTokenLine *activeLine = nullptr;
-    // first line should always be filepath
-    m_lexer->setFilePath(*lineIt);
+    // first line should always be filepath and version
+    auto firstLineParts = split(*lineIt, ";");
+    if (firstLineParts.size() < 1)
+        return -readLines;
+    m_lexer->setFilePath(firstLineParts.front());
+    if (firstLineParts.size() == 2)
+        m_lexer->setVersion(Version::strToVersion(firstLineParts.back()));
     ++lineIt; ++readLines;
     try {
         uint guard = m_lexer->list().max_size();
@@ -1532,8 +1545,8 @@ int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) co
                 // its a token line
                 if (!activeLine)
                     return -readLines;
-                auto lineStr = *lineIt;
-                auto itmList = split(*lineIt, ";");
+                auto lineStr = lineIt->substr(1);
+                auto itmList = split(lineStr, ";");
                 auto itmIt = itmList.begin();
                 if (itmList.size() != 3)
                     return -readLines;
@@ -1580,17 +1593,20 @@ int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) co
                     std::string msg = join(msgParts, "\n");
                     activeLine->tokenScanInfo(true)->setParseMessage(tok, msg, msgType);
                 }
-            } else {
-                // its a row line, code might contain ';' so we join all parts
-                auto list = split(*lineIt, ";");
-                if (list.size() < 1)
-                    return -readLines;
-                ulong lineNr = std::stoul(list.front());
-                list.pop_front(); // pop linenr
-                activeLine = new LexerPTokenLine(join(list, ";"));
-                m_lexer->list().appendLine(activeLine);
-                if (!lineIt->empty() && activeLine->lineNr() != lineNr)
-                    return -readLines;
+            } else if (!lineIt->empty()) {
+                // ignore comments
+                if ((*lineIt)[0] != '#' && (*lineIt)[0] != '-') {
+                    // its a row line, code might contain ';' so we join all parts
+                    auto list = split(*lineIt, ";");
+                    if (list.size() < 1)
+                        return -readLines;
+                    ulong lineNr = std::stoul(list.front());
+                    list.pop_front(); // pop linenr
+                    activeLine = new LexerPTokenLine(join(list, ";"));
+                    m_lexer->list().appendLine(activeLine);
+                    if (!lineIt->empty() && activeLine->lineNr() != lineNr)
+                        return -readLines;
+                }
             }
             ++lineIt;
             ++readLines;

@@ -405,6 +405,7 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
         if (fi.ext() != "py")
             continue;
         std::cout << "Testing to dump " + filename << std::endl;
+        //Lexer::setVersion(Version::v2_7);
         LexerReader lex;
         lex.readFile("testscripts/" + fi.baseName());
         LexerPersistent lexP(&lex);
@@ -466,16 +467,19 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
             }
             // test scaninfo for this line
             if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
-                EXPECT_NE(line2->tokenScanInfo(), nullptr);
-                auto it1 = line1->tokenScanInfo()->allMessages().begin();
-                auto it2 = line2->tokenScanInfo()->allMessages().begin();
-                for(;it1 != line1->tokenScanInfo()->allMessages().end() &&
-                     it2 != line2->tokenScanInfo()->allMessages().end();
-                    ++it1, ++it2)
+                ASSERT_NE(line2->tokenScanInfo(), nullptr);
+                auto msgs1 = line1->tokenScanInfo()->allMessages();
+                auto msgs2 = line2->tokenScanInfo()->allMessages();
+                ASSERT_EQ(msgs1.size(), msgs2.size());
+                auto scanIt1 = msgs1.begin();
+                auto scanIt2 = msgs2.begin();
+                for(; scanIt1 != msgs1.end() &&
+                      scanIt2 != msgs2.end(); ++scanIt1, ++scanIt2)
                 {
-                    EXPECT_EQ((*it1)->type(), (*it2)->type());
-                    EXPECT_EQ(line1->tokenPos((*it1)->token()), line2->tokenPos((*it2)->token()));
-                    EXPECT_STREQ((*it1)->message().c_str(), (*it2)->message().c_str());
+                    EXPECT_EQ((*scanIt1)->type(),
+                              (*scanIt2)->type());
+                    EXPECT_EQ(line1->tokenPos((*scanIt1)->token()), line2->tokenPos((*scanIt2)->token()));
+                    EXPECT_STREQ((*scanIt1)->message().c_str(), (*scanIt2)->message().c_str());
                 }
             }
 
@@ -494,15 +498,18 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         FileInfo fi(filename);
         if (fi.ext() != "py")
             continue;
-        LexerReader lex;
-        lex.readFile("testscripts/" + fi.baseName());
-        LexerPersistent lexP(&lex);
+
         if (!FileInfo::fileExists("compare/" + fi.baseName() + ".lexdmp"))
             continue;
         std::cout << "Comparing " + filename << std::endl;
         Lexer lex2;
         LexerPersistent lexP2(&lex2);
-        ASSERT_GT(lexP2.reconstructFromDmpFile(fi.baseName() + ".lexdmp"), 0);
+        ASSERT_GT(lexP2.reconstructFromDmpFile("compare/" + fi.baseName() + ".lexdmp"), 0);
+
+        LexerReader lex;
+        lex.setVersion(lex2.version().version());
+        lex.readFile("testscripts/" + fi.baseName());
+        LexerPersistent lexP(&lex);
 
         // check so each token is restored
         EXPECT_EQ(lex.list().count(), lex2.list().count());
@@ -556,16 +563,19 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
             }
             // test scaninfo for this line
             if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
-                EXPECT_NE(line2->tokenScanInfo(), nullptr);
-                auto it1 = line1->tokenScanInfo()->allMessages().begin();
-                auto it2 = line2->tokenScanInfo()->allMessages().begin();
-                for(;it1 != line1->tokenScanInfo()->allMessages().end() &&
-                     it2 != line2->tokenScanInfo()->allMessages().end();
-                    ++it1, ++it2)
+                ASSERT_NE(line2->tokenScanInfo(), nullptr);
+                auto msgs1 = line1->tokenScanInfo()->allMessages();
+                auto msgs2 = line2->tokenScanInfo()->allMessages();
+                ASSERT_EQ(msgs1.size(), msgs2.size());
+                auto scanIt1 = msgs1.begin();
+                auto scanIt2 = msgs2.begin();
+                for(; scanIt1 != msgs1.end() &&
+                      scanIt2 != msgs2.end(); ++scanIt1, ++scanIt2)
                 {
-                    EXPECT_EQ((*it1)->type(), (*it2)->type());
-                    EXPECT_EQ(line1->tokenPos((*it1)->token()), line2->tokenPos((*it2)->token()));
-                    EXPECT_STREQ((*it1)->message().c_str(), (*it2)->message().c_str());
+                    EXPECT_EQ((*scanIt1)->type(),
+                              (*scanIt2)->type());
+                    EXPECT_EQ(line1->tokenPos((*scanIt1)->token()), line2->tokenPos((*scanIt2)->token()));
+                    EXPECT_STREQ((*scanIt1)->message().c_str(), (*scanIt2)->message().c_str());
                 }
             }
 

@@ -38,6 +38,8 @@ public:
     /// get the version, if ver = Invalid get the current selected version as string
     std::string versionAsString() const;
     static std::string versionAsString(versions version);
+    /// get version value from str
+    static versions strToVersion(const std::string &versionStr);
     /// get a list of all available versions
     static std::map<versions, const std::string> availableVersions();
     /// get the version as major or minor version
