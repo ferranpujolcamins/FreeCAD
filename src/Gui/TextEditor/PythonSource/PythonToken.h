@@ -5,6 +5,7 @@
 #include <string>
 #include <list>
 #include <map>
+#include <iterator>
 
 namespace Python {
 
@@ -12,6 +13,7 @@ class SourceListNodeBase; // in code analyzer
 class TextBlockData;
 class TokenList;
 class TokenLine;
+class Token;
 class Lexer;
 class TokenScanInfo;
 class TokenWrapperBase;
@@ -48,6 +50,42 @@ public:
 private:
     versions m_version;
 };
+
+// ------------------------------------------------------------------------------------
+
+class TokenListIterator
+{
+    Token *m_start;
+public:
+    explicit TokenListIterator(Token *startTok);
+    TokenListIterator(const TokenListIterator &other);
+    ~TokenListIterator();
+    typedef Token                   value_type;
+    typedef std::ptrdiff_t          difference_type;
+    typedef Token*                  pointer;
+    typedef Token&                  reference;
+    typedef std::bidirectional_iterator_tag iterator_category;
+    Token &operator*() const { return *m_start; }
+    Token *operator->() const { return m_start; }
+    bool operator==(const TokenListIterator& other) const {
+        return m_start == other.m_start;
+    }
+    bool operator!=(const TokenListIterator& other) const {
+        return !(*this == other);
+    }
+    bool operator==(const Token &otherTok) const {
+        return m_start == &otherTok;
+    }
+    bool operator!=(const Token *otherTok) const {
+        return !(*this == *otherTok);
+    }
+    TokenListIterator &operator++(); // preincrement '++it'
+    TokenListIterator operator++(int); // postincrement 'it++'
+    TokenListIterator &operator--(); // predecrement '--it'
+    TokenListIterator operator--(int); // postdecrement 'it--'
+};
+
+// -------------------------------------------------------------------------------------
 
 class Token
 {
@@ -405,8 +443,10 @@ public:
     // accessor methods
     Python::Token *front() const { return m_first; }
     Python::Token *back() const { return m_last; }
-    Python::Token *end() const { return nullptr; }
-    Python::Token *rend() const { return nullptr; }
+    TokenListIterator begin() const { return TokenListIterator(m_first); }
+    TokenListIterator rbegin() const { return TokenListIterator(m_last); }
+    TokenListIterator end() const { return TokenListIterator(nullptr); }
+    TokenListIterator rend() const { return TokenListIterator(nullptr); }
     Python::Token *operator[] (int32_t idx);
 
     // info

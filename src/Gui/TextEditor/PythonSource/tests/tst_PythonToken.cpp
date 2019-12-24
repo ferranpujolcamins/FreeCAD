@@ -568,6 +568,17 @@ TEST_F(TstPythonToken, testPythonTokenLineTokenInsert) {
     EXPECT_EQ((*_line[0])[4]->type(), Token::T_DelimiterColon);
     EXPECT_EQ((*_line[0])[5]->type(), Token::T_DelimiterNewLine);
     EXPECT_EQ(_line[0]->isCodeLine(), true);
+    // check so bounds are set correctly
+    Token *first = _list->front(),
+          *next = _list->front()->next();
+    EXPECT_EQ(first->previous(), nullptr);
+    EXPECT_EQ(first->next(), next);
+    EXPECT_EQ(next->previous(), first);
+    Token *last = _list->back();
+    next = last->previous();
+    EXPECT_EQ(last->next(), nullptr);
+    EXPECT_EQ(next, last->previous());
+    EXPECT_EQ(next->next(), last);
 
     _list->appendLine(_line[1]);
     fillLine1();
@@ -588,6 +599,37 @@ TEST_F(TstPythonToken, testPythonTokenLineTokenInsert) {
     EXPECT_EQ(_list->lastLine()->isCodeLine(), false);
     EXPECT_EQ(_list->back()->type(), Token::T_Comment);
     EXPECT_EQ(_list->front()->type(), Token::T_KeywordClass);
+}
+
+TEST_F(TstPythonToken, testPythonTokenListIterator) {
+    fillAllLines();
+    uint sz = 0;
+    EXPECT_EQ(76u, _list->count());
+    for (auto &tok : *_list) {
+        ++sz;
+        (void)tok;
+    }
+    ASSERT_EQ(sz, _list->count());
+    sz = 0;
+    for (auto it = _list->rbegin(); it != _list->rend(); --it)
+        ++sz;
+    ASSERT_EQ(sz, _list->count());
+    sz = 0;
+    auto itF = _list->begin();
+    auto itR = _list->rbegin();
+    int pos = 0, rpos = static_cast<int>(_list->count()) -1;
+    while (itF != _list->end() && itR != _list->rend() && rpos > -1) {
+        ASSERT_EQ((*_list)[pos++], &(*itF++));
+        ASSERT_EQ((*_list)[rpos--], &(*itR--));
+    }
+    EXPECT_EQ(&(*itF), nullptr);
+    EXPECT_EQ(&(*itR), nullptr);
+
+    pos = 0; rpos = static_cast<int>(_list->count()) -1;
+    while (itF != _list->end() && itR != _list->rend() && rpos > -1) {
+        ASSERT_EQ((*_list)[++pos], &(*(++itF)));
+        ASSERT_EQ((*_list)[--rpos], &(*(--itR)));
+    }
 }
 
 TEST_F(TstPythonToken, testPythonTokenLineAccessor) {

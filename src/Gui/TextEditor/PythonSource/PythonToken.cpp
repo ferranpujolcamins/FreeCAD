@@ -174,6 +174,52 @@ std::map<Python::Version::versions, const std::string> Python::Version::availabl
     return map;
 }
 
+// -------------------------------------------------------------------------------------------
+
+Python::TokenListIterator::TokenListIterator(Python::Token *startTok) :
+    m_start(startTok)
+{
+}
+
+Python::TokenListIterator::TokenListIterator(const Python::TokenListIterator &other) :
+    m_start(other.m_start)
+{
+}
+
+Python::TokenListIterator::~TokenListIterator()
+{
+}
+
+Python::TokenListIterator &Python::TokenListIterator::operator++()
+{
+    // preincrement '++it'
+    m_start = m_start->next();
+    return *this;
+}
+
+Python::TokenListIterator Python::TokenListIterator::operator++(int)
+{
+    // postincrement 'it++'
+    TokenListIterator beforeIt(*this);
+    m_start = m_start->next();
+    return beforeIt;
+}
+
+Python::TokenListIterator &Python::TokenListIterator::operator--()
+{
+    // predecrement
+    m_start = m_start->previous();
+    return *this;
+}
+
+Python::TokenListIterator Python::TokenListIterator::operator--(int)
+{
+    // postdecrement
+    TokenListIterator beforeIt(*this);
+    m_start = m_start->previous();
+    return beforeIt;
+}
+
 
 // -------------------------------------------------------------------------------------------
 // static
@@ -638,7 +684,7 @@ Python::Token *Python::TokenList::operator[](int32_t idx)
         // lookup from beginning
         Python::Token *iter = m_first;
         for (int32_t i = 0;
-             iter && i < cnt;
+             iter && i < idx;
              iter = iter->m_next, ++i)
         { /* intentionally empty*/ }
         return iter;
@@ -646,7 +692,7 @@ Python::Token *Python::TokenList::operator[](int32_t idx)
     // lookup from end (reverse)
     Python::Token *iter = m_last;
     for (int32_t i = cnt -1;
-         iter && i >= cnt;
+         iter && i > idx;
          iter = iter->m_previous,--i)
     { /* intentionally empty*/ }
     return iter;
@@ -740,8 +786,10 @@ void Python::TokenList::insert(Python::Token *previousTok, Python::Token *insert
     } else {
         // the very first token
         assert(m_first != insertTok && "Trying to insert the same token before already inserted place");
-        if (m_first)
+        if (m_first) {
             insertTok->m_next = m_first;
+            m_first->m_previous = insertTok;
+        }
         if (!m_last)
             m_last = insertTok;
         m_first = insertTok;
@@ -1764,4 +1812,5 @@ void Python::TokenWrapperInherit::tokenDeleted()
     m_token = nullptr;
     tokenDeletedCallback();
 }
+
 
