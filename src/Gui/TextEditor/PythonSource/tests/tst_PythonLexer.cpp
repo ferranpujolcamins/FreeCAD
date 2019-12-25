@@ -64,7 +64,7 @@ public:
         ::testing::Test(),
         _lexReader("/usr/lib/python:/usr/local/lib/python")
     {
-        _lexReader.setFilePath("testscripts/Draft.py");
+        _lexReader.setFilePath("testscripts/test1.py");
         _read = _lexReader.readFile();
     }
     ~TstLexerReader() override;
@@ -237,10 +237,10 @@ TEST_F(TstLexerReader, testLexerRead) {
 
 TEST_F(TstLexerTokenize, testLexerPersistent) {
     LexerPersistent lexP(lex);
-    ASSERT_EQ(lexP.dumpToFile("test.lexdmp"), true);
+    ASSERT_EQ(lexP.dumpToFile("testscripts/dumpfiles/test.lexdmp"), true);
     std::unique_ptr<Lexer> newLexp(new Lexer());
     LexerPersistent lexP2(newLexp.get());
-    ASSERT_GT(lexP2.reconstructFromDmpFile("test.lexdmp"), 0);
+    ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/dumpfiles/test.lexdmp"), 0);
 
     // check so each token is restored
     EXPECT_EQ(lex->list().count(), newLexp->list().count());
@@ -409,11 +409,11 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
         LexerReader lex;
         lex.readFile("testscripts/" + fi.baseName());
         LexerPersistent lexP(&lex);
-        ASSERT_EQ(lexP.dumpToFile(fi.baseName() + ".lexdmp"), true);
-        ASSERT_EQ(FileInfo::fileExists(fi.baseName() + ".lexdmp"), true);
+        ASSERT_EQ(lexP.dumpToFile("testscripts/dumpfiles/" + fi.baseName() + ".lexdmp"), true);
+        ASSERT_EQ(FileInfo::fileExists("testscripts/dumpfiles/" + fi.baseName() + ".lexdmp"), true);
         Lexer lex2;
         LexerPersistent lexP2(&lex2);
-        ASSERT_GT(lexP2.reconstructFromDmpFile(fi.baseName() + ".lexdmp"), 0);
+        ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/dumpfiles/" + fi.baseName() + ".lexdmp"), 0);
 
         // check so each token is restored
         EXPECT_EQ(lex.list().count(), lex2.list().count());
@@ -499,12 +499,12 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         if (fi.ext() != "py")
             continue;
 
-        if (!FileInfo::fileExists("compare/" + fi.baseName() + ".lexdmp"))
+        if (!FileInfo::fileExists("testscripts/compare/" + fi.baseName() + ".lexdmp"))
             continue;
         std::cout << "Comparing " + filename << std::endl;
         Lexer lex2;
         LexerPersistent lexP2(&lex2);
-        ASSERT_GT(lexP2.reconstructFromDmpFile("compare/" + fi.baseName() + ".lexdmp"), 0);
+        ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/compare/" + fi.baseName() + ".lexdmp"), 0);
 
         LexerReader lex;
         lex.setVersion(lex2.version().version());
