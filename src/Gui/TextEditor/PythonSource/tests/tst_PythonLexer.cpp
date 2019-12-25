@@ -404,7 +404,7 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
         FileInfo fi(filename);
         if (fi.ext() != "py")
             continue;
-        std::cout << "Testing to dump " + filename << std::endl;
+        //std::cout << "Testing to dump " + filename << std::endl;
         //Lexer::setVersion(Version::v2_7);
         LexerReader lex;
         lex.readFile("testscripts/" + fi.baseName());
@@ -501,7 +501,7 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
 
         if (!FileInfo::fileExists("testscripts/compare/" + fi.baseName() + ".lexdmp"))
             continue;
-        std::cout << "Comparing " + filename << std::endl;
+        //std::cout << "Comparing " + filename << std::endl;
         Lexer lex2;
         LexerPersistent lexP2(&lex2);
         ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/compare/" + fi.baseName() + ".lexdmp"), 0);
@@ -516,11 +516,19 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         uint guard = lex.list().max_size();
         auto tok1 = lex.list().front();
         auto tok2 = lex2.list().front();
+        int failedCnt = 0;
         while (tok1 && tok2 && (--guard)) {
             EXPECT_EQ(tok1->type(), tok2->type());
             EXPECT_EQ(tok1->line(), tok2->line());
             EXPECT_EQ(tok1->startPos(), tok2->startPos());
             EXPECT_EQ(tok1->endPos(), tok2->endPos());
+            if (failedCnt < test_info_->result()->total_part_count()) {
+                std::cout << "\n**Failed in file:" << fi.path() <<
+                             "\nline:" << std::to_string(tok1->line()) <<
+                             " startPos:" << std::to_string(tok1->startPos()) <<
+                             " tokenText:'" << tok1->text() << "'\n\n";
+                failedCnt = test_info_->result()->total_part_count();
+            }
             tok1 = tok1->next();
             tok2 = tok2->next();
         }
@@ -577,6 +585,11 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
                     EXPECT_EQ(line1->tokenPos((*scanIt1)->token()), line2->tokenPos((*scanIt2)->token()));
                     EXPECT_STREQ((*scanIt1)->message().c_str(), (*scanIt2)->message().c_str());
                 }
+            }
+            if (failedCnt < test_info_->result()->total_part_count()) {
+                std::cout << "**Failed in file:" << fi.path() <<
+                             "\n when testing line:" << std::to_string(tok1->line()) << std::endl;
+                failedCnt = test_info_->result()->total_part_count();
             }
 
             line1 = line1->nextLine();

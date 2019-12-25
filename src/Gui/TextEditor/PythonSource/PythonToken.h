@@ -123,7 +123,7 @@ public:
         T__LiteralsMultilineEnd,
         T__LiteralsEnd,
 
-        // Keywords
+        // Keywords, some may be as operators instead, see is, in etc
         T__KeywordsStart = T__LiteralsEnd,
         T_Keyword,
         T_KeywordClass,
@@ -133,6 +133,12 @@ public:
         T_KeywordAs,
         T_KeywordYield,
         T_KeywordReturn,
+        T_KeywordRaise,
+        T_KeywordWith,
+        T_KeywordGlobal,
+        T_KeywordLambda,
+        T_KeywordPass,
+        T_KeywordAssert,
         T__KeywordIfBlockStart,
         T_KeywordIf,
         T_KeywordElIf,

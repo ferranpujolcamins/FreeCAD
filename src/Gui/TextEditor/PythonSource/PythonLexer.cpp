@@ -173,7 +173,9 @@ public:
                              asHash, inHash, isHash, notHash, orHash,yieldHash,
                              returnHash, trueHash, falseHash, noneHash, ifHash,
                              elifHash, elseHash, forHash, whileHash, breakHash,
-                             continueHash, tryHash, exceptHash, finallyHash;
+                             continueHash, tryHash, exceptHash, finallyHash,
+                             raiseHash, withHash, globalHash, lambdaHash,
+                             passHash, assertHash;
 };
 
 // static
@@ -208,9 +210,15 @@ const std::size_t Python::LexerP::forHash    = cstrToHash("for", 3);
 const std::size_t Python::LexerP::whileHash  = cstrToHash("while", 5);
 const std::size_t Python::LexerP::breakHash  = cstrToHash("break", 5);
 const std::size_t Python::LexerP::continueHash = cstrToHash("continue", 8);
-const std::size_t Python::LexerP::tryHash = cstrToHash("try", 3);
+const std::size_t Python::LexerP::tryHash    = cstrToHash("try", 3);
 const std::size_t Python::LexerP::exceptHash = cstrToHash("except", 6);
 const std::size_t Python::LexerP::finallyHash = cstrToHash("finally", 7);
+const std::size_t Python::LexerP::withHash   = cstrToHash("with", 4);
+const std::size_t Python::LexerP::raiseHash  = cstrToHash("raise", 5);
+const std::size_t Python::LexerP::globalHash = cstrToHash("global", 6);
+const std::size_t Python::LexerP::lambdaHash = cstrToHash("lambda", 6);
+const std::size_t Python::LexerP::passHash   = cstrToHash("pass", 4);
+const std::size_t Python::LexerP::assertHash = cstrToHash("assert", 6);
 
 
 // ---------------------------------------------------------------------------
@@ -732,6 +740,15 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                             } else if (hash == d_lex->exceptHash) {
                                 setWord(i, len, Python::Token::T_KeywordExcept);
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->globalHash) {
+                                setWord(i, len, Python::Token::T_KeywordGlobal);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->lambdaHash) {
+                                setWord(i, len, Python::Token::T_KeywordLambda);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->assertHash) {
+                                setWord(i, len, Python::Token::T_KeywordAssert);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 5:
                             if (hash == d_lex->classHash) {
@@ -749,8 +766,10 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                             } else if (hash == d_lex->breakHash) {
                                 setWord(i, len, Python::Token::T_KeywordBreak);
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                            }
-                            break;
+                            } else if (hash == d_lex->raiseHash) {
+                                setWord(i, len, Python::Token::T_KeywordRaise);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } break;
                         case 4:
                             if (hash == d_lex->fromHash) {
                                 setWord(i, len, Python::Token::T_KeywordFrom);
@@ -767,6 +786,12 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->elseHash) {
                                 setWord(i, len, Python::Token::T_KeywordElse);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->withHash) {
+                                setWord(i, len, Python::Token::T_KeywordWith);
+                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                            } else if (hash == d_lex->passHash) {
+                                setWord(i, len, Python::Token::T_KeywordPass);
                                 d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 3:
@@ -1433,7 +1458,7 @@ const std::list<std::string> &Python::LexerReader::paths() const
 // def firstLine():\n
 //  indent=0\n
 //  paren=0\n
-//          0;3;T_KeywordDef\n <- TAB not spacesas indent
+//          0;3;T_KeywordDef\n <- TAB or 8 spaces indent
 //          4;13;T_IdentifierFunction\n
 //          13;14;T_DelimiterOpenParen\n
 //          14;15;T_DelimiterCloseParen\n
@@ -1479,7 +1504,8 @@ const std::string Python::LexerPersistent::dumpToString() const
             dmp += " unfinished=" + str.substr(0, str.length()-1) + "\n"; // trim the last ';'
         }
         for (auto &tok : *line) {
-            dmp +=  "\t" + std::to_string(tok.startPos()) + ";" + std::to_string(tok.endPos()) +
+            dmp +=  "        " +
+                    std::to_string(tok.startPos()) + ";" + std::to_string(tok.endPos()) +
                     ";" + std::string(Token::tokenToCStr(tok.type())) + "\n";
         }
         // this one must be inserted after tokens have been dumped so we can recreate in this order
@@ -1539,7 +1565,9 @@ int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) co
         uint guard = m_lexer->list().max_size();
         // iterate the rows, one
         while (lineIt != strList.end() && (--guard)) {
-            if (lineIt->front() == '\t') {
+            if ((lineIt->front() == '\t') ||
+                (lineIt->length() > 8 && lineIt->substr(0, 8) == "        "))
+            {
                 // its a token line
                 if (!activeLine)
                     return -readLines;

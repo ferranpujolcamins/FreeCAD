@@ -163,9 +163,9 @@ testscripts/test1.py;2.7
  param=0
  blockstate=1
  unfinished=1
-	8;12;T_Keyword
+        8;12;T_KeywordWith
 	13;16;T_IdentifierUnknown
-	16;17;T_DelimiterColon
+        16;17;T_DelimiterColon
 	17;18;T_DelimiterNewLine
 
 ---------------------------------------------------------------------

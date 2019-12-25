@@ -256,6 +256,12 @@ const char *Python::Token::tokenToCStr(Python::Token::Type tokType)
     case T_KeywordAs:           return "T_KeywordAs";
     case T_KeywordYield:        return "T_KeywordYield";
     case T_KeywordReturn:       return "T_KeywordReturn";
+    case T_KeywordRaise:        return "T_KeywordRaise";
+    case T_KeywordWith:         return "T_KeywordWith";
+    case T_KeywordGlobal:       return "T_KeywordGlobal";
+    case T_KeywordLambda:       return "T_KeywordLambda";
+    case T_KeywordPass:         return "T_KeywordPass";
+    case T_KeywordAssert:       return "T_KeywordAssert";
     case T_KeywordIf:           return "T_KeywordIf";
     case T_KeywordElIf:         return "T_KeywordElIf";
     case T_KeywordElse:         return "T_KeywordElse";
