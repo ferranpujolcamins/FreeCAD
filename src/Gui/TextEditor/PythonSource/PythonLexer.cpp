@@ -367,13 +367,11 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 // Begin either string literal or block string
                 Python::Token::Type tokType = Python::Token::T_Undetermined;
                 uint32_t stringOptions = 0;
-                uint len = lastStringCh(i - prefixLen, text, tokType, stringOptions);
-                prefixLen = 0;
+                i -= prefixLen;
+                uint len = lastStringCh(i, text, tokType, stringOptions);
                 Token *tok = setLiteral(i, len, tokType);
+                prefixLen = 0;
                 tok->m_customMask = stringOptions;
-
-                if (d_lex->activeLine->m_endStateOfLastPara != Token::T_Undetermined)
-                    checkLineEnd();
 
             } break;
 
@@ -1109,7 +1107,7 @@ uint Python::Lexer::lastStringCh(uint startAt, const std::string &text,
     if (len <= startAt)
         return 0;
 
-    char prevCh = 0, ch = 0, closingCh = 0, closingChCnt = 0;
+    char prevCh = 0, ch = 0, prevPrefix = 0,closingCh = 0, closingChCnt = 0;
     bool isBlockString = false;
 
     len = 0;
@@ -1133,30 +1131,34 @@ uint Python::Lexer::lastStringCh(uint startAt, const std::string &text,
             }
         } else if (!closingCh) {
             // string not yet started, its a string prefix?
-            if (ch == 'r' && (prevCh == 'f' || prevCh == 0) && len < 2) {
+            if (ch == 'r' && (prevPrefix == 'f' || prevPrefix == 0) && len < 2) {
                 stringOptions |= STRING_IS_RAW_TYPE;
-                continue; // dont set prevCh
-            } else if (ch == 'f' && (prevCh == 'r' || prevCh == 0) && len < 2) {
+            } else if (ch == 'f' && (prevPrefix == 'r' || prevPrefix == 0) && len < 2) {
                 stringOptions |= STRING_IS_FORMAT_TYPE;
-                continue; // dont set prevCh
-            } else if (ch == 'b' && (prevCh == 'r' || prevCh == 0) && len < 2) {
-                stringOptions |= STRING_IS_BYTES_TYPE;
-                continue; // dont set prevCh
-            } else if (ch == 'r' && prevCh == 'b' && len < 2) {
-                stringOptions |= STRING_IS_RAW_TYPE;
+            } else if (ch == 'b' && prevPrefix == 'r' && len < 2) {
                 if (d_lex->version.version() < Version::v3_3)
                     type = Token::T_SyntaxError;
-            } else if (ch == 'r' && prevCh == 0 && len < 1) {
+                stringOptions |= STRING_IS_BYTES_TYPE;
+            } else if (ch == 'b' && prevPrefix == 0 && len < 1) {
+                stringOptions |= STRING_IS_BYTES_TYPE;
+            } else if (ch == 'r' && prevPrefix == 'b' && len < 2) {
                 stringOptions |= STRING_IS_RAW_TYPE;
-                continue; // dont set prevCh
+            } else if (ch == 'r' && prevPrefix == 0 && len < 1) {
+                stringOptions |= STRING_IS_RAW_TYPE;
             }  else if (ch == 'u' && len == 0) {
+                if (d_lex->version.version() < Version::v3_3 &&
+                    d_lex->version.version() >= Version::v3_0)
+                {
+                    type = Token::T_SyntaxError;
+                }
                 stringOptions |= STRING_IS_UNICODE_TYPE;
-                continue; // dont set prevCh
             }  else {
                 // more than 2 format chars or invalid format
                 type = Token::T_SyntaxError;
                 return len;
             }
+            prevPrefix = ch;
+            continue; // don't set prevCh
         } else {
             // ordinary string chars
             isBlockString = closingChCnt == 3;

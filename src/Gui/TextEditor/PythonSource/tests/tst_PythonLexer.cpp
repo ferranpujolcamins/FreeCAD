@@ -611,7 +611,7 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
             }
             if (failedCnt < test_info_->result()->total_part_count()) {
                 std::cout << "**Failed in file:" << fi.path() <<
-                             "\n when testing line:" << std::to_string(scriptTok->line()) << std::endl;
+                             "\n when testing line:" << std::to_string(lineScript->lineNr()) << std::endl;
                 failedCnt = test_info_->result()->total_part_count();
             }
 

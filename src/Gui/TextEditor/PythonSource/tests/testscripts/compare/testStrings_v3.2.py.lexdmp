@@ -1,4 +1,4 @@
-testscripts/testStrings.py;3.7
+testscripts/testStrings.py;3.2
 
 ---------------------------------------------------------------------
 0;# from https://docs.python.org/3/reference/lexical_analysis.html
@@ -131,43 +131,35 @@ testscripts/testStrings.py;3.7
 
 ---------------------------------------------------------------------
 28;RB"a raw BYTES string"
-        0;22;T_LiteralDblQote
-        22;23;T_DelimiterNewLine
+        0;22;T_SyntaxError
 
 ---------------------------------------------------------------------
 29;RB'a raw sql BYTES string'
-        0;26;T_LiteralSglQuote
-        26;27;T_DelimiterNewLine
+        0;26;T_SyntaxError
 
 ---------------------------------------------------------------------
 30;rB"a raw BYTES string r small"
-        0;30;T_LiteralDblQote
-        30;31;T_DelimiterNewLine
+        0;30;T_SyntaxError
 
 ---------------------------------------------------------------------
 31;rB'a raw sql BYTES string r small'
-        0;34;T_LiteralSglQuote
-        34;35;T_DelimiterNewLine
+        0;34;T_SyntaxError
 
 ---------------------------------------------------------------------
 32;Rb"a raw BYTES string b small"
-        0;30;T_LiteralDblQote
-        30;31;T_DelimiterNewLine
+        0;30;T_SyntaxError
 
 ---------------------------------------------------------------------
 33;Rb'a raw sql BYTES string b small'
-        0;34;T_LiteralSglQuote
-        34;35;T_DelimiterNewLine
+        0;34;T_SyntaxError
 
 ---------------------------------------------------------------------
 34;rb"a raw bytes string"
-        0;22;T_LiteralDblQote
-        22;23;T_DelimiterNewLine
+        0;22;T_SyntaxError
 
 ---------------------------------------------------------------------
 35;rb'a raw sgl bytes string'
-        0;26;T_LiteralSglQuote
-        26;27;T_DelimiterNewLine
+        0;26;T_SyntaxError
 
 ---------------------------------------------------------------------
 36;
@@ -178,23 +170,19 @@ testscripts/testStrings.py;3.7
 
 ---------------------------------------------------------------------
 38;u"a string"
-        0;11;T_LiteralDblQote
-        11;12;T_DelimiterNewLine
+        0;11;T_SyntaxError
 
 ---------------------------------------------------------------------
 39;u'a sgl string'
-        0;15;T_LiteralSglQuote
-        15;16;T_DelimiterNewLine
+        0;15;T_SyntaxError
 
 ---------------------------------------------------------------------
 40;U'a sgl STRING'
-        0;15;T_LiteralSglQuote
-        15;16;T_DelimiterNewLine
+        0;15;T_SyntaxError
 
 ---------------------------------------------------------------------
 41;U"a STRING"
-        0;11;T_LiteralDblQote
-        11;12;T_DelimiterNewLine
+        0;11;T_SyntaxError
 
 ---------------------------------------------------------------------
 42;
@@ -340,43 +328,35 @@ testscripts/testStrings.py;3.7
 
 ---------------------------------------------------------------------
 72;RB"""a raw BYTES string"""
-        0;26;T_LiteralBlockDblQuote
-        26;27;T_DelimiterNewLine
+        0;26;T_SyntaxError
 
 ---------------------------------------------------------------------
 73;RB'''a raw sql BYTES string'''
-        0;30;T_LiteralBlockSglQuote
-        30;31;T_DelimiterNewLine
+        0;30;T_SyntaxError
 
 ---------------------------------------------------------------------
 74;rB"""a raw BYTES string r small"""
-        0;34;T_LiteralBlockDblQuote
-        34;35;T_DelimiterNewLine
+        0;34;T_SyntaxError
 
 ---------------------------------------------------------------------
 75;rB'''a raw sql BYTES string r small'''
-        0;38;T_LiteralBlockSglQuote
-        38;39;T_DelimiterNewLine
+        0;38;T_SyntaxError
 
 ---------------------------------------------------------------------
 76;Rb"""a raw BYTES string b small"""
-        0;34;T_LiteralBlockDblQuote
-        34;35;T_DelimiterNewLine
+        0;34;T_SyntaxError
 
 ---------------------------------------------------------------------
 77;Rb'''a raw sql BYTES string b small'''
-        0;38;T_LiteralBlockSglQuote
-        38;39;T_DelimiterNewLine
+        0;38;T_SyntaxError
 
 ---------------------------------------------------------------------
 78;rb"""a raw bytes string"""
-        0;26;T_LiteralBlockDblQuote
-        26;27;T_DelimiterNewLine
+        0;26;T_SyntaxError
 
 ---------------------------------------------------------------------
 79;rb'''a raw sgl bytes string'''
-        0;30;T_LiteralBlockSglQuote
-        30;31;T_DelimiterNewLine
+        0;30;T_SyntaxError
 
 ---------------------------------------------------------------------
 80;
@@ -387,23 +367,19 @@ testscripts/testStrings.py;3.7
 
 ---------------------------------------------------------------------
 82;u"""a string"""
-        0;15;T_LiteralBlockDblQuote
-        15;16;T_DelimiterNewLine
+        0;15;T_SyntaxError
 
 ---------------------------------------------------------------------
 83;u'''a sgl string'''
-        0;19;T_LiteralBlockSglQuote
-        19;20;T_DelimiterNewLine
+        0;19;T_SyntaxError
 
 ---------------------------------------------------------------------
 84;U'''a sgl STRING'''
-        0;19;T_LiteralBlockSglQuote
-        19;20;T_DelimiterNewLine
+        0;19;T_SyntaxError
 
 ---------------------------------------------------------------------
 85;U"""a STRING"""
-        0;15;T_LiteralBlockDblQuote
-        15;16;T_DelimiterNewLine
+        0;15;T_SyntaxError
 
 ---------------------------------------------------------------------
 86;
