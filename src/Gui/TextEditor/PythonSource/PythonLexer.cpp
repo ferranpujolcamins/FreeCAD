@@ -857,38 +857,40 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
         } break;// end T_Undetermined
 
         // we should only arrive here when we start on a new line
-        case Python::Token::T_LiteralBlockDblQuote:
-        {
-            // multiline double quote string continued from previous line
-            scanIndentation(i, text);
-            Token *tok;
-
-            auto endPos = text.find("\"\"\"", i);
-            if (endPos != text.npos) {
-                endPos += 3;
-                tok = setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockDblQuote);
-                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
-            } else {
-                tok = setRestOfLine(i, text, Python::Token::T_LiteralBlockDblQuote);
-            }
-            tok->m_customMask |= STRING_IS_MULTILINE_TYPE;
-
-        } break;
+        case Python::Token::T_LiteralBlockDblQuote: FALLTHROUGH
         case Python::Token::T_LiteralBlockSglQuote:
         {
-            // multiline single quote string continued from previous line
+            // multiline string continued from previous line
             scanIndentation(i, text);
-            Token *tok;
+            d_lex->isCodeLine = true;
 
-            auto endPos = text.find("'''", i);
+            const char *endMarker;
+            if (d_lex->activeLine->m_endStateOfLastPara == Token::T_LiteralBlockDblQuote)
+                endMarker = "\"\"\"";
+            else
+                endMarker = "'''";
+            auto endPos = text.find(endMarker, i);
             if (endPos != text.npos) {
-                endPos += 3;
-                tok = setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockSglQuote);
+                // we dont store a token on this line as it was set on previous line
+                // should only have one token for each string regardless of number of lines
+                // but we do store endpos on this line in the token that started us
+                uint guard = d_lex->tokenList.max_size();
+                TokenLine *line = d_lex->activeLine;
+                while(line && line->m_previousLine && (--guard)) {
+                    if (line->m_previousLine->endState() != d_lex->activeLine->m_endStateOfLastPara) {
+                        if (line->back())
+                            line->back()->m_endPos = static_cast<uint16_t>(endPos + 3);
+                        break;
+                    }
+                    line = line->m_previousLine;
+                }
+
+                i = static_cast<uint>(endPos + 2);
                 d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
-            }else {
-                tok = setRestOfLine(i, text, Python::Token::T_LiteralBlockSglQuote);
+
+            } else {
+                i = static_cast<uint>(text.length());
             }
-            tok->m_customMask |= STRING_IS_MULTILINE_TYPE;
 
         } break;
         case Python::Token::T_IdentifierDefUnknown:

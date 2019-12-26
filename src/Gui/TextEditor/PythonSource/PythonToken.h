@@ -374,6 +374,9 @@ public:
     Python::TokenLine *ownerLine() const;
     /// get the text as it is in the source
     const std::string text() const;
+    /// get the content from token, might differ from text if its a string
+    /// extracts the content from string """content""" <- returns content
+    const std::string content() const;
     int line() const;
 
     // tests
@@ -618,6 +621,9 @@ public:
     /// ie {prop1: blah, ....
     ///     prop2: baz, <-  line is continued from previous line
     bool isContinuation() const { return m_isContinuation; }
+
+    /// get the lexer state that ended this line
+    Token::Type endState() const { return m_endStateOfLastPara; }
 
     /// number of parens in this line
     /// '(' = parenCnt++

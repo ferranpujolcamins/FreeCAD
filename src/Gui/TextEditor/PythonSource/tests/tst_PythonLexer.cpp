@@ -641,7 +641,11 @@ TEST(TstLexerStrings, testLexerStringType) {
         "br'raw bytes string'",
         "br\"raw bytes string\"",
         "BR\"RAW BYTES string\"",
-        "BR'RAW BYTES string'"
+        "BR'RAW BYTES string'",
+        "rb''' this is",
+        " a multiline",
+        "string'''"
+        "'unclosed"
     };
 
     Lexer lex;
@@ -653,6 +657,8 @@ TEST(TstLexerStrings, testLexerStringType) {
 
     ASSERT_EQ(lex.list().lineCount(), lines.size());
     ASSERT_EQ(lex.list().lineAt(0)->front()->isStringRaw(), true);
+    ASSERT_STREQ(lex.list().lineAt(0)->front()->text().c_str(), "r\"raw string\"");
+    ASSERT_STREQ(lex.list().lineAt(0)->front()->content().c_str(), "raw string");
     ASSERT_EQ(lex.list().lineAt(1)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(2)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(3)->front()->isStringBytes(), true);
@@ -664,6 +670,8 @@ TEST(TstLexerStrings, testLexerStringType) {
     ASSERT_EQ(lex.list().lineAt(9)->front()->isStringFormat(), true);
     ASSERT_EQ(lex.list().lineAt(10)->front()->isStringFormat(), true);
     ASSERT_EQ(lex.list().lineAt(11)->front()->isStringRaw(), true);
+    ASSERT_STREQ(lex.list().lineAt(11)->front()->text().c_str(), "br'raw bytes string'");
+    ASSERT_STREQ(lex.list().lineAt(11)->front()->content().c_str(), "raw bytes string");
     ASSERT_EQ(lex.list().lineAt(11)->front()->isStringBytes(), true);
     ASSERT_EQ(lex.list().lineAt(12)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(12)->front()->isStringBytes(), true);
@@ -671,4 +679,9 @@ TEST(TstLexerStrings, testLexerStringType) {
     ASSERT_EQ(lex.list().lineAt(13)->front()->isStringBytes(), true);
     ASSERT_EQ(lex.list().lineAt(14)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(14)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(15)->front()->isMultilineString(), true);
+    ASSERT_STREQ(lex.list().lineAt(15)->front()->text().c_str(), "rb''' this is\n a multiline\nstring'''");
+    ASSERT_STREQ(lex.list().lineAt(15)->front()->content().c_str(), " this is\n a multiline\nstring");
+    ASSERT_STREQ(lex.list().lineAt(17)->front()->text().c_str(), "'unclosed\n");
+    ASSERT_STREQ(lex.list().lineAt(17)->front()->content().c_str(), "unclosed");
 }

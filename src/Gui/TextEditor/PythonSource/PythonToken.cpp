@@ -470,9 +470,53 @@ Python::TokenLine *Python::Token::ownerLine() const
 
 const std::string Python::Token::text() const
 {
-    if (m_ownerLine && m_endPos - m_startPos)
-        return m_ownerLine->text().substr(m_startPos, m_endPos - m_startPos);
+    if (m_ownerLine && m_endPos - m_startPos) {
+        // grab all the text from all lines if we are a multiline string
+        if (isMultilineString()) {
+            std::string txt = m_ownerLine->text().substr(m_startPos);
+
+            uint guard = m_ownerLine->ownerList()->max_size();
+            Python::TokenLine *line = m_ownerLine->nextLine();
+            while(line && (--guard)) {
+                if (line->endState() != T_LiteralBlockDblQuote &&
+                    line->endState() != T_LiteralBlockSglQuote)
+                {
+                    txt += line->text().substr(0, m_endPos);
+                    break; // we have found the last line in this blockstring
+                } else
+                    txt += line->text();
+                line = line->nextLine();
+            }
+            return txt;
+        } else
+            // nope we are not a multiline string
+            return m_ownerLine->text().substr(m_startPos, m_endPos - m_startPos);
+    }
     return std::string();
+}
+
+const std::string Python::Token::content() const
+{
+    std::string txt = text();
+    if (!isString())
+        return txt;
+
+    // 1 or 3 chars " or """
+    uint prefixLen = (m_type == T_LiteralBlockDblQuote ||
+                      m_type == T_LiteralBlockSglQuote) ? 3 : 1;
+    // end chars only if string isnt going up to string end
+    uint postfixLen = prefixLen;
+
+    if(m_customMask & STRING_IS_RAW_TYPE)
+        ++prefixLen;
+    if(m_customMask & STRING_IS_FORMAT_TYPE)
+        ++prefixLen;
+    if(m_customMask & STRING_IS_BYTES_TYPE)
+        ++prefixLen;
+    if(m_customMask & STRING_IS_UNICODE_TYPE)
+        ++prefixLen;
+
+    return txt.substr(prefixLen, txt.length() - prefixLen - postfixLen);
 }
 
 int Python::Token::line() const
@@ -498,7 +542,7 @@ bool Python::Token::isFloat() const {
 
 bool Python::Token::isString() const {
     return m_type > T__LiteralsStart &&
-            m_type < T__LiteralsEnd;
+           m_type < T__LiteralsEnd;
 }
 
 bool Python::Token::isStringRaw() const
@@ -1233,6 +1277,12 @@ uint16_t Python::TokenLine::indent() const
 
 bool Python::TokenLine::isCodeLine() const
 {
+    if (m_endStateOfLastPara == Token::T_LiteralBlockDblQuote ||
+        m_endStateOfLastPara == Token::T_LiteralBlockSglQuote)
+    {
+        return true; // is a continued blockstring from previous line
+    }
+
     Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
     while (tok && tok->m_ownerLine == this && (--guard)) {
