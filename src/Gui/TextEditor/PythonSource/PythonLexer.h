@@ -51,10 +51,9 @@ protected:
 
 private:
     uint lastWordCh(uint startPos, const std::string &text) const;
-    uint lastNumberCh(uint startPos, const std::string &text) const;
+    uint lastNumberCh(uint startPos, const std::string &text, Token::Type &type) const;
     uint lastDblQuoteStringCh(uint startAt, const std::string &text) const;
     uint lastSglQuoteStringCh(uint startAt, const std::string &text) const;
-    Python::Token::Type numberType(const std::string &text) const;
 
     void setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType);
     void scanIndentation(uint &pos, const std::string &text);

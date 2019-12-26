@@ -637,7 +637,14 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 setDelimiter(i, 1, Python::Token::T_DelimiterComma);
                 break;
             case '.':
-                if (nextCh == '.' && thirdCh == '.') {
+                if (isdigit(nextCh)) {
+                    Token::Type tp;
+                    uint len = lastNumberCh(i, text, tp);
+                    if ( len > 0) {
+                        setNumber(i, len, tp);
+                        break;
+                    }
+                } else if (nextCh == '.' && thirdCh == '.') {
                     setDelimiter(i, 3, Python::Token::T_DelimiterEllipsis);
                     break;
                 }
@@ -863,13 +870,16 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 }
 
                 // is it the beginning of a number?
-                uint len = lastNumberCh(i, text);
-                if ( len > 0) {
-                    setNumber(i, len, numberType(text.substr(i, len)));
-                    break;
-                } else if (thisCh == '\\') {
-                    setDelimiter(i, 1, Python::Token::T_DelimiterBackSlash);
-                    break;
+                {
+                    Token::Type tp;
+                    uint len = lastNumberCh(i, text, tp);
+                    if ( len > 0) {
+                        setNumber(i, len, tp);
+                        break;
+                    } else if (thisCh == '\\') {
+                        setDelimiter(i, 1, Python::Token::T_DelimiterBackSlash);
+                        break;
+                    }
                 }
                 // its a error if we ever get here
                 setSyntaxError(i, 1);
@@ -1056,31 +1066,69 @@ uint Python::Lexer::lastWordCh(uint startPos, const std::string &text) const
     return len;
 }
 
-uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text) const
+uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text, Token::Type &type) const
 {
-    std::string lowerText;
     auto pos = text.begin() + startPos;
-    int first = *pos;
+    int first = *pos, prevCh = 0, ch = 0;
     uint len = 0;
+    // python 2 octal ie. 01234 != 1234
+    if (first == '0' && d_lex->version.version() < Version::v3_0)
+        type = Token::T_NumberOctal;
+    else
+        type = Token::T_NumberDecimal;
     for (; pos != text.end(); ++pos, ++len) {
-        int ch = std::tolower(*pos);
-        if (ch >= '0' && ch <= '9')
-            continue;
-        if (ch >= 'a' && ch <= 'f')
-            continue;
-        if (ch == '.')
-            continue;
-        // hex, binary, octal
-        if ((ch == 'x' || ch == 'b' || ch == 'o') &&  first == '0')
-            continue;
-        break;
+        ch = std::tolower(*pos);
+        switch (ch) {
+        case '0': case '1': case '_':
+            break;
+        case '2': case '3': case '4': case '5':
+        case '6': case '7':
+            if (type == Token::T_NumberBinary)
+                type = Token::T_SyntaxError;
+            break;
+        case '8': case '9':
+            if (type == Token::T_NumberBinary || type == Token::T_NumberOctal)
+                type = Token::T_SyntaxError;
+            break;
+        case 'e':
+            if (type == Token::T_NumberHex)
+                break;
+            type = (type == Token::T_NumberDecimal || type == Token::T_NumberFloat) ?
+                        Token::T_NumberFloat : Token::T_SyntaxError;
+            break;
+        case 'a': case 'c': case 'd': case 'f':
+            type = (type != Token::T_NumberHex) ? Token::T_NumberHex : Token::T_SyntaxError;
+            break;
+        case '.':
+            type = (type == Token::T_NumberDecimal) ? Token::T_NumberFloat : Token::T_SyntaxError;
+            break;
+        case '-': case '+':
+            type = (len > 2 && prevCh == 'e' && type == Token::T_NumberFloat) ?
+                        Token::T_NumberFloat : Token::T_SyntaxError;
+            break;
+        case 'x':
+            type = (len == 1 && first == '0' && type != Token::T_SyntaxError) ?
+                        Token::T_NumberHex : Token::T_SyntaxError;
+            break;
+        case 'o':
+            type = (len == 1 && first == '0' && type != Token::T_SyntaxError) ?
+                        Token::T_NumberOctal : Token::T_SyntaxError;
+            break;
+        case 'b':
+            type = (len == 1 && first == '0' && type != Token::T_SyntaxError) ?
+                        Token::T_NumberBinary : Token::T_SyntaxError;
+            break;
+        default:
+            goto out;
+        }
+
+        prevCh = ch;
     }
+
+out:
     // long integer or imaginary?
-    if (pos == text.end()) {
-        int ch = std::toupper(text.back());
-        if (ch == 'L' || ch == 'J')
-            len += 1;
-    }
+    if (prevCh != 0 && (ch == 'l' || ch == 'j'))
+        len += 1;
 
     return len;
 }
@@ -1118,29 +1166,6 @@ uint Python::Lexer::lastSglQuoteStringCh(uint startAt, const std::string &text) 
     }
 
     return len;
-}
-
-Python::Token::Type Python::Lexer::numberType(const std::string &text) const
-{
-    if (text.empty())
-        return Python::Token::T_Invalid;
-
-    if (text.find('.') != text.npos)
-        return Python::Token::T_NumberFloat;
-    if (text.length() >= 2) {
-        int one = tolower(text[0]),
-            two = tolower(text[1]);
-        if (one == '0') {
-            if (two == 'x')
-                return Python::Token::T_NumberHex;
-            if (two == 'b')
-                return Python::Token::T_NumberBinary;
-            if (two == 'o' || one == '0')
-                return Python::Token::T_NumberOctal;
-            return Python::Token::T_NumberOctal; // python 2 octal ie. 01234 != 1234
-        }
-    }
-    return Python::Token::T_NumberDecimal;
 }
 
 void Python::Lexer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)

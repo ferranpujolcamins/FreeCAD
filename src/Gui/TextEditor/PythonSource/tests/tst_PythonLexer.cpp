@@ -496,12 +496,12 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
 
 TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
     auto compareFiles = FileInfo::filesInDir("testscripts/compare/");
+    int failedCnt = 0;
     for(auto &filename : compareFiles) {
         FileInfo fi(filename);
         if (fi.ext() != "lexdmp")
             continue;
 
-        int failedCnt = 0;
         std::string scriptname = fi.stem(),
                     ver;
 
@@ -517,6 +517,7 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         EXPECT_EQ(FileInfo::fileExists("testscripts/" + scriptname), true);
         if (failedCnt < test_info_->result()->total_part_count()){
             std::cout << "**script testscripts/" << scriptname << " does not exist!\n";
+            failedCnt = test_info_->result()->total_part_count();
             continue;
         }
         //std::cout << "Comparing " + filename << std::endl;
@@ -536,65 +537,65 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         // check so each token is restored
         EXPECT_EQ(lex.list().count(), lex2.list().count());
         uint guard = lex.list().max_size();
-        auto tok1 = lex.list().front();
-        auto tok2 = lex2.list().front();
-        while (tok1 && tok2 && (--guard)) {
-            EXPECT_EQ(tok1->type(), tok2->type());
-            EXPECT_EQ(tok1->line(), tok2->line());
-            EXPECT_EQ(tok1->startPos(), tok2->startPos());
-            EXPECT_EQ(tok1->endPos(), tok2->endPos());
+        auto tokScript = lex.list().front();
+        auto tokCompare = lex2.list().front();
+        while (tokScript && tokCompare && (--guard)) {
+            EXPECT_EQ(tokScript->type(), tokCompare->type());
+            EXPECT_EQ(tokScript->line(), tokCompare->line());
+            EXPECT_EQ(tokScript->startPos(), tokCompare->startPos());
+            EXPECT_EQ(tokScript->endPos(), tokCompare->endPos());
             if (failedCnt < test_info_->result()->total_part_count()) {
                 std::cout << "\n**Failed in file:" << fi.path() <<
-                             "\nline:" << std::to_string(tok1->line()) <<
-                             " startPos:" << std::to_string(tok1->startPos()) <<
-                             " tokenText:'" << tok1->text() << "'\n\n";
+                             "\nline:" << std::to_string(tokScript->line()) <<
+                             " startPos:" << std::to_string(tokScript->startPos()) <<
+                             " tokenText:'" << tokScript->text() << "'\n\n";
                 failedCnt = test_info_->result()->total_part_count();
             }
-            tok1 = tok1->next();
-            tok2 = tok2->next();
+            tokScript = tokScript->next();
+            tokCompare = tokCompare->next();
         }
-        EXPECT_EQ(tok1, nullptr);
-        EXPECT_EQ(tok2, nullptr);
+        EXPECT_EQ(tokScript, nullptr);
+        EXPECT_EQ(tokCompare, nullptr);
         EXPECT_GT(guard, 0u);
 
         // check so each line is restored
         EXPECT_EQ(lex.list().lineCount(), lex2.list().lineCount());
         guard = lex.list().max_size();
-        auto line1 = lex.list().firstLine();
-        auto line2 = lex2.list().firstLine();
-        while (line1 && line2 && (--guard)) {
-            EXPECT_EQ(line1->lineNr(), line2->lineNr());
-            EXPECT_EQ(line1->indent(), line2->indent());
-            EXPECT_EQ(line1->blockState(), line2->blockState());
-            EXPECT_STREQ(line1->text().c_str(), line2->text().c_str());
-            EXPECT_EQ(line1->count(), line2->count());
-            EXPECT_EQ(line1->bracketCnt(), line2->bracketCnt());
-            EXPECT_EQ(line1->braceCnt(), line2->braceCnt());
-            EXPECT_EQ(line1->parenCnt(), line2->parenCnt());
-            EXPECT_EQ(line1->isParamLine(), line2->isParamLine());
-            EXPECT_EQ(line2->isContinuation(), line2->isContinuation());
+        auto lineScript = lex.list().firstLine();
+        auto lineCompare = lex2.list().firstLine();
+        while (lineScript && lineCompare && (--guard)) {
+            EXPECT_EQ(lineScript->lineNr(), lineCompare->lineNr());
+            EXPECT_EQ(lineScript->indent(), lineCompare->indent());
+            EXPECT_EQ(lineScript->blockState(), lineCompare->blockState());
+            EXPECT_STREQ(lineScript->text().c_str(), lineCompare->text().c_str());
+            EXPECT_EQ(lineScript->count(), lineCompare->count());
+            EXPECT_EQ(lineScript->bracketCnt(), lineCompare->bracketCnt());
+            EXPECT_EQ(lineScript->braceCnt(), lineCompare->braceCnt());
+            EXPECT_EQ(lineScript->parenCnt(), lineCompare->parenCnt());
+            EXPECT_EQ(lineScript->isParamLine(), lineCompare->isParamLine());
+            EXPECT_EQ(lineCompare->isContinuation(), lineCompare->isContinuation());
             // test line previous and next
-            if (line1 != lex.list().lastLine() && line2 != lex2.list().lastLine()) {
-                EXPECT_EQ(line1->nextLine()->lineNr(), line2->nextLine()->lineNr());
+            if (lineScript != lex.list().lastLine() && lineCompare != lex2.list().lastLine()) {
+                EXPECT_EQ(lineScript->nextLine()->lineNr(), lineCompare->nextLine()->lineNr());
             }
-            if (line1 != lex.list().firstLine() && line2 != lex2.list().firstLine()) {
-                EXPECT_EQ(line1->previousLine()->lineNr(), line2->previousLine()->lineNr());
+            if (lineScript != lex.list().firstLine() && lineCompare != lex2.list().firstLine()) {
+                EXPECT_EQ(lineScript->previousLine()->lineNr(), lineCompare->previousLine()->lineNr());
             }
             // test unfinished tokens
-            EXPECT_EQ(line1->unfinishedTokens().size(), line2->unfinishedTokens().size());
-            auto it1 = line1->unfinishedTokens().begin();
-            auto it2 = line2->unfinishedTokens().begin();
-            for(;it1 != line1->unfinishedTokens().end() &&
-                 it2 != line2->unfinishedTokens().end();
+            EXPECT_EQ(lineScript->unfinishedTokens().size(), lineCompare->unfinishedTokens().size());
+            auto it1 = lineScript->unfinishedTokens().begin();
+            auto it2 = lineCompare->unfinishedTokens().begin();
+            for(;it1 != lineScript->unfinishedTokens().end() &&
+                 it2 != lineCompare->unfinishedTokens().end();
                 ++it1, ++it2)
             {
                 EXPECT_EQ(*it1, *it2);
             }
             // test scaninfo for this line
-            if (line1->tokenScanInfo() && !line1->tokenScanInfo()->allMessages().empty()) {
-                ASSERT_NE(line2->tokenScanInfo(), nullptr);
-                auto msgs1 = line1->tokenScanInfo()->allMessages();
-                auto msgs2 = line2->tokenScanInfo()->allMessages();
+            if (lineScript->tokenScanInfo() && !lineScript->tokenScanInfo()->allMessages().empty()) {
+                ASSERT_NE(lineCompare->tokenScanInfo(), nullptr);
+                auto msgs1 = lineScript->tokenScanInfo()->allMessages();
+                auto msgs2 = lineCompare->tokenScanInfo()->allMessages();
                 ASSERT_EQ(msgs1.size(), msgs2.size());
                 auto scanIt1 = msgs1.begin();
                 auto scanIt2 = msgs2.begin();
@@ -603,21 +604,21 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
                 {
                     EXPECT_EQ((*scanIt1)->type(),
                               (*scanIt2)->type());
-                    EXPECT_EQ(line1->tokenPos((*scanIt1)->token()), line2->tokenPos((*scanIt2)->token()));
+                    EXPECT_EQ(lineScript->tokenPos((*scanIt1)->token()), lineCompare->tokenPos((*scanIt2)->token()));
                     EXPECT_STREQ((*scanIt1)->message().c_str(), (*scanIt2)->message().c_str());
                 }
             }
             if (failedCnt < test_info_->result()->total_part_count()) {
                 std::cout << "**Failed in file:" << fi.path() <<
-                             "\n when testing line:" << std::to_string(tok1->line()) << std::endl;
+                             "\n when testing line:" << std::to_string(tokScript->line()) << std::endl;
                 failedCnt = test_info_->result()->total_part_count();
             }
 
-            line1 = line1->nextLine();
-            line2 = line2->nextLine();
+            lineScript = lineScript->nextLine();
+            lineCompare = lineCompare->nextLine();
         }
-        EXPECT_EQ(line1, nullptr);
-        EXPECT_EQ(line2, nullptr);
+        EXPECT_EQ(lineScript, nullptr);
+        EXPECT_EQ(lineCompare, nullptr);
         EXPECT_GT(guard, 0u);
     }
 }
