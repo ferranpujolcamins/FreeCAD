@@ -5,6 +5,8 @@
 #include <PythonLexer.h>
 #include <PythonSource.h>
 
+#include <regex>
+
 using namespace testing;
 using namespace Python;
 
@@ -405,7 +407,7 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
         if (fi.ext() != "py")
             continue;
         //std::cout << "Testing to dump " + filename << std::endl;
-        //Lexer::setVersion(Version::v2_7);
+        Lexer::setVersion(Version::v3_7);
         LexerReader lex;
         lex.readFile("testscripts/" + fi.baseName());
         LexerPersistent lexP(&lex);
@@ -493,22 +495,42 @@ TEST(tstLexerPersistent, testLexerPersistentDumpFiles) {
 }
 
 TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
-    auto scriptFiles = FileInfo::filesInDir("testscripts");
-    for(auto &filename : scriptFiles) {
+    auto compareFiles = FileInfo::filesInDir("testscripts/compare/");
+    for(auto &filename : compareFiles) {
         FileInfo fi(filename);
-        if (fi.ext() != "py")
+        if (fi.ext() != "lexdmp")
             continue;
 
-        if (!FileInfo::fileExists("testscripts/compare/" + fi.baseName() + ".lexdmp"))
+        int failedCnt = 0;
+        std::string scriptname = fi.stem(),
+                    ver;
+
+        // here we try to extract the version from the filename
+        // there can be several comparefiles with different version to each script
+        std::regex verRegex("^(.+)_v(\\d\\.\\d+)\\.py.lexdmp$");
+        std::smatch matches;
+        if (std::regex_search(filename, matches, verRegex)) {
+            scriptname = matches[1].str() + ".py";
+            ver = matches[2].str();
+        }
+
+        EXPECT_EQ(FileInfo::fileExists("testscripts/" + scriptname), true);
+        if (failedCnt < test_info_->result()->total_part_count()){
+            std::cout << "**script testscripts/" << scriptname << " does not exist!\n";
             continue;
+        }
         //std::cout << "Comparing " + filename << std::endl;
         Lexer lex2;
         LexerPersistent lexP2(&lex2);
-        ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/compare/" + fi.baseName() + ".lexdmp"), 0);
+        ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/compare/" + filename), 0);
+
+        if (!ver.empty()) {
+            EXPECT_STREQ(ver.c_str(), lex2.version().versionAsString().c_str());
+        }
 
         LexerReader lex;
         lex.setVersion(lex2.version().version());
-        lex.readFile("testscripts/" + fi.baseName());
+        lex.readFile("testscripts/" + scriptname);
         LexerPersistent lexP(&lex);
 
         // check so each token is restored
@@ -516,7 +538,6 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         uint guard = lex.list().max_size();
         auto tok1 = lex.list().front();
         auto tok2 = lex2.list().front();
-        int failedCnt = 0;
         while (tok1 && tok2 && (--guard)) {
             EXPECT_EQ(tok1->type(), tok2->type());
             EXPECT_EQ(tok1->line(), tok2->line());
