@@ -2,13 +2,6 @@ testscripts/test1.py;3.7
 
 ---------------------------------------------------------------------
 0;obj = 12
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0
         0;3;T_IdentifierUnknown
         4;5;T_OperatorEqual
@@ -17,12 +10,6 @@ testscripts/test1.py;3.7
 
 ---------------------------------------------------------------------
 1;def Create(name, obj=None):
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=3;5
         0;3;T_KeywordDef
@@ -40,12 +27,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 2;    '''Create(name) ... Creates and returns a Helix operation.'''
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
         0;4;T_Indent
         4;65;T_LiteralBlockSglQuote
         65;66;T_DelimiterNewLine
@@ -53,11 +34,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 3;    if obj is None:
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=1
         4;6;T_KeywordIf
@@ -70,11 +46,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 4;        obj = FreeCAD.ActiveDocument.addObject("Path::FeaturePython", name)
  indent=8
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=-1
  unfinished=0;2;4;6;10
         0;8;T_Indent
@@ -96,12 +67,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 5;    obj.Proxy = ObjectHelix(obj, name)
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2;4;6;8
         4;7;T_IdentifierUnknown
         7;8;T_DelimiterPeriod
@@ -118,11 +83,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 6;    if obj.Proxy:
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=1;3
         4;6;T_KeywordIf
@@ -135,12 +95,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 7;        obj.Proxy.findAllHoles(obj)
  indent=8
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2;4;6
         0;8;T_Indent
         8;11;T_IdentifierUnknown
@@ -156,11 +110,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 8;        with obj:
  indent=8
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=1
         8;12;T_KeywordWith
@@ -171,11 +120,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 9;            k=0
  indent=12
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=-2
  unfinished=0
         0;12;T_Indent
@@ -189,12 +133,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 10;    t= test(obj)
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2;4
         4;5;T_IdentifierUnknown
         5;6;T_OperatorEqual
@@ -207,12 +145,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 11;    t.func()
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2
         4;5;T_IdentifierUnknown
         5;6;T_DelimiterPeriod
@@ -224,11 +156,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 12;    return obj
  indent=4
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=-1
  unfinished=1
         4;10;T_KeywordReturn
@@ -238,22 +165,9 @@ testscripts/test1.py;3.7
 
 ---------------------------------------------------------------------
 13;
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
 
 ---------------------------------------------------------------------
 14;class test(object):
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
         0;5;T_KeywordClass
         6;10;T_IdentifierClass
@@ -266,11 +180,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 15;	def func(se):
  indent=8
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=1;3
         0;1;T_Indent
@@ -285,12 +194,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 16;		cl=0
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0
         0;2;T_Indent
         2;4;T_IdentifierUnknown
@@ -301,24 +204,12 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 17;		jävlr
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0
         2;8;T_IdentifierUnknown
 
 ---------------------------------------------------------------------
 18;		me = test
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2
         2;4;T_IdentifierUnknown
         5;6;T_OperatorEqual
@@ -328,12 +219,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 19;		se.func()
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;2
         2;4;T_IdentifierUnknown
         4;5;T_DelimiterPeriod
@@ -345,12 +230,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 20;		print "kd"
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
         2;7;T_IdentifierBuiltin
         8;12;T_LiteralDblQote
         12;13;T_DelimiterNewLine
@@ -358,12 +237,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 21;		async(höjd)
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=2
         2;7;T_Keyword
         7;8;T_DelimiterOpenParen
@@ -374,34 +247,15 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 22;		hasattr
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
         2;9;T_IdentifierBuiltin
         9;10;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 23;
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
 
 ---------------------------------------------------------------------
 24;		if not plane: return vec
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=2;5
         2;4;T_KeywordIf
         5;8;T_OperatorNot
@@ -413,22 +267,10 @@ testscripts/test1.py;3.7
 
 ---------------------------------------------------------------------
 25;
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
 
 ---------------------------------------------------------------------
 26;		if getType(obj) == "Dimension":
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=1
  unfinished=1;3
         2;4;T_KeywordIf
@@ -444,11 +286,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 27;			p1 = getProj(obj.Start)
  indent=24
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=-1
  unfinished=0;2;4;6
         0;3;T_Indent
@@ -466,12 +303,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 28;		result += "0\nDIMENSION\n8\n0\n62\n0\n3\nStandard\n70\n1\n\"" + str(j)
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0;6
         2;8;T_IdentifierUnknown
         9;11;T_OperatorPlusEqual
@@ -486,11 +317,6 @@ testscripts/test1.py;3.7
 ---------------------------------------------------------------------
 29;		result += "10\n" + str(p3.x) + "\n20\n" + str(p3.y) + "\n30\n" + str(p3.z) + "\n"
  indent=16
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
  blockstate=-2
  unfinished=0;6;8;15;17;24;26
         2;8;T_IdentifierUnknown
@@ -529,23 +355,9 @@ testscripts/test1.py;3.7
 
 ---------------------------------------------------------------------
 30;
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
 
 ---------------------------------------------------------------------
 31;javlr = False
- indent=0
- bracket=0
- brace=0
- paren=0
- continue=0
- param=0
- blockstate=0
  unfinished=0
         0;5;T_IdentifierUnknown
         6;7;T_OperatorEqual

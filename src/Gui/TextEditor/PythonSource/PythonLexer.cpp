@@ -1518,13 +1518,20 @@ const std::string Python::LexerPersistent::dumpToString() const
         dmp += "\n---------------------------------------------------------------------\n"
                 + std::to_string(line->lineNr()) + ";" + line->text(); // newline from line->text()
         // space marks this line is a line property line
-        dmp += " indent=" + std::to_string(line->indent()) + "\n" +
-               " bracket=" + std::to_string(line->bracketCnt()) + "\n" +
-               " brace=" + std::to_string(line->braceCnt()) + "\n" +
-               " paren=" + std::to_string(line->parenCnt()) + "\n" +
-               " continue=" + std::to_string(line->isContinuation()) + "\n" +
-               " param=" + std::to_string(line->isParamLine()) + "\n" +
-               " blockstate=" + std::to_string(line->blockState()) + "\n";
+        if (line->indent())
+            dmp += " indent=" + std::to_string(line->indent()) + "\n";
+        if (line->bracketCnt())
+            dmp += " bracket=" + std::to_string(line->bracketCnt()) + "\n";
+        if (line->braceCnt())
+            dmp += " brace=" + std::to_string(line->braceCnt()) + "\n";
+        if (line->parenCnt())
+            dmp += " paren=" + std::to_string(line->parenCnt()) + "\n";
+        if (line->isContinuation())
+            dmp += " continue=" + std::to_string(line->isContinuation()) + "\n";
+        if (line->isParamLine())
+            dmp += " param=" + std::to_string(line->isParamLine()) + "\n";
+        if (line->blockState())
+            dmp += " blockstate=" + std::to_string(line->blockState()) + "\n";
         if (!line->unfinishedTokens().empty()) {
             std::string str;
             for(auto idx : line->unfinishedTokens())
