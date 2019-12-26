@@ -1071,11 +1071,7 @@ uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text, Token::
     auto pos = text.begin() + startPos;
     int first = *pos, prevCh = 0, ch = 0;
     uint len = 0;
-    // python 2 octal ie. 01234 != 1234
-    if (first == '0' && d_lex->version.version() < Version::v3_0)
-        type = Token::T_NumberOctal;
-    else
-        type = Token::T_NumberDecimal;
+    type = Token::T_NumberDecimal;
     for (; pos != text.end(); ++pos, ++len) {
         ch = std::tolower(*pos);
         switch (ch) {
@@ -1126,6 +1122,13 @@ uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text, Token::
     }
 
 out:
+    // python 2 octal ie. 01234 != 1234
+    if (first == '0' && d_lex->version.version() < Version::v3_0 &&
+        type == Token::T_NumberDecimal)
+    {
+        type = Token::T_NumberOctal;
+    }
+
     // long integer or imaginary?
     if (prevCh != 0 && (ch == 'l' || ch == 'j'))
         len += 1;

@@ -1,0 +1,201 @@
+testscripts/testNumbers.py;2.7
+
+---------------------------------------------------------------------
+0;#from https://docs.python.org/3/reference/lexical_analysis.html
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;63;T_Comment
+
+---------------------------------------------------------------------
+1;#Some examples of integer literals:
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;35;T_Comment
+
+---------------------------------------------------------------------
+2;7     2147483647                        0177
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;1;T_NumberDecimal
+        6;16;T_NumberDecimal
+        40;44;T_NumberOctal
+        44;45;T_DelimiterNewLine
+
+---------------------------------------------------------------------
+3;3L    79228162514264337593543950336L    0377L   0x100000000L
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;2;T_NumberDecimal
+        6;36;T_NumberDecimal
+        40;45;T_NumberOctal
+        48;60;T_NumberHex
+        60;61;T_DelimiterNewLine
+
+---------------------------------------------------------------------
+4;      79228162514264337593543950336             0xdeadbeef
+ indent=6
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;6;T_IndentError
+        6;35;T_NumberDecimal
+        48;58;T_NumberHex
+        58;59;T_DelimiterNewLine
+ scaninfo=IndentError;0;Blockstart without ':'
+
+---------------------------------------------------------------------
+5;      
+ indent=6
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+
+---------------------------------------------------------------------
+6;0b01101
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;7;T_NumberBinary
+        7;8;T_DelimiterNewLine
+
+---------------------------------------------------------------------
+7;
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+
+---------------------------------------------------------------------
+8;#Some examples of floating point literals:
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;42;T_Comment
+
+---------------------------------------------------------------------
+9;3.14    10.    .001    1e100    3.14e-10    0e0    3.14_15_93
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;4;T_NumberFloat
+        8;11;T_NumberFloat
+        15;19;T_NumberFloat
+        23;28;T_NumberFloat
+        32;40;T_NumberFloat
+        44;47;T_NumberFloat
+        51;61;T_NumberFloat
+        61;62;T_DelimiterNewLine
+
+---------------------------------------------------------------------
+10;
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+
+---------------------------------------------------------------------
+11;#imaginary
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;10;T_Comment
+
+---------------------------------------------------------------------
+12;3.14j   10.j    10j     .001j   1e100j   3.14e-10j   3.14_15_93j
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;5;T_NumberFloat
+        8;12;T_NumberFloat
+        16;19;T_NumberDecimal
+        24;29;T_NumberFloat
+        32;38;T_NumberFloat
+        41;50;T_NumberFloat
+        53;64;T_NumberFloat
+        64;65;T_DelimiterNewLine
+---------------------------------------------------------------------
+13;
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+
+---------------------------------------------------------------------
+14;#illegal
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;8;T_Comment
+
+---------------------------------------------------------------------
+15;1x01    0b1234 12af 0o19
+ indent=0
+ bracket=0
+ brace=0
+ paren=0
+ continue=0
+ param=0
+ blockstate=0
+        0;4;T_SyntaxError
+        8;14;T_SyntaxError
+        15;19;T_SyntaxError
+        20;24;T_SyntaxError
