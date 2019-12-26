@@ -404,8 +404,8 @@ Python::Token::Type Python::Token::strToToken(const std::string &tokName)
 Python::Token::Token(Python::Token::Type token, uint16_t startPos,
                      uint16_t endPos, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
-    m_hash(0), m_next(nullptr), m_previous(nullptr),
-    m_ownerLine(line)
+    m_customMask(0), m_hash(0), m_next(nullptr),
+    m_previous(nullptr), m_ownerLine(line)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     m_nameDbg = text();
@@ -419,8 +419,8 @@ Python::Token::Token(Python::Token::Type token, uint16_t startPos,
 
 Python::Token::Token(const Python::Token &other) :
     m_type(other.m_type), m_startPos(other.m_startPos), m_endPos(other.m_endPos),
-    m_hash(other.m_hash), m_next(other.m_next), m_previous(other.m_previous),
-    m_ownerLine(other.m_ownerLine)
+    m_customMask(0), m_hash(other.m_hash), m_next(other.m_next),
+    m_previous(other.m_previous), m_ownerLine(other.m_ownerLine)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     m_nameDbg = text();
@@ -501,6 +501,26 @@ bool Python::Token::isString() const {
             m_type < T__LiteralsEnd;
 }
 
+bool Python::Token::isStringRaw() const
+{
+    return isString() && (m_customMask & STRING_IS_RAW_TYPE);
+}
+
+bool Python::Token::isStringBytes() const
+{
+    return isString() && (m_customMask & STRING_IS_BYTES_TYPE);
+}
+
+bool Python::Token::isStringUnicode() const
+{
+    return isString() && (m_customMask & STRING_IS_UNICODE_TYPE);
+}
+
+bool Python::Token::isStringFormat() const
+{
+    return isString() && (m_customMask & STRING_IS_FORMAT_TYPE);
+}
+
 bool Python::Token::isBoolean() const {
     return m_type == T_IdentifierTrue ||
            m_type == T_IdentifierFalse;
@@ -508,8 +528,9 @@ bool Python::Token::isBoolean() const {
 
 bool Python::Token::isMultilineString() const
 {
-    return m_type > T__LiteralsMultilineStart &&
-           m_type < T__LiteralsMultilineEnd;
+    return (m_type > T__LiteralsMultilineStart &&
+            m_type < T__LiteralsMultilineEnd &&
+            (m_customMask & STRING_IS_MULTILINE_TYPE));
 }
 
 bool Python::Token::isKeyword() const {
@@ -893,6 +914,11 @@ Python::TokenLine *Python::TokenList::lineAt(int32_t lineNr) const
 
 uint32_t Python::TokenList::lineCount() const
 {
+    if (m_lastLine)
+        return static_cast<uint32_t>(m_lastLine->m_line +1);
+    return 0;
+
+    /*
     uint32_t cnt = 0;
     uint32_t guard = max_size();
     for (Python::TokenLine *line = m_firstLine;
@@ -903,6 +929,7 @@ uint32_t Python::TokenList::lineCount() const
     }
     assert(guard > 0 && "Line iteration guard circular nodes in List");
     return cnt;
+    */
 }
 
 void Python::TokenList::swapLine(int32_t lineNr, Python::TokenLine *swapIn)
@@ -1115,6 +1142,7 @@ Python::TokenLine::TokenLine(Python::Token *startTok,
                              const std::string &text) :
     m_ownerList(nullptr), m_frontTok(startTok), m_backTok(startTok),
     m_nextLine(nullptr), m_previousLine(nullptr),
+    m_endStateOfLastPara(Token::T_Undetermined),
     m_line(-1), m_tokenScanInfo(nullptr), m_indentCharCount(0),
     m_parenCnt(0), m_bracketCnt(0), m_braceCnt(0), m_blockStateCnt(0),
     m_isParamLine(false), m_isContinuation(false)
@@ -1141,8 +1169,8 @@ Python::TokenLine::TokenLine(const TokenLine &other) :
     m_ownerList(other.m_ownerList), m_frontTok(other.m_frontTok),
     m_backTok(other.m_backTok), m_nextLine(other.m_nextLine),
     m_previousLine(other.m_previousLine),
-    m_text(other.m_text), m_line(-1),
-    m_tokenScanInfo(other.m_tokenScanInfo),
+    m_text(other.m_text), m_endStateOfLastPara(other.m_endStateOfLastPara),
+    m_line(-1), m_tokenScanInfo(other.m_tokenScanInfo),
     m_indentCharCount(other.m_indentCharCount),
     m_parenCnt(other.m_parenCnt), m_bracketCnt(other.m_bracketCnt),
     m_braceCnt(other.m_braceCnt), m_blockStateCnt(other.m_blockStateCnt),

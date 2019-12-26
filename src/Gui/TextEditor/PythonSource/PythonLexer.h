@@ -52,19 +52,19 @@ protected:
 private:
     uint lastWordCh(uint startPos, const std::string &text) const;
     uint lastNumberCh(uint startPos, const std::string &text, Token::Type &type) const;
-    uint lastDblQuoteStringCh(uint startAt, const std::string &text) const;
-    uint lastSglQuoteStringCh(uint startAt, const std::string &text) const;
+    uint lastStringCh(uint startAt, const std::string &text,
+                      Token::Type &type, uint32_t &stringOptions) const;
 
-    void setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType);
+    Token *setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType);
     void scanIndentation(uint &pos, const std::string &text);
-    void setWord(uint &pos, uint len, Python::Token::Type tokType);
-    void setIdentifier(uint &pos, uint len, Python::Token::Type tokType);
-    void setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType);
-    void setNumber(uint &pos, uint len, Python::Token::Type tokType);
-    void setOperator(uint &pos, uint len, Python::Token::Type tokType);
-    void setDelimiter(uint &pos, uint len, Python::Token::Type tokType);
-    void setSyntaxError(uint &pos, uint len);
-    void setLiteral(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setToToken(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setIdentifier(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setNumber(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setOperator(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setDelimiter(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setSyntaxError(uint &pos, uint len);
+    Token *setLiteral(uint &pos, uint len, Python::Token::Type tokType);
     void setIndentation();
 
     Python::Token *createIndentError(const std::string &msg);

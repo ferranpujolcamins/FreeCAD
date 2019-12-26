@@ -537,25 +537,26 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         // check so each token is restored
         EXPECT_EQ(lex.list().count(), lex2.list().count());
         uint guard = lex.list().max_size();
-        auto tokScript = lex.list().front();
-        auto tokCompare = lex2.list().front();
-        while (tokScript && tokCompare && (--guard)) {
-            EXPECT_EQ(tokScript->type(), tokCompare->type());
-            EXPECT_EQ(tokScript->line(), tokCompare->line());
-            EXPECT_EQ(tokScript->startPos(), tokCompare->startPos());
-            EXPECT_EQ(tokScript->endPos(), tokCompare->endPos());
+        auto scriptTok = lex.list().front();
+        auto compareTok = lex2.list().front();
+        while (scriptTok && compareTok && (--guard)) {
+            EXPECT_EQ(scriptTok->type(), compareTok->type());
+            EXPECT_EQ(scriptTok->line(), compareTok->line());
+            EXPECT_EQ(scriptTok->startPos(), compareTok->startPos());
+            EXPECT_EQ(scriptTok->endPos(), compareTok->endPos());
             if (failedCnt < test_info_->result()->total_part_count()) {
                 std::cout << "\n**Failed in file:" << fi.path() <<
-                             "\nline:" << std::to_string(tokScript->line()) <<
-                             " startPos:" << std::to_string(tokScript->startPos()) <<
-                             " tokenText:'" << tokScript->text() << "'\n\n";
+                             "\nline:" << std::to_string(scriptTok->line()) <<
+                             " startPos:" << std::to_string(scriptTok->startPos()) <<
+                             " tokenText:'" << scriptTok->text() << "'\n\n";
                 failedCnt = test_info_->result()->total_part_count();
+                break; // bail out
             }
-            tokScript = tokScript->next();
-            tokCompare = tokCompare->next();
+            scriptTok = scriptTok->next();
+            compareTok = compareTok->next();
         }
-        EXPECT_EQ(tokScript, nullptr);
-        EXPECT_EQ(tokCompare, nullptr);
+        EXPECT_EQ(scriptTok, nullptr);
+        EXPECT_EQ(compareTok, nullptr);
         EXPECT_GT(guard, 0u);
 
         // check so each line is restored
@@ -610,7 +611,7 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
             }
             if (failedCnt < test_info_->result()->total_part_count()) {
                 std::cout << "**Failed in file:" << fi.path() <<
-                             "\n when testing line:" << std::to_string(tokScript->line()) << std::endl;
+                             "\n when testing line:" << std::to_string(scriptTok->line()) << std::endl;
                 failedCnt = test_info_->result()->total_part_count();
             }
 
@@ -621,4 +622,53 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         EXPECT_EQ(lineCompare, nullptr);
         EXPECT_GT(guard, 0u);
     }
+}
+
+TEST(TstLexerStrings, testLexerStringType) {
+
+    static std::list<std::string> lines = {
+        "r\"raw string\"",
+        "r'raw string'",
+        "R'RAW string'",
+        "b\"bytes string\"",
+        "b'bytes string'",
+        "B'BYTES string'",
+        "u'unicode string'",
+        "u\"unicode string\"",
+        "f\"format string\"",
+        "f'format string'",
+        "F'FORMAT string'",
+        "br'raw bytes string'",
+        "br\"raw bytes string\"",
+        "BR\"RAW BYTES string\"",
+        "BR'RAW BYTES string'"
+    };
+
+    Lexer lex;
+    for(auto &line : lines) {
+        auto tokLine= new TokenLine(nullptr, line);
+        lex.list().appendLine(tokLine);
+        lex.tokenize(tokLine);
+    }
+
+    ASSERT_EQ(lex.list().lineCount(), lines.size());
+    ASSERT_EQ(lex.list().lineAt(0)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(1)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(2)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(3)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(4)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(5)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(6)->front()->isStringUnicode(), true);
+    ASSERT_EQ(lex.list().lineAt(7)->front()->isStringUnicode(), true);
+    ASSERT_EQ(lex.list().lineAt(8)->front()->isStringFormat(), true);
+    ASSERT_EQ(lex.list().lineAt(9)->front()->isStringFormat(), true);
+    ASSERT_EQ(lex.list().lineAt(10)->front()->isStringFormat(), true);
+    ASSERT_EQ(lex.list().lineAt(11)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(11)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(12)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(12)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(13)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(13)->front()->isStringBytes(), true);
+    ASSERT_EQ(lex.list().lineAt(14)->front()->isStringRaw(), true);
+    ASSERT_EQ(lex.list().lineAt(14)->front()->isStringBytes(), true);
 }

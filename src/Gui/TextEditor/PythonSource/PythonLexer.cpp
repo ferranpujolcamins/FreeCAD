@@ -51,7 +51,6 @@ public:
     LexerP(Python::Lexer *lexer) :
         tokenList(lexer),
         activeLine(nullptr),
-        endStateOfLastPara(Python::Token::T_Invalid),
         insertDedent(false), isCodeLine(false)
     {
         if (LexerP::activeVersion != Version::Invalid)
@@ -164,7 +163,6 @@ public:
     Python::TokenList tokenList;
     std::string filePath;
     Python::TokenLine *activeLine;
-    Python::Token::Type endStateOfLastPara;
     bool insertDedent, isCodeLine;
     uint8_t __pad[2];
 
@@ -319,13 +317,15 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
         tokLine->m_parenCnt = tokLine->m_previousLine->m_parenCnt;
         // determine if line is continued from prevoius line
         if (tokLine->m_previousLine->m_backTok)
-            tokLine->m_isContinuation = tokLine->m_previousLine->m_backTok->type() == Token::T_DelimiterBackSlash;
+            tokLine->m_isContinuation =
+                    tokLine->m_previousLine->m_backTok->type() == Token::T_DelimiterBackSlash;
         if (!tokLine->m_isContinuation) {
             tokLine->m_isContinuation = tokLine->m_braceCnt> 0 ||
                                         tokLine->m_bracketCnt > 0 ||
                                         tokLine->m_parenCnt > 0;
         }
-
+        d_lex->activeLine->m_endStateOfLastPara =
+                tokLine->m_previousLine->m_endStateOfLastPara;
     }
 
     uint prefixLen = 0;
@@ -339,10 +339,10 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
     {
         ch = text.at( i );
 
-        switch ( d_lex->endStateOfLastPara )
+        switch ( d_lex->activeLine->m_endStateOfLastPara )
         {
         case Python::Token::T_Invalid:
-            d_lex->endStateOfLastPara = Token::T_Undetermined;
+            d_lex->activeLine->m_endStateOfLastPara = Token::T_Undetermined;
             continue;
         case Python::Token::T_Undetermined:
         {
@@ -360,60 +360,19 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 // begin a comment
                 // it goes on to the end of the row
                 uint e = static_cast<uint>(text.length()) - i -1; // allow the \n line end to be handled correctly
-                setWord(i, e, Python::Token::T_Comment); // function advances i
+                setToToken(i, e, Python::Token::T_Comment); // function advances i
             }   break;
             case '"': case '\'':
             {
                 // Begin either string literal or block string
-                char compare = thisCh;
-                std::string endMarker;
-                endMarker.push_back(ch);
-                uint startStrPos = 0;
                 Python::Token::Type tokType = Python::Token::T_Undetermined;
-                uint len = 0;
-
-                if (nextCh == compare && thirdCh == compare) {
-                    // block string
-                    endMarker += endMarker + endMarker; // makes """ or '''
-                    startStrPos = i + 3;
-                    if (compare == '"') {
-                        tokType = Python::Token::T_LiteralBlockDblQuote;
-                        len = lastDblQuoteStringCh(startStrPos, text);
-                    } else {
-                        tokType = Python::Token::T_LiteralBlockSglQuote;
-                        len = lastSglQuoteStringCh(startStrPos, text);
-                    }
-                    d_lex->endStateOfLastPara = tokType;
-                }
-
-                // just a " or ' quoted string
-                if (tokType == Python::Token::T_Undetermined) {
-                    startStrPos = i + 1;
-                    if (compare == '"') {
-                        tokType = Python::Token::T_LiteralDblQuote;
-                        len = lastDblQuoteStringCh(startStrPos, text);
-                    } else {
-                        tokType = Python::Token::T_LiteralSglQuote;
-                        len = lastSglQuoteStringCh(startStrPos, text);
-                    }
-                }
-
-                // search for end of string including endMarker
-                auto endPos = text.find(endMarker, startStrPos + len);
-                if (endPos != text.npos) {
-                    len = static_cast<uint>(endPos - i) + prefixLen;
-                    d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
-                }
-
-                // a string might have string prefix, such as r"" or u''
-                // detection of that was in a previous iteration
-                i -= prefixLen;
-
-                setLiteral(i, len + static_cast<uint>(endMarker.length()) + prefixLen, tokType);
+                uint32_t stringOptions = 0;
+                uint len = lastStringCh(i - prefixLen, text, tokType, stringOptions);
                 prefixLen = 0;
+                Token *tok = setLiteral(i, len, tokType);
+                tok->m_customMask = stringOptions;
 
-                // check if we need indent/dedent Token added
-                if (d_lex->endStateOfLastPara != Token::T_Undetermined)
+                if (d_lex->activeLine->m_endStateOfLastPara != Token::T_Undetermined)
                     checkLineEnd();
 
             } break;
@@ -421,7 +380,8 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             // handle indentation
             case ' ': case '\t':
             {
-                scanIndentation(i, text);
+                if (i == 0)
+                    scanIndentation(i, text);
             } break;
 
                 // operators or delimiters
@@ -452,15 +412,15 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 if (tokLine->m_isParamLine) {
                     // specialcase * as it may be a *arg or **arg
                     if (nextCh == '*') {
-                        setWord(i, 2, Python::Token::T_OperatorKeyWordParam);
+                        setToToken(i, 2, Python::Token::T_OperatorKeyWordParam);
                         break;
                     }
-                    setWord(i, 1, Python::Token::T_OperatorVariableParam);
+                    setToToken(i, 1, Python::Token::T_OperatorVariableParam);
                     break;
                 } else if (isModuleLine) {
                     // specialcase * as it is also used as glob for modules
                     i -= 1;
-                    d_lex->endStateOfLastPara = Python::Token::T_IdentifierModuleGlob;
+                    d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierModuleGlob;
                     break;
                 } else if (nextCh == '*') {
                     if (thirdCh == '=')
@@ -671,7 +631,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     (nextCh == '_')))
                 {
                     uint len = lastWordCh(i + 1, text);
-                    setWord(i, len +1, Python::Token::T_IdentifierDecorator);
+                    setToToken(i, len +1, Python::Token::T_IdentifierDecorator);
                     break;
                 } else if (nextCh == '=') {
                     if (d_lex->version.version() >= Version::v3_5)
@@ -691,6 +651,8 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             default:
             {
                 // check for string prefixes
+                // this works by setting prefixlen and let ordinary string detection handle it.
+                // see case '"': above
                 if (nextCh == '"' || nextCh == '\'') {
                     thisCh = static_cast<char>(std::tolower(thisCh));
 
@@ -728,123 +690,123 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                         switch (len) {
                         case 8:
                             if (hash == d_lex->continueHash) {
-                                setWord(i, len, Python::Token::T_KeywordContinue);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordContinue);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                              } break;
                         case 7:
                             if (hash == d_lex->finallyHash) {
-                                setWord(i, len, Python::Token::T_KeywordFinally);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordFinally);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 6:
                             if (hash == d_lex->importHash) {
-                                setWord(i, len, Python::Token::T_KeywordImport);
-                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
+                                setToToken(i, len, Python::Token::T_KeywordImport);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierModule; // step out to handle module name
                                 isModuleLine = true;
                             } else if (hash == d_lex->returnHash) {
-                                setWord(i, len, Python::Token::T_KeywordReturn);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordReturn);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->exceptHash) {
-                                setWord(i, len, Python::Token::T_KeywordExcept);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordExcept);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->globalHash) {
-                                setWord(i, len, Python::Token::T_KeywordGlobal);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordGlobal);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->lambdaHash) {
-                                setWord(i, len, Python::Token::T_KeywordLambda);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordLambda);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->assertHash) {
-                                setWord(i, len, Python::Token::T_KeywordAssert);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordAssert);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 5:
                             if (hash == d_lex->classHash) {
-                                setWord(i, len, Python::Token::T_KeywordClass);
-                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
+                                setToToken(i, len, Python::Token::T_KeywordClass);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierClass; // step out to handle class name
                             } else if (hash == d_lex->yieldHash) {
-                                setWord(i, len, Python::Token::T_KeywordYield);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordYield);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->falseHash) {
                                 setIdentifier(i, len, Python::Token::T_IdentifierFalse);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->whileHash) {
-                                setWord(i, len, Python::Token::T_KeywordWhile);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordWhile);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->breakHash) {
-                                setWord(i, len, Python::Token::T_KeywordBreak);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordBreak);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->raiseHash) {
-                                setWord(i, len, Python::Token::T_KeywordRaise);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordRaise);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 4:
                             if (hash == d_lex->fromHash) {
-                                setWord(i, len, Python::Token::T_KeywordFrom);
-                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
+                                setToToken(i, len, Python::Token::T_KeywordFrom);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierModulePackage; // step out handle module name
                                 isModuleLine = true;
                              } else if (hash == d_lex->trueHash) {
                                 setIdentifier(i, len, Python::Token::T_IdentifierTrue);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->noneHash) {
                                 setIdentifier(i, len, Python::Token::T_IdentifierNone);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->elifHash) {
-                                setWord(i, len, Python::Token::T_KeywordElIf);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordElIf);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->elseHash) {
-                                setWord(i, len, Python::Token::T_KeywordElse);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordElse);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->withHash) {
-                                setWord(i, len, Python::Token::T_KeywordWith);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordWith);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->passHash) {
-                                setWord(i, len, Python::Token::T_KeywordPass);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordPass);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 3:
                             if (hash == d_lex->defHash) {
                                 tokLine->m_isParamLine = true;
-                                setWord(i, len, Python::Token::T_KeywordDef);
-                                d_lex->endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
+                                setToToken(i, len, Python::Token::T_KeywordDef);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierDefUnknown; // step out to handle def name
 
                             } else if (hash == d_lex->notHash) {
-                                setWord(i, len, Python::Token::T_OperatorNot);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_OperatorNot);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->forHash) {
-                                setWord(i, len, Python::Token::T_KeywordFor);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordFor);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->tryHash) {
-                                setWord(i, len, Python::Token::T_KeywordTry);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordTry);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         case 2:
                             if (hash == d_lex->andHash) {
-                                setWord(i, len, Python::Token::T_OperatorAnd);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_OperatorAnd);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->asHash) {
-                                setWord(i, len, Python::Token::T_KeywordAs);
+                                setToToken(i, len, Python::Token::T_KeywordAs);
                                 if (isModuleLine)
-                                    d_lex->endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
+                                    d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierModuleAlias;
                                 else
-                                    d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                    d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->inHash) {
-                                setWord(i, len, Python::Token::T_OperatorIn);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_OperatorIn);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->isHash) {
-                                setWord(i, len, Python::Token::T_OperatorIs);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_OperatorIs);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->orHash) {
-                                setWord(i, len, Python::Token::T_OperatorOr);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_OperatorOr);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } else if (hash == d_lex->ifHash) {
-                                setWord(i, len, Python::Token::T_KeywordIf);
-                                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                                setToToken(i, len, Python::Token::T_KeywordIf);
+                                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                             } break;
                         default:; // nothing
                         }
 
                         if (startI == i) {
-                            setWord(i, len, Python::Token::T_Keyword);
+                            setToToken(i, len, Python::Token::T_Keyword);
                         }
 
                     } else {
@@ -854,12 +816,12 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                                 d_lex->activeLine->back()->type() == Python::Token::T_DelimiterPeriod)
                             {
                                 // avoid match against someObj.print
-                                setWord(i, len, Python::Token::T_IdentifierUnknown);
+                                setToToken(i, len, Python::Token::T_IdentifierUnknown);
                             } else
-                                setWord(i, len, Python::Token::T_IdentifierBuiltin);
+                                setToToken(i, len, Python::Token::T_IdentifierBuiltin);
                         } else if (isModuleLine) {
                             i -= 1; // jump to module block
-                            d_lex->endStateOfLastPara = Python::Token::T_IdentifierModule;
+                            d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_IdentifierModule;
                         } else {
                             setUndeterminedIdentifier(i, len, Python::Token::T_IdentifierUnknown);
                         }
@@ -901,30 +863,34 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
         {
             // multiline double quote string continued from previous line
             scanIndentation(i, text);
+            Token *tok;
 
             auto endPos = text.find("\"\"\"", i);
             if (endPos != text.npos) {
                 endPos += 3;
-                setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockDblQuote);
-                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                tok = setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockDblQuote);
+                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
             } else {
-                setRestOfLine(i, text, Python::Token::T_LiteralBlockDblQuote);
+                tok = setRestOfLine(i, text, Python::Token::T_LiteralBlockDblQuote);
             }
+            tok->m_customMask |= STRING_IS_MULTILINE_TYPE;
 
         } break;
         case Python::Token::T_LiteralBlockSglQuote:
         {
             // multiline single quote string continued from previous line
             scanIndentation(i, text);
+            Token *tok;
 
             auto endPos = text.find("'''", i);
             if (endPos != text.npos) {
                 endPos += 3;
-                setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockSglQuote);
-                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                tok = setLiteral(i, static_cast<uint>(endPos) -i, Python::Token::T_LiteralBlockSglQuote);
+                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
             }else {
-                setRestOfLine(i, text, Python::Token::T_LiteralBlockSglQuote);
+                tok = setRestOfLine(i, text, Python::Token::T_LiteralBlockSglQuote);
             }
+            tok->m_customMask |= STRING_IS_MULTILINE_TYPE;
 
         } break;
         case Python::Token::T_IdentifierDefUnknown:
@@ -934,7 +900,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
             }
             if (i == text.length()) {
-                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                 break; // not yet finished this line?
             }
 
@@ -944,7 +910,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 setIdentifier(i, len, Python::Token::T_IdentifierFunction);
             else
                 setUndeterminedIdentifier(i, len, Python::Token::T_IdentifierDefUnknown);
-            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+            d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
 
         } break;
         case Python::Token::T_IdentifierClass:
@@ -954,13 +920,13 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
             }
             if (i == text.length()) {
-                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                 break; // not yet finished this line?
             }
 
             uint len = lastWordCh(i, text);
             setIdentifier(i, len, Python::Token::T_IdentifierClass);
-            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+            d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
 
         } break;
         case Python::Token::T_IdentifierModuleAlias:
@@ -974,7 +940,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
             }
             if (i == text.length()) {
-                d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+                d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
                 break; // not yet finished this line?
             }
 
@@ -986,16 +952,16 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
             }
 
-            setIdentifier(i, len, d_lex->endStateOfLastPara);
-            d_lex->endStateOfLastPara = Python::Token::T_Undetermined;
+            setIdentifier(i, len, d_lex->activeLine->m_endStateOfLastPara);
+            d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined;
 
         } break;
         default:
         {
             // let subclass sort it out
-            Python::Token::Type nextState = unhandledState(i, d_lex->endStateOfLastPara, text);
+            Python::Token::Type nextState = unhandledState(i, d_lex->activeLine->m_endStateOfLastPara, text);
             if (nextState != Python::Token::T_Invalid) {
-                d_lex->endStateOfLastPara = nextState;
+                d_lex->activeLine->m_endStateOfLastPara = nextState;
                 break; // break switch
             }
 
@@ -1014,10 +980,10 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
 
 
     // only block comments can have several lines
-    if ( d_lex->endStateOfLastPara != Python::Token::T_LiteralBlockDblQuote &&
-         d_lex->endStateOfLastPara != Python::Token::T_LiteralBlockSglQuote )
+    if ( d_lex->activeLine->m_endStateOfLastPara != Python::Token::T_LiteralBlockDblQuote &&
+         d_lex->activeLine->m_endStateOfLastPara != Python::Token::T_LiteralBlockSglQuote )
     {
-        d_lex->endStateOfLastPara = Python::Token::T_Undetermined ;
+        d_lex->activeLine->m_endStateOfLastPara = Python::Token::T_Undetermined ;
     }
 
     return i;
@@ -1039,7 +1005,7 @@ void Python::Lexer::tokenUpdated(const Python::Token *tok)
 
 Python::Token::Type &Python::Lexer::endStateOfLastParaRef() const
 {
-    return d_lex->endStateOfLastPara;
+    return d_lex->activeLine->m_endStateOfLastPara;
 }
 
 Python::TokenLine *Python::Lexer::activeLine() const
@@ -1136,45 +1102,89 @@ out:
     return len;
 }
 
-uint Python::Lexer::lastDblQuoteStringCh(uint startAt, const std::string &text) const
+uint Python::Lexer::lastStringCh(uint startAt, const std::string &text,
+                                 Token::Type &type, uint32_t &stringOptions) const
 {
     uint len = static_cast<uint>(text.length());
     if (len <= startAt)
         return 0;
 
+    char prevCh = 0, ch = 0, closingCh = 0, closingChCnt = 0;
+    bool isBlockString = false;
+
     len = 0;
     for (auto pos = text.begin() + startAt; pos != text.end(); ++pos, ++len) {
-        if (*pos == '\\') {
+        ch = static_cast<char>(tolower(*pos));
+        if (ch == '\\') {
+            // escape a string char
+            if (stringOptions & STRING_IS_FORMAT_TYPE)
+                type = Token::T_SyntaxError; // we can't escape format strings
             ++len; ++pos;
-            continue;
+        } else if (ch == '"' || ch == '\'') {
+            if (closingCh == 0)
+                closingCh = ch;
+            if (closingCh == ch) {
+                closingChCnt = ((prevCh == ch || prevCh == 0) && !isBlockString) ?
+                                    closingChCnt +1 : closingChCnt -1;
+                if (closingChCnt == 0) {
+                    ++len;
+                    break; // finished
+                }
+            }
+        } else if (!closingCh) {
+            // string not yet started, its a string prefix?
+            if (ch == 'r' && (prevCh == 'f' || prevCh == 0) && len < 2) {
+                stringOptions |= STRING_IS_RAW_TYPE;
+                continue; // dont set prevCh
+            } else if (ch == 'f' && (prevCh == 'r' || prevCh == 0) && len < 2) {
+                stringOptions |= STRING_IS_FORMAT_TYPE;
+                continue; // dont set prevCh
+            } else if (ch == 'b' && (prevCh == 'r' || prevCh == 0) && len < 2) {
+                stringOptions |= STRING_IS_BYTES_TYPE;
+                continue; // dont set prevCh
+            } else if (ch == 'r' && prevCh == 'b' && len < 2) {
+                stringOptions |= STRING_IS_RAW_TYPE;
+                if (d_lex->version.version() < Version::v3_3)
+                    type = Token::T_SyntaxError;
+            } else if (ch == 'r' && prevCh == 0 && len < 1) {
+                stringOptions |= STRING_IS_RAW_TYPE;
+                continue; // dont set prevCh
+            }  else if (ch == 'u' && len == 0) {
+                stringOptions |= STRING_IS_UNICODE_TYPE;
+                continue; // dont set prevCh
+            }  else {
+                // more than 2 format chars or invalid format
+                type = Token::T_SyntaxError;
+                return len;
+            }
+        } else {
+            // ordinary string chars
+            isBlockString = closingChCnt == 3;
         }
-        if (*pos == '"')
-            break;
+        prevCh = ch;
+    }
+
+    if (type != Token::T_SyntaxError) {
+        if (closingCh == '"')
+            type = isBlockString ? Token::T_LiteralBlockDblQuote : Token::T_LiteralDblQuote;
+        else
+            type = isBlockString ? Token::T_LiteralBlockSglQuote : Token::T_LiteralSglQuote;
+
+        // is this block continued on next line?
+        if (closingChCnt != 0 && isBlockString) {
+            d_lex->activeLine->m_endStateOfLastPara = type;
+            stringOptions |= STRING_IS_MULTILINE_TYPE;
+        }
     }
 
     return len;
 }
 
-uint Python::Lexer::lastSglQuoteStringCh(uint startAt, const std::string &text) const
-{
-    // no escapes '\' possible in this type
-    uint len = static_cast<uint>(text.length());
-    if (len <= startAt)
-        return 0;
-
-    len = 0;
-    for (auto pos = text.begin() + startAt; pos != text.end(); ++pos, ++len) {
-        if (*pos == '\'')
-            break;
-    }
-
-    return len;
-}
-
-void Python::Lexer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
+Python::Token*
+Python::Lexer::setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType)
 {
     uint len = static_cast<uint>(text.size()) - pos;
-    setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
 void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
@@ -1200,7 +1210,9 @@ void Python::Lexer::scanIndentation(uint &pos, const std::string &text)
     }
 }
 
-void Python::Lexer::setWord(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setToToken(uint &pos, uint len, Python::Token::Type tokType)
 {
     Python::Token *tok = d_lex->activeLine->newDeterminedToken(tokType, pos, len);
     tokenUpdated(tok);
@@ -1208,44 +1220,60 @@ void Python::Lexer::setWord(uint &pos, uint len, Python::Token::Type tokType)
         d_lex->isCodeLine = tok->isCode();
     if (len > 0)
         pos += len -1;
+    return tok;
 }
 
-void Python::Lexer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setIdentifier(uint &pos, uint len, Python::Token::Type tokType)
 {
-    return setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
-void Python::Lexer::setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType)
 {
     // let parse tree figure out and color at a later stage
     Python::Token *tok = d_lex->activeLine->newUndeterminedToken(tokType, pos, len);
     tokenUpdated(tok);
     pos += len -1;
+    return tok;
 }
 
-void Python::Lexer::setNumber(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setNumber(uint &pos, uint len, Python::Token::Type tokType)
 {
-    setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
-void Python::Lexer::setOperator(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setOperator(uint &pos, uint len, Python::Token::Type tokType)
 {
-    setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
-void Python::Lexer::setDelimiter(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setDelimiter(uint &pos, uint len, Python::Token::Type tokType)
 {
-    setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
-void Python::Lexer::setSyntaxError(uint &pos, uint len)
+
+Python::Token*
+Python::Lexer::setSyntaxError(uint &pos, uint len)
 {
-    setWord(pos, len, Python::Token::T_SyntaxError);
+    return setToToken(pos, len, Python::Token::T_SyntaxError);
 }
 
-void Python::Lexer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
+
+Python::Token*
+Python::Lexer::setLiteral(uint &pos, uint len, Python::Token::Type tokType)
 {
-    setWord(pos, len, tokType);
+    return setToToken(pos, len, tokType);
 }
 
 void Python::Lexer::setIndentation()

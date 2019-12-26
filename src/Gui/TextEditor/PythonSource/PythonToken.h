@@ -7,6 +7,12 @@
 #include <map>
 #include <iterator>
 
+#define STRING_IS_BYTES_TYPE     (1 << 0)
+#define STRING_IS_UNICODE_TYPE   (1 << 1)
+#define STRING_IS_FORMAT_TYPE    (1 << 2)
+#define STRING_IS_RAW_TYPE       (1 << 3)
+#define STRING_IS_MULTILINE_TYPE (1 << 4)
+
 namespace Python {
 
 class SourceListNodeBase; // in code analyzer
@@ -366,6 +372,7 @@ public:
     /// pointer to our father textBlockData
     Python::TokenList *ownerList() const;
     Python::TokenLine *ownerLine() const;
+    /// get the text as it is in the source
     const std::string text() const;
     int line() const;
 
@@ -374,6 +381,15 @@ public:
     bool isInt() const;
     bool isFloat() const;
     bool isString() const;
+    /// ie. constructed with r"str"
+    bool isStringRaw() const;
+    /// ie. constructed with b"str"
+    bool isStringBytes() const;
+    /// ie constructed with u""
+    bool isStringUnicode() const;
+    /// ie constructed with f""
+    bool isStringFormat() const;
+    /// strings spans over many lines
     bool isMultilineString() const;
     bool isBoolean() const;
     bool isKeyword() const;
@@ -395,21 +411,25 @@ public:
     bool isUndetermined() const;
     bool isImport() const;
 
-    // returns true if token represents code (not just T_Indent, T_NewLine etc)
-    // comment is also ignored
+    /// returns true if token represents code (not just T_Indent, T_NewLine etc)
+    /// comment is also ignored
     bool isCode() const;
-    // like isCode but returns true if it is a comment
+    /// like isCode but returns true if it is a comment
     bool isText() const;
 
 
-    // all references get a call to PythonSourceListNode::tokenDeleted
+    /// all references get a call to PythonSourceListNode::tokenDeleted
     void attachReference(Python::TokenWrapperBase *tokWrapper);
     void detachReference(Python::TokenWrapperBase *srcListNode);
+
+    /// get the custom option idx mask
+    uint32_t optionMask() const { return m_customMask; }
 
 
 private:
     Type m_type;
     uint16_t m_startPos, m_endPos;
+    uint32_t m_customMask; // to store custom data on this token
     std::size_t m_hash;
     std::list<Python::TokenWrapperBase*> m_wrappers;
 
@@ -423,6 +443,7 @@ private:
 #endif
     friend class Python::TokenList;
     friend class Python::TokenLine;
+    friend class Python::Lexer;
 };
 
 // ----------------------------------------------------------------------------------------
@@ -539,6 +560,8 @@ class TokenLine {
     Python::Token *m_frontTok, *m_backTok;
     Python::TokenLine *m_nextLine, *m_previousLine;
     std::string m_text;
+    Token::Type m_endStateOfLastPara; // the lexer state the ended this line
+                                     // multiline block strings can span over several lines
     int m_line;
 
 protected:
