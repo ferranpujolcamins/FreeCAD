@@ -125,7 +125,7 @@ testscripts/test1.py;2.7
         0;12;T_Indent
         12;13;T_IdentifierUnknown
         13;14;T_OperatorEqual
-        14;15;T_NumberOctal
+        14;15;T_NumberDecimal
         15;16;T_DelimiterNewLine
         16;16;T_Dedent
         16;16;T_Dedent
@@ -198,7 +198,7 @@ testscripts/test1.py;2.7
         0;2;T_Indent
         2;4;T_IdentifierUnknown
         4;5;T_OperatorEqual
-        5;6;T_NumberOctal
+        5;6;T_NumberDecimal
         6;7;T_DelimiterNewLine
 
 ---------------------------------------------------------------------

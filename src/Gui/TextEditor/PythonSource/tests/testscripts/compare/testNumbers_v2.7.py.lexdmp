@@ -16,12 +16,13 @@ testscripts/testNumbers.py;2.7
         44;45;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
-3;3L    79228162514264337593543950336L    0377L   0x100000000L
+3;3L    79228162514264337593543950336L    0377L   0x100000000L # valid in py2, long specifier not valid in py3
         0;2;T_NumberDecimal
         6;36;T_NumberDecimal
         40;45;T_NumberOctal
         48;60;T_NumberHex
-        60;61;T_DelimiterNewLine
+        61;108;T_Comment
+        108;109;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 4;      79228162514264337593543950336             0xdeadbeef

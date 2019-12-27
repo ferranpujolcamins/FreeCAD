@@ -961,19 +961,6 @@ uint32_t Python::TokenList::lineCount() const
     if (m_lastLine)
         return static_cast<uint32_t>(m_lastLine->m_line +1);
     return 0;
-
-    /*
-    uint32_t cnt = 0;
-    uint32_t guard = max_size();
-    for (Python::TokenLine *line = m_firstLine;
-         line && guard;
-         line = line->m_nextLine, --guard)
-    {
-        ++cnt;
-    }
-    assert(guard > 0 && "Line iteration guard circular nodes in List");
-    return cnt;
-    */
 }
 
 void Python::TokenList::swapLine(int32_t lineNr, Python::TokenLine *swapIn)

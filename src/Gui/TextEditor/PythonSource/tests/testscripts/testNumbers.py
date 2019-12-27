@@ -1,7 +1,7 @@
 #from https://docs.python.org/3/reference/lexical_analysis.html
 #Some examples of integer literals:
 7     2147483647                        0177
-3L    79228162514264337593543950336L    0377L   0x100000000L
+3L    79228162514264337593543950336L    0377L   0x100000000L # valid in py2, long specifier not valid in py3
       79228162514264337593543950336             0xdeadbeef
       
 0b01101

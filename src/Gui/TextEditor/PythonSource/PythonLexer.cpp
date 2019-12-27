@@ -1089,15 +1089,19 @@ uint Python::Lexer::lastNumberCh(uint startPos, const std::string &text, Token::
 
 out:
     // python 2 octal ie. 01234 != 1234
-    if (first == '0' && d_lex->version.version() < Version::v3_0 &&
-        type == Token::T_NumberDecimal)
-    {
-        type = Token::T_NumberOctal;
+    if (first == '0' &&  type == Token::T_NumberDecimal && len > 1) {
+        if (d_lex->version.version() < Version::v3_0)
+            type = Token::T_NumberOctal;
+        else
+            type = Token::T_SyntaxError; // invalid in py3
     }
 
     // long integer or imaginary?
-    if (prevCh != 0 && (ch == 'l' || ch == 'j'))
+    if (prevCh != 0 && (ch == 'l' || ch == 'j')) {
         len += 1;
+        if (d_lex->version.version() >= Version::v3_0 && ch == 'l')
+            type = Token::T_SyntaxError;
+    }
 
     return len;
 }

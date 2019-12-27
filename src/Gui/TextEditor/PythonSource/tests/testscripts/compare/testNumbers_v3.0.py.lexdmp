@@ -12,16 +12,16 @@ testscripts/testNumbers.py;3.0
 2;7     2147483647                        0177
         0;1;T_NumberDecimal
         6;16;T_NumberDecimal
-        40;44;T_NumberDecimal
+        40;44;T_SyntaxError
         44;45;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
-3;3L    79228162514264337593543950336L    0377L   0x100000000L
-        0;2;T_NumberDecimal
-        6;36;T_NumberDecimal
-        40;45;T_NumberDecimal
-        48;60;T_NumberHex
-        60;61;T_DelimiterNewLine
+3;3L    79228162514264337593543950336L    0377L   0x100000000L # valid in py2, long specifier not valid in py3
+        0;2;T_SyntaxError
+        6;36;T_SyntaxError
+        40;45;T_SyntaxError
+        48;60;T_SyntaxError
+        61;108;T_Comment
 
 ---------------------------------------------------------------------
 4;      79228162514264337593543950336             0xdeadbeef
