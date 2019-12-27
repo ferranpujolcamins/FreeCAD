@@ -1141,6 +1141,8 @@ uint Python::Lexer::lastStringCh(uint startAt, const std::string &text,
                 stringOptions |= STRING_IS_RAW_TYPE;
             } else if (ch == 'f' && (prevPrefix == 'r' || prevPrefix == 0) && len < 2) {
                 stringOptions |= STRING_IS_FORMAT_TYPE;
+                if (d_lex->version.version() < Version::v3_6)
+                    type = Token::T_SyntaxError;
             } else if (ch == 'b' && prevPrefix == 'r' && len < 2) {
                 if (d_lex->version.version() < Version::v3_3)
                     type = Token::T_SyntaxError;

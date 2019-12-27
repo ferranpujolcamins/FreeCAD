@@ -1,4 +1,4 @@
-testscripts/testStrings.py;2.7
+testscripts/testStrings.py;3.6
 
 ---------------------------------------------------------------------
 0;# from https://docs.python.org/3/reference/lexical_analysis.html
@@ -129,35 +129,43 @@ testscripts/testStrings.py;2.7
 
 ---------------------------------------------------------------------
 28;RB"a raw BYTES string"
-        0;22;T_SyntaxError
+        0;22;T_LiteralDblQote
+        22;23;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 29;RB'a raw sql BYTES string'
-        0;26;T_SyntaxError
+        0;26;T_LiteralSglQuote
+        26;27;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 30;rB"a raw BYTES string r small"
-        0;30;T_SyntaxError
+        0;30;T_LiteralDblQote
+        30;31;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 31;rB'a raw sql BYTES string r small'
-        0;34;T_SyntaxError
+        0;34;T_LiteralSglQuote
+        34;35;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 32;Rb"a raw BYTES string b small"
-        0;30;T_SyntaxError
+        0;30;T_LiteralDblQote
+        30;31;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 33;Rb'a raw sql BYTES string b small'
-        0;34;T_SyntaxError
+        0;34;T_LiteralSglQuote
+        34;35;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 34;rb"a raw bytes string"
-        0;22;T_SyntaxError
+        0;22;T_LiteralDblQote
+        22;23;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 35;rb'a raw sgl bytes string'
-        0;26;T_SyntaxError
+        0;26;T_LiteralSglQuote
+        26;27;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 36;
@@ -195,51 +203,63 @@ testscripts/testStrings.py;2.7
 
 ---------------------------------------------------------------------
 44;f"format string"
-        0;16;T_SyntaxError
+        0;16;T_LiteralDblQote
+        16;17;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 45;f'format sgl string'
-        0;20;T_SyntaxError
+        0;20;T_LiteralSglQuote
+        20;21;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 46;F"format STRING"
-        0;16;T_SyntaxError
+        0;16;T_LiteralDblQote
+        16;17;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 47;F'format sgl STRING'
-        0;20;T_SyntaxError
+        0;20;T_LiteralSglQuote
+        20;21;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 48;fr"format raw string"
-        0;21;T_SyntaxError
+        0;21;T_LiteralDblQote
+        21;22;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 49;fr'format raw sgl string'
-        0;25;T_SyntaxError
+        0;25;T_LiteralSglQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 50;Fr"FORMAT raw string"
-        0;21;T_SyntaxError
+        0;21;T_LiteralDblQote
+        21;22;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 51;Fr'FORMAT raw sgl string'
-        0;25;T_SyntaxError
+        0;25;T_LiteralSglQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 52;fR"format RAW string"
-        0;21;T_SyntaxError
+        0;21;T_LiteralDblQote
+        21;22;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 53;fR'format RAW sgl string'
-        0;25;T_SyntaxError
+        0;25;T_LiteralSglQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 54;FR"FORMAT RAW string"
-        0;21;T_SyntaxError
+        0;21;T_LiteralDblQote
+        21;22;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 55;FR'FORMAT RAW sgl string'
-        0;25;T_SyntaxError
+        0;25;T_LiteralSglQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 56;
@@ -318,35 +338,43 @@ testscripts/testStrings.py;2.7
 
 ---------------------------------------------------------------------
 72;RB"""a raw BYTES string"""
-        0;26;T_SyntaxError
+        0;26;T_LiteralBlockDblQuote
+        26;27;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 73;RB'''a raw sql BYTES string'''
-        0;30;T_SyntaxError
+        0;30;T_LiteralBlockSglQuote
+        30;31;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 74;rB"""a raw BYTES string r small"""
-        0;34;T_SyntaxError
+        0;34;T_LiteralBlockDblQuote
+        34;35;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 75;rB'''a raw sql BYTES string r small'''
-        0;38;T_SyntaxError
+        0;38;T_LiteralBlockSglQuote
+        38;39;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 76;Rb"""a raw BYTES string b small"""
-        0;34;T_SyntaxError
+        0;34;T_LiteralBlockDblQuote
+        34;35;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 77;Rb'''a raw sql BYTES string b small'''
-        0;38;T_SyntaxError
+        0;38;T_LiteralBlockSglQuote
+        38;39;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 78;rb"""a raw bytes string"""
-        0;26;T_SyntaxError
+        0;26;T_LiteralBlockDblQuote
+        26;27;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 79;rb'''a raw sgl bytes string'''
-        0;30;T_SyntaxError
+        0;30;T_LiteralBlockSglQuote
+        30;31;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 80;
@@ -384,51 +412,63 @@ testscripts/testStrings.py;2.7
 
 ---------------------------------------------------------------------
 88;f"""format string"""
-        0;20;T_SyntaxError
+        0;20;T_LiteralBlockDblQuote
+        20;21;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 89;f'''format sgl string'''
-        0;24;T_SyntaxError
+        0;24;T_LiteralBlockSglQuote
+        24;25;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 90;F"""format STRING"""
-        0;20;T_SyntaxError
+        0;20;T_LiteralBlockDblQuote
+        20;21;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 91;F'''format sgl STRING'''
-        0;24;T_SyntaxError
+        0;24;T_LiteralBlockSglQuote
+        24;25;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 92;fr"""format raw string"""
-        0;25;T_SyntaxError
+        0;25;T_LiteralBlockDblQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 93;fr'''format raw sgl string'''
-        0;29;T_SyntaxError
+        0;29;T_LiteralBlockSglQuote
+        29;30;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 94;Fr"""FORMAT raw string"""
-        0;25;T_SyntaxError
+        0;25;T_LiteralBlockDblQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 95;Fr'''FORMAT raw sgl string'''
-        0;29;T_SyntaxError
+        0;29;T_LiteralBlockSglQuote
+        29;30;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 96;fR"""format RAW string"""
-        0;25;T_SyntaxError
+        0;25;T_LiteralBlockDblQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 97;fR'''format RAW sgl string'''
-        0;29;T_SyntaxError
+        0;29;T_LiteralBlockSglQuote
+        29;30;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 98;FR"""FORMAT RAW string"""
-        0;25;T_SyntaxError
+        0;25;T_LiteralBlockDblQuote
+        25;26;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 99;FR'''FORMAT RAW sgl string'''
-        0;29;T_SyntaxError
+        0;29;T_LiteralBlockSglQuote
+        29;30;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 100;
@@ -438,27 +478,32 @@ testscripts/testStrings.py;2.7
 
 ---------------------------------------------------------------------
 102;f"He said his name is {name!r}."
-        0;32;T_SyntaxError
+        0;32;T_LiteralDblQote
+        32;33;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 103;f"He said his name is {repr(name)}."  # repr() is equivalent to !r
-        0;36;T_SyntaxError
+        0;36;T_LiteralDblQote
         38;66;T_Comment
+        66;67;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 104;f"result: {value:{width}.{precision}}"  # nested fields
-        0;38;T_SyntaxError
+        0;38;T_LiteralDblQote
         40;55;T_Comment
+        55;56;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 105;f"{today:%B %d, %Y}"  # using date format specifier
-        0;20;T_SyntaxError
+        0;20;T_LiteralDblQote
         22;51;T_Comment
+        51;52;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 106;f"{number:#0x}"  # using integer format specifier
-        0;15;T_SyntaxError
+        0;15;T_LiteralDblQote
         17;49;T_Comment
+        49;50;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 107;f"newline: {ord('\n')}"  # raises SyntaxError due to excape in format string,
