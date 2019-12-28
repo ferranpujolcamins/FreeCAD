@@ -1721,7 +1721,7 @@ void PythonConsoleHighlighter::colorChanged(const QString& type, const QColor& c
     Q_UNUSED(col)
 }
 
-Python::Token::Type PythonConsoleHighlighter::unhandledState(uint &pos, int state,
+Python::Token::Type PythonConsoleHighlighter::unhandledState(uint16_t &pos, int state,
                                                              const std::string &text)
 {
     // pythonCosole has some special values

@@ -105,7 +105,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
                     } else if (index.column() == 1) {
                         if (role == Qt::ForegroundRole)
                             return QBrush(QColor(0, 0, 120));
-                        return QString::fromLatin1(tokenToCStr(tok->type()));
+                        return QString::fromLatin1(Python::Token::tokenToCStr(tok->type()));
                     }
                 }
             }
@@ -187,7 +187,7 @@ int TokenModel::rowCount(const QModelIndex &parent) const
 
     if (parent.isValid()) {
         std::intptr_t idx = reinterpret_cast<std::intptr_t>(parent.internalPointer());
-        int line = idx >> SRC_ROW_SHIFT;
+        int line = static_cast<int>(idx >> SRC_ROW_SHIFT);
         if (idx & SRC_ROW_FLAG) {
             // its a src row
             auto txtData = getTokenLine(line -1);
@@ -297,7 +297,7 @@ void DebugWindow::dumpFrames()
 
     QByteArray textBytes;
     while(!feof(tmpFilePtr)) {
-        char c = fgetc(tmpFilePtr);
+        char c = static_cast<char>(fgetc(tmpFilePtr));
         textBytes.append(c);
     }
 

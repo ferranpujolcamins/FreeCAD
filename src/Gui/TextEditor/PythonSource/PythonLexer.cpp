@@ -999,7 +999,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
     return i;
 }
 
-Python::Token::Type Python::Lexer::unhandledState(uint16_t &pos, int16_t state,
+Python::Token::Type Python::Lexer::unhandledState(uint16_t &pos, int state,
                                                   const std::string &text)
 {
     (void)pos;

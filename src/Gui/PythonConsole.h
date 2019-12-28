@@ -120,7 +120,7 @@ class GuiExport PythonConsoleTextEdit : public QPlainTextEdit
     Q_OBJECT
 
 public:
-    PythonConsoleTextEdit(QWidget *parent = 0);
+    PythonConsoleTextEdit(QWidget *parent = nullptr);
     virtual ~PythonConsoleTextEdit();
     virtual void highlightText(int pos, int len, const QTextCharFormat format);
 
@@ -187,7 +187,7 @@ public:
         Special    = 3
     };
 
-    PythonConsole(QWidget *parent = 0);
+    PythonConsole(QWidget *parent = nullptr);
     ~PythonConsole();
 
     void OnChange( Base::Subject<const char*> &rCaller,const char* rcReason );
@@ -263,7 +263,7 @@ public:
 
 protected:
     void colorChanged(const QString& type, const QColor& col) override;
-    Python::Token::Type unhandledState(uint &pos, int state, const std::string &text) override;
+    Python::Token::Type unhandledState(uint16_t &pos, int state, const std::string &text) override;
 };
 
 } // namespace Gui

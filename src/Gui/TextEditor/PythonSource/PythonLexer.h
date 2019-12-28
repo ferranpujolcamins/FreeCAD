@@ -39,7 +39,7 @@ protected:
 
     /// this method is called when we cant tokenize a char
     /// subclasses should implement this function
-    virtual Python::Token::Type unhandledState(uint16_t &pos, int16_t state,
+    virtual Python::Token::Type unhandledState(uint16_t &pos, int state,
                                                const std::string &text);
 
     /// call this method when tok type has changed
