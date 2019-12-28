@@ -7,11 +7,14 @@
 #include <map>
 #include <iterator>
 
+// masks for customType, meaning depends on Token::Type
 #define STRING_IS_BYTES_TYPE     (1 << 0)
 #define STRING_IS_UNICODE_TYPE   (1 << 1)
 #define STRING_IS_FORMAT_TYPE    (1 << 2)
 #define STRING_IS_RAW_TYPE       (1 << 3)
 #define STRING_IS_MULTILINE_TYPE (1 << 4)
+
+#define NUMBER_IS_IMAGINARY      (1 << 0)
 
 namespace Python {
 
@@ -111,10 +114,10 @@ public:
         // numbers
         T__NumbersStart,
         T__NumbersIntStart = T__NumbersStart,
-        T_NumberHex,
-        T_NumberBinary,
-        T_NumberOctal,     // starting with 0 ie 011 = 9, different color to let it stand out
-        T_NumberDecimal,   // Normal number
+        T_NumberHexInt,
+        T_NumberBinInt,
+        T_NumberOctInt,     // starting with 0 in py2, 0oxx in py3, ie 011 = 9, different color to let it stand out
+        T_NumberDecInt,     // Normal number
         T__NumbersIntEnd,
         T_NumberFloat,
         T__NumbersEnd,
@@ -324,7 +327,7 @@ public:
     static Type strToToken(const std::string &tokName);
 
     explicit Token(Type tokType, uint16_t startPos,
-                   uint16_t endPos, Python::TokenLine *line);
+                   uint16_t endPos, uint32_t customMask);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
@@ -720,10 +723,12 @@ public:
 
     // these are accessed from Python::Tokenizer
     /// create a token with tokType and append to line
-    Python::Token *newDeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
+    Python::Token *newDeterminedToken(Python::Token::Type tokType, uint16_t startPos,
+                                      uint16_t len, uint32_t customMask);
     /// this insert should only be used by PythonSyntaxHighlighter
     /// stores this token id as needing a parse tree lookup to determine the tokenType
-    Python::Token *newUndeterminedToken(Python::Token::Type tokType, uint startPos, uint len);
+    Python::Token *newUndeterminedToken(Python::Token::Type tokType, uint16_t startPos,
+                                        uint16_t len, uint32_t customMask);
 
 
     ///tokenScanInfo contains messages for a specific code line/col

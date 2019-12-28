@@ -168,7 +168,7 @@ TEST_F(TstLexerTokenize, testLexerTokenizer) {
     EXPECT_EQ(line5[3]->type(), Token::T_DelimiterPeriod);
     EXPECT_EQ(line5[4]->type(), Token::T_IdentifierUnknown);
     EXPECT_EQ(line5[5]->type(), Token::T_OperatorMoreEqual);
-    EXPECT_EQ(line5[6]->type(), Token::T_NumberDecimal);
+    EXPECT_EQ(line5[6]->type(), Token::T_NumberDecInt);
     EXPECT_EQ(line5[7]->type(), Token::T_DelimiterNewLine);
     EXPECT_EQ(line5[8]->type(), Token::T_Dedent);
 

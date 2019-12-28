@@ -39,7 +39,8 @@ protected:
 
     /// this method is called when we cant tokenize a char
     /// subclasses should implement this function
-    virtual Python::Token::Type unhandledState(uint &pos, int state, const std::string &text);
+    virtual Python::Token::Type unhandledState(uint16_t &pos, int16_t state,
+                                               const std::string &text);
 
     /// call this method when tok type has changed
     virtual void tokenUpdated(const Python::Token *tok);
@@ -50,21 +51,26 @@ protected:
 
 
 private:
-    uint lastWordCh(uint startPos, const std::string &text) const;
-    uint lastNumberCh(uint startPos, const std::string &text, Token::Type &type) const;
-    uint lastStringCh(uint startAt, const std::string &text,
-                      Token::Type &type, uint32_t &stringOptions) const;
+    uint16_t lastWordCh(uint16_t startPos, const std::string &text) const;
+    uint16_t lastNumberCh(uint16_t startPos, const std::string &text,
+                          Token::Type &type, uint32_t &customMask) const;
+    uint16_t lastStringCh(uint16_t startAt, const std::string &text,
+                          Token::Type &type, uint32_t &stringOptions) const;
 
-    Token *setRestOfLine(uint &pos, const std::string &text, Python::Token::Type tokType);
-    void scanIndentation(uint &pos, const std::string &text);
-    Token *setToToken(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setIdentifier(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setUndeterminedIdentifier(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setNumber(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setOperator(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setDelimiter(uint &pos, uint len, Python::Token::Type tokType);
-    Token *setSyntaxError(uint &pos, uint len);
-    Token *setLiteral(uint &pos, uint len, Python::Token::Type tokType);
+    Token *setRestOfLine(uint16_t &pos, const std::string &text,
+                         Python::Token::Type tokType);
+    void scanIndentation(uint16_t &pos, const std::string &text);
+    Token *setToToken(uint16_t &pos, uint16_t len,
+                      Python::Token::Type tokType, uint32_t customMask);
+    Token *setIdentifier(uint16_t &pos, uint16_t len, Python::Token::Type tokType);
+    Token *setUndeterminedIdentifier(uint16_t &pos, uint16_t len,
+                                     Python::Token::Type tokType, uint32_t customMask);
+    Token *setNumber(uint16_t &pos, uint16_t len, Python::Token::Type tokType, uint32_t customMask);
+    Token *setOperator(uint16_t &pos, uint16_t len, Python::Token::Type tokType);
+    Token *setDelimiter(uint16_t &pos, uint16_t len, Python::Token::Type tokType);
+    Token *setSyntaxError(uint16_t &pos, uint16_t len);
+    Token *setLiteral(uint16_t &pos, uint16_t len,
+                      Python::Token::Type tokType, uint32_t customMask);
     void setIndentation();
 
     Python::Token *createIndentError(const std::string &msg);

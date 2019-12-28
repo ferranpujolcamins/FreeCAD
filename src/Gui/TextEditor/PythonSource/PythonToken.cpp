@@ -235,10 +235,10 @@ const char *Python::Token::tokenToCStr(Python::Token::Type tokType)
     case T_IndentError:         return "T_IndentError";  // to signify that we have a indent error, set by PythonSourceRoot
 
         // numbers
-    case T_NumberDecimal:       return "T_NumberDecimal";     // Normal number
-    case T_NumberHex:           return "T_NumberHex";
-    case T_NumberBinary:        return "T_NumberBinary";
-    case T_NumberOctal:         return "T_NumberOctal";    // starting with 0 ie 011 = 9, different color to let it stand out
+    case T_NumberDecInt:        return "T_NumberDecInt";     // Normal number
+    case T_NumberHexInt:        return "T_NumberHexInt";
+    case T_NumberBinInt:        return "T_NumberBinInt";
+    case T_NumberOctInt:        return "T_NumberOctInt";    // starting with 0 inpy2, 0oxx in py3, ie 011 = 9, different color to let it stand out
     case T_NumberFloat:         return "T_NumberFloat";
 
         // strings
@@ -402,10 +402,10 @@ Python::Token::Type Python::Token::strToToken(const std::string &tokName)
 
 
 Python::Token::Token(Python::Token::Type token, uint16_t startPos,
-                     uint16_t endPos, TokenLine *line) :
+                     uint16_t endPos, uint32_t customMask) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
-    m_customMask(0), m_hash(0), m_next(nullptr),
-    m_previous(nullptr), m_ownerLine(line)
+    m_customMask(customMask), m_hash(0), m_next(nullptr),
+    m_previous(nullptr), m_ownerLine(nullptr)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     m_nameDbg = text();
@@ -419,7 +419,7 @@ Python::Token::Token(Python::Token::Type token, uint16_t startPos,
 
 Python::Token::Token(const Python::Token &other) :
     m_type(other.m_type), m_startPos(other.m_startPos), m_endPos(other.m_endPos),
-    m_customMask(0), m_hash(other.m_hash), m_next(other.m_next),
+    m_customMask(other.m_customMask), m_hash(other.m_hash), m_next(other.m_next),
     m_previous(other.m_previous), m_ownerLine(other.m_ownerLine)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
@@ -1614,17 +1614,19 @@ bool Python::TokenLine::remove(Python::Token *tok, Python::Token *endTok, bool d
 }
 
 Python::Token *Python::TokenLine::newDeterminedToken(Python::Token::Type tokType,
-                                                     uint startPos, uint len)
+                                                     uint16_t startPos, uint16_t len,
+                                                     uint32_t customMask)
 {
-    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, this);
+    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, customMask);
     push_back(tokenObj);
     return tokenObj;
 }
 
 Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokType,
-                                                             uint startPos, uint len)
+                                                       uint16_t startPos, uint16_t len,
+                                                       uint32_t customMask)
 {
-    Python::Token *tokenObj = newDeterminedToken(tokType, startPos, len);
+    Python::Token *tokenObj = newDeterminedToken(tokType, startPos, len, customMask);
     m_unfinishedTokenIndexes.push_back(tokenPos(tokenObj));
     return tokenObj;
 }

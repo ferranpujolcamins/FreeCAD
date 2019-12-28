@@ -143,11 +143,11 @@ QTextCharFormat PythonSyntaxHighlighter::getFormatToken(const Python::Token *tok
         break;
 
     // numbers
-    case Python::Token::T_NumberHex:
+    case Python::Token::T_NumberHexInt:
         colorIdx = SyntaxHighlighter::NumberHex; break;
-    case Python::Token::T_NumberBinary:
+    case Python::Token::T_NumberBinInt:
         colorIdx = SyntaxHighlighter::NumberBinary; break;
-    case Python::Token::T_NumberOctal:
+    case Python::Token::T_NumberOctInt:
         colorIdx = SyntaxHighlighter::NumberOctal; break;
     case Python::Token::T_NumberFloat:
         colorIdx = SyntaxHighlighter::NumberFloat; break;

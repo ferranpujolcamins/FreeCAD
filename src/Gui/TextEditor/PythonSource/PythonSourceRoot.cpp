@@ -389,10 +389,10 @@ Python::SourceRoot::DataTypes Python::SourceRoot::numberType(const Python::Token
     switch (tok->type()) {
     case Python::Token::T_NumberFloat:
         return FloatType;
-    case Python::Token::T_NumberBinary:
-    case Python::Token::T_NumberDecimal:
-    case Python::Token::T_NumberHex: // falltrough
-    case Python::Token::T_NumberOctal:
+    case Python::Token::T_NumberBinInt:
+    case Python::Token::T_NumberDecInt:
+    case Python::Token::T_NumberHexInt: // falltrough
+    case Python::Token::T_NumberOctInt:
         return IntType;
     default:
         return InValidType;
