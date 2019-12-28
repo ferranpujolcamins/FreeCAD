@@ -520,7 +520,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     setOperator(i, 2, Python::Token::T_OperatorBitOrEqual);
                     break;
                 }
-                setOperator(i, 1, Python::Token::T_OperatorOr);
+                setOperator(i, 1, Python::Token::T_OperatorBitOr);
                 break;
             case '=':
                 if (nextCh == '=') {
@@ -639,7 +639,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     break;
                 }
 
-                 setDelimiter(i, 1, Python::Token::T_Delimiter);
+                 setDelimiter(i, 1, Python::Token::T_OperatorMatrixMul);
             } break;
             // illegal chars
             case '$': case '?': case '`':

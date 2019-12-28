@@ -685,3 +685,68 @@ TEST(TstLexerStrings, testLexerStringType) {
     ASSERT_STREQ(lex.list().lineAt(17)->front()->text().c_str(), "'unclosed\n");
     ASSERT_STREQ(lex.list().lineAt(17)->front()->content().c_str(), "unclosed");
 }
+
+TEST(TstLexerOperators, testLexerOperators) {
+    std::vector<std::string> lines = {
+        "v=0",
+        "v==1",
+        "v!=2",
+        "v<3",
+        "v>4",
+        "v>=5",
+        "v<=6",
+        "v*=7",
+        "v/=8",
+        "v+9",
+        "v-10",
+        "v**11",
+        "v//12",
+        "v%13",
+        "v@14",
+        "v<<15",
+        "v>>16",
+        "v&17",
+        "v|18",
+        "v^19",
+        "v~20",
+        "v:=21"
+    };
+    Lexer lex;
+    lex.setVersion(Version::v3_8);
+    for (auto &str : lines) {
+        auto tokLine = new TokenLine(nullptr, str);
+        lex.list().appendLine(tokLine);
+        lex.tokenize(tokLine);
+    }
+    EXPECT_EQ(lex.list().lineAt(0)->front()->next()->type(), Token::T_OperatorEqual);
+    EXPECT_EQ(lex.list().lineAt(1)->front()->next()->type(), Token::T_OperatorCompareEqual);
+    EXPECT_EQ(lex.list().lineAt(2)->front()->next()->type(), Token::T_OperatorNotEqual);
+    EXPECT_EQ(lex.list().lineAt(3)->front()->next()->type(), Token::T_OperatorLess);
+    EXPECT_EQ(lex.list().lineAt(4)->front()->next()->type(), Token::T_OperatorMore);
+    EXPECT_EQ(lex.list().lineAt(5)->front()->next()->type(), Token::T_OperatorMoreEqual);
+    EXPECT_EQ(lex.list().lineAt(6)->front()->next()->type(), Token::T_OperatorLessEqual);
+    EXPECT_EQ(lex.list().lineAt(7)->front()->next()->type(), Token::T_OperatorMulEqual);
+    EXPECT_EQ(lex.list().lineAt(8)->front()->next()->type(), Token::T_OperatorDivEqual);
+    EXPECT_EQ(lex.list().lineAt(9)->front()->next()->type(), Token::T_OperatorPlus);
+    EXPECT_EQ(lex.list().lineAt(10)->front()->next()->type(), Token::T_OperatorMinus);
+    EXPECT_EQ(lex.list().lineAt(11)->front()->next()->type(), Token::T_OperatorExponential);
+    EXPECT_EQ(lex.list().lineAt(12)->front()->next()->type(), Token::T_OperatorFloorDiv);
+    EXPECT_EQ(lex.list().lineAt(13)->front()->next()->type(), Token::T_OperatorModulo);
+    EXPECT_EQ(lex.list().lineAt(14)->front()->next()->type(), Token::T_OperatorMatrixMul);
+    EXPECT_EQ(lex.list().lineAt(15)->front()->next()->type(), Token::T_OperatorBitShiftLeft);
+    EXPECT_EQ(lex.list().lineAt(16)->front()->next()->type(), Token::T_OperatorBitShiftRight);
+    EXPECT_EQ(lex.list().lineAt(17)->front()->next()->type(), Token::T_OperatorBitAnd);
+    EXPECT_EQ(lex.list().lineAt(18)->front()->next()->type(), Token::T_OperatorBitOr);
+    EXPECT_EQ(lex.list().lineAt(19)->front()->next()->type(), Token::T_OperatorBitXor);
+    EXPECT_EQ(lex.list().lineAt(20)->front()->next()->type(), Token::T_OperatorBitNot);
+    EXPECT_EQ(lex.list().lineAt(21)->front()->next()->type(), Token::T_OperatorWalrus);
+
+    lex.setVersion(Version::v3_7);
+    lex.list().clear();
+    auto tokLine = new TokenLine(nullptr, lines.at(21));
+    lex.list().appendLine(tokLine);
+    lex.tokenize(tokLine);
+
+    EXPECT_EQ(lex.list().lineAt(0)->front()->next()->type(), Token::T_SyntaxError);
+
+}

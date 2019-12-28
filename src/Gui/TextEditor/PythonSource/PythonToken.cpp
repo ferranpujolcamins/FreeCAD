@@ -295,7 +295,7 @@ const char *Python::Token::tokenToCStr(Python::Token::Type tokType)
 
         // assigment
     case T_OperatorEqual:         return     "T_OperatorEqual";          // =,
-    case T_OperatorWalrus:        return     "T_OperatorWalrus";
+    case T_OperatorWalrus:        return     "T_OperatorWalrus";         // :=,
     case T_OperatorPlusEqual:     return     "T_OperatorPlusEqual";      // +=,
     case T_OperatorMinusEqual:    return     "T_OperatorMinusEqual";     // -=,
     case T_OperatorMulEqual:      return     "T_OperatorMulEqual";       // *=,
