@@ -65,7 +65,7 @@ public:
 
     static void reGenerate(Version::versions ver)
     {
-        if (version.version() == ver)
+        if (version.version() == ver && activeVersion == ver)
             return;
 
         LexerP::version.setVersion(ver);
@@ -660,7 +660,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 // this works by setting prefixlen and let ordinary string detection handle it.
                 // see case '"': above
                 char nextCh = peekNextCh(i), thirdCh = peekThirdCh(i);
-                if (peekNextCh(i) == '"' || nextCh == '\'') {
+                if (nextCh == '"' || nextCh == '\'') {
                     ch = static_cast<char>(std::tolower(ch));
 
                     if (ch == 'r' || ch == 'b' ||

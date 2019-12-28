@@ -81,12 +81,20 @@ TEST(TstLexer, testLexerDefaults) {
     lex.setFilePath("test1.py");
     ASSERT_STREQ(lex.filePath().c_str(), "test1.py");
     EXPECT_EQ(Lexer::version().version(), Version::Latest);
+
+    // test so we get nullptrs on empty list
+    EXPECT_EQ(lex.previousCodeLine(lex.list().firstLine()), nullptr);
+    EXPECT_EQ(lex.previousCodeLine(lex.list().lineAt(9)), lex.list().lineAt(7));
+
+    auto line = new TokenLine(nullptr, "def func(): print\n");
+    lex.list().appendLine(line); lex.tokenize(line);
+    ASSERT_EQ(line->front()->type(), Token::T_KeywordDef);
+    ASSERT_EQ(line->back()->previous()->type(), Token::T_IdentifierBuiltin);
+
+    // test to change version
     Lexer::setVersion(Version::v3_0);
     EXPECT_EQ(Lexer::version().version(), Version::v3_0);
     EXPECT_EQ(lex.version().version(), Version::v3_0);
-
-    EXPECT_EQ(lex.previousCodeLine(lex.list().firstLine()), nullptr);
-    EXPECT_EQ(lex.previousCodeLine(lex.list().lineAt(9)), lex.list().lineAt(7));
 
     // API check
     lex.tokenTypeChanged(nullptr);
