@@ -79,6 +79,7 @@ size_t Python::cstrToHash(const char *str, size_t len)
         hash = hash * primeMultiplier;
     }
 
+    // TODO ! hash doubles not handled here
     return hash;
 }
 
@@ -362,11 +363,15 @@ std::vector<std::string> Python::FileInfo::filesInDir(const std::string &path)
     }
 #else
     DIR* dirp = opendir(dir.c_str());
-    struct dirent * dp;
-    while ((dp = readdir(dirp)) != nullptr) {
-        ret.push_back(dp->d_name);
+    if (dirp) {
+        struct dirent * dp;
+        while ((dp = readdir(dirp)) != nullptr) {
+            // filter out dirnames, sockets, block devices etc.
+            if (dp->d_type & DT_REG || dp->d_type & DT_LNK)
+                ret.push_back(dp->d_name);
+        }
+        closedir(dirp);
     }
-    closedir(dirp);
 #endif
     return ret;
 }

@@ -36,6 +36,15 @@ TEST(TstFileInfo, testFileInfoDir) {
     auto appPath = FileInfo::applicationPath();
     EXPECT_STRNE(fi.dirPath().c_str(), FileInfo::dirPath(appPath).c_str());
 
+}
+
+TEST(TstFileInfo, testFilesInDir) {
+    FileInfo fi(__FILE__);
     auto files = fi.filesInDir();
     EXPECT_GT(files.size(), 0u);
+    // check so we don't list dirs
+    EXPECT_EQ(std::find(files.begin(), files.end(), "testscripts"), files.end());
+    // check so we do list files
+    EXPECT_NE(std::find(files.begin(), files.end(), fi.baseName()), files.end());
+
 }
