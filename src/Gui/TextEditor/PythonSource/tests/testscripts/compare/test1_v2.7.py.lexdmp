@@ -209,6 +209,7 @@ testscripts/test1.py;2.7
         3;4;T_SyntaxError
         4;5;T_SyntaxError
         5;8;T_IdentifierUnknown
+        8;9;T_DelimiterNewLine
  scaninfo=SyntaxError;1;Illegal char at col:3 row: 17
  scaninfo=SyntaxError;2;Illegal char at col:4 row: 17
 

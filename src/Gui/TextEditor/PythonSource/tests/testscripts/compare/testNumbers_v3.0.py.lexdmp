@@ -56,7 +56,7 @@ testscripts/testNumbers.py;3.0
         23;28;T_NumberFloat
         32;40;T_NumberFloat
         44;47;T_NumberFloat
-        51;61;T_NumberFloat
+        51;61;T_SyntaxError
         61;62;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
@@ -74,7 +74,7 @@ testscripts/testNumbers.py;3.0
         24;29;T_NumberFloat
         32;38;T_NumberFloat
         41;50;T_NumberFloat
-        53;64;T_NumberFloat
+        53;64;T_SyntaxError
         64;65;T_DelimiterNewLine
 
 ---------------------------------------------------------------------

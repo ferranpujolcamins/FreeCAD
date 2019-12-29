@@ -415,9 +415,8 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     // specialcase * as it may be a *arg or **arg
                     if (nextCh == '*') {
                         setToToken(i, 2, Python::Token::T_OperatorKeyWordParam, 0u);
-                        break;
-                    }
-                    setToToken(i, 1, Python::Token::T_OperatorVariableParam, 0u);
+                    } else
+                        setToToken(i, 1, Python::Token::T_OperatorVariableParam, 0u);
                     break;
                 } else if (isModuleLine) {
                     // specialcase * as it is also used as glob for modules
@@ -438,115 +437,100 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             case '/': {
                 char nextCh = peekNextCh(i);
                 if (nextCh == '/') {
-                    if (peekThirdCh(i) == '=') {
+                    if (peekThirdCh(i) == '=')
                         setOperator(i, 3, Python::Token::T_OperatorFloorDivEqual);
-                    } else {
+                    else
                         setOperator(i, 2, Python::Token::T_OperatorFloorDiv);
-                    }
-                } else if(nextCh == '=') {
+                } else if(nextCh == '=')
                     setOperator(i, 2, Python::Token::T_OperatorDivEqual);
-                    break;
-                } else {
+                else
                     setOperator(i, 1, Python::Token::T_OperatorDiv);
-                }
             }   break;
             case '>': {
                 char nextCh = peekNextCh(i);
                 if (nextCh == ch) {
-                    if(peekThirdCh(i) == '=') {
+                    if(peekThirdCh(i) == '=')
                         setOperator(i, 3, Python::Token::T_OperatorBitShiftRightEqual);
-                        break;
-                    }
-                    setOperator(i, 2, Python::Token::T_OperatorBitShiftRight);
-                    break;
-                } else if(nextCh == '=') {
+                    else
+                        setOperator(i, 2, Python::Token::T_OperatorBitShiftRight);
+                } else if(nextCh == '=')
                     setOperator(i, 2, Python::Token::T_OperatorMoreEqual);
-                    break;
-                }
-                // no just single * or <
-                setOperator(i, 1, Python::Token::T_OperatorMore);
+                else
+                    // no just single * or <
+                    setOperator(i, 1, Python::Token::T_OperatorMore);
             } break;
             case '<': { // might be 3 chars ie <<=
                 char nextCh = peekNextCh(i);
                 if (nextCh == ch) {
-                    if(peekThirdCh(i) == '=') {
+                    if(peekThirdCh(i) == '=')
                         setOperator(i, 3, Python::Token::T_OperatorBitShiftLeftEqual);
-                        break;
-                    }
-                    setOperator(i, 2, Python::Token::T_OperatorBitShiftLeft);
-                    break;
-                } else if(nextCh == '=') {
+                    else
+                        setOperator(i, 2, Python::Token::T_OperatorBitShiftLeft);
+                } else if(nextCh == '=')
                     setOperator(i, 2, Python::Token::T_OperatorLessEqual);
-                    break;
-                }
-                // no just single <
-                setOperator(i, 1, Python::Token::T_OperatorLess);
+                else
+                    // no just single <
+                    setOperator(i, 1, Python::Token::T_OperatorLess);
             } break;
 
             // handle all left with possibly 2 chars only
-            case '-':
-                if (peekNextCh(i) == '>') {
+            case '-': {
+                char nextCh = peekNextCh(i);
+                if (nextCh == '=')
+                    setDelimiter(i, 2, Token::T_OperatorMinusEqual);
+                else if (nextCh == '>')
                     // -> is allowed function return type documentation
-                    setDelimiter(i, 2, Python::Token::T_DelimiterMetaData);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorMinus);
-                break;
+                    setDelimiter(i, 2, Python::Token::T_DelimiterArrowR);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorMinus);
+            }   break;
             case '+':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorPlusEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorPlus);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorPlus);
                 break;
             case '%':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorModuloEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorModulo);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorModulo);
                 break;
             case '&':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorBitAndEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorBitAnd);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorBitAnd);
                 break;
             case '^':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorBitXorEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorBitXor);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorBitXor);
                 break;
             case '|':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorBitOrEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorBitOr);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorBitOr);
                 break;
             case '=':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorCompareEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorEqual);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorEqual);
                 break;
             case '!':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorNotEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorNot);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorNot);
                 break;
             case '~':
-                if (peekNextCh(i) == '=') {
+                if (peekNextCh(i) == '=')
                     setOperator(i, 2, Python::Token::T_OperatorBitNotEqual);
-                    break;
-                }
-                setOperator(i, 1, Python::Token::T_OperatorBitNot);
+                else
+                    setOperator(i, 1, Python::Token::T_OperatorBitNot);
                 break;
             case '(':
                 setDelimiter(i, 1, Python::Token::T_DelimiterOpenParen);
@@ -557,13 +541,14 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 if ((d_lex->activeLine->back() &&
                      d_lex->activeLine->back()->type() == Token::T_DelimiterBackSlash) ||
                     !d_lex->isCodeLine)
+                {
                     break;
-                if (peekNextCh(i) == '\n') {
+                } else if (peekNextCh(i) == '\n') {
                     setDelimiter(i, 2, Python::Token::T_DelimiterNewLine);
-                    break;
+                } else {
+                    setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
+                    checkLineEnd();
                 }
-                setDelimiter(i, 1, Python::Token::T_DelimiterNewLine);
-                checkLineEnd();
                 break;
             case '\n':
                 // newline token should not be generated for empty and comment only lines
@@ -605,15 +590,12 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     Token::Type tp;
                     uint32_t customMask;
                     uint16_t len = lastNumberCh(i, text, tp, customMask);
-                    if (len > 0) {
+                    if (len > 0)
                         setNumber(i, len, tp, customMask);
-                        break;
-                    }
                 } else if (nextCh == '.' && peekThirdCh(i) == '.') {
                     setDelimiter(i, 3, Python::Token::T_DelimiterEllipsis);
-                    break;
-                }
-                setDelimiter(i, 1, Python::Token::T_DelimiterPeriod);
+                } else
+                    setDelimiter(i, 1, Python::Token::T_DelimiterPeriod);
             }   break;
             case ';':
                 isModuleLine = false;
@@ -631,23 +613,20 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
             case '@':
             {   // decorator or matrix add
                 char nextCh = peekNextCh(i);
-                if(nextCh &&
+                if(!d_lex->isCodeLine &&
                    ((nextCh >= 'A' && nextCh <= 'Z') ||
                     (nextCh >= 'a' && nextCh <= 'z') ||
                     (nextCh == '_')))
                 {
                     uint16_t len = lastWordCh(i + 1, text);
                     setToToken(i, len +1, Python::Token::T_IdentifierDecorator, 0u);
-                    break;
                 } else if (nextCh == '=') {
                     if (d_lex->version.version() >= Version::v3_5)
                         setOperator(i, 2, Python::Token::T_OperatorMatrixMulEqual);
                     else
                         setSyntaxError(i, 2);
-                    break;
-                }
-
-                 setDelimiter(i, 1, Python::Token::T_OperatorMatrixMul);
+                } else
+                    setDelimiter(i, 1, Python::Token::T_OperatorMatrixMul);
             } break;
             // illegal chars
             case '$': case '?': case '`':
@@ -1053,7 +1032,11 @@ uint16_t Python::Lexer::lastNumberCh(uint16_t startPos, const std::string &text,
     for (; pos != text.end(); ++pos, ++len) {
         ch = std::tolower(*pos);
         switch (ch) {
-        case '0': case '1': case '_':
+        case '_':
+            if (d_lex->version.version() < Version::v3_6)
+                type = Token::T_SyntaxError;
+            break;
+        case '0': case '1':
             break;
         case '2': case '3': case '4': case '5':
         case '6': case '7':
@@ -1270,6 +1253,8 @@ Python::Lexer::setUndeterminedIdentifier(uint16_t &pos, uint16_t len,
     Python::Token *tok = d_lex->activeLine->
                             newUndeterminedToken(tokType, pos, len, customMask);
     tokenUpdated(tok);
+    if (!d_lex->isCodeLine)
+        d_lex->isCodeLine = tok->isCode();
     pos += len -1;
     return tok;
 }
@@ -1360,7 +1345,8 @@ void Python::Lexer::setIndentation()
             } else {
                 prevLine->incBlockState();
                 tok = new Python::Token(Python::Token::T_Indent, 0,
-                                        d_lex->activeLine->front()->startPos(), 0u);
+                                        d_lex->activeLine->front()->startPos(),
+                                        0u, d_lex->activeLine);
                 d_lex->activeLine->insert(d_lex->activeLine->front()->previous(),
                                           tok);
             }
@@ -1375,7 +1361,8 @@ Python::Token *Python::Lexer::createIndentError(const std::string &msg)
 {
     Python::Token *tok = d_lex->activeLine->m_frontTok;
     if (!tok || tok->type() != Python::Token::T_IndentError) {
-        tok = new Python::Token(Python::Token::T_IndentError, 0, d_lex->activeLine->indent(), 0u);
+        tok = new Python::Token(Python::Token::T_IndentError, 0,
+                                d_lex->activeLine->indent(), 0u, d_lex->activeLine);
         d_lex->activeLine->push_front(tok);
     }
     d_lex->activeLine->setIndentErrorMsg(tok, msg);
@@ -1685,7 +1672,7 @@ int Python::LexerPersistent::reconstructFromString(const std::string &dmpStr) co
                 Token::Type tp = Token::strToToken(*(++itmIt));
                 if(itmList.size() >= 4)
                     customMask = static_cast<uint32_t>(std::stoul(*(++itmIt)));
-                auto tok = new Token(tp, startPos, endPos, customMask);
+                auto tok = new Token(tp, startPos, endPos, customMask, activeLine);
                 activeLine->push_back(tok);
             } else if(lineIt->front() == ' ') {
                 // its a line parameter line

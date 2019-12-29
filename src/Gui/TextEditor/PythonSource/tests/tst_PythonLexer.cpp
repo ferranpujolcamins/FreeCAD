@@ -632,31 +632,31 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
     }
 }
 
-TEST(TstLexerStrings, testLexerStringType) {
+TEST(TstLexer, testLexerStringType) {
 
     static std::list<std::string> lines = {
-        "r\"raw string\"",
-        "r'raw string'",
-        "R'RAW string'",
-        "b\"bytes string\"",
-        "b'bytes string'",
-        "B'BYTES string'",
-        "u'unicode string'",
-        "u\"unicode string\"",
-        "f\"format string\"",
-        "f'format string'",
-        "F'FORMAT string'",
-        "br'raw bytes string'",
-        "br\"raw bytes string\"",
-        "BR\"RAW BYTES string\"",
-        "BR'RAW BYTES string'",
+        "r\"raw string 0\"",
+        "r'raw string 1'",
+        "R'RAW string 2'",
+        "b\"bytes string 3\"",
+        "b'bytes string 4'",
+        "B'BYTES string 5'",
+        "u'unicode string 6'",
+        "u\"unicode string 7\"",
+        "f\"format string 8\"",
+        "f'format string 9'",
+        "F'FORMAT string 10'",
+        "br'raw bytes string 11'",
+        "br\"raw bytes string 12\"",
+        "BR\"RAW BYTES string 13\"",
+        "BR'RAW BYTES string 14'",
         "rb''' this is",
         " a multiline",
-        "string'''"
-        "'unclosed"
+        "string 15'''"
+        "'unclosed 16"
     };
 
-    Lexer lex;
+    Lexer lex; lex.setVersion(Version::Latest);
     for(auto &line : lines) {
         auto tokLine= new TokenLine(nullptr, line);
         lex.list().appendLine(tokLine);
@@ -665,8 +665,8 @@ TEST(TstLexerStrings, testLexerStringType) {
 
     ASSERT_EQ(lex.list().lineCount(), lines.size());
     ASSERT_EQ(lex.list().lineAt(0)->front()->isStringRaw(), true);
-    ASSERT_STREQ(lex.list().lineAt(0)->front()->text().c_str(), "r\"raw string\"");
-    ASSERT_STREQ(lex.list().lineAt(0)->front()->content().c_str(), "raw string");
+    ASSERT_STREQ(lex.list().lineAt(0)->front()->text().c_str(), "r\"raw string 0\"");
+    ASSERT_STREQ(lex.list().lineAt(0)->front()->content().c_str(), "raw string 0");
     ASSERT_EQ(lex.list().lineAt(1)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(2)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(3)->front()->isStringBytes(), true);
@@ -678,8 +678,8 @@ TEST(TstLexerStrings, testLexerStringType) {
     ASSERT_EQ(lex.list().lineAt(9)->front()->isStringFormat(), true);
     ASSERT_EQ(lex.list().lineAt(10)->front()->isStringFormat(), true);
     ASSERT_EQ(lex.list().lineAt(11)->front()->isStringRaw(), true);
-    ASSERT_STREQ(lex.list().lineAt(11)->front()->text().c_str(), "br'raw bytes string'");
-    ASSERT_STREQ(lex.list().lineAt(11)->front()->content().c_str(), "raw bytes string");
+    ASSERT_STREQ(lex.list().lineAt(11)->front()->text().c_str(), "br'raw bytes string 11'");
+    ASSERT_STREQ(lex.list().lineAt(11)->front()->content().c_str(), "raw bytes string 11");
     ASSERT_EQ(lex.list().lineAt(11)->front()->isStringBytes(), true);
     ASSERT_EQ(lex.list().lineAt(12)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(12)->front()->isStringBytes(), true);
@@ -688,13 +688,13 @@ TEST(TstLexerStrings, testLexerStringType) {
     ASSERT_EQ(lex.list().lineAt(14)->front()->isStringRaw(), true);
     ASSERT_EQ(lex.list().lineAt(14)->front()->isStringBytes(), true);
     ASSERT_EQ(lex.list().lineAt(15)->front()->isMultilineString(), true);
-    ASSERT_STREQ(lex.list().lineAt(15)->front()->text().c_str(), "rb''' this is\n a multiline\nstring'''");
-    ASSERT_STREQ(lex.list().lineAt(15)->front()->content().c_str(), " this is\n a multiline\nstring");
-    ASSERT_STREQ(lex.list().lineAt(17)->front()->text().c_str(), "'unclosed\n");
-    ASSERT_STREQ(lex.list().lineAt(17)->front()->content().c_str(), "unclosed");
+    ASSERT_STREQ(lex.list().lineAt(15)->front()->text().c_str(), "rb''' this is\n a multiline\nstring 15'''");
+    ASSERT_STREQ(lex.list().lineAt(15)->front()->content().c_str(), " this is\n a multiline\nstring 15");
+    ASSERT_STREQ(lex.list().lineAt(17)->front()->text().c_str(), "'unclosed 16\n");
+    ASSERT_STREQ(lex.list().lineAt(17)->front()->content().c_str(), "unclosed 16");
 }
 
-TEST(TstLexerOperators, testLexerOperators) {
+TEST(TstLexer, testLexerOperators) {
     std::vector<std::string> lines = {
         "v=0",
         "v==1",
@@ -757,4 +757,71 @@ TEST(TstLexerOperators, testLexerOperators) {
 
     EXPECT_EQ(lex.list().lineAt(0)->front()->next()->type(), Token::T_SyntaxError);
 
+}
+
+TEST(TstLexer, TstLexerDelimiters) {
+    std::list<std::string> lines = {
+        "d(0):",
+        "d[1]:",
+        "d{k:2};",
+        "d3,k3",
+        "d4:k4",
+        "d5.k5",
+        "d6;k6",
+        "d7@k7",
+        "d8=k8",
+        "d9->k9",
+        "d10+=k10",
+        "d11-=k11",
+        "d12*=k12",
+        "d13/=k13",
+        "d14//=k14",
+        "d15%=k15",
+        "d16...k16",
+        "d17&=k17",
+        "d18|=k18",
+        "d19^=k19",
+        "d20>>=k20",
+        "d21<<=k21",
+        "d22**=k22"
+    };
+    Lexer lex;
+    lex.setVersion(Version::v3_8);
+    for (auto &str : lines) {
+        auto tokLine = new TokenLine(nullptr, str);
+        lex.list().appendLine(tokLine);
+        lex.tokenize(tokLine);
+    }
+    EXPECT_EQ(lex.list().lineAt(0)->tokens()[1]->type(), Token::T_DelimiterOpenParen);
+    EXPECT_EQ(lex.list().lineAt(0)->tokens()[3]->type(), Token::T_DelimiterCloseParen);
+    EXPECT_EQ(lex.list().lineAt(0)->tokens()[4]->type(), Token::T_DelimiterColon);
+
+    EXPECT_EQ(lex.list().lineAt(1)->tokens()[1]->type(), Token::T_DelimiterOpenBracket);
+    EXPECT_EQ(lex.list().lineAt(1)->tokens()[3]->type(), Token::T_DelimiterCloseBracket);
+    EXPECT_EQ(lex.list().lineAt(1)->tokens()[4]->type(), Token::T_DelimiterColon);
+
+    EXPECT_EQ(lex.list().lineAt(2)->tokens()[1]->type(), Token::T_DelimiterOpenBrace);
+    EXPECT_EQ(lex.list().lineAt(2)->tokens()[5]->type(), Token::T_DelimiterCloseBrace);
+    EXPECT_EQ(lex.list().lineAt(2)->tokens()[6]->type(), Token::T_DelimiterSemiColon);
+
+    EXPECT_EQ(lex.list().lineAt(3)->tokens()[1]->type(), Token::T_DelimiterComma);
+    EXPECT_EQ(lex.list().lineAt(4)->tokens()[1]->type(), Token::T_DelimiterColon);
+    EXPECT_EQ(lex.list().lineAt(5)->tokens()[1]->type(), Token::T_DelimiterPeriod);
+    EXPECT_EQ(lex.list().lineAt(6)->tokens()[1]->type(), Token::T_DelimiterSemiColon);
+    EXPECT_EQ(lex.list().lineAt(7)->tokens()[1]->type(), Token::T_OperatorMatrixMul);
+    EXPECT_EQ(lex.list().lineAt(8)->tokens()[1]->type(), Token::T_OperatorEqual);
+    EXPECT_EQ(lex.list().lineAt(9)->tokens()[1]->type(), Token::T_DelimiterArrowR);
+    EXPECT_EQ(lex.list().lineAt(10)->tokens()[1]->type(), Token::T_OperatorPlusEqual);
+    EXPECT_EQ(lex.list().lineAt(11)->tokens()[1]->type(), Token::T_OperatorMinusEqual);
+    EXPECT_EQ(lex.list().lineAt(12)->tokens()[1]->type(), Token::T_OperatorMulEqual);
+    EXPECT_EQ(lex.list().lineAt(13)->tokens()[1]->type(), Token::T_OperatorDivEqual);
+    EXPECT_EQ(lex.list().lineAt(14)->tokens()[1]->type(), Token::T_OperatorFloorDivEqual);
+    EXPECT_EQ(lex.list().lineAt(15)->tokens()[1]->type(), Token::T_OperatorModuloEqual);
+    EXPECT_EQ(lex.list().lineAt(16)->tokens()[1]->type(), Token::T_DelimiterEllipsis);
+    EXPECT_EQ(lex.list().lineAt(17)->tokens()[1]->type(), Token::T_OperatorBitAndEqual);
+    EXPECT_EQ(lex.list().lineAt(18)->tokens()[1]->type(), Token::T_OperatorBitOrEqual);
+    EXPECT_EQ(lex.list().lineAt(19)->tokens()[1]->type(), Token::T_OperatorBitXorEqual);
+    EXPECT_EQ(lex.list().lineAt(20)->tokens()[1]->type(), Token::T_OperatorBitShiftRightEqual);
+    EXPECT_EQ(lex.list().lineAt(21)->tokens()[1]->type(), Token::T_OperatorBitShiftLeftEqual);
+    EXPECT_EQ(lex.list().lineAt(22)->tokens()[1]->type(), Token::T_OperatorExpoEqual);
 }

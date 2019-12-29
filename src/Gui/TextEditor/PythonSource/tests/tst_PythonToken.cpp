@@ -145,107 +145,107 @@ public:
         fillLine12();
     }
     void fillLine0() {
-        _line[0]->push_front(new Token(Token::T_IdentifierClass, 6, 10, 0));
-        _line[0]->push_front(new Token(Token::T_KeywordClass, 0, 4, 0));
-        _line[0]->push_back(new Token(Token::T_DelimiterOpenParen, 11, 12, 0));
-        _line[0]->push_back(new Token(Token::T_DelimiterCloseParen, 12, 13, 0));
-        _line[0]->push_back(new Token(Token::T_DelimiterColon, 13, 14, 0));
-        _line[0]->push_back(new Token(Token::T_DelimiterNewLine, 14, 15, 0));
+        _line[0]->push_front(new Token(Token::T_IdentifierClass, 6, 10, 0, _line[0]));
+        _line[0]->push_front(new Token(Token::T_KeywordClass, 0, 4, 0, _line[0]));
+        _line[0]->push_back(new Token(Token::T_DelimiterOpenParen, 11, 12, 0, _line[0]));
+        _line[0]->push_back(new Token(Token::T_DelimiterCloseParen, 12, 13, 0, _line[0]));
+        _line[0]->push_back(new Token(Token::T_DelimiterColon, 13, 14, 0, _line[0]));
+        _line[0]->push_back(new Token(Token::T_DelimiterNewLine, 14, 15, 0, _line[0]));
     }
     void fillLine1() {
         //_line[1]->setIndentCount(4);
-        _line[1]->push_front(new Token(Token::T_IdentifierMethod, 7, 23, 0));
-        _line[1]->push_front(new Token(Token::T_KeywordDef, 4, 6, 0));
-        _line[1]->insert(new Token(Token::T_Indent, 0, 3, 0));
-        _line[1]->insert(_line[1]->back(), new Token(Token::T_DelimiterOpenParen, 23, 24, 0));
-        _line[1]->push_back(new Token(Token::T_IdentifierDefined, 24, 27, 0));
-        _line[1]->push_back(new Token(Token::T_DelimiterCloseParen, 28, 29, 0));
-        _line[1]->push_back(new Token(Token::T_DelimiterColon, 29, 30, 0));
-        _line[1]->push_back(new Token(Token::T_DelimiterNewLine, 30, 30, 0));
+        _line[1]->push_front(new Token(Token::T_IdentifierMethod, 7, 23, 0, _line[1]));
+        _line[1]->push_front(new Token(Token::T_KeywordDef, 4, 6, 0, _line[1]));
+        _line[1]->insert(new Token(Token::T_Indent, 0, 3, 0, _line[1]));
+        _line[1]->insert(_line[1]->back(), new Token(Token::T_DelimiterOpenParen, 23, 24, 0, _line[1]));
+        _line[1]->push_back(new Token(Token::T_IdentifierDefined, 24, 27, 0, _line[1]));
+        _line[1]->push_back(new Token(Token::T_DelimiterCloseParen, 28, 29, 0, _line[1]));
+        _line[1]->push_back(new Token(Token::T_DelimiterColon, 29, 30, 0, _line[1]));
+        _line[1]->push_back(new Token(Token::T_DelimiterNewLine, 30, 30, 0, _line[1]));
     }
     void fillLine2() {
-        _line[2]->push_back(new Token(Token::T_Indent, 0, 7, 0));
-        _line[2]->push_back(new Token(Token::T_LiteralBlockDblQuote, 8, 73, 0));
-        _line[2]->push_back(new Token(Token::T_DelimiterNewLine, 73, 73, 0));
+        _line[2]->push_back(new Token(Token::T_Indent, 0, 7, 0, _line[2]));
+        _line[2]->push_back(new Token(Token::T_LiteralBlockDblQuote, 8, 73, 0, _line[2]));
+        _line[2]->push_back(new Token(Token::T_DelimiterNewLine, 73, 73, 0, _line[2]));
     }
     void fillLine3() {
-        _line[3]->push_back(new Token(Token::T_KeywordDef, 8, 11, 0));
-        _line[3]->push_back(new Token(Token::T_DelimiterColon, 11,12, 0));
-        _line[3]->push_back(new Token(Token::T_DelimiterNewLine, 12, 12, 0));
+        _line[3]->push_back(new Token(Token::T_KeywordDef, 8, 11, 0, _line[3]));
+        _line[3]->push_back(new Token(Token::T_DelimiterColon, 11,12, 0, _line[3]));
+        _line[3]->push_back(new Token(Token::T_DelimiterNewLine, 12, 12, 0, _line[3]));
     }
     void fillLine4() {
-        _line[4]->push_back(new Token(Token::T_KeywordFrom, 12, 16, 0));
-        _line[4]->push_front(new Token(Token::T_Indent, 0, 11, 0));
-        _line[4]->push_back(new Token(Token::T_IdentifierModulePackage, 17, 21, 0));
-        _line[4]->push_back(new Token(Token::T_IdentifierModulePackage, 17, 21, 0));
-        _line[4]->push_back(new Token(Token::T_DelimiterNewLine, 21, 21, 0));
+        _line[4]->push_back(new Token(Token::T_KeywordFrom, 12, 16, 0, _line[4]));
+        _line[4]->push_front(new Token(Token::T_Indent, 0, 11, 0, _line[4]));
+        _line[4]->push_back(new Token(Token::T_IdentifierModulePackage, 17, 21, 0, _line[4]));
+        _line[4]->push_back(new Token(Token::T_IdentifierModulePackage, 17, 21, 0, _line[4]));
+        _line[4]->push_back(new Token(Token::T_DelimiterNewLine, 21, 21, 0, _line[4]));
     }
     void fillLine5() {
-        _line[5]->push_back(new Token(Token::T_IdentifierDefined, 12, 17, 0));
-        _line[5]->push_back(new Token(Token::T_OperatorEqual, 19, 20, 0));
-        _line[5]->push_back(new Token(Token::T_IdentifierUnknown, 21, 25, 0));
-        _line[5]->push_back(new Token(Token::T_DelimiterPeriod, 25, 26, 0));
-        _line[5]->push_back(new Token(Token::T_IdentifierUnknown, 26, 43, 0));
-        _line[5]->push_back(new Token(Token::T_OperatorMoreEqual, 44, 46, 0));
-        _line[5]->push_back(new Token(Token::T_NumberDecInt, 47, 48, 0));
-        _line[5]->push_back(new Token(Token::T_DelimiterNewLine, 48, 48, 0));
-        _line[5]->push_back(new Token(Token::T_Dedent, 48, 48, 0));
+        _line[5]->push_back(new Token(Token::T_IdentifierDefined, 12, 17, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_OperatorEqual, 19, 20, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_IdentifierUnknown, 21, 25, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_DelimiterPeriod, 25, 26, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_IdentifierUnknown, 26, 43, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_OperatorMoreEqual, 44, 46, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_NumberDecInt, 47, 48, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_DelimiterNewLine, 48, 48, 0, _line[5]));
+        _line[5]->push_back(new Token(Token::T_Dedent, 48, 48, 0, _line[5]));
     }
     void fillLine6() {
-        _line[6]->push_back(new Token(Token::T_KeywordExcept, 8, 13, 0));
-        _line[6]->push_back(new Token(Token::T_DelimiterOpenParen, 14, 15, 0));
-        _line[6]->push_back(new Token(Token::T_IdentifierBuiltin, 15, 27, 0));
-        _line[6]->push_back(new Token(Token::T_DelimiterComma, 28, 29, 0));
-        _line[6]->push_back(new Token(Token::T_IdentifierBuiltin, 30, 42, 0));
-        _line[6]->push_back(new Token(Token::T_DelimiterCloseParen, 42, 43, 0));
-        _line[6]->push_back(new Token(Token::T_DelimiterColon, 43, 44, 0));
-        _line[6]->push_back(new Token(Token::T_DelimiterNewLine, 44, 44, 0));
+        _line[6]->push_back(new Token(Token::T_KeywordExcept, 8, 13, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_DelimiterOpenParen, 14, 15, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_IdentifierBuiltin, 15, 27, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_DelimiterComma, 28, 29, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_IdentifierBuiltin, 30, 42, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_DelimiterCloseParen, 42, 43, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_DelimiterColon, 43, 44, 0, _line[6]));
+        _line[6]->push_back(new Token(Token::T_DelimiterNewLine, 44, 44, 0, _line[6]));
     }
     void fillLine7() {
-        _line[7]->push_back(new Token(Token::T_Indent, 0, 11, 0));
-        _line[7]->push_back(new Token(Token::T_IdentifierUnknown, 11, 14, 0));
-        _line[7]->push_back(new Token(Token::T_OperatorEqual, 15, 16, 0));
-        _line[7]->push_back(new Token(Token::T_IdentifierFalse, 17, 22, 0));
-        _line[7]->push_back(new Token(Token::T_DelimiterNewLine, 22, 22, 0));
-        _line[7]->push_back(new Token(Token::T_Dedent, 22, 22, 0));
+        _line[7]->push_back(new Token(Token::T_Indent, 0, 11, 0, _line[7]));
+        _line[7]->push_back(new Token(Token::T_IdentifierUnknown, 11, 14, 0, _line[7]));
+        _line[7]->push_back(new Token(Token::T_OperatorEqual, 15, 16, 0, _line[7]));
+        _line[7]->push_back(new Token(Token::T_IdentifierFalse, 17, 22, 0, _line[7]));
+        _line[7]->push_back(new Token(Token::T_DelimiterNewLine, 22, 22, 0, _line[7]));
+        _line[7]->push_back(new Token(Token::T_Dedent, 22, 22, 0, _line[7]));
     }
     void fillLine8() {
-        _line[8]->push_back(new Token(Token::T_KeywordIf, 7, 9, 0));
-        _line[8]->push_back(new Token(Token::T_IdentifierDefined, 10, 15, 0));
-        _line[8]->push_back(new Token(Token::T_DelimiterColon, 15, 16, 0));
-        _line[8]->push_back(new Token(Token::T_DelimiterNewLine, 16, 16, 0));
+        _line[8]->push_back(new Token(Token::T_KeywordIf, 7, 9, 0, _line[8]));
+        _line[8]->push_back(new Token(Token::T_IdentifierDefined, 10, 15, 0, _line[8]));
+        _line[8]->push_back(new Token(Token::T_DelimiterColon, 15, 16, 0, _line[8]));
+        _line[8]->push_back(new Token(Token::T_DelimiterNewLine, 16, 16, 0, _line[8]));
     }
     void fillLine9() {
-        _line[9]->push_back(new Token(Token::T_Indent, 0, 12, 0));
-        _line[9]->push_back(new Token(Token::T_KeywordReturn, 12, 18, 0));
-        _line[9]->push_back(new Token(Token::T_IdentifierDefined, 19, 23, 0));
-        _line[9]->push_back(new Token(Token::T_DelimiterPeriod, 23, 24, 0));
-        _line[9]->push_back(new Token(Token::T_IdentifierDefined, 24, 30, 0));
-        _line[9]->push_back(new Token(Token::T_DelimiterOpenParen, 30, 31, 0));
-        _line[9]->push_back(new Token(Token::T_LiteralSglQuote, 31, 38, 0));
-        _line[9]->push_back(new Token(Token::T_DelimiterCloseParen, 38, 39, 0));
-        _line[9]->push_back(new Token(Token::T_DelimiterNewLine, 39, 39, 0));
-        _line[9]->push_back(new Token(Token::T_Dedent, 39, 39, 0));
+        _line[9]->push_back(new Token(Token::T_Indent, 0, 12, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_KeywordReturn, 12, 18, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_IdentifierDefined, 19, 23, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_DelimiterPeriod, 23, 24, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_IdentifierDefined, 24, 30, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_DelimiterOpenParen, 30, 31, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_LiteralSglQuote, 31, 38, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_DelimiterCloseParen, 38, 39, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_DelimiterNewLine, 39, 39, 0, _line[9]));
+        _line[9]->push_back(new Token(Token::T_Dedent, 39, 39, 0, _line[9]));
     }
     void fillLine10() {
-        _line[10]->push_back(new Token(Token::T_KeywordElse, 7, 11, 0));
-        _line[10]->push_back(new Token(Token::T_DelimiterColon, 11, 12, 0));
-        _line[10]->push_back(new Token(Token::T_DelimiterNewLine, 12, 12, 0));
+        _line[10]->push_back(new Token(Token::T_KeywordElse, 7, 11, 0, nullptr));
+        _line[10]->push_back(new Token(Token::T_DelimiterColon, 11, 12, 0, _line[10]));
+        _line[10]->push_back(new Token(Token::T_DelimiterNewLine, 12, 12, 0, _line[10]));
     }
     void fillLine11() {
-        _line[11]->push_back(new Token(Token::T_Comment, 11, 22, 0));
+        _line[11]->push_back(new Token(Token::T_Comment, 11, 22, 0, _line[11]));
     }
     void fillLine12() {
-        _line[12]->push_back(new Token(Token::T_Indent, 0, 11, 0));
-        _line[12]->push_back(new Token(Token::T_KeywordReturn, 11, 17, 0));
-        _line[12]->push_back(new Token(Token::T_IdentifierDefined, 18, 22, 0));
-        _line[12]->push_back(new Token(Token::T_DelimiterPeriod, 22, 23, 0));
-        _line[12]->push_back(new Token(Token::T_IdentifierDefined, 23, 29, 0));
-        _line[12]->push_back(new Token(Token::T_DelimiterOpenParen, 29, 30, 0));
-        _line[12]->push_back(new Token(Token::T_LiteralSglQuote, 30, 38, 0));
-        _line[12]->push_back(new Token(Token::T_DelimiterCloseParen, 38, 39, 0));
-        _line[12]->push_back(new Token(Token::T_DelimiterNewLine, 39, 39, 0));
-        _line[12]->push_back(new Token(Token::T_Dedent, 39, 39, 0));
+        _line[12]->push_back(new Token(Token::T_Indent, 0, 11, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_KeywordReturn, 11, 17, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_IdentifierDefined, 18, 22, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_DelimiterPeriod, 22, 23, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_IdentifierDefined, 23, 29, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_DelimiterOpenParen, 29, 30, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_LiteralSglQuote, 30, 38, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_DelimiterCloseParen, 38, 39, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_DelimiterNewLine, 39, 39, 0, _line[12]));
+        _line[12]->push_back(new Token(Token::T_Dedent, 39, 39, 0, _line[12]));
     }
 };
 void TstPythonToken::TearDown() {
@@ -727,7 +727,7 @@ TEST_F(TstPythonToken, testPythonTokenProperties) {
 }
 
 TEST_F(TstPythonToken, testPythonTokenTypeTest) {
-    Token inValidTok(Token::T_Invalid, 0, 0, 0);
+    Token inValidTok(Token::T_Invalid, 0, 0, 0, nullptr);
     EXPECT_EQ(inValidTok.isInValid(), true);
     EXPECT_EQ(inValidTok.isInt(), false);
 

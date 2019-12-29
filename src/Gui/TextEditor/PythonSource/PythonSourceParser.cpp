@@ -231,7 +231,7 @@ Python::Token *Python::SourceParser::scanLine(Python::Token *startToken,
         case Python::Token::T_KeywordYield:
             scanYieldStmt();
             continue;
-        case Python::Token::T_DelimiterMetaData: {
+        case Python::Token::T_DelimiterArrowR: {
             // return typehint -> 'Type'
             // make sure previous char was a ')'
             Python::Token *tmpTok = m_beforeTok;// m_tok->previous();
@@ -919,7 +919,7 @@ void Python::SourceParser::scanAllParameters(bool storeParameters, bool isInitFu
     int parenCount = 0,
         safeGuard = 50;
     while(m_tok && (safeGuard--) > 0 &&
-          m_tok->type() != Python::Token::T_DelimiterMetaData)
+          m_tok->type() != Python::Token::T_DelimiterArrowR)
     {
         // first we must make sure we clear all parens
         if (m_tok->type() == Python::Token::T_DelimiterOpenParen)

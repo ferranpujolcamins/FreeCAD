@@ -257,7 +257,7 @@ public:
         T_DelimiterEllipsis,               // ...
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
-        T_DelimiterMetaData,               // -> might also be ':' inside arguments
+        T_DelimiterArrowR,               // -> might also be ':' inside arguments
 
         // Text line specific
         T__DelimiterTextLineStart,
@@ -327,7 +327,8 @@ public:
     static Type strToToken(const std::string &tokName);
 
     explicit Token(Type tokType, uint16_t startPos,
-                   uint16_t endPos, uint32_t customMask);
+                   uint16_t endPos, uint32_t customMask,
+                   TokenLine *ownerLine);
     Token(const Token &other);
     ~Token();
     bool operator==(const Token &rhs) const
@@ -675,7 +676,7 @@ public:
     int tokenPos(const Python::Token *tok) const;
 
     /// returns a list with all tokens in this line
-    const std::list<Python::Token*> tokens() const;
+    const std::vector<Python::Token*> tokens() const;
 
     /// returns a list with all undetermined or invalid tokens in this line
     std::list<int> &unfinishedTokens();

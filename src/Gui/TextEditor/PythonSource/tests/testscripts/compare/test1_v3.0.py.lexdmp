@@ -206,6 +206,7 @@ testscripts/test1.py;3.0
  indent=16
  unfinished=0
         2;8;T_IdentifierUnknown
+        8;9;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 18;		me = test

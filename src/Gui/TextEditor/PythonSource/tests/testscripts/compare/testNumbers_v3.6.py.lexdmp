@@ -1,4 +1,4 @@
-testscripts/testNumbers.py;2.7
+testscripts/testNumbers.py;3.6
 
 ---------------------------------------------------------------------
 0;#from https://docs.python.org/3/reference/lexical_analysis.html
@@ -12,17 +12,16 @@ testscripts/testNumbers.py;2.7
 2;7     2147483647                        0177
         0;1;T_NumberDecInt
         6;16;T_NumberDecInt
-        40;44;T_NumberOctInt
+        40;44;T_SyntaxError
         44;45;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 3;3L    79228162514264337593543950336L    0377L   0x100000000L # valid in py2, long specifier not valid in py3
-        0;2;T_NumberDecInt
-        6;36;T_NumberDecInt
-        40;45;T_NumberOctInt
-        48;60;T_NumberHexInt
+        0;2;T_SyntaxError
+        6;36;T_SyntaxError
+        40;45;T_SyntaxError
+        48;60;T_SyntaxError
         61;108;T_Comment
-        108;109;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
 4;      79228162514264337593543950336             0xdeadbeef
@@ -57,7 +56,7 @@ testscripts/testNumbers.py;2.7
         23;28;T_NumberFloat
         32;40;T_NumberFloat
         44;47;T_NumberFloat
-        51;61;T_SyntaxError
+        51;61;T_NumberFloat
         61;62;T_DelimiterNewLine
 
 ---------------------------------------------------------------------
@@ -75,7 +74,7 @@ testscripts/testNumbers.py;2.7
         24;29;T_NumberFloat
         32;38;T_NumberFloat
         41;50;T_NumberFloat
-        53;64;T_SyntaxError
+        53;64;T_NumberFloat
         64;65;T_DelimiterNewLine
 
 ---------------------------------------------------------------------

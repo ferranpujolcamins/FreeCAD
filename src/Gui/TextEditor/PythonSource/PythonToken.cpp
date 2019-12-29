@@ -345,7 +345,7 @@ const char *Python::Token::tokenToCStr(Python::Token::Type tokType)
     case T_DelimiterEllipsis:     return "T_DelimiterEllipsis";    // ...
         // metadata such def funcname(arg: "documentation") ->
         //                            "returntype documentation":
-    case T_DelimiterMetaData:     return "T_DelimiterMetaData";   // -> might also be ':' inside arguments
+    case T_DelimiterArrowR:       return "T_DelimiterArrowR";   // -> might also be ':' inside arguments
     case T_DelimiterBackSlash:    return "T_DelimiterBackSlash";   // when end of line is escaped like so '\'
     case T_DelimiterNewLine:      return "T_DelimiterNewLine";   // each new line
         // identifiers
@@ -402,19 +402,22 @@ Python::Token::Type Python::Token::strToToken(const std::string &tokName)
 
 
 Python::Token::Token(Python::Token::Type token, uint16_t startPos,
-                     uint16_t endPos, uint32_t customMask) :
+                     uint16_t endPos, uint32_t customMask, TokenLine *line) :
     m_type(token), m_startPos(startPos), m_endPos(endPos),
     m_customMask(customMask), m_hash(0), m_next(nullptr),
-    m_previous(nullptr), m_ownerLine(nullptr)
+    m_previous(nullptr), m_ownerLine(line)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    m_nameDbg = text();
-    if (m_ownerLine)
+    if (m_ownerLine){
+        m_nameDbg = m_ownerLine->text();
         m_lineDbg = m_ownerLine->lineNr();
+    }
 #endif
 
-    if (m_startPos != m_endPos)
-        m_hash = cstrToHash(text().c_str(), m_endPos - m_startPos);
+    if (m_startPos != m_endPos && m_ownerLine) {
+        std::string txt = text();
+        m_hash = cstrToHash(txt.c_str(), txt.length());
+    }
 }
 
 Python::Token::Token(const Python::Token &other) :
@@ -423,9 +426,8 @@ Python::Token::Token(const Python::Token &other) :
     m_previous(other.m_previous), m_ownerLine(other.m_ownerLine)
 {
 #ifdef BUILD_PYTHON_DEBUGTOOLS
-    m_nameDbg = text();
-    if (m_ownerLine)
-        m_lineDbg = m_ownerLine->lineNr();
+    m_nameDbg = other.m_nameDbg;
+    m_lineDbg = other.m_lineDbg;
 #endif
 }
 
@@ -1329,9 +1331,9 @@ int Python::TokenLine::tokenPos(const Python::Token *tok) const
     return -1;
 }
 
-const std::list<Python::Token *> Python::TokenLine::tokens() const
+const std::vector<Python::Token *> Python::TokenLine::tokens() const
 {
-    std::list<Python::Token*> tokList;
+    std::vector<Python::Token*> tokList;
     Python::Token *tok = m_frontTok;
     uint guard = m_ownerList->max_size();
     while(tok && tok->m_ownerLine == this && (--guard)) {
@@ -1510,21 +1512,6 @@ void Python::TokenLine::insert(Python::Token *tok)
         }
     }
 
-
-    /*
-    // move up to correct place within line
-    while (prevTok && prevTok->m_ownerLine == this &&
-           *prevTok < *tok && prevTok->m_next &&
-           prevTok->m_next->m_ownerLine == this &&
-           (--guard))
-    {
-        prevTok = prevTok->m_next;
-        //++pos;
-    }
-    if (prevTok && prevTok->ownerLine() == m_nextLine && *m_frontTok > *tok)
-        prevTok = m_previousLine->back();
-        */
-
     // insert into list, if prevTok is nullptr its inserted at beginning of list
     m_ownerList->insert(prevTok, tok);
     // our first token in this line
@@ -1534,7 +1521,6 @@ void Python::TokenLine::insert(Python::Token *tok)
         m_frontTok = tok;
     if (m_backTok == prevTok)
         m_backTok = tok;
-    //return pos;
 }
 
 void Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insertTok)
@@ -1542,12 +1528,6 @@ void Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insert
     assert(insertTok);
     assert((insertTok->m_ownerLine == instance() || insertTok->m_ownerLine == nullptr) &&
            "tok already added to a Line");
-    /*if (!previousTok || !previousTok->m_next ||
-        previousTok->m_next->m_ownerLine != instance())
-    {
-        insert(insertTok);
-        return;
-    }*/
 
     insertTok->m_ownerLine = instance();
     m_ownerList->insert(previousTok, insertTok);
@@ -1555,7 +1535,6 @@ void Python::TokenLine::insert(Python::Token *previousTok, Python::Token *insert
         m_frontTok = insertTok;
     if (!m_backTok || m_backTok == previousTok)
         m_backTok = insertTok;
-    //return tokenPos(insertTok);
 }
 
 bool Python::TokenLine::remove(Python::Token *tok, bool deleteTok)
@@ -1617,7 +1596,7 @@ Python::Token *Python::TokenLine::newDeterminedToken(Python::Token::Type tokType
                                                      uint16_t startPos, uint16_t len,
                                                      uint32_t customMask)
 {
-    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, customMask);
+    Python::Token *tokenObj = new Python::Token(tokType, startPos, startPos + len, customMask, this);
     push_back(tokenObj);
     return tokenObj;
 }
