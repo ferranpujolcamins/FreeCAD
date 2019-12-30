@@ -31,7 +31,7 @@ DlgPythonSettings::DlgPythonSettings(QDialog *parent) :
     gridLayout->addWidget(okButton, 2, 1);
     setLayout(gridLayout);
 
-    auto curVersion = Python::Lexer::version().version();
+    auto curVersion = Python::Lexer::version().current();
     for (auto &verPair: Python::Version::availableVersions()) {
         m_cmbVersion->addItem(QString::fromStdString(verPair.second), QVariant(verPair.first));
         if (verPair.first == curVersion)
@@ -49,7 +49,7 @@ DlgPythonSettings::~DlgPythonSettings()
 void DlgPythonSettings::accept()
 {
     auto ver = static_cast<Python::Version::versions>(m_cmbVersion->currentData().toUInt());
-    if (ver != Python::Lexer::version().version()) {
+    if (ver != Python::Lexer::version().current()) {
         Python::Lexer::setVersion(ver);
 
         QStringList types;

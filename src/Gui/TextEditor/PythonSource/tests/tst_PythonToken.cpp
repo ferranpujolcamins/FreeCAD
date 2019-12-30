@@ -255,35 +255,35 @@ void TstPythonToken::TearDown() {
 
 // start tests for PythonVersion
 TEST_F(TstVersion, testVersion) {
-    EXPECT_EQ(version.version(), Version::v3_7);
+    EXPECT_EQ(version.current(), Version::v3_7);
     EXPECT_EQ(version.minorVersion(), 7u);
     EXPECT_EQ(version.majorVersion(), 3u);
-    EXPECT_STREQ(version.versionAsString().c_str(), "3.7");
-    version.setVersion(Version::v3_0);
-    EXPECT_EQ(version.version(), Version::v3_0);
+    EXPECT_STREQ(version.asString().c_str(), "3.7");
+    version.setCurrent(Version::v3_0);
+    EXPECT_EQ(version.current(), Version::v3_0);
     EXPECT_EQ(version.minorVersion(), 0u);
     EXPECT_EQ(version.majorVersion(), 3u);
-    EXPECT_STREQ(version.versionAsString().c_str(), "3.0");
-    version.setVersion(Version::Latest);
-    EXPECT_EQ(version.version(), Version::Latest);
+    EXPECT_STREQ(version.asString().c_str(), "3.0");
+    version.setCurrent(Version::Latest);
+    EXPECT_EQ(version.current(), Version::Latest);
     EXPECT_EQ(version.minorVersion(), 9u);
     EXPECT_EQ(version.majorVersion(), 3u);
-    EXPECT_STREQ(version.versionAsString().c_str(), "Latest");
+    EXPECT_STREQ(version.asString().c_str(), "Latest");
 
     auto available = Version::availableVersions();
     EXPECT_EQ(available.begin()->second, "2.6");
     EXPECT_EQ(available.rbegin()->second, "Latest");
 
-    EXPECT_STREQ(Version::versionAsString(Version::v3_0).c_str(), "3.0");
+    EXPECT_STREQ(Version::asString(Version::v3_0).c_str(), "3.0");
 }
 
 TEST_F(TstVersion, testVersionCopy) {
-    version.setVersion(Version::v2_7);
+    version.setCurrent(Version::v2_7);
     Version ver2(version);
-    EXPECT_EQ(ver2.version(), Version::v2_7);
-    ver2.setVersion(Version::v3_5);
+    EXPECT_EQ(ver2.current(), Version::v2_7);
+    ver2.setCurrent(Version::v3_5);
     Version ver3 = ver2;
-    EXPECT_EQ(ver3.version(), Version::v3_5);
+    EXPECT_EQ(ver3.current(), Version::v3_5);
 }
 
 

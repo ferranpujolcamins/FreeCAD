@@ -80,7 +80,7 @@ TEST(TstLexer, testLexerDefaults) {
 
     lex.setFilePath("test1.py");
     ASSERT_STREQ(lex.filePath().c_str(), "test1.py");
-    EXPECT_EQ(Lexer::version().version(), Version::Latest);
+    EXPECT_EQ(Lexer::version().current(), Version::Latest);
 
     // test so we get nullptrs on empty list
     EXPECT_EQ(lex.previousCodeLine(lex.list().firstLine()), nullptr);
@@ -93,8 +93,8 @@ TEST(TstLexer, testLexerDefaults) {
 
     // test to change version
     Lexer::setVersion(Version::v3_0);
-    EXPECT_EQ(Lexer::version().version(), Version::v3_0);
-    EXPECT_EQ(lex.version().version(), Version::v3_0);
+    EXPECT_EQ(Lexer::version().current(), Version::v3_0);
+    EXPECT_EQ(lex.version().current(), Version::v3_0);
 
     // API check
     lex.tokenTypeChanged(nullptr);
@@ -534,11 +534,11 @@ TEST(tstLexerPersistent, testLexerPersistentCompareFiles) {
         ASSERT_GT(lexP2.reconstructFromDmpFile("testscripts/compare/" + filename), 0);
 
         if (!ver.empty()) {
-            EXPECT_STREQ(ver.c_str(), lex2.version().versionAsString().c_str());
+            EXPECT_STREQ(ver.c_str(), lex2.version().asString().c_str());
         }
 
         LexerReader lex;
-        lex.setVersion(lex2.version().version());
+        lex.setVersion(lex2.version().current());
         lex.readFile("testscripts/" + scriptname);
         LexerPersistent lexP(&lex);
 

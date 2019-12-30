@@ -14,6 +14,15 @@
 
 namespace Python {
 
+/// this is the Parse Tree Node
+class ParseTreeNode {
+public:
+    enum {};
+};
+
+
+
+
 /// this class pasers tokens and creates the SyntaxTree
 class SourceParser
 {
@@ -21,7 +30,7 @@ class SourceParser
     Python::SourceFrame *m_activeFrame;
                   /// hold the position of current token
     Python::Token *m_tok,
-                  /// holds the poistion of currentToken -1
+                  /// holds the position of currentToken -1
                   *m_beforeTok;
 public:
     explicit SourceParser();

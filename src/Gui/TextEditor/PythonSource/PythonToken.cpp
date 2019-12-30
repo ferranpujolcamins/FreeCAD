@@ -76,7 +76,7 @@ Python::Version::~Version()
 {
 }
 
-void Python::Version::setVersion(versions version)
+void Python::Version::setCurrent(versions version)
 {
     assert(version <= Latest);
     assert(version >= v2_6);
@@ -116,18 +116,18 @@ uint8_t Python::Version::minorVersion() const
     return 0xFF;
 }
 
-Python::Version::versions Python::Version::version() const
+Python::Version::versions Python::Version::current() const
 {
     return m_version;
 }
 
-std::string Python::Version::versionAsString() const
+std::string Python::Version::asString() const
 {
-    return versionAsString(m_version);
+    return asString(m_version);
 }
 
 // static
-std::string Python::Version::versionAsString(Python::Version::versions version)
+std::string Python::Version::asString(Python::Version::versions version)
 {
     switch (version) {
     case Invalid: return "invalid";
@@ -164,12 +164,12 @@ std::map<Python::Version::versions, const std::string> Python::Version::availabl
     std::map<versions, const std::string> map;
     for (uint v = v2_6; v <= v2_7; ++v) {
         versions ver = static_cast<versions>(v);
-        map.insert(std::pair<versions, const std::string>(ver, versionAsString(ver)));
+        map.insert(std::pair<versions, const std::string>(ver, asString(ver)));
     }
 
     for (uint v = v3_0; v <= Latest; ++v){
         versions ver = static_cast<versions>(v);
-        map.insert(std::pair<versions, const std::string>(ver, versionAsString(ver)));
+        map.insert(std::pair<versions, const std::string>(ver, asString(ver)));
     }
     return map;
 }

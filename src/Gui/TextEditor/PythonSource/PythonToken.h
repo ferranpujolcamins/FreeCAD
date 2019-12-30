@@ -6,6 +6,7 @@
 #include <list>
 #include <map>
 #include <iterator>
+#include <memory>
 
 // masks for customType, meaning depends on Token::Type
 #define STRING_IS_BYTES_TYPE     (1 << 0)
@@ -38,17 +39,17 @@ public:
         v3_0, v3_1, v3_2, v3_3, v3_4, v3_5, v3_6, v3_7, v3_8, v3_9,
         Latest };
     explicit Version(uint8_t major, uint8_t minor);
-    explicit Version(versions version);
+    explicit Version(versions current);
     Version(const Version &other);
     virtual ~Version();
 
     /// get/set version
-    void setVersion(versions version);
-    versions version() const;
+    void setCurrent(versions current);
+    versions current() const;
 
     /// get the version, if ver = Invalid get the current selected version as string
-    std::string versionAsString() const;
-    static std::string versionAsString(versions version);
+    std::string asString() const;
+    static std::string asString(versions current);
     /// get version value from str
     static versions strToVersion(const std::string &versionStr);
     /// get a list of all available versions

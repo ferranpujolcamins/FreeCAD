@@ -65,14 +65,14 @@ public:
 
     static void reGenerate(Version::versions ver)
     {
-        if (version.version() == ver && activeVersion == ver)
+        if (version.current() == ver && activeVersion == ver)
             return;
 
-        LexerP::version.setVersion(ver);
+        LexerP::version.setCurrent(ver);
 
-        activeVersion = version.version();
+        activeVersion = version.current();
 
-        if (version.version() >= Version::v3_0)
+        if (version.current() >= Version::v3_0)
             isLetter = &isLetterPy3;
         else
             isLetter = &isLetterPy2;
@@ -143,7 +143,7 @@ public:
             insertKW("False");    insertKW("None");
             insertKW("True");
 
-            if (Lexer::version().version() >= Version::v3_7) {
+            if (Lexer::version().current() >= Version::v3_7) {
                 insertKW("async");    insertKW("await"); //2 new keywords from 3.7
             }
         }
@@ -603,7 +603,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                 break;
             case ':':
                 if (peekNextCh(i) == '=') {
-                    if (d_lex->version.version() >= Version::v3_8)
+                    if (d_lex->version.current() >= Version::v3_8)
                         setDelimiter(i, 2, Token::T_OperatorWalrus);
                     else
                         setSyntaxError(i, 2);
@@ -621,7 +621,7 @@ uint Python::Lexer::tokenize(TokenLine *tokLine)
                     uint16_t len = lastWordCh(i + 1, text);
                     setToToken(i, len +1, Python::Token::T_IdentifierDecorator, 0u);
                 } else if (nextCh == '=') {
-                    if (d_lex->version.version() >= Version::v3_5)
+                    if (d_lex->version.current() >= Version::v3_5)
                         setOperator(i, 2, Python::Token::T_OperatorMatrixMulEqual);
                     else
                         setSyntaxError(i, 2);
@@ -1033,7 +1033,7 @@ uint16_t Python::Lexer::lastNumberCh(uint16_t startPos, const std::string &text,
         ch = std::tolower(*pos);
         switch (ch) {
         case '_':
-            if (d_lex->version.version() < Version::v3_6)
+            if (d_lex->version.current() < Version::v3_6)
                 type = Token::T_SyntaxError;
             break;
         case '0': case '1':
@@ -1085,7 +1085,7 @@ uint16_t Python::Lexer::lastNumberCh(uint16_t startPos, const std::string &text,
 out:
     // python 2 octal ie. 01234 != 1234
     if (first == '0' &&  type == Token::T_NumberDecInt && len > 1) {
-        if (d_lex->version.version() < Version::v3_0)
+        if (d_lex->version.current() < Version::v3_0)
             type = Token::T_NumberOctInt;
         else
             type = Token::T_SyntaxError; // invalid in py3
@@ -1094,7 +1094,7 @@ out:
     // long integer
     if (prevCh != 0 && ch == 'l') {
         len += 1;
-        if (d_lex->version.version() >= Version::v3_0)
+        if (d_lex->version.current() >= Version::v3_0)
             type = Token::T_SyntaxError; // py3 does not have long
         else if (type > Token::T__NumbersIntEnd)
             type = Token::T_SyntaxError; // py2 long must be integer
@@ -1142,10 +1142,10 @@ uint16_t Python::Lexer::lastStringCh(uint16_t startAt, const std::string &text,
                 stringOptions |= STRING_IS_RAW_TYPE;
             } else if (ch == 'f' && (prevPrefix == 'r' || prevPrefix == 0) && len < 2) {
                 stringOptions |= STRING_IS_FORMAT_TYPE;
-                if (d_lex->version.version() < Version::v3_6)
+                if (d_lex->version.current() < Version::v3_6)
                     type = Token::T_SyntaxError;
             } else if (ch == 'b' && prevPrefix == 'r' && len < 2) {
-                if (d_lex->version.version() < Version::v3_3)
+                if (d_lex->version.current() < Version::v3_3)
                     type = Token::T_SyntaxError;
                 stringOptions |= STRING_IS_BYTES_TYPE;
             } else if (ch == 'b' && prevPrefix == 0 && len < 1) {
@@ -1155,8 +1155,8 @@ uint16_t Python::Lexer::lastStringCh(uint16_t startAt, const std::string &text,
             } else if (ch == 'r' && prevPrefix == 0 && len < 1) {
                 stringOptions |= STRING_IS_RAW_TYPE;
             }  else if (ch == 'u' && len == 0) {
-                if (d_lex->version.version() < Version::v3_3 &&
-                    d_lex->version.version() >= Version::v3_0)
+                if (d_lex->version.current() < Version::v3_3 &&
+                    d_lex->version.current() >= Version::v3_0)
                 {
                     type = Token::T_SyntaxError;
                 }
@@ -1560,7 +1560,7 @@ const std::string Python::LexerPersistent::dumpToString() const
 {
     assert(m_lexer && "Must have a vaid lexer");
     std::stringstream dmp;
-    dmp << m_lexer->filePath() << ";" << m_lexer->version().versionAsString() + "\n";
+    dmp << m_lexer->filePath() << ";" << m_lexer->version().asString() + "\n";
 
     auto line = m_lexer->list().firstLine();
     uint guard = m_lexer->list().max_size();
