@@ -1221,10 +1221,10 @@ Python::TokenLine::~TokenLine()
                  "' tokCnt:" << count() << std::endl;
 #endif
 
-    if (m_tokenScanInfo) {
-        delete m_tokenScanInfo;
-        m_tokenScanInfo = nullptr;
-    }
+    //if (m_tokenScanInfo) {
+    //    delete m_tokenScanInfo;
+    //    m_tokenScanInfo = nullptr;
+    //}
 
     Python::Token *tok = m_frontTok;
     while (tok && tok->m_ownerLine == this)
@@ -1610,16 +1610,16 @@ Python::Token *Python::TokenLine::newUndeterminedToken(Python::Token::Type tokTy
     return tokenObj;
 }
 
-Python::TokenScanInfo *Python::TokenLine::tokenScanInfo(bool initScanInfo)
+std::shared_ptr<Python::TokenScanInfo> Python::TokenLine::tokenScanInfo(bool initScanInfo)
 {
     if (!m_tokenScanInfo && initScanInfo)
-        m_tokenScanInfo = new Python::TokenScanInfo();
+        m_tokenScanInfo = std::make_shared<Python::TokenScanInfo>();
     return m_tokenScanInfo;
 }
 
 void Python::TokenLine::setIndentErrorMsg(const Python::Token *tok, const std::string &msg)
 {
-    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    auto scanInfo = tokenScanInfo(true);
 
     scanInfo->setParseMessage(tok, msg, TokenScanInfo::IndentError);
     m_ownerList->lexer()->setIndentError(tok);
@@ -1629,7 +1629,7 @@ void Python::TokenLine::setLookupErrorMsg(const Python::Token *tok, const std::s
 {
     assert(tok);
     assert(tok->ownerLine() == instance());
-    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    auto scanInfo = tokenScanInfo(true);
 
     if (msg.empty())
         scanInfo->setParseMessage(tok, "Can't lookup identifier '" + tok->text() + "'",
@@ -1643,7 +1643,7 @@ void Python::TokenLine::setSyntaxErrorMsg(const Python::Token *tok, const std::s
     assert(tok);
     assert(tok->ownerLine() == instance());
 
-    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    auto scanInfo = tokenScanInfo(true);
     scanInfo->setParseMessage(tok, msg, TokenScanInfo::SyntaxError);
     m_ownerList->lexer()->setSyntaxError(tok);
 }
@@ -1653,7 +1653,7 @@ void Python::TokenLine::setMessage(const Python::Token *tok, const std::string &
     assert(tok);
     assert(tok->ownerLine() == instance());
 
-    Python::TokenScanInfo *scanInfo = tokenScanInfo(true);
+    auto scanInfo = tokenScanInfo(true);
     scanInfo->setParseMessage(tok, msg, TokenScanInfo::Message);
 }
 
@@ -1661,7 +1661,7 @@ void Python::TokenLine::setMessage(const Python::Token *tok, const std::string &
 
 Python::TokenScanInfo::ParseMsg::ParseMsg(const std::string &message, const Token *tok,
                                           TokenScanInfo::MsgType type) :
-    m_message(message), m_token(tok), m_type(type)
+    m_message(message), m_token(tok), m_type(type), m_version(Lexer::version())
 {
 #ifdef DEBUG_DELETES
     std::clog << "new ParseMsg " << std::hex << this << " " << m_message << std::endl;

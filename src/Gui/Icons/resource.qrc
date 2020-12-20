@@ -159,6 +159,8 @@
         <file>parse_info_error.svg</file>
         <file>parse_info_message.svg</file>
         <file>parse_info_warning.svg</file>
+        <file>parse_info_indentation.svg</file>
+        <file>parse_info_lookup.svg</file>
         <file>Param_Bool.svg</file>
         <file>Param_Float.svg</file>
         <file>Param_Int.svg</file>

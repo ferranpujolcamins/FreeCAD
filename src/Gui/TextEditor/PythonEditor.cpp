@@ -438,8 +438,9 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
                 switch (msgType) {
                 case Python::TokenScanInfo::Issue: // not sure what icon to use here yet
                 case Python::TokenScanInfo::LookupError: // fallthrough
+                    iconFile = "parse_info_lookup"; break;
                 case Python::TokenScanInfo::IndentError:
-                    iconFile = "parse_info_warning"; break;
+                    iconFile = "parse_info_indentation"; break;
                 case Python::TokenScanInfo::Message:
                     iconFile = "parse_info_message"; break;
                 case Python::TokenScanInfo::SyntaxError:

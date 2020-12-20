@@ -91,7 +91,7 @@ QVariant TokenModel::data(const QModelIndex &index, int role) const
         uint tokIdx = idx & TOK_ROW_MASK;
         auto line = getTokenLine(parentline - 1);
         if (line) {
-            const std::list<Python::Token*> &tokens = line->tokens();
+            const std::vector<Python::Token*> &tokens = line->tokens();
             if (tokens.size() > tokIdx) {
                 const Python::Token *tok = *std::next(tokens.begin(), tokIdx);
                 if (tok) {

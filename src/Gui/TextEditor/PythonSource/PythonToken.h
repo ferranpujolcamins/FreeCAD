@@ -574,7 +574,7 @@ class TokenLine {
 
 protected:
     // these are protected so that restore from file can subclass and manipulate
-    Python::TokenScanInfo *m_tokenScanInfo;
+    std::shared_ptr<Python::TokenScanInfo> m_tokenScanInfo;
 
     std::list<int> m_unfinishedTokenIndexes; // index to m_tokens where a undetermined is at
                                             //  (so context parser can determine it later)
@@ -735,7 +735,7 @@ public:
 
     ///tokenScanInfo contains messages for a specific code line/col
     /// if initScanInfo is true it also creates a container if not existing
-    Python::TokenScanInfo *tokenScanInfo(bool initScanInfo = false);
+    std::shared_ptr<TokenScanInfo> tokenScanInfo(bool initScanInfo = false);
 
     /// set a indent error message
     void setIndentErrorMsg(const Python::Token *tok, const std::string &msg);
@@ -761,7 +761,9 @@ class TokenScanInfo
 {
 public:
     /// types of messages, sorted in priority, higher idx == higher prio
-    enum MsgType { Invalid, AllMsgTypes, Message, Warning, Issue, LookupError, IndentError, SyntaxError };
+    enum MsgType { Invalid, AllMsgTypes, Message, Warning, Issue,
+                   LookupError, IndentError, SyntaxError,
+                   };
     struct ParseMsg {
     public:
         explicit ParseMsg(const std::string &message, const Python::Token *tok, MsgType type);
@@ -777,6 +779,7 @@ public:
         std::string m_message;
         const Python::Token *m_token;
         MsgType m_type;
+        Version m_version;
     };
     explicit TokenScanInfo();
     virtual ~TokenScanInfo();
