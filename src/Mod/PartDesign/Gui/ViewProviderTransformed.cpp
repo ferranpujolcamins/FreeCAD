@@ -1,5 +1,5 @@
 /******************************************************************************
- *   Copyright (c)2012 Jan Rheinlaender <jrheinlaender@users.sourceforge.net> *
+ *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
  *   This file is part of the FreeCAD CAx development system.                 *
  *                                                                            *
@@ -195,16 +195,17 @@ void ViewProviderTransformed::recomputeFeature(bool recompute)
     for (PartDesign::Transformed::rejectedMap::const_iterator o = rejected_trsf.begin(); o != rejected_trsf.end(); o++) {
         if (o->second.empty()) continue;
 
-        TopoDS_Shape shape;
+        Part::TopoShape fuseShape;
+        Part::TopoShape cutShape;
         if ((o->first)->getTypeId().isDerivedFrom(PartDesign::FeatureAddSub::getClassTypeId())) {
             PartDesign::FeatureAddSub* feature = static_cast<PartDesign::FeatureAddSub*>(o->first);
-            shape = feature->AddSubShape.getShape().getShape();
+            feature->getAddSubShape(fuseShape, cutShape);
         }
 
-        if (shape.IsNull()) continue;
+        if (fuseShape.isNull()) continue;
 
         // Display the rejected transformations in red
-        TopoDS_Shape cShape(shape);
+        TopoDS_Shape cShape(fuseShape.getShape());
 
         try {
             // calculating the deflection value

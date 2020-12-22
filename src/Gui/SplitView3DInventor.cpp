@@ -48,7 +48,7 @@ AbstractSplitView::AbstractSplitView(Gui::Document* pcDocument, QWidget* parent,
   : MDIView(pcDocument,parent, wflags)
 {
     _viewerPy = 0;
-    // important for highlighting 
+    // important for highlighting
     setMouseTracking(true);
 }
 
@@ -70,6 +70,16 @@ void AbstractSplitView::deleteSelf()
         (*it)->setSceneGraph(0);
     }
     MDIView::deleteSelf();
+}
+
+bool AbstractSplitView::containsViewProvider(const ViewProvider* vp) const
+{
+    for (auto it = _viewer.begin(); it != _viewer.end(); ++it) {
+        if ((*it)->containsViewProvider(vp))
+            return true;
+    }
+
+    return false;
 }
 
 void AbstractSplitView::setupSettings()
@@ -286,7 +296,7 @@ void AbstractSplitView::OnChange(ParameterGrp::SubjectType &rCaller,ParameterGrp
 
 void AbstractSplitView::onUpdate(void)
 {
-    update();  
+    update();
 }
 
 const char *AbstractSplitView::getName(void) const
@@ -399,7 +409,7 @@ bool AbstractSplitView::onHasMsg(const char* pMsg) const
 
 void AbstractSplitView::setOverrideCursor(const QCursor& aCursor)
 {
-    Q_UNUSED(aCursor); 
+    Q_UNUSED(aCursor);
     //_viewer->getWidget()->setCursor(aCursor);
 }
 

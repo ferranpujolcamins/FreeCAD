@@ -726,7 +726,7 @@ void Python::SourceParser::scanImports()
     DEFINE_DBG_VARS
 
     int guard = 20;
-    std::list<const std::string> fromPackages, importPackages, modules;
+    std::list<std::string> fromPackages, importPackages, modules;
     std::string alias;
     bool isAlias = false;
     bool isImports = m_tok->previous()->type() == Python::Token::T_KeywordImport;
@@ -763,7 +763,7 @@ void Python::SourceParser::scanImports()
                 goto store_module;
             break;
         case Python::Token::T_IdentifierModuleGlob: {
-            std::list<const std::string> all;
+            std::list<std::string> all;
             for (auto &pkg : fromPackages) all.push_back(pkg);
             for (auto &pkg : importPackages) all.push_back(pkg);
             m_activeFrame->m_imports.setModuleGlob(all);
@@ -822,7 +822,7 @@ store_module:
         {
         assert(modules.size() > 0 && "Modules set called by no modules in container");
         // merge the from and import lists
-        std::list<const std::string> all;
+        std::list<std::string> all;
         for (auto &pkg : fromPackages) all.push_back(pkg);
         for (auto &pkg : importPackages) all.push_back(pkg);
         Python::SourceImportModule *imp = nullptr;

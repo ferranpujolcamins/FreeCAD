@@ -42,7 +42,7 @@ class GuiExport AbstractSplitView : public MDIView, public ParameterGrp::Observe
     TYPESYSTEM_HEADER();
 
 public:
-    AbstractSplitView(Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=0);
+    AbstractSplitView(Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=Qt::WindowFlags());
     ~AbstractSplitView();
 
     virtual const char *getName(void) const;
@@ -56,6 +56,7 @@ public:
 
     View3DInventorViewer *getViewer(unsigned int) const;
     void setOverrideCursor(const QCursor&);
+    virtual bool containsViewProvider(const ViewProvider*) const;
 
     PyObject *getPyObject(void);
     void setPyObject(PyObject *);
@@ -108,7 +109,7 @@ class GuiExport SplitView3DInventor : public AbstractSplitView
     TYPESYSTEM_HEADER();
 
 public:
-    SplitView3DInventor(int views, Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=0);
+    SplitView3DInventor(int views, Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=Qt::WindowFlags());
     ~SplitView3DInventor();
 };
 

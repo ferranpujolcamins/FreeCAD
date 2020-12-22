@@ -33,13 +33,14 @@ namespace Gui {
     class PythonSyntaxHighlighter;
 
 namespace Dialog {
+class Ui_DlgEditorSettings;
 
 /** This class implements a preferences page for the editor settings.
  *  Here you can change different color settings and font for editors.
  *  @author Werner Mayer
  */
 struct DlgSettingsEditorP;
-class DlgSettingsEditorImp : public PreferencePage, public Ui_DlgEditorSettings
+class DlgSettingsEditorImp : public PreferencePage
 {
     Q_OBJECT
 
@@ -61,7 +62,8 @@ protected Q_SLOTS:
 protected:
     void changeEvent(QEvent *e);
 
-private:
+private:    
+    std::unique_ptr<Ui_DlgEditorSettings> ui;
     DlgSettingsEditorP* d;
 
     DlgSettingsEditorImp( const DlgSettingsEditorImp & );

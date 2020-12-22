@@ -1,5 +1,5 @@
 /******************************************************************************
- *   Copyright (c)2012 Jan Rheinlaender <jrheinlaender@users.sourceforge.net> *
+ *   Copyright (c) 2012 Jan Rheinländer <jrheinlaender@users.sourceforge.net> *
  *                                                                            *
  *   This file is part of the FreeCAD CAx development system.                 *
  *                                                                            *
@@ -143,6 +143,11 @@ public:
     virtual void apply() = 0;
 
     void setupTransaction();
+
+    int getTransactionID() const {
+        return transactionID;
+    }
+
 protected Q_SLOTS:
     /**
      * Returns the base transformation view provider
@@ -163,6 +168,7 @@ protected Q_SLOTS:
     void onButtonAddFeature(const bool checked);
     void onButtonRemoveFeature(const bool checked);
     virtual void onFeatureDeleted(void)=0;
+    void indexesMoved();
 
 protected:
     /**
@@ -190,6 +196,8 @@ protected:
     void checkVisibility();
 
 protected:
+    virtual void addObject(App::DocumentObject*);
+    virtual void removeObject(App::DocumentObject*);
     /** Notifies when the object is about to be removed. */
     virtual void slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj);
     virtual void changeEvent(QEvent *e) = 0;
@@ -203,6 +211,7 @@ protected:
 protected:
     QWidget* proxy;
     ViewProviderTransformed *TransformedView;
+    int transactionID = 0;
 
     enum selectionModes { none, addFeature, removeFeature, reference };
     selectionModes selectionMode;

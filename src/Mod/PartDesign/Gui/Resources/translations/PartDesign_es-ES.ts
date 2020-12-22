@@ -34,7 +34,7 @@
     <message>
       <location filename="../../Command.cpp" line="1305"/>
       <source>Sweep a selected sketch along a path or to other profiles</source>
-      <translation>Barrido del croquis seleccionado a lo largo de un camino o de otros perfiles</translation>
+      <translation>Barrer un boceto seleccionado a través de una trayectoria u otros bocetos</translation>
     </message>
   </context>
   <context>
@@ -88,7 +88,7 @@
     <message>
       <location filename="../../Command.cpp" line="244"/>
       <source>Create a new local coordinate system</source>
-      <translation>Crear un nuevo sistema de coordenadas locales</translation>
+      <translation>Crear un nuevo sistema de coordenadas</translation>
     </message>
   </context>
   <context>
@@ -155,7 +155,7 @@
     <message>
       <location filename="../../CommandBody.cpp" line="633"/>
       <source>Duplicate selected object</source>
-      <translation>Duplicar los objetos seleccionados</translation>
+      <translation>Duplicar el objeto seleccionado</translation>
     </message>
     <message>
       <location filename="../../CommandBody.cpp" line="634"/>
@@ -268,7 +268,7 @@
     <message>
       <location filename="../../CommandBody.cpp" line="340"/>
       <source>Migrate document to the modern PartDesign workflow</source>
-      <translation>Migrar documentos al flujo de trabajo PartDesign moderno</translation>
+      <translation>Migrar documentos al banco de trabajo PartDesign</translation>
     </message>
   </context>
   <context>
@@ -281,7 +281,7 @@
     <message>
       <location filename="../../Command.cpp" line="1878"/>
       <source>Mirrored</source>
-      <translation>Reflejar</translation>
+      <translation>Simetrico</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="1879"/>
@@ -304,7 +304,7 @@
     <message>
       <location filename="../../CommandBody.cpp" line="690"/>
       <source>Moves the selected object to another body</source>
-      <translation>Se mueve el objeto seleccionado a otro cuerpo</translation>
+      <translation>Mueve el objeto seleccionado a otro cuerpo</translation>
     </message>
   </context>
   <context>
@@ -1055,7 +1055,7 @@ material para ser eliminado;
     <message>
       <location filename="../../DlgReference.ui" line="20"/>
       <source>You selected geometries which are not part of the active body. Please define how to handle those selections. If you do not want those references cancel the command.</source>
-      <translation>Se habían seleccionado geometrías que no son parte del cuerpo activo. Por favor defina cómo manejar esas selecciones. Si no desea esas referencias cancele el comando.</translation>
+      <translation>has Seleccionado geometrías que no son parte del cuerpo activo. Define cómo manejar esas selecciones. Si no deseas esas referencias, cancela el comando.</translation>
     </message>
     <message>
       <location filename="../../DlgReference.ui" line="42"/>

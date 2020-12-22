@@ -137,7 +137,6 @@ void ViewProviderPartExt::getNormals(const TopoDS_Face&  theFace,
                                      const Handle(Poly_Triangulation)& aPolyTri,
                                      TColgp_Array1OfDir& theNormals)
 {
-    Poly_Connect thePolyConnect(aPolyTri);
     const TColgp_Array1OfPnt& aNodes = aPolyTri->Nodes();
 
     if(aPolyTri->HasNormals())
@@ -167,6 +166,7 @@ void ViewProviderPartExt::getNormals(const TopoDS_Face&  theFace,
     }
 
     // take in face the surface location
+    Poly_Connect thePolyConnect(aPolyTri);
     const TopoDS_Face      aZeroFace = TopoDS::Face(theFace.Located(TopLoc_Location()));
     Handle(Geom_Surface)   aSurf     = BRep_Tool::Surface(aZeroFace);
     const Standard_Real    aTol      = Precision::Confusion();
@@ -240,16 +240,21 @@ ViewProviderPartExt::ViewProviderPartExt()
     float r,g,b;
     r = ((lcol >> 24) & 0xff) / 255.0; g = ((lcol >> 16) & 0xff) / 255.0; b = ((lcol >> 8) & 0xff) / 255.0;
     int lwidth = Gui::ViewParams::instance()->getDefaultShapeLineWidth();
+    int psize = Gui::ViewParams::instance()->getDefaultShapePointSize();
 
     ParameterGrp::handle hPart = App::GetApplication().GetParameterGroupByPath
         ("User parameter:BaseApp/Preferences/Mod/Part");
     NormalsFromUV = hPart->GetBool("NormalsFromUVNodes", NormalsFromUV);
+
+    long twoside = hPart->GetBool("TwoSideRendering", true) ? 1 : 0;
 
     // Let the user define a custom lower limit but a value less than
     // OCCT's epsilon is not allowed
     double lowerLimit = hPart->GetFloat("MinimumDeviation", tessRange.LowerBound);
     lowerLimit = std::max(lowerLimit, Precision::Confusion());
     tessRange.LowerBound = lowerLimit;
+
+    static const char *osgroup = "Object Style";
 
     App::Material mat;
     mat.ambientColor.set(0.2f,0.2f,0.2f);
@@ -258,24 +263,30 @@ ViewProviderPartExt::ViewProviderPartExt()
     mat.emissiveColor.set(0.0f,0.0f,0.0f);
     mat.shininess = 1.0f;
     mat.transparency = 0.0f;
-    ADD_PROPERTY(LineMaterial,(mat));
-    ADD_PROPERTY(PointMaterial,(mat));
-    ADD_PROPERTY(LineColor,(mat.diffuseColor));
-    ADD_PROPERTY(PointColor,(mat.diffuseColor));
-    ADD_PROPERTY(PointColorArray, (PointColor.getValue()));
-    ADD_PROPERTY(DiffuseColor,(ShapeColor.getValue()));
-    ADD_PROPERTY(LineColorArray,(LineColor.getValue()));
-    ADD_PROPERTY(LineWidth,(lwidth));
+    ADD_PROPERTY_TYPE(LineMaterial,(mat), osgroup, App::Prop_None, "Object line material.");
+    ADD_PROPERTY_TYPE(PointMaterial,(mat), osgroup, App::Prop_None, "Object point material.");
+    ADD_PROPERTY_TYPE(LineColor, (mat.diffuseColor), osgroup, App::Prop_None, "Set object line color.");
+    ADD_PROPERTY_TYPE(PointColor, (mat.diffuseColor), osgroup, App::Prop_None, "Set object point color");
+    ADD_PROPERTY_TYPE(PointColorArray, (PointColor.getValue()), osgroup, App::Prop_None, "Object point color array.");
+    ADD_PROPERTY_TYPE(DiffuseColor,(ShapeColor.getValue()), osgroup, App::Prop_None, "Object diffuse color.");
+    ADD_PROPERTY_TYPE(LineColorArray,(LineColor.getValue()), osgroup, App::Prop_None, "Object line color array.");
+    ADD_PROPERTY_TYPE(LineWidth,(lwidth), osgroup, App::Prop_None, "Set object line width.");
     LineWidth.setConstraints(&sizeRange);
     PointSize.setConstraints(&sizeRange);
-    ADD_PROPERTY(PointSize,(lwidth));
-    ADD_PROPERTY(Deviation,(0.5f));
+    ADD_PROPERTY_TYPE(PointSize,(psize), osgroup, App::Prop_None, "Set object point size.");
+    ADD_PROPERTY_TYPE(Deviation,(0.5f), osgroup, App::Prop_None,
+            "Sets the accuracy of the polygonal representation of the model\n"
+            "in the 3D view (tessellation). Lower values indicate better quality.\n"
+            "The value is in percent of object's size.");
     Deviation.setConstraints(&tessRange);
-    ADD_PROPERTY(AngularDeflection,(28.65));
+    ADD_PROPERTY_TYPE(AngularDeflection,(28.65), osgroup, App::Prop_None,
+            "Specify how finely to generate the mesh for rendering on screen or when exporting.\n"
+            "The default value is 28.5 degrees, or 0.5 radians. The smaller the value\n"
+            "the smoother the appearance in the 3D view, and the finer the mesh that will be exported.");
     AngularDeflection.setConstraints(&angDeflectionRange);
-    ADD_PROPERTY(Lighting,(1));
+    ADD_PROPERTY_TYPE(Lighting,(twoside), osgroup, App::Prop_None, "Set object lighting.");
     Lighting.setEnums(LightingEnums);
-    ADD_PROPERTY(DrawStyle,((long int)0));
+    ADD_PROPERTY_TYPE(DrawStyle,((long int)0), osgroup, App::Prop_None, "Defines the style of the edges in the 3D view.");
     DrawStyle.setEnums(DrawStyleEnums);
 
     coords = new SoCoordinate3();
@@ -323,7 +334,7 @@ ViewProviderPartExt::ViewProviderPartExt()
     Lighting.touch();
     DrawStyle.touch();
 
-    sPixmap = "Tree_Part";
+    sPixmap = "Part_3D_object";
     loadParameter();
 }
 
@@ -501,10 +512,6 @@ void ViewProviderPartExt::attach(App::DocumentObject *pcFeat)
         pcPointsRoot->boundingBoxCaching =
         wireframe->boundingBoxCaching = SoSeparator::OFF;
 
-    // enable two-side rendering
-    pShapeHints->vertexOrdering = SoShapeHints::COUNTERCLOCKWISE;
-    pShapeHints->shapeType = SoShapeHints::UNKNOWN_SHAPE_TYPE;
-
     // Avoid any Z-buffer artifacts, so that the lines always appear on top of the faces
     // The correct order is Edges, Polygon offset, Faces.
     SoPolygonOffset* offset = new SoPolygonOffset();
@@ -647,7 +654,7 @@ std::vector<Base::Vector3d> ViewProviderPartExt::getModelPoints(const SoPickedPo
         if (subShape.ShapeType() == TopAbs_VERTEX) {
             const TopoDS_Vertex& v = TopoDS::Vertex(subShape);
             gp_Pnt p = BRep_Tool::Pnt(v);
-            pts.push_back(Base::Vector3d(p.X(),p.Y(),p.Z()));
+            pts.emplace_back(p.X(),p.Y(),p.Z());
         }
         // get the nearest point on the edge
         else if (subShape.ShapeType() == TopAbs_EDGE) {
@@ -656,7 +663,7 @@ std::vector<Base::Vector3d> ViewProviderPartExt::getModelPoints(const SoPickedPo
             BRepExtrema_DistShapeShape distSS(subShape, mkVert.Vertex(), 0.1);
             if (distSS.NbSolution() > 0) {
                 gp_Pnt p = distSS.PointOnShape1(1);
-                pts.push_back(Base::Vector3d(p.X(),p.Y(),p.Z()));
+                pts.emplace_back(p.X(),p.Y(),p.Z());
             }
         }
         // get the nearest point on the face
@@ -666,7 +673,7 @@ std::vector<Base::Vector3d> ViewProviderPartExt::getModelPoints(const SoPickedPo
             BRepExtrema_DistShapeShape distSS(subShape, mkVert.Vertex(), 0.1);
             if (distSS.NbSolution() > 0) {
                 gp_Pnt p = distSS.PointOnShape1(1);
-                pts.push_back(Base::Vector3d(p.X(),p.Y(),p.Z()));
+                pts.emplace_back(p.X(),p.Y(),p.Z());
             }
         }
 
@@ -930,11 +937,10 @@ void ViewProviderPartExt::reload()
 
 void ViewProviderPartExt::updateData(const App::Property* prop)
 {
-    const char *propName = prop?prop->getName():"";
-    if(propName  && (strcmp(propName,"Shape")==0 || strstr(propName,"Touched")!=0))
-    {
+    const char *propName = prop->getName();
+    if (propName && (strcmp(propName, "Shape") == 0 || strstr(propName, "Touched") != nullptr)) {
         // calculate the visual only if visible
-        if (isUpdateForced()||Visibility.getValue())
+        if (isUpdateForced() || Visibility.getValue())
             updateVisual();
         else 
             VisualTouched = true;
@@ -956,21 +962,26 @@ void ViewProviderPartExt::setupContextMenu(QMenu* menu, QObject* receiver, const
     act->setData(QVariant((int)ViewProvider::Color));
 }
 
+bool ViewProviderPartExt::changeFaceColors()
+{
+    Gui::TaskView::TaskDialog *dlg = Gui::Control().activeDialog();
+    if (dlg) {
+        Gui::Control().showDialog(dlg);
+        return false;
+    }
+
+    Gui::Selection().clearSelection();
+    Gui::Control().showDialog(new TaskFaceColors(this));
+    return true;
+}
+
 bool ViewProviderPartExt::setEdit(int ModNum)
 {
     if (ModNum == ViewProvider::Color) {
         // When double-clicking on the item for this pad the
         // object unsets and sets its edit mode without closing
         // the task panel
-        Gui::TaskView::TaskDialog *dlg = Gui::Control().activeDialog();
-        if (dlg) {
-            Gui::Control().showDialog(dlg);
-            return false;
-        }
-
-        Gui::Selection().clearSelection();
-        Gui::Control().showDialog(new TaskFaceColors(this));
-        return true;
+        return changeFaceColors();
     }
     else {
         return Gui::ViewProviderGeometryObject::setEdit(ModNum);
@@ -980,6 +991,7 @@ bool ViewProviderPartExt::setEdit(int ModNum)
 void ViewProviderPartExt::unsetEdit(int ModNum)
 {
     if (ModNum == ViewProvider::Color) {
+        // Do nothing here
     }
     else {
         Gui::ViewProviderGeometryObject::unsetEdit(ModNum);

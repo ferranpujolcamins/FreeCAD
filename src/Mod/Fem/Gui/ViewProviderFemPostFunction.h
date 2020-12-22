@@ -49,7 +49,7 @@ class FemGuiExport FunctionWidget : public QWidget {
 
     Q_OBJECT
 public:
-    FunctionWidget() {}
+    FunctionWidget() : m_block(false), m_view(0), m_object(0) {}
     virtual ~FunctionWidget() {}
 
     virtual void applyPythonCode() = 0;
@@ -111,7 +111,7 @@ public:
     std::vector<std::string> getDisplayModes() const;
 
     //creates the widget used in the task dalogs, either for the function itself or for
-    //the fiter using it
+    //the filter using it
     virtual FunctionWidget* createControlWidget() {return NULL;}
 
 protected:

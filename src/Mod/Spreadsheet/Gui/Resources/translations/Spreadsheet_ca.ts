@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="ca" sourcelanguage="en">
+<TS version="2.1" language="ca" sourcelanguage="en">
   <context>
     <name>CmdCreateSpreadsheet</name>
     <message>
@@ -103,7 +103,7 @@
     </message>
     <message>
       <source>Vertically center-align contents of selected cells</source>
-      <translation type="unfinished">Vertically center-align contents of selected cells</translation>
+      <translation>Alineació vertical i centrada dels continguts de les cel·les seleccionades</translation>
     </message>
   </context>
   <context>
@@ -148,7 +148,7 @@
     </message>
     <message>
       <source>Merge selected cells</source>
-      <translation type="unfinished">Merge selected cells</translation>
+      <translation>Fusiona les cel·les seleccionades</translation>
     </message>
   </context>
   <context>
@@ -178,7 +178,7 @@
     </message>
     <message>
       <source>Split previously merged cells</source>
-      <translation type="unfinished">Split previously merged cells</translation>
+      <translation>Divideix les cel·les prèviament fusionades</translation>
     </message>
   </context>
   <context>
@@ -193,7 +193,7 @@
     </message>
     <message>
       <source>Set text in selected cells bold</source>
-      <translation type="unfinished">Set text in selected cells bold</translation>
+      <translation>Estableix el text en negreta en les cel·les seleccionades</translation>
     </message>
   </context>
   <context>
@@ -208,7 +208,7 @@
     </message>
     <message>
       <source>Set text in selected cells italic</source>
-      <translation type="unfinished">Set text in selected cells italic</translation>
+      <translation>Estableix el text en cursiva en les cel·les seleccionades</translation>
     </message>
   </context>
   <context>
@@ -223,14 +223,14 @@
     </message>
     <message>
       <source>Underline text in selected cells</source>
-      <translation type="unfinished">Underline text in selected cells</translation>
+      <translation>Subratlla el text en les cel·les seleccionades</translation>
     </message>
   </context>
   <context>
     <name>ColorPickerPopup</name>
     <message>
       <source>Custom Color</source>
-      <translation type="unfinished">Custom Color</translation>
+      <translation>Color personalitzat</translation>
     </message>
   </context>
   <context>
@@ -257,7 +257,7 @@
     </message>
     <message>
       <source>Horizontal</source>
-      <translation type="unfinished">Horizontal</translation>
+      <translation>Horitzontal</translation>
     </message>
     <message>
       <source>Left</source>
@@ -273,7 +273,7 @@
     </message>
     <message>
       <source>Vertical</source>
-      <translation type="unfinished">Vertical</translation>
+      <translation>Vertical</translation>
     </message>
     <message>
       <source>Top</source>
@@ -331,10 +331,6 @@
       <translation>Exporta el fitxer</translation>
     </message>
     <message>
-      <source>Cell contents</source>
-      <translation>Contingut de la cel·la</translation>
-    </message>
-    <message>
       <source>Show spreadsheet</source>
       <translation>Mostra el full de càlcul</translation>
     </message>
@@ -353,6 +349,29 @@
     <message>
       <source>Sets the Spreadsheet cell(s) background color</source>
       <translation>Estableix el color de fons de la(es) cel·la(es) del full de càlcul</translation>
+    </message>
+    <message>
+      <source>Spreadsheet</source>
+      <translation>Full de càlcul</translation>
+    </message>
+    <message>
+      <source>Spreadsheet does not support range selection when pasting.
+Please select one cell only.</source>
+      <translation>El full de càlcul no admet la selecció de rang en enganxar. Seleccioneu només una cel·la.</translation>
+    </message>
+    <message>
+      <source>Copy &amp; Paste failed</source>
+      <translation>S'ha produït un error en copiar i enganxar</translation>
+    </message>
+    <message>
+      <source>Alias contains invalid characters!</source>
+      <translation>El sobrenom conté caràcters no vàlids!</translation>
+    </message>
+    <message>
+      <source>Refer to cell by alias, for example
+Spreadsheet.my_alias_name instead of Spreadsheet.B1</source>
+      <translation>Consulteu la cel·la per sobrenom, per exemple
+Spreadsheet.my_alias_name enlloc de Spreadsheet.B1</translation>
     </message>
   </context>
   <context>
@@ -427,7 +446,7 @@
     </message>
     <message>
       <source>Custom Color</source>
-      <translation type="unfinished">Custom Color</translation>
+      <translation>Color personalitzat</translation>
     </message>
   </context>
   <context>
@@ -437,8 +456,18 @@
       <translation>Forma</translation>
     </message>
     <message>
-      <source>&amp;Contents</source>
-      <translation>&amp;Contingut</translation>
+      <source>&amp;Content:</source>
+      <translation>&amp;Contingut:</translation>
+    </message>
+    <message>
+      <source>&amp;Alias:</source>
+      <translation>&amp;Sobrenom:</translation>
+    </message>
+    <message>
+      <source>Refer to cell by alias, for example
+Spreadsheet.my_alias_name instead of Spreadsheet.B1</source>
+      <translation>Consulteu la cel·la per sobrenom, per exemple
+Spreadsheet.my_alias_name enlloc de Spreadsheet.B1</translation>
     </message>
   </context>
   <context>

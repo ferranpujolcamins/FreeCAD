@@ -263,7 +263,9 @@
 #include <BRepPrimAPI_MakeRevolution.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepPrimAPI_MakeTorus.hxx>
+#if OCC_VERSION_HEX < 0x070400
 #include <BRepMesh.hxx>
+#endif
 #include <BRepMesh_Edge.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepMesh_Triangle.hxx>
@@ -319,6 +321,7 @@
 #include <Geom2d_Line.hxx>
 #include <Geom2d_TrimmedCurve.hxx>
 #include <Geom2dAdaptor_Curve.hxx>
+#include <Geom2dAdaptor_HCurve.hxx>
 #include <Geom2dAPI_ExtremaCurveCurve.hxx>
 #include <Geom2dAPI_InterCurveCurve.hxx>
 #include <Geom2dAPI_Interpolate.hxx>
@@ -355,6 +358,7 @@
 #include <Geom_Parabola.hxx>
 #include <Geom_Plane.hxx>
 #include <Geom_ToroidalSurface.hxx>
+#include <GeomAdaptor.hxx>
 #include <GeomAdaptor_HCurve.hxx>
 #include <GeomAdaptor_Surface.hxx>
 #include <GeomAPI.hxx>
@@ -387,6 +391,7 @@
 #include <GeomFill_SectionGenerator.hxx>
 #include <GeomLib.hxx>
 #include <GeomLib_IsPlanarSurface.hxx>
+#include <GeomLProp.hxx>
 #include <GeomLProp_SLProps.hxx>
 #include <GeomLProp_CLProps.hxx>
 #include <GeomPlate_MakeApprox.hxx>

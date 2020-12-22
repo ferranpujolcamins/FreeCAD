@@ -210,9 +210,10 @@ Python::SourceImportModule *Python::SourceImportList::getImportModule(const std:
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportList::getImportModule(const std::list<const std::string> &modInheritance)
+Python::SourceImportModule *Python::SourceImportList::getImportModule(const std::list<std::string> &modInheritance)
 {
-    if (empty() || modInheritance.size() < 1)
+    if (empty() ||
+            modInheritance.size() < 1)
         return nullptr;
 
     std::string modName = modInheritance.back();
@@ -258,7 +259,7 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const st
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const std::list<const std::string> &modInheritance)
+Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const std::list<std::string> &modInheritance)
 {
     if (empty() || modInheritance.size() < 1)
         return nullptr;
@@ -267,7 +268,7 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const st
     if (modInheritance.size() == 1)
         return getImportPackage(std::string(), modInheritance.front());
 
-    std::list<const std::string> inheritanceList = modInheritance;
+    std::list<std::string> inheritanceList = modInheritance;
 
     // package.module.... like import sys.path.join
     Python::SourceImportPackage *pkg = nullptr;
@@ -298,7 +299,7 @@ Python::SourceImportPackage *Python::SourceImportList::getImportPackage(const st
     return nullptr;
 }
 
-Python::SourceImportModule *Python::SourceImportList::setModule(const std::list<const std::string> &rootPackage,
+Python::SourceImportModule *Python::SourceImportList::setModule(const std::list<std::string> &rootPackage,
                                                             const std::string &module, const std::string alias)
 {
     Python::SourceImportModule *mod = nullptr;
@@ -320,7 +321,7 @@ Python::SourceImportModule *Python::SourceImportList::setModule(const std::list<
     return nullptr;
 }
 
-Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::list<const std::string> &rootPackage)
+Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::list<std::string> &rootPackage)
 {
     Python::SourceImportPackage *rootPkg = nullptr;
 
@@ -335,7 +336,7 @@ Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::lis
 
     if (!rootPkg) {
         // we doesn't have rootPackage yet, recurse until we find it
-        std::list<const std::string> pkg;
+        std::list<std::string> pkg;
         for (auto &it : rootPackage) pkg.push_back(it);
         pkg.pop_back();
         rootPkg = setPackage(pkg);
@@ -345,7 +346,7 @@ Python::SourceImportPackage *Python::SourceImportList::setPackage(const std::lis
     return rootPkg;
 }
 
-Python::SourceModule *Python::SourceImportList::setModuleGlob(const std::list<const std::string> &rootPackage)
+Python::SourceModule *Python::SourceImportList::setModuleGlob(const std::list<std::string> &rootPackage)
 {
     // FIXME implement
     (void)rootPackage;

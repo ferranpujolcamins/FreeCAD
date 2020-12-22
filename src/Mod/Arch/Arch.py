@@ -1,7 +1,5 @@
 #***************************************************************************
-#*                                                                         *
-#*   Copyright (c) 2011                                                    *
-#*   Yorik van Havre <yorik@uncreated.net>                                 *
+#*   Copyright (c) 2011 Yorik van Havre <yorik@uncreated.net>              *
 #*                                                                         *
 #*   This program is free software; you can redistribute it and/or modify  *
 #*   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -21,9 +19,9 @@
 #*                                                                         *
 #***************************************************************************
 
-__title__= "FreeCAD Arch API"
+__title__  = "FreeCAD Arch API"
 __author__ = "Yorik van Havre"
-__url__ = "http://www.freecadweb.org"
+__url__    = "https://www.freecadweb.org"
 
 ## \defgroup ARCH Arch
 #  \ingroup PYTHONWORKBENCHES
@@ -51,6 +49,7 @@ from ArchProfile import *
 from ArchCommands import *
 from ArchSectionPlane import *
 from ArchWindow import *
+from ArchWindowPresets import *
 from ArchAxis import *
 from ArchRoof import *
 from ArchSpace import *
@@ -66,3 +65,5 @@ from ArchPrecast import *
 from ArchPipe import *
 from ArchBuildingPart import *
 from ArchReference import *
+from ArchTruss import *
+from ArchCurtainWall import *

@@ -197,9 +197,9 @@ public:
     static Python::SourceRoot *instance();
 
     /// Gets a stringlist of all loaded modules names
-    const std::list<const std::string> modulesNames() const;
+    const std::list<std::string> modulesNames() const;
     /// Gets a stringlist of all loaded modules paths
-    const std::list<const std::string> modulesPaths() const;
+    const std::list<std::string> modulesPaths() const;
     /// gets modules count, -1 if none yet
     int modulesCount() const;
     /// get Module at idx, nullptr if not found

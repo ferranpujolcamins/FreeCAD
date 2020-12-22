@@ -42,7 +42,6 @@
 #include <Gui/ViewProvider.h>
 #include <Gui/MainWindow.h>
 #include <Gui/BitmapFactory.h>
-#include <boost/bind.hpp>
 
 using namespace AssemblyGui;
 using namespace Gui::TaskView;
@@ -486,7 +485,7 @@ void TaskAssemblyConstraints::setPossibleOptions() {
 
 void TaskAssemblyConstraints::setPossibleConstraints()
 {
-    ////diasble all constraints for easier enabling
+    ////disable all constraints for easier enabling
     //ui->fix->setEnabled(false);
     //ui->distance->setEnabled(false);
     //ui->orientation->setEnabled(false);

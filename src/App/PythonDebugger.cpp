@@ -1290,10 +1290,14 @@ int PythonDebugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int wha
             QRegExp re(QLatin1String("importlib\\._bootstrap"));
             PyFrameObject *f = frame;
 
-            while (f) {
+            while (f && f->f_iblock > 0) {
                 if (f->f_iblock > 0 && f->f_iblock <= CO_MAXBLOCKS) {
                     int b_type = f->f_blockstack[f->f_iblock -1].b_type; // blockstackindex is +1 based
+#if PY_MAJOR_VERSION >= 3 and PY_MINOR_VERSION < 8
                     if (b_type == SETUP_EXCEPT)
+#else
+                    if (b_type == SETUP_FINALLY)
+#endif
                         return 0; // should be caught by a try .. except block
                 }
                 const char *fn = PY_AS_C_STRING(f->f_code->co_filename);

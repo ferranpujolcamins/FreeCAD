@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -71,6 +69,7 @@ class JobPreferencesPage:
         policy = str(self.form.cboOutputPolicy.currentText())
         PathPreferences.setOutputFileDefaults(path, policy)
         self.saveStockSettings()
+        self.saveToolsSettings()
 
     def saveStockSettings(self):
         if self.form.stockGroup.isChecked():
@@ -106,6 +105,11 @@ class JobPreferencesPage:
             PathPreferences.setDefaultStockTemplate(json.dumps(attrs))
         else:
             PathPreferences.setDefaultStockTemplate('')
+
+    def saveToolsSettings(self):
+        PathPreferences.setToolsSettings(self.form.toolsUseLegacy.isChecked(),
+                self.form.toolsAbsolutePaths.isChecked(),
+                self.form.toolsOpenLastLibrary.isChecked())
 
     def selectComboEntry(self, widget, text):
         index = widget.findText(text, QtCore.Qt.MatchFixedString)
@@ -167,6 +171,7 @@ class JobPreferencesPage:
         self.form.tbOutputFile.clicked.connect(self.browseOutputFile)
 
         self.loadStockSettings()
+        self.loadToolSettings()
 
     def loadStockSettings(self):
         stock = PathPreferences.defaultStockTemplate()
@@ -211,7 +216,7 @@ class JobPreferencesPage:
         rotZ = attrs.get('rotZ')
         rotW = attrs.get('rotW')
         if posX is not None and posY is not None and posZ is not None and rotX is not None and rotY is not None and rotZ is not None and rotW is not None:
-            pos = FreeCAD.Vector(float(posX), float(posY), float(posZ)) 
+            pos = FreeCAD.Vector(float(posX), float(posY), float(posZ))
             rot = FreeCAD.Rotation(float(rotX), float(rotY), float(rotZ), float(rotW))
             placement = FreeCAD.Placement(pos, rot)
             self.form.stockPlacementGroup.setChecked(True)
@@ -243,6 +248,10 @@ class JobPreferencesPage:
             self.form.stockFromBase.show()
             self.form.stockCreateBox.hide()
             self.form.stockCreateCylinder.hide()
+
+    def loadToolSettings(self):
+        self.form.toolsUseLegacy.setChecked(PathPreferences.toolsUseLegacyTools())
+        self.form.toolsAbsolutePaths.setChecked(PathPreferences.toolsStoreAbsolutePaths())
 
     def getPostProcessor(self, name):
         if not name in self.processor.keys():

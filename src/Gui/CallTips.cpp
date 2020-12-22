@@ -144,7 +144,8 @@ void CallTipsList::keyboardSearch(const QString& wordPrefix)
         }
     }
 
-    setItemSelected(currentItem(), false);
+    if (currentItem())
+        currentItem()->setSelected(false);
 }
 
 void CallTipsList::validateCursor()
@@ -523,7 +524,7 @@ void CallTipsList::showTips(const QString& line)
         addItem(it.key());
         QListWidgetItem *item = this->item(this->count()-1);
         item->setData(Qt::ToolTipRole, QVariant(it.value().description));
-        item->setData(Qt::UserRole, qVariantFromValue( it.value() )); //< store full CallTip data
+        item->setData(Qt::UserRole, QVariant::fromValue( it.value() )); //< store full CallTip data
         switch (it.value().type)
         {
         case CallTip::Module:
@@ -697,7 +698,7 @@ bool CallTipsList::eventFilter(QObject * watched, QEvent * event)
 void CallTipsList::callTipItemActivated(QListWidgetItem *item)
 {
     hide();
-    if (!isItemSelected(item)) return;
+    if (!item->isSelected()) return;
 
     QString text = item->text();
     QTextCursor cursor = textEdit->textCursor();

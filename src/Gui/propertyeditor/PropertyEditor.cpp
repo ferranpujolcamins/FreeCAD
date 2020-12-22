@@ -159,16 +159,7 @@ void PropertyEditor::editorDestroyed (QObject * editor)
     // When editing expression through context menu, the editor (ExpLineEditor)
     // deletes itself when finished, so it won't trigger closeEditor signal. We
     // must handle it here to perform auto update.
-    if (autoupdate) {
-        App::Document* doc = App::GetApplication().getActiveDocument();
-        if (doc) {
-            if (!doc->isTransactionEmpty()) {
-                if (doc->isTouched())
-                    doc->recompute();
-            }
-        }
-        App::GetApplication().closeActiveTransaction();
-    }
+    closeTransaction();
 }
 
 void PropertyEditor::currentChanged ( const QModelIndex & current, const QModelIndex & previous )
@@ -234,7 +225,7 @@ void PropertyEditor::setupTransaction(const QModelIndex &index) {
     str << prop->getName();
     if(items.size()>1)
         str << "...";
-    app.setActiveTransaction(str.str().c_str());
+    transactionID = app.setActiveTransaction(str.str().c_str());
     FC_LOG("editor transaction " << app.getActiveTransaction());
 }
 
@@ -246,22 +237,30 @@ void PropertyEditor::onItemActivated ( const QModelIndex & index )
     setupTransaction(index);
 }
 
-void PropertyEditor::closeEditor (QWidget * editor, QAbstractItemDelegate::EndEditHint hint)
+void PropertyEditor::closeTransaction()
 {
-    QTreeView::closeEditor(editor, hint);
-
-    if (autoupdate) {
-        App::Document* doc = App::GetApplication().getActiveDocument();
-        if (doc) {
-            if (!doc->isTransactionEmpty()) {
-                // Between opening and committing a transaction a recompute
-                // could already have been done
-                if (doc->isTouched())
-                    doc->recompute();
+    int tid = 0;
+    if(App::GetApplication().getActiveTransaction(&tid) && tid == transactionID) {
+        if (autoupdate) {
+            App::Document* doc = App::GetApplication().getActiveDocument();
+            if (doc) {
+                if (!doc->isTransactionEmpty()) {
+                    // Between opening and committing a transaction a recompute
+                    // could already have been done
+                    if (doc->isTouched())
+                        doc->recompute();
+                }
             }
         }
         App::GetApplication().closeActiveTransaction();
     }
+}
+
+void PropertyEditor::closeEditor (QWidget * editor, QAbstractItemDelegate::EndEditHint hint)
+{
+    QTreeView::closeEditor(editor, hint);
+
+    closeTransaction();
 
     QModelIndex indexSaved = currentIndex();
     FC_LOG("index saved " << indexSaved.row() << ", " << indexSaved.column());
@@ -328,6 +327,8 @@ void PropertyEditor::buildUp(PropertyModel::PropertyList &&props, bool checkDocu
         delaybuild = true;
         return;
     }
+
+    closeTransaction();
 
     QModelIndex index = this->currentIndex();
     QStringList propertyPath = propertyModel->propertyPathFromIndex(index);

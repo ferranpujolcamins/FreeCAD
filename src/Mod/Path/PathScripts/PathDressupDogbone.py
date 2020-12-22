@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2014 Yorik van Havre <yorik@uncreated.net>              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -21,11 +19,10 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
+
 from __future__ import print_function
-import DraftGeomUtils
 import FreeCAD
 import math
-import Part
 import Path
 import PathScripts.PathDressup as PathDressup
 import PathScripts.PathGeom as PathGeom
@@ -35,15 +32,15 @@ import PathScripts.PathUtils as PathUtils
 
 from PySide import QtCore
 
+# lazily loaded modules
+from lazy_loader.lazy_loader import LazyLoader
+DraftGeomUtils = LazyLoader('DraftGeomUtils', globals(), 'DraftGeomUtils')
+Part = LazyLoader('Part', globals(), 'Part')
+
 LOG_MODULE = PathLog.thisModule()
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
-    PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
-else:
-    PathLog.setLevel(PathLog.Level.NOTICE, LOG_MODULE)
+PathLog.setLevel(PathLog.Level.NOTICE, LOG_MODULE)
+#PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
 
 
 # Qt translation handling
@@ -424,7 +421,7 @@ class ObjectDressup:
 
     def onDocumentRestored(self, obj):
         obj.setEditorMode('BoneBlacklist', 2)  # hide this one
-        
+
     def __getstate__(self):
         return None
 
@@ -860,10 +857,10 @@ class ObjectDressup:
             self.toolRadius = 5
         else:
             tool = tc.Proxy.getTool(tc)  # PathUtils.getTool(obj, tc.ToolNumber)
-            if not tool or tool.Diameter == 0:
+            if not tool or float(tool.Diameter) == 0:
                 self.toolRadius = 5
             else:
-                self.toolRadius = tool.Diameter / 2
+                self.toolRadius = float(tool.Diameter) / 2
 
         self.shapes = {}
         self.dbg = []
@@ -1051,10 +1048,12 @@ class ViewProviderDressup:
     def onDelete(self, arg1=None, arg2=None):
         '''this makes sure that the base operation is added back to the project and visible'''
         # pylint: disable=unused-argument
-        FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
-        job = PathUtils.findParentJob(arg1.Object)
-        job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
-        arg1.Object.Base = None
+        if arg1.Object and arg1.Object.Base:
+            FreeCADGui.ActiveDocument.getObject(arg1.Object.Base.Name).Visibility = True
+            job = PathUtils.findParentJob(arg1.Object)
+            if job:
+                job.Proxy.addOperation(arg1.Object.Base, arg1.Object)
+            arg1.Object.Base = None
         return True
 
 
@@ -1079,7 +1078,7 @@ class CommandDressupDogbone:
     # pylint: disable=no-init
 
     def GetResources(self):
-        return {'Pixmap': 'Path-Dressup',
+        return {'Pixmap': 'Path_Dressup',
                 'MenuText': QtCore.QT_TRANSLATE_NOOP("Path_DressupDogbone", "Dogbone Dress-up"),
                 'ToolTip': QtCore.QT_TRANSLATE_NOOP("Path_DressupDogbone", "Creates a Dogbone Dress-up object from a selected path")}
 

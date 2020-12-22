@@ -39,6 +39,7 @@
 #if defined(__clang__)
 # pragma clang diagnostic push
 # pragma clang diagnostic ignored "-Woverloaded-virtual"
+# pragma clang diagnostic ignored "-Wextra-semi"
 #elif defined (__GNUC__)
 # pragma GCC diagnostic push
 # pragma GCC diagnostic ignored "-Wpedantic"
@@ -355,6 +356,11 @@ Mesh::MeshObject* Mesher::createMesh() const
             if (nbSegPerRadius > 0)
                 hyp2d->SetNbSegPerRadius(nbSegPerRadius);
         }
+
+        if (maxLen > 0)
+            hyp2d->SetMaxSize(maxLen);
+        if (minLen > 0)
+            hyp2d->SetMinSize(maxLen);
 
         hyp2d->SetQuadAllowed(allowquad);
         hyp2d->SetOptimize(optimize);

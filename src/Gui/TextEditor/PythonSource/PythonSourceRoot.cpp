@@ -41,9 +41,9 @@ Python::SourceRoot *Python::SourceRoot::instance()
 
 }
 
-const std::list<const std::string> Python::SourceRoot::modulesNames() const
+const std::list<std::string> Python::SourceRoot::modulesNames() const
 {
-    std::list<const std::string> ret;
+    std::list<std::string> ret;
     if (!m_modules)
         return ret;
 
@@ -59,9 +59,9 @@ const std::list<const std::string> Python::SourceRoot::modulesNames() const
     return ret;
 }
 
-const std::list<const std::string> Python::SourceRoot::modulesPaths() const
+const std::list<std::string> Python::SourceRoot::modulesPaths() const
 {
-    std::list<const std::string> ret;
+    std::list<std::string> ret;
 
     for(Python::SourceListNodeBase *itm = m_modules->begin();
         itm != m_modules->end();
@@ -860,5 +860,3 @@ const std::string Python::SourceRoot::TypeInfo::customName() const
     }
     return std::string();
 }
-
-#include "moc_PythonSourceRoot.cpp"

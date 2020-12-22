@@ -1,6 +1,7 @@
 /***************************************************************************
  *   Copyright (c) 2013 Jan Rheinländer                                    *
- *                          <jrheinlaender[at]users.sourceforge.net>       *
+ *                                   <jrheinlaender@users.sourceforge.net> *
+ *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or         *
@@ -89,9 +90,14 @@ Constraint::~Constraint()
 
 App::DocumentObjectExecReturn *Constraint::execute(void)
 {
-    References.touch();
-    Scale.touch();
-    return StdReturn;
+    try {
+        References.touch();
+        Scale.touch();
+        return StdReturn;
+    }
+    catch (const Standard_Failure& e) {
+        return new App::DocumentObjectExecReturn(e.GetMessageString(), this);
+    }
 }
 
 //OvG: Provide the ability to determine how big to draw constraint arrows etc.
@@ -122,14 +128,15 @@ void Constraint::onChanged(const App::Property* prop)
         // Extract geometry from References
         TopoDS_Shape sh;
 
+        bool execute = this->isRecomputing();
         for (std::size_t i = 0; i < Objects.size(); i++) {
             App::DocumentObject* obj = Objects[i];
             Part::Feature* feat = static_cast<Part::Feature*>(obj);
             const Part::TopoShape& toposhape = feat->Shape.getShape();
             if (!toposhape.getShape().IsNull()) {
-                sh = toposhape.getSubShape(SubElements[i].c_str());
+                sh = toposhape.getSubShape(SubElements[i].c_str(), !execute);
 
-                if (sh.ShapeType() == TopAbs_FACE) {
+                if (!sh.IsNull() && sh.ShapeType() == TopAbs_FACE) {
                     // Get face normal in center point
                     TopoDS_Face face = TopoDS::Face(sh);
                     BRepGProp_Face props(face);
@@ -141,8 +148,7 @@ void Constraint::onChanged(const App::Property* prop)
                     normal.Normalize();
                     NormalDirection.setValue(normal.X(), normal.Y(), normal.Z());
                     // One face is enough...
-                    App::DocumentObject::onChanged(prop);
-                    return;
+                    break;
                 }
             }
         }
@@ -173,12 +179,14 @@ bool Constraint::getPoints(std::vector<Base::Vector3d> &points, std::vector<Base
         if (toposhape.isNull())
             return false;
 
-        sh = toposhape.getSubShape(SubElements[i].c_str());
+        sh = toposhape.getSubShape(SubElements[i].c_str(), true);
+        if (sh.IsNull())
+            return false;
 
         if (sh.ShapeType() == TopAbs_VERTEX) {
             const TopoDS_Vertex& vertex = TopoDS::Vertex(sh);
             gp_Pnt p = BRep_Tool::Pnt(vertex);
-            points.push_back(Base::Vector3d(p.X(), p.Y(), p.Z()));
+            points.emplace_back(p.X(), p.Y(), p.Z());
             normals.push_back(NormalDirection.getValue());
             //OvG: Scale by whole object mass in case of a vertex
             GProp_GProps props;
@@ -217,7 +225,7 @@ bool Constraint::getPoints(std::vector<Base::Vector3d> &points, std::vector<Base
             for (int i = 0; i < steps + 1; i++) {
                 // Parameter values must be in the range [fp, lp] (#0003683)
                 gp_Pnt p = curve.Value(fp + i * step);
-                points.push_back(Base::Vector3d(p.X(), p.Y(), p.Z()));
+                points.emplace_back(p.X(), p.Y(), p.Z());
                 normals.push_back(NormalDirection.getValue());
             }
         }
@@ -331,10 +339,10 @@ bool Constraint::getPoints(std::vector<Base::Vector3d> &points, std::vector<Base
                     gp_Pnt p = surface.Value(u, v);
                     BRepClass_FaceClassifier classifier(face, p, Precision::Confusion());
                     if (classifier.State() != TopAbs_OUT) {
-                        points.push_back(Base::Vector3d(p.X(), p.Y(), p.Z()));
+                        points.emplace_back(p.X(), p.Y(), p.Z());
                         props.Normal(u, v,center,normal);
                         normal.Normalize();
-                        normals.push_back(Base::Vector3d(normal.X(), normal.Y(), normal.Z()));
+                        normals.emplace_back(normal.X(), normal.Y(), normal.Z());
                     }
                 }
             }

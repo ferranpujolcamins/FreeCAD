@@ -48,6 +48,11 @@
         <UserDocu>set construction mode of a geometry on or off</UserDocu>
       </Documentation>
     </Methode>
+    <Methode Name="getConstruction">
+      <Documentation>
+        <UserDocu>returns the construction mode of a geometry</UserDocu>
+      </Documentation>
+    </Methode>
     <Methode Name="addConstraint">
       <Documentation>
         <UserDocu>add a constraint to the sketch</UserDocu>
@@ -61,6 +66,14 @@
     <Methode Name="renameConstraint">
       <Documentation>
         <UserDocu>Rename a constraint of the sketch</UserDocu>
+      </Documentation>
+    </Methode>
+    <Methode Name="getIndexByName" Const="true">
+      <Documentation>
+        <UserDocu>
+Get the index of the constraint by name.
+If there is no such constraint an exception is raised.
+        </UserDocu>
       </Documentation>
     </Methode>
     <Methode Name="carbonCopy">
@@ -88,7 +101,7 @@
         <UserDocu>set the Datum of a Distance or Angle constraint</UserDocu>
       </Documentation>
     </Methode>
-    <Methode Name="getDatum">
+    <Methode Name="getDatum" Const="true">
       <Documentation>
         <UserDocu>Get the value of a datum constraint</UserDocu>
       </Documentation>
@@ -108,7 +121,7 @@
         <UserDocu>Moves all datum constraints to the end of the constraint list</UserDocu>
       </Documentation>
     </Methode>
-    <Methode Name="getDriving">
+    <Methode Name="getDriving" Const="true">
       <Documentation>
         <UserDocu>Get the Driving status of a datum constraint</UserDocu>
       </Documentation>
@@ -138,7 +151,7 @@
             <UserDocu>sets the constraint on/off (enforced or not)</UserDocu>
         </Documentation>
     </Methode>
-    <Methode Name="getActive">
+    <Methode Name="getActive" Const="true">
         <Documentation>
             <UserDocu>Get the constraint status (enforced or not)</UserDocu>
         </Documentation>
@@ -163,14 +176,21 @@
         </UserDocu>
       </Documentation>
     </Methode>
-    <Methode Name="getPoint">
+    <Methode Name="getPoint" Const="true">
       <Documentation>
         <UserDocu>
           getPoint(GeoIndex,PointPos) - retrieve the vector of a point in the sketch
         </UserDocu>
       </Documentation>
     </Methode>
-    <Methode Name="getAxis">
+    <Methode Name="getGeoVertexIndex" Const="true">
+      <Documentation>
+        <UserDocu>
+          (geoId, posId) = getGeoVertexIndex(index) - retrieve the GeoId and PosId of a point in the sketch
+        </UserDocu>
+      </Documentation>
+    </Methode>
+    <Methode Name="getAxis" Const="true">
       <Documentation>
         <UserDocu>
           return an axis based on the corresponding construction line
@@ -240,6 +260,11 @@
     <Methode Name="increaseBSplineDegree">
         <Documentation>
             <UserDocu>Increases the given BSpline Degree by a number of degrees</UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="decreaseBSplineDegree">
+        <Documentation>
+            <UserDocu>Decreases the given BSpline Degree by a number of degrees by approximating this curve</UserDocu>
         </Documentation>
     </Methode>
     <Methode Name="modifyBSplineKnotMultiplicity">
@@ -430,5 +455,23 @@
       </Documentation>
       <Parameter Name="AxisCount" Type="Long"/>
     </Attribute>
+    <Attribute Name="GeometryFacadeList" ReadOnly="false">
+      <Documentation>
+        <UserDocu>
+          Return a list of GeometryFacade objects corresponding to the PropertyGeometryList
+        </UserDocu>
+      </Documentation>
+      <Parameter Name="GeometryFacadeList" Type="List"/>
+    </Attribute>
+    <Methode Name="setGeometryId">
+      <Documentation>
+        <UserDocu>sets the GeometryId of the SketchGeometryExtension of the geometry with the provided GeoId</UserDocu>
+      </Documentation>
+    </Methode>
+    <Methode Name="getGeometryId">
+      <Documentation>
+        <UserDocu>gets the GeometryId of the SketchGeometryExtension of the geometry with the provided GeoId</UserDocu>
+      </Documentation>
+    </Methode>
   </PythonExport>
 </GenerateModel>

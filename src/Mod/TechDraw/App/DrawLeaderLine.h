@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) 2019 Wanderer Fan <wandererfan@gmail.com>               *
+ *   Copyright (c) 2019 WandererFan <wandererfan@gmail.com>                *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -44,8 +44,12 @@ public:
 
     App::PropertyLink         LeaderParent;
     App::PropertyVectorList   WayPoints;
-    App::PropertyInteger      StartSymbol;
-    App::PropertyInteger      EndSymbol;
+    App::PropertyEnumeration  StartSymbol;
+    App::PropertyEnumeration  EndSymbol;
+
+/*    App::PropertyInteger      StartSymbol;          //see Gui/QGIArrow for values*/
+/*    App::PropertyInteger      EndSymbol;*/
+
     App::PropertyBool         Scalable;
     App::PropertyBool         AutoHorizontal;
 
@@ -61,8 +65,9 @@ public:
     Base::Vector3d getAttachPoint(void);
     DrawView* getBaseView(void) const;
     virtual App::DocumentObject* getBaseObject(void) const;
-    bool keepUpdated(void);
+    bool keepUpdated(void) override;
     double getScale(void) const override;
+    double getBaseScale(void) const;
     void adjustLastSegment(void);
     bool getDefAuto(void) const;
 
@@ -70,11 +75,15 @@ public:
     Base::Vector3d getKinkPoint(void) const;
     Base::Vector3d getTailPoint(void) const;
 
-
 protected:
     virtual void onChanged(const App::Property* prop) override;
 
 private:
+/*    static const char* ArrowTypeEnums[];*/
+/*    static const int   ArrowCount;*/
+/*    static const std::vector<std::string> ArrowTypeIcons;*/
+
+
 };
 
 typedef App::FeaturePythonT<DrawLeaderLine> DrawLeaderLinePython;

@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) 2009 Juergen Riegel (FreeCAD@juergen-riegel.net)        *
+ *   Copyright (c) 2009 Jürgen Riegel <FreeCAD@juergen-riegel.net>         *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -30,7 +30,6 @@
 #endif
 
 #include <QString>
-#include <QLocale>
 #include "Console.h"
 #include "Exception.h"
 #include "UnitsApi.h"
@@ -97,6 +96,10 @@ QString UnitsSchemaImperial1::schemaTranslate(const Quantity &quant, double &fac
             factor = 25.4;
         }
     }
+    else if (unit == Unit::Angle) {
+        unitString = QString::fromUtf8("\xC2\xB0");
+        factor = 1.0;
+    }
     else if (unit == Unit::Area) {
         // TODO Cascade for the Areas
         // default action for all cases without special treatment:
@@ -154,6 +157,10 @@ QString UnitsSchemaImperialDecimal::schemaTranslate(const Base::Quantity& quant,
         unitString = QString::fromLatin1("in");
         factor = 25.4;
     }
+    else if (unit == Unit::Angle) {
+        unitString = QString::fromUtf8("\xC2\xB0");
+        factor = 1.0;
+    }
     else if (unit == Unit::Area) {
         // TODO Cascade for the Areas
         // default action for all cases without special treatment:
@@ -178,7 +185,11 @@ QString UnitsSchemaImperialDecimal::schemaTranslate(const Base::Quantity& quant,
     }
     else if (unit == Unit::Velocity) {
         unitString = QString::fromLatin1("in/min");
-        factor = 25.4/60;
+        factor = 25.4 / 60;
+    }
+    else if (unit == Unit::Acceleration) {
+        unitString = QString::fromLatin1("in/min^2");
+        factor = 25.4 / 3600;
     }
     else {
         // default action for all cases without special treatment:
@@ -293,12 +304,16 @@ QString UnitsSchemaImperialBuilding::schemaTranslate(const Quantity &quant, doub
         // Done!
         return QString::fromLatin1(output.str().c_str());
     }
+    else if (unit == Unit::Angle) {
+        unitString = QString::fromUtf8("\xC2\xB0");
+        factor = 1.0;
+    }
     else if (unit == Unit::Area) {
         unitString = QString::fromLatin1("sqft");
         factor = 92903.04;
     }
     else if (unit == Unit::Volume) {
-        unitString = QString::fromLatin1("cuft");
+        unitString = QString::fromLatin1("cft");
         factor = 28316846.592;
     }
     else if (unit == Unit::Velocity) {
@@ -334,7 +349,7 @@ QString UnitsSchemaImperialCivil::schemaTranslate(const Base::Quantity& quant, d
         factor = 28316846.592;
     }
     else if (unit == Unit::Mass) {
-        unitString = QString::fromLatin1("lb");     //always lbs. 
+        unitString = QString::fromLatin1("lb");     //always lbs.
         factor = 0.45359237;
     }
     else if (unit == Unit::Pressure) {
@@ -343,7 +358,7 @@ QString UnitsSchemaImperialCivil::schemaTranslate(const Base::Quantity& quant, d
     }
     else if (unit == Unit::Velocity) {
         unitString = QString::fromLatin1("mph");
-        factor =  0.002235598;                         //1mm/sec => mph
+        factor =  447.04;                         //1mm/sec => mph
     }
     // this schema expresses angles in degrees + minutes + seconds
     else if (unit == Unit::Angle) {

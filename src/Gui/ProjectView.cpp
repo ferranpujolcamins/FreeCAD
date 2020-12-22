@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) 2012 Juergen Riegel <juergen.riegel@web.de>             *
+ *   Copyright (c) 2012 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -24,7 +24,6 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
-# include <boost/bind.hpp>
 # include <QAction>
 # include <QActionGroup>
 # include <QApplication>
@@ -37,7 +36,7 @@
 # include <QTimer>
 #endif
 
-#include <QDirModel>
+#include <QFileSystemModel>
 #include <Base/Console.h>
 #include <App/Document.h>
 
@@ -57,8 +56,7 @@ using namespace Gui;
 ProjectWidget::ProjectWidget(QWidget* parent)
     : QTreeView(parent)
 {
-    fileModel = new QDirModel(this);
-    fileModel->setSorting(QDir::DirsFirst | QDir::Type);
+    fileModel = new QFileSystemModel(this);
     setModel(fileModel);
 }
 

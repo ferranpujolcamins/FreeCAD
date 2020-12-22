@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Riegel         <juergen.riegel@web.de>                  *
+ *   Copyright (c) 2011 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -26,6 +26,9 @@
 #ifndef _PreComp_
 # include <sstream>
 # include <QDateTime>
+# if defined(FC_OS_LINUX)
+# include <sys/time.h>
+# endif
 #endif
 
 #include "TimeInfo.h"
@@ -57,7 +60,7 @@ TimeInfo::~TimeInfo()
 
 void TimeInfo::setCurrent(void)
 {
-#if defined (FC_OS_BSD)
+#if defined (FC_OS_BSD) || defined(FC_OS_LINUX)
     struct timeval t;
     gettimeofday(&t, NULL);
     timebuffer.time = t.tv_sec;
@@ -65,7 +68,7 @@ void TimeInfo::setCurrent(void)
 #elif defined(FC_OS_WIN32)
     _ftime(&timebuffer);
 #else
-    ftime(&timebuffer);
+    ftime(&timebuffer); // deprecated
 #endif
 }
 

@@ -29,6 +29,9 @@
 # include <QStyle>
 # include <QLineEdit>
 # include <QKeyEvent>
+# include <QStyle>
+# include <QStyleOptionSpinBox>
+# include <QStylePainter>
 #endif
 
 #include "SpinBox.h"
@@ -246,7 +249,7 @@ int UIntSpinBox::valueFromText (const QString & text) const
     return d->mapToInt(newVal);
 }
 
-void UIntSpinBox::updateValidator() 
+void UIntSpinBox::updateValidator()
 {
     d->mValidator->setRange(this->minimum(), this->maximum());
 }
@@ -278,7 +281,7 @@ void UIntSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 }
 
 void UIntSpinBox::onChange() {
-    
+
     if (getExpression()) {
         std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
@@ -292,7 +295,7 @@ void UIntSpinBox::onChange() {
             p.setColor(QPalette::Text, Qt::lightGray);
             lineEdit()->setPalette(p);
         }
-        setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+        iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
     }
     else {
         setReadOnly(false);
@@ -300,9 +303,8 @@ void UIntSpinBox::onChange() {
         QPalette p(lineEdit()->palette());
         p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
         lineEdit()->setPalette(p);
-
+        iconLabel->setToolTip(QString());
     }
-    iconLabel->setToolTip(QString());
 }
 
 
@@ -344,7 +346,7 @@ void UIntSpinBox::resizeEvent(QResizeEvent * event)
                 p.setColor(QPalette::Text, Qt::lightGray);
                 lineEdit()->setPalette(p);
             }
-            setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+            iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
         }
         else {
             setReadOnly(false);
@@ -354,9 +356,8 @@ void UIntSpinBox::resizeEvent(QResizeEvent * event)
             QPalette p(lineEdit()->palette());
             p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
             lineEdit()->setPalette(p);
-
+            iconLabel->setToolTip(QString());
         }
-        iconLabel->setToolTip(QString());
     }
     catch (const Base::Exception & e) {
         setReadOnly(true);
@@ -407,12 +408,26 @@ void UIntSpinBox::keyPressEvent(QKeyEvent *event)
 {
     if (event->text() == QString::fromUtf8("=") && isBound())
         openFormulaDialog();
-    else {
-        if (!hasExpression())
-            QAbstractSpinBox::keyPressEvent(event);
-    }
+    else
+        QAbstractSpinBox::keyPressEvent(event);
 }
 
+void UIntSpinBox::paintEvent(QPaintEvent*)
+{
+    QStyleOptionSpinBox opt;
+    initStyleOption(&opt);
+    if (hasExpression()) {
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxUp;
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxDown;
+        opt.state &= ~QStyle::State_Active;
+        opt.stepEnabled = StepNone;
+    }
+
+    QStylePainter p(this);
+    p.drawComplexControl(QStyle::CC_SpinBox, opt);
+}
+
+// ----------------------------------------------------------------------------
 
 IntSpinBox::IntSpinBox(QWidget* parent) : QSpinBox(parent) {
 
@@ -439,9 +454,9 @@ IntSpinBox::~IntSpinBox() {
 
 
 bool IntSpinBox::apply(const std::string& propName) {
-    
+
     if (!ExpressionBinding::apply(propName)) {
-        Gui::Command::doCommand(Gui::Command::Doc, "%s = %u", propName.c_str(), value());
+        Gui::Command::doCommand(Gui::Command::Doc, "%s = %d", propName.c_str(), value());
         return true;
     }
     else
@@ -449,7 +464,7 @@ bool IntSpinBox::apply(const std::string& propName) {
 }
 
 void IntSpinBox::bind(const ObjectIdentifier& _path) {
-    
+
     ExpressionBinding::bind(_path);
 
     int frameWidth = style()->pixelMetric(QStyle::PM_SpinBoxFrameWidth);
@@ -475,7 +490,7 @@ void IntSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 }
 
 void IntSpinBox::onChange() {
-    
+
     if (getExpression()) {
         std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
@@ -489,7 +504,7 @@ void IntSpinBox::onChange() {
             p.setColor(QPalette::Text, Qt::lightGray);
             lineEdit()->setPalette(p);
         }
-        setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+        iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
     }
     else {
         setReadOnly(false);
@@ -497,9 +512,8 @@ void IntSpinBox::onChange() {
         QPalette p(lineEdit()->palette());
         p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
         lineEdit()->setPalette(p);
-
+        iconLabel->setToolTip(QString());
     }
-    iconLabel->setToolTip(QString());
 }
 
 void IntSpinBox::resizeEvent(QResizeEvent * event)
@@ -525,7 +539,7 @@ void IntSpinBox::resizeEvent(QResizeEvent * event)
                 p.setColor(QPalette::Text, Qt::lightGray);
                 lineEdit()->setPalette(p);
             }
-            setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+            iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
         }
         else {
             setReadOnly(false);
@@ -535,9 +549,8 @@ void IntSpinBox::resizeEvent(QResizeEvent * event)
             QPalette p(lineEdit()->palette());
             p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
             lineEdit()->setPalette(p);
-
+            iconLabel->setToolTip(QString());
         }
-        iconLabel->setToolTip(QString());
     }
     catch (const Base::Exception & e) {
         setReadOnly(true);
@@ -588,12 +601,26 @@ void IntSpinBox::keyPressEvent(QKeyEvent *event)
 {
     if (event->text() == QString::fromUtf8("=") && isBound())
         openFormulaDialog();
-    else {
-        if (!hasExpression())
-            QAbstractSpinBox::keyPressEvent(event);
-    }
+    else
+        QAbstractSpinBox::keyPressEvent(event);
 }
 
+void IntSpinBox::paintEvent(QPaintEvent*)
+{
+    QStyleOptionSpinBox opt;
+    initStyleOption(&opt);
+    if (hasExpression()) {
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxUp;
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxDown;
+        opt.state &= ~QStyle::State_Active;
+        opt.stepEnabled = StepNone;
+    }
+
+    QStylePainter p(this);
+    p.drawComplexControl(QStyle::CC_SpinBox, opt);
+}
+
+// ----------------------------------------------------------------------------
 
 DoubleSpinBox::DoubleSpinBox(QWidget* parent): QDoubleSpinBox(parent) {
 
@@ -620,17 +647,17 @@ DoubleSpinBox::~DoubleSpinBox() {
 
 
 bool DoubleSpinBox::apply(const std::string& propName) {
-    
+
     if (!ExpressionBinding::apply(propName)) {
-        Gui::Command::doCommand(Gui::Command::Doc, "%s = %u", propName.c_str(), value());
+        Gui::Command::doCommand(Gui::Command::Doc, "%s = %f", propName.c_str(), value());
         return true;
     }
-    else
-        return false;
+
+    return false;
 }
 
 void DoubleSpinBox::bind(const ObjectIdentifier& _path) {
-    
+
     ExpressionBinding::bind(_path);
 
     int frameWidth = style()->pixelMetric(QStyle::PM_SpinBoxFrameWidth);
@@ -656,13 +683,13 @@ void DoubleSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 }
 
 void DoubleSpinBox::onChange() {
-    
+
     if (getExpression()) {
         std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
         if (value) {
-            setValue(boost::math::round(value->getValue()));
+            setValue(value->getValue());
             setReadOnly(true);
             iconLabel->setPixmap(getIcon(":/icons/bound-expression.svg", QSize(iconHeight, iconHeight)));
 
@@ -670,7 +697,7 @@ void DoubleSpinBox::onChange() {
             p.setColor(QPalette::Text, Qt::lightGray);
             lineEdit()->setPalette(p);
         }
-        setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+        iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
     }
     else {
         setReadOnly(false);
@@ -678,9 +705,8 @@ void DoubleSpinBox::onChange() {
         QPalette p(lineEdit()->palette());
         p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
         lineEdit()->setPalette(p);
-
+        iconLabel->setToolTip(QString());
     }
-    iconLabel->setToolTip(QString());
 }
 
 void DoubleSpinBox::resizeEvent(QResizeEvent * event)
@@ -706,7 +732,7 @@ void DoubleSpinBox::resizeEvent(QResizeEvent * event)
                 p.setColor(QPalette::Text, Qt::lightGray);
                 lineEdit()->setPalette(p);
             }
-            setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
+            iconLabel->setToolTip(Base::Tools::fromStdString(getExpression()->toString()));
         }
         else {
             setReadOnly(false);
@@ -716,9 +742,8 @@ void DoubleSpinBox::resizeEvent(QResizeEvent * event)
             QPalette p(lineEdit()->palette());
             p.setColor(QPalette::Active, QPalette::Text, defaultPalette.color(QPalette::Text));
             lineEdit()->setPalette(p);
-
+            iconLabel->setToolTip(QString());
         }
-        iconLabel->setToolTip(QString());
     }
     catch (const Base::Exception & e) {
         setReadOnly(true);
@@ -727,7 +752,6 @@ void DoubleSpinBox::resizeEvent(QResizeEvent * event)
         lineEdit()->setPalette(p);
         iconLabel->setToolTip(QString::fromLatin1(e.what()));
     }
-
 }
 
 void DoubleSpinBox::openFormulaDialog()
@@ -769,10 +793,23 @@ void DoubleSpinBox::keyPressEvent(QKeyEvent *event)
 {
     if (event->text() == QString::fromUtf8("=") && isBound())
         openFormulaDialog();
-    else {
-        if (!hasExpression())
-            QAbstractSpinBox::keyPressEvent(event);
+    else
+        QAbstractSpinBox::keyPressEvent(event);
+}
+
+void DoubleSpinBox::paintEvent(QPaintEvent*)
+{
+    QStyleOptionSpinBox opt;
+    initStyleOption(&opt);
+    if (hasExpression()) {
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxUp;
+        opt.activeSubControls &= ~QStyle::SC_SpinBoxDown;
+        opt.state &= ~QStyle::State_Active;
+        opt.stepEnabled = StepNone;
     }
+
+    QStylePainter p(this);
+    p.drawComplexControl(QStyle::CC_SpinBox, opt);
 }
 
 #include "moc_SpinBox.cpp"

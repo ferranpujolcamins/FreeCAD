@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2015 Dan Falck <ddfalck@gmail.com>                      *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -21,6 +19,7 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
+
 ''' Post Process command that will make use of the Output File and Post Processor entries in PathJob '''
 
 from __future__ import print_function
@@ -37,11 +36,11 @@ import os
 
 from PathScripts.PathPostProcessor import PostProcessor
 from PySide import QtCore, QtGui
-
+from datetime import datetime
 
 LOG_MODULE = PathLog.thisModule()
 
-PathLog.setLevel(PathLog.Level.DEBUG, LOG_MODULE)
+PathLog.setLevel(PathLog.Level.INFO, LOG_MODULE)
 
 
 # Qt translation handling
@@ -177,7 +176,7 @@ class CommandPathPost:
         return dlg.exec_()
 
     def GetResources(self):
-        return {'Pixmap': 'Path-Post',
+        return {'Pixmap': 'Path_Post',
                 'MenuText': QtCore.QT_TRANSLATE_NOOP("Path_Post", "Post Process"),
                 'Accel': "P, P",
                 'ToolTip': QtCore.QT_TRANSLATE_NOOP("Path_Post", "Post Process the selected Job")}
@@ -210,9 +209,9 @@ class CommandPathPost:
             print("post: %s(%s, %s)" % (postname, filename, postArgs))
             processor = PostProcessor.load(postname)
             gcode = processor.export(objs, filename, postArgs)
-            return (False, gcode)
+            return (False, gcode, filename)
         else:
-            return (True, '')
+            return (True, '', filename)
 
     def Activated(self):
         PathLog.track()
@@ -287,19 +286,21 @@ class CommandPathPost:
             # fixture before moving to the next.
 
             currTool = None
-            for f in wcslist:
+            for index, f in enumerate(wcslist):
                 # create an object to serve as the fixture path
                 fobj = _TempObject()
                 c1 = Path.Command(f)
-                c2 = Path.Command("G0 Z" + str(job.Stock.Shape.BoundBox.ZMax + job.SetupSheet.ClearanceHeightOffset.Value))
-                fobj.Path = Path.Path([c1, c2])
+                fobj.Path = Path.Path([c1])
+                if index != 0:
+                    c2 = Path.Command("G0 Z" + str(job.Stock.Shape.BoundBox.ZMax + job.SetupSheet.ClearanceHeightOffset.Value))
+                    fobj.Path.addCommands(c2)
                 fobj.InList.append(job)
                 sublist = [fobj]
 
                 # Now generate the gcode
                 for obj in job.Operations.Group:
                     tc = PathUtil.toolControllerForOp(obj)
-                    if tc is not None:
+                    if tc is not None and PathUtil.opProperty(obj, 'Active'):
                         if tc.ToolNumber != currTool:
                             sublist.append(tc)
                             PathLog.debug("Appending TC: {}".format(tc.Name))
@@ -329,14 +330,18 @@ class CommandPathPost:
             sublist = []  # list of ops for output splitting
 
             for idx, obj in enumerate(job.Operations.Group):
+
+                # check if the operation is active
+                active =  PathUtil.opProperty(obj, 'Active')
+
                 tc = PathUtil.toolControllerForOp(obj)
-                if tc is None or tc.ToolNumber == currTool:
+                if tc is None or tc.ToolNumber == currTool and active:
                     curlist.append(obj)
-                elif tc.ToolNumber != currTool and currTool is None:  # first TC
+                elif tc.ToolNumber != currTool and currTool is None and active:  # first TC
                     sublist.append(tc)
                     curlist.append(obj)
                     currTool = tc.ToolNumber
-                elif tc.ToolNumber != currTool and currTool is not None:  # TC
+                elif tc.ToolNumber != currTool and currTool is not None and active:  # TC
                     for fixture in fixturelist:
                         sublist.append(fixture)
                         sublist.extend(curlist)
@@ -356,45 +361,51 @@ class CommandPathPost:
             # Order by operation means ops are done in each fixture in
             # sequence.
             currTool = None
-            fixturelist = []
-            for f in wcslist:
-                # create an object to serve as the fixture path
-                fobj = _TempObject()
-                c1 = Path.Command(f)
-                c2 = Path.Command("G0 Z" + str(job.Stock.Shape.BoundBox.ZMax + job.SetupSheet.ClearanceHeightOffset.Value))
-                fobj.Path = Path.Path([c1, c2])
-                fobj.InList.append(job)
-                fixturelist.append(fobj)
+            firstFixture = True
 
             # Now generate the gcode
             for obj in job.Operations.Group:
-                sublist = []
-                PathLog.debug("obj: {}".format(obj.Name))
-                for fixture in fixturelist:
-                    sublist.append(fixture)
-                    tc = PathUtil.toolControllerForOp(obj)
-                    if tc is not None:
-                        if tc.ToolNumber != currTool:
-                            sublist.append(tc)
-                            currTool = tc.ToolNumber
-                    sublist.append(obj)
-                postlist.append(sublist)
+                if PathUtil.opProperty(obj, 'Active'):
+                    sublist = []
+                    PathLog.debug("obj: {}".format(obj.Name))
+                    for f in wcslist:
+                        fobj = _TempObject()
+                        c1 = Path.Command(f)
+                        fobj.Path = Path.Path([c1])
+                        if not firstFixture:
+                            c2 = Path.Command("G0 Z" + str(job.Stock.Shape.BoundBox.ZMax + job.SetupSheet.ClearanceHeightOffset.Value))
+                            fobj.Path.addCommands(c2)
+                        fobj.InList.append(job)
+                        sublist.append(fobj)
+                        firstFixture = False
+                        tc = PathUtil.toolControllerForOp(obj)
+                        if tc is not None:
+                            if tc.ToolNumber != currTool:
+                                sublist.append(tc)
+                                currTool = tc.ToolNumber
+                        sublist.append(obj)
+                    postlist.append(sublist)
 
         fail = True
         rc = '' # pylint: disable=unused-variable
         if split:
             for slist in postlist:
-                (fail, rc) = self.exportObjectsWith(slist, job)
+                (fail, rc, filename) = self.exportObjectsWith(slist, job)
         else:
             finalpostlist = [item for slist in postlist for item in slist]
-            (fail, rc) = self.exportObjectsWith(finalpostlist, job)
+            (fail, rc, filename) = self.exportObjectsWith(finalpostlist, job)
 
         self.subpart = 1
 
         if fail:
             FreeCAD.ActiveDocument.abortTransaction()
         else:
+            if hasattr(job, "LastPostProcessDate"):
+                job.LastPostProcessDate = str(datetime.now())
+            if hasattr(job, "LastPostProcessOutput"):
+                job.LastPostProcessOutput = filename
             FreeCAD.ActiveDocument.commitTransaction()
+
         FreeCAD.ActiveDocument.recompute()
 
 

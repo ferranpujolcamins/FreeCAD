@@ -507,9 +507,9 @@ void CurveOnMeshHandler::approximateEdge(const TopoDS_Edge& edge, double toleran
         pts.reserve(numNodes);
         for (int i=aNodes.Lower(); i<=aNodes.Upper(); i++) {
             const gp_Pnt& p = aNodes.Value(i);
-            pts.push_back(SbVec3f(static_cast<float>(p.X()),
+            pts.emplace_back(static_cast<float>(p.X()),
                                   static_cast<float>(p.Y()),
-                                  static_cast<float>(p.Z())));
+                                  static_cast<float>(p.Z()));
         }
 
         d_ptr->curve->setPoints(pts);
@@ -586,21 +586,21 @@ void CurveOnMeshHandler::closeWire()
     }
 }
 
-void CurveOnMeshHandler::Private::vertexCallback(void * ud, SoEventCallback * n)
+void CurveOnMeshHandler::Private::vertexCallback(void * ud, SoEventCallback * cb)
 {
-    Gui::View3DInventorViewer* view  = reinterpret_cast<Gui::View3DInventorViewer*>(n->getUserData());
-    const SoEvent* ev = n->getEvent();
+    Gui::View3DInventorViewer* view  = reinterpret_cast<Gui::View3DInventorViewer*>(cb->getUserData());
+    const SoEvent* ev = cb->getEvent();
     if (ev->getTypeId() == SoMouseButtonEvent::getClassTypeId()) {
         // set as handled
-        n->setHandled();
+        cb->setHandled();
 
         const SoMouseButtonEvent * mbe = static_cast<const SoMouseButtonEvent *>(ev);
         if (mbe->getButton() == SoMouseButtonEvent::BUTTON1 && mbe->getState() == SoButtonEvent::DOWN) {
-            const SoPickedPoint * pp = n->getPickedPoint();
+            const SoPickedPoint * pp = cb->getPickedPoint();
             if (pp) {
                 CurveOnMeshHandler* self = static_cast<CurveOnMeshHandler*>(ud);
                 if (!self->d_ptr->wireClosed) {
-                    Gui::ViewProvider* vp = static_cast<Gui::ViewProvider*>(view->getViewProviderByPath(pp->getPath()));
+                    Gui::ViewProvider* vp = view->getDocument()->getViewProviderByPathFromTail(pp->getPath());
                     if (vp && vp->getTypeId().isDerivedFrom(MeshGui::ViewProviderMesh::getClassTypeId())) {
                         MeshGui::ViewProviderMesh* mesh = static_cast<MeshGui::ViewProviderMesh*>(vp);
                         const SoDetail* detail = pp->getDetail();

@@ -33,7 +33,6 @@
 #include <Mod/TechDraw/Gui/ui_TaskWeldingSymbol.h>
 
 class Ui_TaskWeldingSymbol;
-class Ui_TaskCL2Lines;
 
 namespace App {
 class DocumentObject;
@@ -66,7 +65,7 @@ class MDIViewPage;
 class TileImage
 {
 public:
-    TileImage() {};
+    TileImage() { init(); }
     ~TileImage() = default;
     bool toBeSaved;
     bool arrowSide;
@@ -76,17 +75,19 @@ public:
     std::string centerText;
     std::string rightText;
     std::string symbolPath;
+    std::string symbolString;
     std::string tileName;
     void init(void) {
         toBeSaved = false;
         arrowSide = true;
         row = 0;
         col = 0;
-        leftText = "";
-        centerText = "";
-        rightText = "";
-        symbolPath= "";
-        tileName = "";
+        leftText.clear();
+        centerText.clear();
+        rightText.clear();
+        symbolPath.clear();
+        symbolString.clear();
+        tileName.clear();
     }
 
 };
@@ -101,14 +102,17 @@ public:
     ~TaskWeldingSymbol();
 
 public Q_SLOTS:
-    void onArrowSymbolClicked(bool b);
-
-    void onOtherSymbolClicked(bool b);
-    void onOtherEraseClicked(bool b);
-
-    void onArrowTextChanged(const QString& qs);
-    void onOtherTextChanged(const QString& qs);
-
+    void onArrowSymbolCreateClicked();
+    void onArrowSymbolClicked();
+    void onOtherSymbolCreateClicked();
+    void onOtherSymbolClicked();
+    void onOtherEraseCreateClicked();
+    void onOtherEraseClicked();
+    void onFlipSidesCreateClicked();
+    void onFlipSidesClicked();
+    void onArrowTextChanged();
+    void onOtherTextChanged();
+    void onWeldingChanged();
     void onDirectorySelected(const QString& newDir);
     void onSymbolSelected(QString symbolPath, QString source);
 
@@ -124,22 +128,20 @@ protected Q_SLOTS:
 
 protected:
     void changeEvent(QEvent *e);
-
-    void blockButtons(bool b);
     void setUiPrimary(void);
     void setUiEdit();
 
     TechDraw::DrawWeldSymbol* createWeldingSymbol(void);
     void updateWeldingSymbol(void);
 
-    std::vector<App::DocumentObject*> createTiles(void);
-    std::vector<App::DocumentObject*> updateTiles(void);
+/*    std::vector<App::DocumentObject*> createTiles(void);*/
+    void getTileFeats(void);
+    void updateTiles(void);
 
     void collectArrowData(void);
     void collectOtherData(void);
 
     std::string prefSymbolDir();
-    void saveState(void);
 
     QString m_currDir;
 
@@ -148,23 +150,23 @@ private:
 
     TechDraw::DrawLeaderLine* m_leadFeat;
     TechDraw::DrawWeldSymbol* m_weldFeat;
-    TechDraw::DrawTileWeld*   m_arrowIn;
-    TechDraw::DrawTileWeld*   m_otherIn;
+/*    TechDraw::DrawTileWeld*   m_arrowIn;    //save starting values*/
+/*    TechDraw::DrawTileWeld*   m_otherIn;*/
+    TechDraw::DrawTileWeld*   m_arrowFeat;
+    TechDraw::DrawTileWeld*   m_otherFeat;
 
     TileImage m_arrowOut;
     TileImage m_otherOut;
 
     QString m_arrowPath;
     QString m_otherPath;
-
-    std::vector<std::string> m_toRemove;
+    QString m_arrowSymbol;
+    QString m_otherSymbol;
 
     QPushButton* m_btnOK;
     QPushButton* m_btnCancel;
 
     bool m_createMode;
-
-    bool m_arrowDirty;
     bool m_otherDirty;
 };
 

@@ -1,6 +1,7 @@
 # ***************************************************************************
+# *   Copyright (c) 2017 Johannes Hartung <j.hartung@gmx.net>               *
 # *                                                                         *
-# *   Copyright (c) 2017 - Johannes Hartung <j.hartung@gmx.net>             *
+# *   This file is part of the FreeCAD CAx development system.              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -20,19 +21,19 @@
 # *                                                                         *
 # ***************************************************************************
 
-__title__ = "FreeCAD Fenics XML mesh reader"
+__title__  = "FreeCAD Fenics XML mesh reader"
 __author__ = "Johannes Hartung"
-__url__ = "http://www.freecadweb.org"
+__url__    = "https://www.freecadweb.org"
 
 ## @package importFenicsXML
 #  \ingroup FEM
 #  \brief FreeCAD Fenics Mesh XML reader for FEM workbench
 
+import itertools
+from xml.etree import ElementTree as ET
 
 import FreeCAD
 from FreeCAD import Console
-from xml.etree import ElementTree as ET
-import itertools
 
 
 def read_fenics_mesh_xml(xmlfilename):
@@ -239,13 +240,13 @@ def read_fenics_mesh_xml(xmlfilename):
         Console.PrintMessage("Mesh found\n")
         (nodes, cells_dict, cell_type, dim) = read_mesh_block(find_mesh)
         element_dict = generate_lower_dimensional_structures(nodes, cells_dict, cell_type, dim)
-        Console.PrintMessage("Show min max element dict")
+        Console.PrintMessage("Show min max element dict\n")
         for (elm, numbers) in list(element_dict.items()):
             lst = sorted(list(numbers.items()), key=lambda x: x[0])
             if lst != []:
                 Console.PrintWarning(elm, " min: ", lst[0], " max: ", lst[-1], "\n")
     else:
-        Console.PrintError("No mesh found")
+        Console.PrintError("No mesh found\n")
 
     if root.find("data") is not None:
         Console.PrintLog("Internal mesh data found\n")

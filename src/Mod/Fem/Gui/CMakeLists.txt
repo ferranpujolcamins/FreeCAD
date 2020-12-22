@@ -1,9 +1,12 @@
 
 # Many warnings caused by vtk
 if(CMAKE_COMPILER_IS_CLANGXX)
-    set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-override -Wno-pedantic") # needed for vtk headers
+    add_compile_options(-Wno-pedantic) # needed for vtk headers
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.0)
+        add_compile_options(-Wno-inconsistent-missing-override)
+    endif()
 elseif(CMAKE_COMPILER_IS_GNUCXX)
-    set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -Wno-pedantic") # needed for vtk headers
+    add_compile_options(-Wno-pedantic) # needed for vtk headers
 endif()
 
 if(MSVC)
@@ -401,6 +404,8 @@ INSTALL(FILES ${FemGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/Fem/Re
 # Python modules ui files, they are copied as they are, thus the need not to be added to Fem.qrc
 # see https://forum.freecadweb.org/viewtopic.php?f=10&t=25833
 SET(FemGuiPythonUI_SRCS
+    Resources/ui/ConstraintTie.ui
+    Resources/ui/ConstraintSectionPrint.ui
     Resources/ui/ElectrostaticPotential.ui
     Resources/ui/ElementFluid1D.ui
     Resources/ui/ElementGeometry1D.ui
@@ -415,6 +420,7 @@ SET(FemGuiPythonUI_SRCS
     Resources/ui/MeshGroup.ui
     Resources/ui/MeshGroupXDMFExport.ui
     Resources/ui/MeshRegion.ui
+    Resources/ui/ResultHints.ui
     Resources/ui/ResultShow.ui
     Resources/ui/SolverCalculix.ui
 )

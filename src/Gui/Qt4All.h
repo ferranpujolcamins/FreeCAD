@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2006     *
+ *   Copyright (c) 2006 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -28,6 +28,7 @@
 // QtCore
 #include <qglobal.h>
 #include <QBuffer>
+#include <QElapsedTimer>
 #include <qeventloop.h>
 #include <qfile.h>
 #include <QLibraryInfo>

@@ -32,9 +32,10 @@ QT_BEGIN_NAMESPACE
 class QPrinter;
 QT_END_NAMESPACE
 
-namespace Gui 
+namespace Gui
 {
 class Document;
+class ViewProvider;
 class ViewProviderDocumentObject;
 
 /** Base class of all windows belonging to a document.
@@ -61,7 +62,7 @@ public:
      * the view will attach to the active document. Be aware, there isn't
      * always an active document.
      */
-    MDIView(Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=0);
+    MDIView(Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=Qt::WindowFlags());
     /** View destructor
      * Detach the view from the document, if attached.
      */
@@ -98,8 +99,8 @@ public:
 
     /// MDI view mode enum
     enum ViewMode {
-        Child,      /**< Child viewing, view is docked inside the MDI application window */  
-        TopLevel,   /**< The view becomes a top level window and can be moved outsinde the application window */  
+        Child,      /**< Child viewing, view is docked inside the MDI application window */
+        TopLevel,   /**< The view becomes a top level window and can be moved outsinde the application window */
         FullScreen  /**< The view goes to full screen viewing */
     };
     /**
@@ -129,6 +130,16 @@ public:
     bool isActiveObject(App::DocumentObject*o, const char*n, const char *subname=0) const
     {
         return ActiveObjects.hasObject(o,n,subname);
+    }
+
+    /*!
+     * \brief containsViewProvider
+     * Checks if the given view provider is part of this view. The default implementation
+     * returns false.
+     * \return bool
+     */
+    virtual bool containsViewProvider(const ViewProvider*) const {
+        return false;
     }
 
 public Q_SLOTS:
@@ -164,4 +175,4 @@ private:
 
 } // namespace Gui
 
-#endif // GUI_MDIVIEW_H 
+#endif // GUI_MDIVIEW_H

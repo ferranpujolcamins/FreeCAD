@@ -1,7 +1,8 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2007     *
- *   Copyright (c) Luke Parry             (l.parry@warwick.ac.uk) 2013     *
- *   Copyright (c) WandererFan            (wandererfan@gmail.com) 2016     *
+ *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
+ *   Copyright (c) 2013 Luke Parry <l.parry@warwick.ac.uk>                 *
+ *   Copyright (c) 2016 WandererFan <wandererfan@gmail.com>                *
+ *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
  *   This library is free software; you can redistribute it and/or         *
@@ -39,6 +40,7 @@ class Bnd_Box;
 class gp_Pln;
 class gp_Pnt;
 class TopoDS_Face;
+class TopoDS_Wire;
 class gp_Ax2;
 
 namespace TechDraw
@@ -56,7 +58,7 @@ class DashSet;
 
 class TechDrawExport DrawViewSection : public DrawViewPart
 {
-    PROPERTY_HEADER(Part::DrawViewSection);
+    PROPERTY_HEADER_WITH_OVERRIDE(Part::DrawViewSection);
 
 public:
     DrawViewSection(void);
@@ -66,63 +68,84 @@ public:
     App::PropertyVector SectionNormal;
     App::PropertyVector SectionOrigin;
     App::PropertyEnumeration SectionDirection;
+
+    App::PropertyEnumeration CutSurfaceDisplay;        //new v019
     App::PropertyFile   FileHatchPattern;
+    App::PropertyFile   FileGeomPattern;               //new v019
+    App::PropertyFileIncluded SvgIncluded;
+    App::PropertyFileIncluded PatIncluded;
     App::PropertyString NameGeomPattern;
     App::PropertyFloat  HatchScale;
+
     App::PropertyString SectionSymbol;
     App::PropertyBool   FuseBeforeCut;
-
-    virtual short mustExecute() const;
 
     bool isReallyInBox (const Base::Vector3d v, const Base::BoundBox3d bb) const;
     bool isReallyInBox (const gp_Pnt p, const Bnd_Box& bb) const;
 
-    virtual App::DocumentObjectExecReturn *execute(void);
-    virtual void onChanged(const App::Property* prop);
-    virtual const char* getViewProviderName(void) const {
+    virtual App::DocumentObjectExecReturn *execute(void) override;
+    virtual void onChanged(const App::Property* prop) override;
+    virtual const char* getViewProviderName(void) const override {
         return "TechDrawGui::ViewProviderViewSection";
     }
+    virtual void unsetupObject() override;
+    virtual short mustExecute() const override;
 
-public:
-    std::vector<TechDraw::Face*> getFaceGeometry();
+    void sectionExec(TopoDS_Shape s);
 
-    Base::Vector3d getSectionVector (const std::string sectionName);
-    void setNormalFromBase(const std::string sectionName);
+    std::vector<TechDraw::Face*> getTDFaceGeometry() {return tdSectionFaces;}
 
-    gp_Ax2 rotateCSCardinal(gp_Ax2 oldCS, int cardinal); 
+    void setCSFromBase(const std::string sectionName);
+    gp_Ax2 getCSFromBase(const std::string sectionName) const;
+
     gp_Ax2 rotateCSArbitrary(gp_Ax2 oldCS,
                              Base::Vector3d axis,
-                             double degAngle) ;
-    gp_Ax2 getSectionCS (const std::string dirName);
+                             double degAngle) const;
+    gp_Ax2 getSectionCS() const;
+    virtual Base::Vector3d getXDirection(void) const override;       //don't use XDirection.getValue()
 
-    TechDraw::DrawViewPart* getBaseDVP();
-    TechDraw::DrawProjGroupItem* getBaseDPGI();
-    virtual void unsetupObject();
+    TechDraw::DrawViewPart* getBaseDVP() const;
+    TechDraw::DrawProjGroupItem* getBaseDPGI() const;
 
-    virtual std::vector<TopoDS_Wire> getWireForFace(int idx) const;
     TopoDS_Compound getSectionFaces() { return sectionFaces;};
-    std::vector<TopoDS_Wire> getSectionFaceWires(void) { return sectionFaceWires; }
-
+//    std::vector<TopoDS_Wire> getSectionFaceWires(void) { return sectionFaceWires; }   //obs?
+    TopoDS_Face getSectionTFace(int i);
+    void makeLineSets(void) ;
     std::vector<LineSet> getDrawableLines(int i = 0);
     std::vector<PATLineSpec> getDecodedSpecsFromFile(std::string fileSpec, std::string myPattern);
 
     TopoDS_Shape getCutShape(void) {return m_cutShape;}
 
     static const char* SectionDirEnums[];
+    static const char* CutSurfaceEnums[];
+
+    std::pair<Base::Vector3d, Base::Vector3d> sectionLineEnds(void);
+
+    bool showSectionEdges(void);
 
 protected:
-    TopoDS_Compound sectionFaces;
-    std::vector<TopoDS_Wire> sectionFaceWires;
+    TopoDS_Compound sectionFaces;    //tSectionFaces
+//    std::vector<TopoDS_Wire> sectionFaceWires;   //obs??? getSectionFaceWires
     std::vector<LineSet> m_lineSets;
+    std::vector<TechDraw::Face*> tdSectionFaces;
 
 
     gp_Pln getSectionPlane() const;
     TopoDS_Compound findSectionPlaneIntersections(const TopoDS_Shape& shape);
-    TopoDS_Face projectFace(const TopoDS_Shape &face,
-                                     gp_Pnt faceCenter,
-                                     const Base::Vector3d &direction);
     void getParameters(void);
+    bool debugSection(void) const;
+    int prefCutSurface(void) const;
+
     TopoDS_Shape m_cutShape;
+
+    virtual void onDocumentRestored() override;
+    virtual void setupObject() override;
+    void setupSvgIncluded(void);
+    void setupPatIncluded(void);
+    void replaceSvgIncluded(std::string newSvgFile);
+    void replacePatIncluded(std::string newPatFile);
+
+
 };
 
 typedef App::FeaturePythonT<DrawViewSection> DrawViewSectionPython;

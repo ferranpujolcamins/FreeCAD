@@ -31,6 +31,14 @@ set(BasicShapes_Scripts
     BasicShapes/Shapes.py
 )
 
+if(BUILD_GUI)
+    list (APPEND BasicShapes_Scripts
+          BasicShapes/CommandShapes.py
+          BasicShapes/ViewProviderShapes.py
+          BasicShapes/TaskTube.ui
+    )
+endif(BUILD_GUI)
+
 set(BOPTools_Scripts
     BOPTools/__init__.py
     BOPTools/GeneralFuseResult.py
@@ -50,12 +58,19 @@ set(CompoundTools_Scripts
     CompoundTools/Explode.py
 )
 
+set(Part_tests
+    parttests/__init__.py
+    parttests/part_test_objects.py
+    parttests/regression_tests.py
+)
+
 add_custom_target(PartScripts ALL SOURCES
     ${Part_Scripts}
     ${AttachmentEditor_Scripts}
     ${BasicShapes_Scripts}
     ${BOPTools_Scripts}
     ${CompoundTools_Scripts}
+    ${Part_tests}
 )
 
 fc_target_copy_resource(PartScripts
@@ -66,6 +81,7 @@ fc_target_copy_resource(PartScripts
     ${BasicShapes_Scripts}
     ${BOPTools_Scripts}
     ${CompoundTools_Scripts}
+    ${Part_tests}
 )
 
 INSTALL(
@@ -101,4 +117,11 @@ INSTALL(
         ${CompoundTools_Scripts}
     DESTINATION
         Mod/Part/CompoundTools
+)
+
+INSTALL(
+    FILES
+        ${Part_tests}
+    DESTINATION
+        Mod/Part/parttests
 )

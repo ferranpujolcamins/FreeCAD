@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2017 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -24,7 +22,6 @@
 
 import FreeCAD
 import FreeCADGui
-import Part
 import PathScripts.PathGeom as PathGeom
 import PathScripts.PathGui as PathGui
 import PathScripts.PathLog as PathLog
@@ -35,21 +32,20 @@ import PathScripts.PathPocketBaseGui as PathPocketBaseGui
 from PySide import QtCore, QtGui
 from pivy import coin
 
+# lazily loaded modules
+from lazy_loader.lazy_loader import LazyLoader
+Part = LazyLoader('Part', globals(), 'Part')
+
 __title__ = "Path Pocket Shape Operation UI"
 __author__ = "sliptonic (Brad Collette)"
-__url__ = "http://www.freecadweb.org"
+__url__ = "https://www.freecadweb.org"
 __doc__ = "Pocket Shape operation page controller and command implementation."
 
 def translate(context, text, disambig=None):
     return QtCore.QCoreApplication.translate(context, text, disambig)
 
-LOGLEVEL = False
-
-if LOGLEVEL:
-    PathLog.setLevel(PathLog.Level.DEBUG, PathLog.thisModule())
-    PathLog.trackModule(PathLog.thisModule())
-else:
-    PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
+#PathLog.trackModule(PathLog.thisModule())
 
 class _Extension(object):
     ColourEnabled = (1.0,  .5, 1.0)
@@ -78,7 +74,10 @@ class _Extension(object):
         hnt = coin.SoShapeHints()
 
         if not ext is None:
-            wire =  ext.getWire()
+            try:
+                wire =  ext.getWire()
+            except FreeCAD.Base.FreeCADError:
+                wire = None
             if wire:
                 if isinstance(wire, (list, tuple)):
                     p0 = [p for p in wire[0].discretize(Deflection=0.02)]
@@ -119,10 +118,12 @@ class _Extension(object):
         return not self.root is None
 
     def show(self):
-        self.switch.whichChild = coin.SO_SWITCH_ALL
+        if self.switch:
+            self.switch.whichChild = coin.SO_SWITCH_ALL
 
     def hide(self):
-        self.switch.whichChild = coin.SO_SWITCH_NONE
+        if self.switch:
+            self.switch.whichChild = coin.SO_SWITCH_NONE
 
     def enable(self, ena = True):
         if ena:
@@ -173,16 +174,10 @@ class TaskPanelExtensionPage(PathOpGui.TaskPanelPage):
         self.blockUpdateData = False # pylint: disable=attribute-defined-outside-init
 
     def cleanupPage(self, obj):
-        # If the object was already destroyed we can't access obj.Name.
-        # This is the case if this was a new op and the user hit Cancel.
-        # Unfortunately there's no direct way to determine the object's
-        # livelihood without causing an error so we look for the object
-        # in the document and clean up if it still exists.
-        for o in self.obj.Document.getObjectsByLabel(self.obj.Label):
-            if o == obj:
-                self.obj.ViewObject.RootNode.removeChild(self.switch)
-                return
-        PathLog.debug("%s already destroyed - no cleanup required" % (obj.Label))
+        try:
+            self.obj.ViewObject.RootNode.removeChild(self.switch)
+        except ReferenceError:
+            PathLog.debug("obj already destroyed - no cleanup required")
 
     def getForm(self):
         return FreeCADGui.PySideUic.loadUi(":/panels/PageOpPocketExtEdit.ui")
@@ -231,7 +226,7 @@ class TaskPanelExtensionPage(PathOpGui.TaskPanelPage):
         self.setExtensions(self.extensions)
 
     def createItemForBaseModel(self, base, sub, edges, extensions):
-        PathLog.track()
+        PathLog.track(base.Label, sub, '+', len(edges), len(base.Shape.getElement(sub).Edges))
         ext = _Extension(self.obj, base, sub, None)
         item = QtGui.QStandardItem()
         item.setData(sub, QtCore.Qt.EditRole)
@@ -241,17 +236,18 @@ class TaskPanelExtensionPage(PathOpGui.TaskPanelPage):
         extendCorners = self.form.extendCorners.isChecked()
 
         def createSubItem(label, ext0):
-            self.switch.addChild(ext0.root)
-            item0 = QtGui.QStandardItem()
-            item0.setData(label, QtCore.Qt.EditRole)
-            item0.setData(ext0, self.DataObject)
-            item0.setCheckable(True)
-            for e in extensions:
-                if e.obj == base and e.sub == label:
-                    item0.setCheckState(QtCore.Qt.Checked)
-                    ext0.enable()
-                    break
-            item.appendRow([item0])
+            if ext0.root:
+                self.switch.addChild(ext0.root)
+                item0 = QtGui.QStandardItem()
+                item0.setData(label, QtCore.Qt.EditRole)
+                item0.setData(ext0, self.DataObject)
+                item0.setCheckable(True)
+                for e in extensions:
+                    if e.obj == base and e.sub == label:
+                        item0.setCheckState(QtCore.Qt.Checked)
+                        ext0.enable()
+                        break
+                item.appendRow([item0])
 
         extensionEdges = {}
         for edge in base.Shape.getElement(sub).Edges:
@@ -266,7 +262,11 @@ class TaskPanelExtensionPage(PathOpGui.TaskPanelPage):
 
         if extendCorners:
             def edgesMatchShape(e0, e1):
-                return PathGeom.edgesMatch(e0, e1) or PathGeom.edgesMatch(e0, PathGeom.flipEdge(e1))
+                flipped = PathGeom.flipEdge(e1)
+                if flipped:
+                    return PathGeom.edgesMatch(e0, e1) or PathGeom.edgesMatch(e0, flipped)
+                else:
+                    return PathGeom.edgesMatch(e0, e1)
 
             self.extensionEdges = extensionEdges # pylint: disable=attribute-defined-outside-init
             for edgeList in Part.sortEdges(list(extensionEdges.keys())):
@@ -305,7 +305,8 @@ class TaskPanelExtensionPage(PathOpGui.TaskPanelPage):
         def removeItemSwitch(item, ext):
             # pylint: disable=unused-argument
             ext.hide()
-            self.switch.removeChild(ext.root)
+            if ext.root:
+                self.switch.removeChild(ext.root)
         self.forAllItemsCall(removeItemSwitch)
         self.model.clear()
 
@@ -478,9 +479,9 @@ class TaskPanelOpPage(PathPocketBaseGui.TaskPanelOpPage):
 Command = PathOpGui.SetupOperation('Pocket Shape',
         PathPocketShape.Create,
         TaskPanelOpPage,
-        'Path-Pocket',
-        QtCore.QT_TRANSLATE_NOOP("PathPocket", "Pocket Shape"),
-        QtCore.QT_TRANSLATE_NOOP("PathPocket", "Creates a Path Pocket object from a face or faces"),
+        'Path_Pocket',
+        QtCore.QT_TRANSLATE_NOOP("Path_Pocket", "Pocket Shape"),
+        QtCore.QT_TRANSLATE_NOOP("Path_Pocket", "Creates a Path Pocket object from a face or faces"),
         PathPocketShape.SetupProperties)
 
 FreeCAD.Console.PrintLog("Loading PathPocketShapeGui... done\n")

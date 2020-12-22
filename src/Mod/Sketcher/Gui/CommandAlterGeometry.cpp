@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) 2011 Jürgen Riegel (juergen.riegel@web.de)              *
+ *   Copyright (c) 2011 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -30,7 +30,7 @@
 #include <Gui/Application.h>
 #include <Gui/Document.h>
 #include <Gui/Selection.h>
-#include <Gui/Command.h>
+#include <Gui/CommandT.h>
 #include <Gui/MainWindow.h>
 #include <Gui/BitmapFactory.h>
 #include <Gui/DlgEditFileIncludePropertyExternal.h>
@@ -75,7 +75,7 @@ CmdSketcherToggleConstruction::CmdSketcherToggleConstruction()
     sToolTipText    = QT_TR_NOOP("Toggles the toolbar or selected geometry to/from construction mode");
     sWhatsThis      = "Sketcher_ToggleConstruction";
     sStatusTip      = sToolTipText;
-    sPixmap         = "Sketcher_AlterConstruction";
+    sPixmap         = "Sketcher_ToggleConstruction";
     sAccel          = "C,M";
     eType           = ForEdit;
 
@@ -134,7 +134,7 @@ void CmdSketcherToggleConstruction::activated(int iMsg)
         }
 
         // undo command open
-        openCommand("Toggle draft from/to draft");
+        openCommand(QT_TRANSLATE_NOOP("Command", "Toggle draft from/to draft"));
 
         // go through the selected subelements
         for (std::vector<std::string>::const_iterator it=SubNames.begin();it!=SubNames.end();++it){
@@ -142,8 +142,23 @@ void CmdSketcherToggleConstruction::activated(int iMsg)
             if (it->size() > 4 && it->substr(0,4) == "Edge") {
                 int GeoId = std::atoi(it->substr(4,4000).c_str()) - 1;
                 // issue the actual commands to toggle
-                FCMD_OBJ_CMD2("toggleConstruction(%d) ",selection[0].getObject(),GeoId);
+                Gui::cmdAppObjectArgs(selection[0].getObject(), "toggleConstruction(%d) ", GeoId);
             }
+            if (it->size() > 6 && it->substr(0,6) == "Vertex") {
+                int vertexId = std::atoi(it->substr(6,4000).c_str()) - 1;
+
+                int geoId;
+                PointPos pos;
+                Obj->getGeoVertexIndex(vertexId,geoId, pos);
+
+                auto geo = Obj->getGeometry(geoId);
+
+                if(geo && geo->getTypeId() == Part::GeomPoint::getClassTypeId()) {
+                    // issue the actual commands to toggle
+                    Gui::cmdAppObjectArgs(selection[0].getObject(), "toggleConstruction(%d) ", geoId);
+                }
+            }
+
         }
         // finish the transaction and update
         commitCommand();

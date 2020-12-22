@@ -20,8 +20,7 @@ include_directories(
 if(MSVC)
     set(FreeCADBase_LIBS
         ${Boost_LIBRARIES}
-        debug ${XercesC_DEBUG_LIBRARIES}
-        optimized ${XercesC_LIBRARIES}
+        ${XercesC_LIBRARIES}
         ${ZLIB_LIBRARIES}
         debug MSVCRTD.LIB
         debug MSVCPRTD.LIB
@@ -78,6 +77,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     list(APPEND FreeCADBase_LIBS -lutil -ldl)
 endif()
 
+generate_from_xml(TypePy)
 generate_from_xml(BaseClassPy)
 generate_from_xml(BoundBoxPy)
 generate_from_xml(CoordinateSystemPy)
@@ -173,6 +173,7 @@ SET(FreeCADBase_XML_SRCS
     RotationPy.xml
     VectorPy.xml
     QuantityPy.xml
+    TypePy.xml
     UnitPy.xml
 )
 SOURCE_GROUP("XML" FILES ${FreeCADBase_XML_SRCS})
@@ -200,6 +201,8 @@ SET(FreeCADBase_UNITAPI_SRCS
     UnitsSchemaCentimeters.cpp
     UnitsSchemaMmMin.h
     UnitsSchemaMmMin.cpp
+    UnitsSchemaFemMilliMeterNewton.h
+    UnitsSchemaFemMilliMeterNewton.cpp
     Quantity.h
     Quantity.cpp
     QuantityPyImp.cpp
@@ -276,6 +279,7 @@ SET(FreeCADBase_CPP_SRCS
     Tools2D.cpp
     Translate.cpp
     Type.cpp
+    TypePyImp.cpp
     Uuid.cpp
     Vector3D.cpp
     VectorPyImp.cpp

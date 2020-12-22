@@ -62,7 +62,7 @@
 #include <algorithm>
 
 // Boost
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 // OCC
 #include <Standard_math.hxx>
@@ -77,6 +77,7 @@
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
+#include <BRepAdaptor_Surface.hxx>
 
 // STL
 #include <vector>

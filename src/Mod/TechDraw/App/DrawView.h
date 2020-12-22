@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2007     *
+ *   Copyright (c) 2007 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -25,11 +25,13 @@
 
 #include <boost/signals2.hpp>
 
+#include <QCoreApplication>
 #include <QRectF>
 
 #include <App/DocumentObject.h>
 #include <App/PropertyStandard.h>
 #include <App/PropertyGeo.h>
+#include <App/PropertyUnits.h>
 #include <App/FeaturePython.h>
 
 namespace TechDraw
@@ -44,6 +46,7 @@ class DrawLeaderLine;
  */
 class TechDrawExport DrawView : public App::DocumentObject
 {
+    Q_DECLARE_TR_FUNCTIONS(TechDraw::DrawView)
     PROPERTY_HEADER_WITH_OVERRIDE(TechDraw::DrawView);
 
 public:
@@ -51,13 +54,13 @@ public:
     DrawView(void);
     virtual ~DrawView();
 
-    App::PropertyFloat X;
-    App::PropertyFloat Y;
-    App::PropertyBool  LockPosition;
+    App::PropertyDistance X;
+    App::PropertyDistance Y;
+    App::PropertyBool LockPosition;
     App::PropertyFloatConstraint Scale;
 
     App::PropertyEnumeration ScaleType;
-    App::PropertyFloat Rotation;
+    App::PropertyAngle Rotation;
     App::PropertyString Caption;
 
     /** @name methods override Feature */
@@ -82,10 +85,12 @@ public:
 
     virtual DrawPage* findParentPage() const;
     virtual QRectF getRect() const;                      //must be overridden by derived class
+    virtual double autoScale(void) const;
     virtual double autoScale(double w, double h) const;
+    virtual bool checkFit(void) const;
     virtual bool checkFit(DrawPage*) const;
     virtual void setPosition(double x, double y, bool force = false);
-    bool keepUpdated(void);
+    virtual bool keepUpdated(void);
     boost::signals2::signal<void (const DrawView*)> signalGuiPaint;
     virtual double getScale(void) const;
     void checkScale(void);
@@ -101,6 +106,9 @@ protected:
     std::string pageFeatName;
     bool autoPos;
     bool mouseMove;
+
+    int prefScaleType(void);
+    double prefScale(void);
 
 private:
     static const char* ScaleTypeEnums[];

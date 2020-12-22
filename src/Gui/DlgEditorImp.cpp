@@ -66,14 +66,15 @@ struct DlgSettingsEditorP
  */
 DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
   : PreferencePage( parent )
+  , ui(new Ui_DlgEditorSettings)
 {
-    this->setupUi(this);
+    this->ui->setupUi(this);
 
     d = new DlgSettingsEditorP();
 
 
-    d->pythonSyntax = new PythonSyntaxHighlighter(textEdit1);
-    d->pythonSyntax->setDocument(textEdit1->document());
+    d->pythonSyntax = new PythonSyntaxHighlighter(ui->textEdit1);
+    d->pythonSyntax->setDocument(ui->textEdit1->document());
 
     // get default colors from SyntaxHighlighter
     d->colormodel.colormap = d->pythonSyntax->allColors();
@@ -101,9 +102,9 @@ DlgSettingsEditorImp::DlgSettingsEditorImp( QWidget* parent )
     d->colormodel.setData(d->colormodel.createNewIndex(0,0),
                           QVariant(), Qt::EditRole);
 
-    displayItems->setModel(&d->colormodel);
+    ui->displayItems->setModel(&d->colormodel);
 
-    QItemSelectionModel *selection = displayItems->selectionModel();
+    QItemSelectionModel *selection = ui->displayItems->selectionModel();
     connect(selection, SIGNAL(currentRowChanged(QModelIndex, QModelIndex)),
             this, SLOT(displayItems_currentRowChanged(QModelIndex,QModelIndex)));
 }
@@ -123,24 +124,24 @@ void DlgSettingsEditorImp::displayItems_currentRowChanged(const QModelIndex & cu
 {
     Q_UNUSED(previous)
     QString key = d->colormodel.colormap.keys()[current.row()];
-    colorButton->setColor(d->colormodel.colormap[key].color());
+    ui->colorButton->setColor(d->colormodel.colormap[key].color());
 }
 
 void DlgSettingsEditorImp::on_displayItems_doubleClicked(const QModelIndex &current)
 {
     QString key = d->colormodel.colormap.keys()[current.row()];
-    colorButton->setColor(d->colormodel.colormap[key].color());
-    colorButton->click();
+    ui->colorButton->setColor(d->colormodel.colormap[key].color());
+    ui->colorButton->click();
 }
 
 /** Updates the color if a color was changed */
 void DlgSettingsEditorImp::on_colorButton_changed()
 {
-    QModelIndex index = displayItems->currentIndex();
+    QModelIndex index = ui->displayItems->currentIndex();
     if (!index.isValid())
         return;
 
-    QColor col = colorButton->color();
+    QColor col = ui->colorButton->color();
 
     // change color in list
     d->colormodel.setData(index, QVariant(col), Qt::DecorationRole);
@@ -148,23 +149,23 @@ void DlgSettingsEditorImp::on_colorButton_changed()
 
 void DlgSettingsEditorImp::saveSettings()
 {
-    EnableLineNumber->onSave();
-    EnableFolding->onSave();
-    EnableIndentMarkers->onSave();
-    EnableLineWrap->onSave();
-    EnableLongLineMarker->onSave();
-    EnableTrimTrailingWhitespaces->onSave();
-    EnableAutoIndent->onSave();
-    EnableScrollToExceptionLine->onSave();
-    EnableHaltDebuggerOnExceptions->onSave();
-    EnableCodeAnalyzer->onSave();
-    EnableCenterDebugmarker->onSave();
-    LongLineWidth->onSave();
-    PopupTimeoutTime->onSave();
-    tabSize->onSave();
-    indentSize->onSave();
-    radioTabs->onSave();
-    radioSpaces->onSave();
+    ui->EnableLineNumber->onSave();
+    ui->EnableFolding->onSave();
+    ui->EnableIndentMarkers->onSave();
+    ui->EnableLineWrap->onSave();
+    ui->EnableLongLineMarker->onSave();
+    ui->EnableTrimTrailingWhitespaces->onSave();
+    ui->EnableAutoIndent->onSave();
+    ui->EnableScrollToExceptionLine->onSave();
+    ui->EnableHaltDebuggerOnExceptions->onSave();
+    ui->EnableCodeAnalyzer->onSave();
+    ui->EnableCenterDebugmarker->onSave();
+    ui->LongLineWidth->onSave();
+    ui->PopupTimeoutTime->onSave();
+    ui->tabSize->onSave();
+    ui->indentSize->onSave();
+    ui->radioTabs->onSave();
+    ui->radioSpaces->onSave();
 
     // Saves the color map
     ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Editor");
@@ -173,32 +174,32 @@ void DlgSettingsEditorImp::saveSettings()
         hGrp->SetUnsigned(key.toLatin1(), d->colormodel.colormap[key].colorAsULong());
     }
 
-    hGrp->SetInt( "FontSize", fontSize->value() );
-    hGrp->SetASCII( "Font", fontFamily->currentText().toLatin1() );
+    hGrp->SetInt( "FontSize", ui->fontSize->value() );
+    hGrp->SetASCII( "Font", ui->fontFamily->currentText().toLatin1() );
 }
 
 void DlgSettingsEditorImp::loadSettings()
 {
-    EnableLineNumber->onRestore();
-    EnableFolding->onRestore();
-    EnableIndentMarkers->onRestore();
-    EnableLineWrap->onRestore();
-    EnableLongLineMarker->onRestore();
-    EnableTrimTrailingWhitespaces->onRestore();
-    EnableAutoIndent->onRestore();
-    EnableScrollToExceptionLine->onRestore();
-    EnableHaltDebuggerOnExceptions->onRestore();
-    EnableCodeAnalyzer->onRestore();
-    EnableCodeAnalyzer->onRestore();
-    EnableCenterDebugmarker->onRestore();
-    LongLineWidth->onRestore();
-    PopupTimeoutTime->onRestore();
-    tabSize->onRestore();
-    indentSize->onRestore();
-    radioTabs->onRestore();
-    radioSpaces->onRestore();
+    ui->EnableLineNumber->onRestore();
+    ui->EnableFolding->onRestore();
+    ui->EnableIndentMarkers->onRestore();
+    ui->EnableLineWrap->onRestore();
+    ui->EnableLongLineMarker->onRestore();
+    ui->EnableTrimTrailingWhitespaces->onRestore();
+    ui->EnableAutoIndent->onRestore();
+    ui->EnableScrollToExceptionLine->onRestore();
+    ui->EnableHaltDebuggerOnExceptions->onRestore();
+    ui->EnableCodeAnalyzer->onRestore();
+    ui->EnableCodeAnalyzer->onRestore();
+    ui->EnableCenterDebugmarker->onRestore();
+    ui->LongLineWidth->onRestore();
+    ui->PopupTimeoutTime->onRestore();
+    ui->tabSize->onRestore();
+    ui->indentSize->onRestore();
+    ui->radioTabs->onRestore();
+    ui->radioSpaces->onRestore();
 
-    textEdit1->setPlainText(QString::fromLatin1(
+    ui->textEdit1->setPlainText(QString::fromLatin1(
         "# Short Python sample\n"
         "import sys\n"
         "def foo(begin, end):\n"
@@ -217,7 +218,7 @@ void DlgSettingsEditorImp::loadSettings()
         d->colormodel.colormap[key].setColor(col);
     }
 
-    displayItems->update();
+    ui->displayItems->update();
 
     // inform (current forms sampleview) syntax highlighter of these changes
     d->pythonSyntax->setBatchOfColors(d->colormodel.colormap);
@@ -225,20 +226,20 @@ void DlgSettingsEditorImp::loadSettings()
 
     // fill up font styles
     //
-    fontSize->setValue(10);
-    fontSize->setValue(static_cast<int>(hGrp->GetInt("FontSize", fontSize->value())));
+    ui->fontSize->setValue(10);
+    ui->fontSize->setValue(static_cast<int>(hGrp->GetInt("FontSize", ui->fontSize->value())));
 
     QByteArray fontName = this->font().family().toLatin1();
 
     QFontDatabase fdb;
     QStringList familyNames = fdb.families( QFontDatabase::Any );
-    fontFamily->addItems(familyNames);
+    ui->fontFamily->addItems(familyNames);
     int index = familyNames.indexOf(QString::fromLatin1(hGrp->GetASCII("Font", fontName).c_str()));
     if (index < 0) index = 0;
-    fontFamily->setCurrentIndex(index);
-    on_fontFamily_activated(this->fontFamily->currentText());
+    ui->fontFamily->setCurrentIndex(index);
+    on_fontFamily_activated(ui->fontFamily->currentText());
 
-    displayItems->setCurrentIndex(d->colormodel.createNewIndex(0,0));
+    ui->displayItems->setCurrentIndex(d->colormodel.createNewIndex(0,0));
 }
 
 /**
@@ -253,7 +254,7 @@ void DlgSettingsEditorImp::changeEvent(QEvent *e)
                                                                   // to model
         }
 
-        this->retranslateUi(this);
+        ui->retranslateUi(this);
     } else {
         QWidget::changeEvent(e);
     }
@@ -261,14 +262,14 @@ void DlgSettingsEditorImp::changeEvent(QEvent *e)
 
 void DlgSettingsEditorImp::on_fontFamily_activated(const QString& fontFam)
 {
-    int fontSize = this->fontSize->value();
+    int fontSize = ui->fontSize->value();
     QFont ft(fontFam, fontSize);
-    textEdit1->setFont(ft);
+    ui->textEdit1->setFont(ft);
 }
 
 void DlgSettingsEditorImp::on_fontSize_valueChanged(const QString&)
 {
-    on_fontFamily_activated(this->fontFamily->currentText());
+    on_fontFamily_activated(ui->fontFamily->currentText());
 }
 
 // ---------------------------------------------------------------------------------------

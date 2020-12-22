@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2002     *
+ *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -41,6 +41,7 @@
 #include "Application.h"
 #include "Document.h"
 #include "NavigationStyle.h"
+#include "SoMouseWheelEvent.h"
 #include "SoFCSelectionAction.h"
 #include "SoFCOffscreenRenderer.h"
 #include "SoFCVectorizeSVGAction.h"
@@ -50,6 +51,7 @@
 #include "View3DInventorViewer.h"
 #include "View3DViewerPy.h"
 #include "ActiveObjectList.h"
+#include "WidgetFactory.h"
 
 
 #include <Base/Console.h>
@@ -113,7 +115,7 @@ void View3DInventorPy::init_type()
     add_varargs_method("stopAnimating",&View3DInventorPy::stopAnimating,"stopAnimating()");
     add_varargs_method("setAnimationEnabled",&View3DInventorPy::setAnimationEnabled,"setAnimationEnabled()");
     add_varargs_method("isAnimationEnabled",&View3DInventorPy::isAnimationEnabled,"isAnimationEnabled()");
-    add_varargs_method("dump",&View3DInventorPy::dump,"dump()");
+    add_varargs_method("dump",&View3DInventorPy::dump,"dump(filename, [onlyVisible=False])");
     add_varargs_method("dumpNode",&View3DInventorPy::dumpNode,"dumpNode(node)");
     add_varargs_method("setStereoType",&View3DInventorPy::setStereoType,"setStereoType()");
     add_varargs_method("getStereoType",&View3DInventorPy::getStereoType,"getStereoType()");
@@ -202,6 +204,8 @@ void View3DInventorPy::init_type()
         "pla: clipping plane placement");
     add_varargs_method("hasClippingPlane",&View3DInventorPy::hasClippingPlane,
         "hasClippingPlane(): check whether this clipping plane is active");
+    add_varargs_method("graphicsView",&View3DInventorPy::graphicsView,
+        "graphicsView(): Access this view as QGraphicsView");
 }
 
 View3DInventorPy::View3DInventorPy(View3DInventor *vi)
@@ -291,7 +295,7 @@ Py::Object View3DInventorPy::message(const Py::Tuple& args)
 {
     const char **ppReturn = 0;
     char *psMsgStr;
-    if (!PyArg_ParseTuple(args.ptr(), "s;Message string needed (string)",&psMsgStr))     // convert args: Python->C 
+    if (!PyArg_ParseTuple(args.ptr(), "s;Message string needed (string)",&psMsgStr))     // convert args: Python->C
         throw Py::Exception();
 
     try {
@@ -413,7 +417,7 @@ SbRotation Camera::rotation(Camera::Orientation view)
     case Top:
         return SbRotation(0, 0, 0, 1);
     case Bottom:
-        return SbRotation(0, 1, 0, 0);
+        return SbRotation(1, 0, 0, 0);
     case Front: {
         float root = (float)(sqrt(2.0)/2.0);
         return SbRotation(root, 0, 0, root);
@@ -953,8 +957,9 @@ Py::Object View3DInventorPy::saveImage(const Py::Tuple& args)
 {
     char *cFileName,*cColor="Current",*cComment="$MIBA";
     int w=-1,h=-1;
+    int s=View3DInventorViewer::getNumSamples();
 
-    if (!PyArg_ParseTuple(args.ptr(), "et|iiss","utf-8",&cFileName,&w,&h,&cColor,&cComment))
+    if (!PyArg_ParseTuple(args.ptr(), "et|iissi","utf-8",&cFileName,&w,&h,&cColor,&cComment,&s))
         throw Py::Exception();
 
     std::string encodedName = std::string(cFileName);
@@ -972,7 +977,7 @@ Py::Object View3DInventorPy::saveImage(const Py::Tuple& args)
         bg.setNamedColor(colname);
 
     QImage img;
-    _view->getViewer()->savePicture(w, h, 8, bg, img);
+    _view->getViewer()->savePicture(w, h, s, bg, img);
 
     SoFCOffscreenRenderer& renderer = SoFCOffscreenRenderer::instance();
     SoCamera* cam = _view->getViewer()->getSoRenderManager()->getCamera();
@@ -1095,8 +1100,8 @@ Py::Object View3DInventorPy::getViewDirection(const Py::Tuple& args)
 Py::Object View3DInventorPy::setViewDirection(const Py::Tuple& args)
 {
     PyObject* object;
-    if (!PyArg_ParseTuple(args.ptr(), "O", &object)) 
-        throw Py::Exception(); 
+    if (!PyArg_ParseTuple(args.ptr(), "O", &object))
+        throw Py::Exception();
 
     try {
         if (PyTuple_Check(object)) {
@@ -1177,7 +1182,7 @@ Py::Object View3DInventorPy::getCameraType(const Py::Tuple& args)
 Py::Object View3DInventorPy::setCameraType(const Py::Tuple& args)
 {
     int cameratype=-1;
-    if (!PyArg_ParseTuple(args.ptr(), "i", &cameratype)) {    // convert args: Python->C 
+    if (!PyArg_ParseTuple(args.ptr(), "i", &cameratype)) {    // convert args: Python->C
         char* modename;
         PyErr_Clear();
         if (!PyArg_ParseTuple(args.ptr(), "s", &modename))
@@ -1232,11 +1237,12 @@ Py::Object View3DInventorPy::listCameraTypes(const Py::Tuple& args)
 Py::Object View3DInventorPy::dump(const Py::Tuple& args)
 {
     char* filename;
-    if (!PyArg_ParseTuple(args.ptr(), "s", &filename))
+    PyObject *onlyVisible = Py_False;
+    if (!PyArg_ParseTuple(args.ptr(), "s|O", &filename, &onlyVisible))
         throw Py::Exception();
 
     try {
-        _view->dump(filename);
+        _view->dump(filename, PyObject_IsTrue(onlyVisible));
         return Py::None();
     }
     catch (const Base::Exception& e) {
@@ -1253,7 +1259,7 @@ Py::Object View3DInventorPy::dump(const Py::Tuple& args)
 Py::Object View3DInventorPy::dumpNode(const Py::Tuple& args)
 {
     PyObject* object;
-    if (!PyArg_ParseTuple(args.ptr(), "O", &object))     // convert args: Python->C 
+    if (!PyArg_ParseTuple(args.ptr(), "O", &object))     // convert args: Python->C
         throw Py::Exception();
 
     void* ptr = 0;
@@ -1381,7 +1387,7 @@ Py::Object View3DInventorPy::getObjectInfo(const Py::Tuple& args)
     try {
         //Note: For gcc (4.2) we need the 'const' keyword to avoid the compiler error:
         //conversion from 'Py::seqref<Py::Object>' to non-scalar type 'Py::Int' requested
-        //We should report this problem to the PyCXX project as in the documentation an 
+        //We should report this problem to the PyCXX project as in the documentation an
         //example without the 'const' keyword is used.
         //Or we can also write Py::Int x(tuple[0]);
         const Py::Tuple tuple(object);
@@ -1488,7 +1494,7 @@ Py::Object View3DInventorPy::getObjectsInfo(const Py::Tuple& args)
     try {
         //Note: For gcc (4.2) we need the 'const' keyword to avoid the compiler error:
         //conversion from 'Py::seqref<Py::Object>' to non-scalar type 'Py::Int' requested
-        //We should report this problem to the PyCXX project as in the documentation an 
+        //We should report this problem to the PyCXX project as in the documentation an
         //example without the 'const' keyword is used.
         //Or we can also write Py::Int x(tuple[0]);
         const Py::Tuple tuple(object);
@@ -1990,6 +1996,10 @@ void View3DInventorPy::eventCallback(void * ud, SoEventCallback * n)
 
             dict.setItem("Button", Py::String(button));
         }
+        if (e->isOfType(SoMouseWheelEvent::getClassTypeId())){
+            const SoMouseWheelEvent* mwe = static_cast<const SoMouseWheelEvent*>(e);
+            dict.setItem("Delta", Py::Long(mwe->getDelta()));
+        }
         if (e->isOfType(SoSpaceballButtonEvent::getClassTypeId())) {
             const SoSpaceballButtonEvent* sbe = static_cast<const SoSpaceballButtonEvent*>(e);
             std::string button;
@@ -2277,7 +2287,7 @@ Py::Object View3DInventorPy::addEventCallbackPivy(const Py::Tuple& args)
             throw Py::TypeError("object is not callable");
         }
 
-        SoEventCallbackCB* callback = (ex == 1 ? 
+        SoEventCallbackCB* callback = (ex == 1 ?
             View3DInventorPy::eventCallbackPivyEx :
             View3DInventorPy::eventCallbackPivy);
         _view->getViewer()->addEventCallback(*eventId, callback, method);
@@ -2319,7 +2329,7 @@ Py::Object View3DInventorPy::removeEventCallbackPivy(const Py::Tuple& args)
             throw Py::TypeError("object is not callable");
         }
 
-        SoEventCallbackCB* callback = (ex == 1 ? 
+        SoEventCallbackCB* callback = (ex == 1 ?
             View3DInventorPy::eventCallbackPivyEx :
             View3DInventorPy::eventCallbackPivy);
         _view->getViewer()->removeEventCallback(*eventId, callback, method);
@@ -2505,7 +2515,7 @@ Py::Object View3DInventorPy::getActiveObject(const Py::Tuple& args)
     PyObject *resolve = Py_True;
     if (!PyArg_ParseTuple(args.ptr(), "s|O", &name,&resolve))
                 throw Py::Exception();
-    
+
     App::DocumentObject *parent = 0;
     std::string subname;
     App::DocumentObject* obj = _view->getActiveObject<App::DocumentObject*>(name,&parent,&subname);
@@ -2516,8 +2526,8 @@ Py::Object View3DInventorPy::getActiveObject(const Py::Tuple& args)
         return Py::asObject(obj->getPyObject());
 
     return Py::TupleN(
-            Py::asObject(obj->getPyObject()), 
-            Py::asObject(parent->getPyObject()), 
+            Py::asObject(obj->getPyObject()),
+            Py::asObject(parent->getPyObject()),
             Py::String(subname.c_str()));
 }
 
@@ -2589,4 +2599,14 @@ Py::Object View3DInventorPy::hasClippingPlane(const Py::Tuple& args)
     if (!PyArg_ParseTuple(args.ptr(), ""))
         throw Py::Exception();
     return Py::Boolean(_view->getViewer()->hasClippingPlane());
+}
+
+Py::Object View3DInventorPy::graphicsView(const Py::Tuple& args)
+{
+    if (!PyArg_ParseTuple(args.ptr(), ""))
+        throw Py::Exception();
+
+    PythonWrapper wrap;
+    wrap.loadWidgetsModule();
+    return wrap.fromQWidget(_view->getViewer(), "QGraphicsView");
 }

@@ -24,23 +24,26 @@
 #ifndef STARTGUI_DLGSTARTPREFERENCESIMP_H
 #define STARTGUI_DLGSTARTPREFERENCESIMP_H
 
-#include "ui_DlgStartPreferences.h"
 #include <Gui/PropertyPage.h>
+#include <memory>
 
+class Ui_DlgStartPreferences;
 namespace StartGui {
-
-    class DlgStartPreferencesImp : public Gui::Dialog::PreferencePage, public Ui_DlgStartPreferences
+    class DlgStartPreferencesImp : public Gui::Dialog::PreferencePage
     {
         Q_OBJECT
-    
+
     public:
         DlgStartPreferencesImp( QWidget* parent = 0 );
         ~DlgStartPreferencesImp();
-    
+
     protected:
         void saveSettings();
         void loadSettings();
         void changeEvent(QEvent *e);
+
+    private:
+        std::unique_ptr<Ui_DlgStartPreferences> ui;
     };
 
 } // namespace StartGui

@@ -41,6 +41,7 @@
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Vec.hxx>
+#include <gp_Elips.hxx>
 #include <Precision.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepAdaptor_Curve.hxx>
@@ -52,6 +53,7 @@
 #include <TopTools_IndexedMapOfShape.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <GCPnts_AbscissaPoint.hxx>
 #include <GProp_GProps.hxx>
 #include <GeomLProp_SLProps.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -71,6 +73,7 @@
 #include <Mod/Part/App/PartFeature.h>
 #include <Mod/Part/App/TopoShape.h>
 
+#include "Preferences.h"
 #include "GeometryObject.h"
 #include "DrawUtil.h"
 
@@ -203,7 +206,7 @@ double DrawUtil::angleWithX(TopoDS_Edge e, bool reverse)
     return result;
 }
 
-//! find angle of edge with x-Axis at First/LastVertex 
+//! find angle of edge with x-Axis at First/LastVertex
 double DrawUtil::angleWithX(TopoDS_Edge e, TopoDS_Vertex v, double tolerance)
 {
     double result = 0;
@@ -281,6 +284,67 @@ bool DrawUtil::fpCompare(const double& d1, const double& d2, double tolerance)
     return result;
 }
 
+//brute force intersection points of line(point, dir) with box(xRange, yRange)
+std::pair<Base::Vector3d, Base::Vector3d> DrawUtil::boxIntersect2d(Base::Vector3d point,
+                                                                   Base::Vector3d dirIn,
+                                                                   double xRange,
+                                                                   double yRange) 
+{
+    std::pair<Base::Vector3d, Base::Vector3d> result;
+    Base::Vector3d p1, p2;
+    Base::Vector3d dir = dirIn;
+    dir.Normalize();
+    // y = mx + b
+    // m = (y1 - y0) / (x1 - x0)
+    if (DrawUtil::fpCompare(dir.x, 0.0) ) {                 //vertical case
+        p1 = Base::Vector3d(point.x, - yRange / 2.0, 0.0);  
+        p2 = Base::Vector3d(point.x, yRange / 2.0, 0.0);
+    } else {
+        double slope = dir.y / dir.x;
+        double left = -xRange / 2.0;
+        double right = xRange / 2.0;
+        if (DrawUtil::fpCompare(slope, 0.0)) {               //horizontal case
+            p1 = Base::Vector3d(left, point.y);
+            p2 = Base::Vector3d(right, point.y);
+        } else {                                           //normal case
+            double top = yRange / 2.0;
+            double bottom = -yRange / 2.0;
+            double yLeft   = point.y - slope * (point.x - left) ;
+            double yRight  = point.y - slope * (point.x - right);
+            double xTop    = point.x - ( (point.y - top) / slope );
+            double xBottom = point.x - ( (point.y - bottom) / slope );
+
+            if ( (bottom < yLeft) &&
+                 (top > yLeft) )  {
+                p1 = Base::Vector3d(left, yLeft);
+            } else if (yLeft <= bottom) {
+                p1 = Base::Vector3d(xBottom, bottom);
+            } else if (yLeft >= top) {
+                p1 = Base::Vector3d(xTop, top);
+            }
+
+            if ( (bottom < yRight) &&
+                 (top > yRight) )  {
+                p2 = Base::Vector3d(right, yRight);
+            } else if (yRight <= bottom) {
+                p2 = Base::Vector3d(xBottom, bottom);
+            } else if (yRight >= top) {
+                p2 = Base::Vector3d(xTop, top);
+            }
+        }
+    }
+    result.first = p1;
+    result.second = p2;
+    Base::Vector3d dirCheck = p2 - p1;
+    dirCheck.Normalize();
+    if (!dir.IsEqual(dirCheck, 0.00001)) {
+        result.first = p2;
+        result.second = p1;
+    }
+
+    return result;
+}
+
 Base::Vector3d DrawUtil::vertex2Vector(const TopoDS_Vertex& v)
 {
     gp_Pnt gp  = BRep_Tool::Pnt(v);
@@ -309,6 +373,15 @@ std::string DrawUtil::formatVector(const gp_Dir& v)
     return result;
 }
 
+std::string DrawUtil::formatVector(const gp_Dir2d& v)
+{
+    std::string result;
+    std::stringstream builder;
+    builder << std::fixed << std::setprecision(3) ;
+    builder << " (" << v.X()  << "," << v.Y() <<  ") ";
+    result = builder.str();
+    return result;
+}
 std::string DrawUtil::formatVector(const gp_Vec& v)
 {
     std::string result;
@@ -329,6 +402,16 @@ std::string DrawUtil::formatVector(const gp_Pnt& v)
     return result;
 }
 
+std::string DrawUtil::formatVector(const gp_Pnt2d& v)
+{
+    std::string result;
+    std::stringstream builder;
+    builder << std::fixed << std::setprecision(3) ;
+    builder << " (" << v.X()  << "," << v.Y() << ") ";
+    result = builder.str();
+    return result;
+}
+
 std::string DrawUtil::formatVector(const QPointF& v)
 {
     std::string result;
@@ -340,7 +423,7 @@ std::string DrawUtil::formatVector(const QPointF& v)
 }
 
 //! compare 2 vectors for sorting - true if v1 < v2
-bool DrawUtil::vectorLess(const Base::Vector3d& v1, const Base::Vector3d& v2)  
+bool DrawUtil::vectorLess(const Base::Vector3d& v1, const Base::Vector3d& v2)
 {
     bool result = false;
     if ((v1 - v2).Length() > Precision::Confusion()) {      //ie v1 != v2
@@ -353,10 +436,10 @@ bool DrawUtil::vectorLess(const Base::Vector3d& v1, const Base::Vector3d& v2)
         }
     }
     return result;
-}  
+}
 
 //!convert fromPoint in coordinate system fromSystem to reference coordinate system
-Base::Vector3d DrawUtil::toR3(const gp_Ax2 fromSystem, const Base::Vector3d fromPoint)
+Base::Vector3d DrawUtil::toR3(const gp_Ax2& fromSystem, const Base::Vector3d& fromPoint)
 {
     gp_Pnt gFromPoint(fromPoint.x,fromPoint.y,fromPoint.z);
     gp_Pnt gToPoint;
@@ -369,7 +452,7 @@ Base::Vector3d DrawUtil::toR3(const gp_Ax2 fromSystem, const Base::Vector3d from
     return toPoint;
 }
 
-//! check if two vectors are parallel
+//! check if two vectors are parallel. Vectors don't have to be unit vectors
 bool DrawUtil::checkParallel(const Base::Vector3d v1, Base::Vector3d v2, double tolerance)
 {
     bool result = false;
@@ -404,7 +487,7 @@ Base::Vector3d  DrawUtil::closestBasis(Base::Vector3d v)
     Base::Vector3d  stdYr(0.0,-1.0,0.0);
     Base::Vector3d  stdZr(0.0,0.0,-1.0);
     double angleX,angleY,angleZ,angleXr,angleYr,angleZr, angleMin;
-    
+
     //first check if already a basis
     if (checkParallel(v,stdZ)) {
         return v;
@@ -413,7 +496,7 @@ Base::Vector3d  DrawUtil::closestBasis(Base::Vector3d v)
     } else if (checkParallel(v,stdX)) {
         return v;
     }
-    
+
     //not a basis. find smallest angle with a basis.
     angleX = stdX.GetAngle(v);
     angleY = stdY.GetAngle(v);
@@ -478,11 +561,9 @@ double DrawUtil::sensibleScale(double working_scale)
 
 double DrawUtil::getDefaultLineWeight(std::string lineType)
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
-                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
-    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
-    auto lg = LineGroup::lineGroupFactory(lgName);
-    
+    int lgNumber = Preferences::lineGroup();
+    auto lg = LineGroup::lineGroupFactory(lgNumber);
+
     double weight = lg->getWeight(lineType);
     delete lg;                                    //Coverity CID 174671
     return weight;
@@ -529,7 +610,7 @@ Base::Vector3d DrawUtil::Intersect2d(Base::Vector3d p1, Base::Vector3d d1,
 
 std::string DrawUtil::shapeToString(TopoDS_Shape s)
 {
-    std::ostringstream buffer; 
+    std::ostringstream buffer;
     BRepTools::Write(s, buffer);
     return buffer.str();
 }
@@ -548,6 +629,13 @@ Base::Vector3d DrawUtil::invertY(Base::Vector3d v)
     Base::Vector3d result(v.x, -v.y, v.z);
     return result;
 }
+
+QPointF DrawUtil::invertY(QPointF v)
+{
+    QPointF result(v.x(), -v.y());
+    return result;
+}
+
 
 //obs? was used in CSV prototype of Cosmetics
 std::vector<std::string> DrawUtil::split(std::string csvLine)
@@ -575,7 +663,7 @@ std::vector<std::string> DrawUtil::tokenize(std::string csvLine, std::string del
         tokens.push_back(s.substr(0, pos));
         s.erase(0, pos + delimiter.length());
     }
-    if (!s.empty()) {     
+    if (!s.empty()) {
         tokens.push_back(s);
     }
     return tokens;
@@ -585,7 +673,7 @@ App::Color DrawUtil::pyTupleToColor(PyObject* pColor)
 {
 //    Base::Console().Message("DU::pyTupleToColor()\n");
     double red = 0.0, green = 0.0, blue = 0.0, alpha = 0.0;
-    App::Color c(red, blue, green, alpha);
+    App::Color c(red, green, blue, alpha);
     if (PyTuple_Check(pColor)) {
         int tSize = (int) PyTuple_Size(pColor);
         if (tSize > 2) {
@@ -600,7 +688,7 @@ App::Color DrawUtil::pyTupleToColor(PyObject* pColor)
             PyObject* pAlpha = PyTuple_GetItem(pColor,3);
             alpha = PyFloat_AsDouble(pAlpha);
         }
-        c = App::Color(red, blue, green, alpha);
+        c = App::Color(red, green, blue, alpha);
     }
     return c;
 }
@@ -620,6 +708,85 @@ PyObject* DrawUtil::colorToPyTuple(App::Color color)
     PyTuple_SET_ITEM(pTuple, 3,pAlpha);
 
     return pTuple;
+}
+
+//check for crazy edge.  This is probably a geometry error of some sort.
+bool  DrawUtil::isCrazy(TopoDS_Edge e)
+{
+    bool result = false;
+    double ratio = 1.0;
+
+    if (e.IsNull()) {
+        result = true;
+        return result;
+    }
+
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
+                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/debug");
+    bool crazyOK = hGrp->GetBool("allowCrazyEdge", false);
+    if (crazyOK) {
+        return false;
+    }
+
+    BRepAdaptor_Curve adapt(e);
+
+    double edgeLength = GCPnts_AbscissaPoint::Length(adapt, Precision::Confusion());
+    if (edgeLength < 0.00001) {    //edge is scaled.  this is 0.00001 mm on paper
+        Base::Console().Log("DU::isCrazy - edge crazy short: %.7f\n", edgeLength);
+        result = true;
+        return result;
+    }
+    if (edgeLength > 9999.9) { //edge is scaled. this is 10 m on paper.  can't be right? 
+        Base::Console().Log("DU::isCrazy - edge crazy long: %.3f\n", edgeLength);
+        result = true;
+        return result;
+    }
+
+    double start = BRepLProp_CurveTool::FirstParameter(adapt);
+    double end = BRepLProp_CurveTool::LastParameter(adapt);
+    BRepLProp_CLProps propStart(adapt,start,0,Precision::Confusion());
+    const gp_Pnt& vStart = propStart.Value();
+    BRepLProp_CLProps propEnd(adapt,end,0,Precision::Confusion());
+    const gp_Pnt& vEnd = propEnd.Value();
+    double distance = vStart.Distance(vEnd);
+    if (adapt.GetType() == GeomAbs_BSplineCurve) {
+        if (distance > 0.001)  {   // not a closed loop
+            ratio = edgeLength / distance;
+            if (ratio > 9999.9) {   // 10,000x
+                result = true;                         //this is crazy edge
+            }
+        }
+    } else if (adapt.GetType() == GeomAbs_Ellipse) {
+        gp_Elips ellp = adapt.Ellipse();
+        double major = ellp.MajorRadius();
+        double minor = ellp.MinorRadius();
+        if (minor < 0.001) {             //too narrow
+            Base::Console().Log("DU::isCrazy - ellipse is crazy narrow: %.7f\n", minor);
+            result = true;
+        } else if (major > 9999.9) {     //too big
+            Base::Console().Log("DU::isCrazy - ellipse is crazy wide: %.3f\n", major);
+            result = true;
+        }
+    }
+
+//    Base::Console().Message("DU::isCrazy - returns: %d ratio: %.3f\n", result, ratio);
+    return result;
+} 
+
+//get 3d position of a face's center
+Base::Vector3d DrawUtil::getFaceCenter(TopoDS_Face f)
+{
+    BRepAdaptor_Surface adapt(f);
+    double u1 = adapt.FirstUParameter();
+    double u2 = adapt.LastUParameter();
+    double mu = (u1 + u2) / 2.0;
+    double v1 = adapt.FirstVParameter();
+    double v2 = adapt.LastVParameter();
+    double mv = (v1 + v2) / 2.0;
+    BRepLProp_SLProps prop(adapt,mu,mv,0,Precision::Confusion());
+    const gp_Pnt gv = prop.Value();
+    Base::Vector3d v(gv.X(), gv.Y(), gv.Z());
+    return v;
 }
 
 // Supplementary mathematical functions
@@ -936,7 +1103,7 @@ void DrawUtil::findLineSegmentRectangleIntersections(const Base::Vector2d &lineP
     }
 
     // Try to add the line segment end points
-    mergeBoundedPoint(linePoint + segmentBasePosition*segmentDirection, 
+    mergeBoundedPoint(linePoint + segmentBasePosition*segmentDirection,
                       rectangle, intersections);
     mergeBoundedPoint(linePoint + (segmentBasePosition + segmentLength)*segmentDirection,
                       rectangle, intersections);
@@ -979,6 +1146,25 @@ void DrawUtil::findCircularArcRectangleIntersections(const Base::Vector2d &circl
                       rectangle, intersections);
 }
 
+//copy whole text file from inSpec to outSpec
+//create empty outSpec file if inSpec
+void DrawUtil::copyFile(std::string inSpec, std::string outSpec)
+{
+//    Base::Console().Message("DU::copyFile(%s, %s)\n", inSpec.c_str(), outSpec.c_str());
+    if (inSpec.empty()) {
+        std::ofstream output(outSpec);
+        return;
+    }
+    Base::FileInfo fi(inSpec);
+    if (fi.isReadable()) {
+        bool rc = fi.copyTo(outSpec.c_str());
+        if (!rc) {
+            Base::Console().Message("DU::copyFile - failed - in: %s out:%s\n", inSpec.c_str(), outSpec.c_str());
+        }
+    }
+}
+
+
 //============================
 // various debugging routines.
 void DrawUtil::dumpVertexes(const char* text, const TopoDS_Shape& s)
@@ -1018,6 +1204,17 @@ void DrawUtil::countEdges(const char* text, const TopoDS_Shape& s)
     Base::Console().Message("COUNT - %s has %d edges\n",text,num);
 }
 
+void DrawUtil::dumpEdges(const char* text, const TopoDS_Shape& s)
+{
+    Base::Console().Message("DUMP - %s\n",text);
+    TopExp_Explorer expl(s, TopAbs_EDGE);
+    int i;
+    for (i = 1 ; expl.More(); expl.Next(),i++) {
+        const TopoDS_Edge& e = TopoDS::Edge(expl.Current());
+        dumpEdge("dumpEdges", i, e);
+    }
+}
+
 void DrawUtil::dump1Vertex(const char* text, const TopoDS_Vertex& v)
 {
     Base::Console().Message("DUMP - dump1Vertex - %s\n",text);
@@ -1025,7 +1222,7 @@ void DrawUtil::dump1Vertex(const char* text, const TopoDS_Vertex& v)
     Base::Console().Message("%s: (%.3f,%.3f,%.3f)\n",text,pnt.X(),pnt.Y(),pnt.Z());
 }
 
-void DrawUtil::dumpEdge(char* label, int i, TopoDS_Edge e)
+void DrawUtil::dumpEdge(const char* label, int i, TopoDS_Edge e)
 {
     BRepAdaptor_Curve adapt(e);
     double start = BRepLProp_CurveTool::FirstParameter(adapt);
@@ -1036,9 +1233,13 @@ void DrawUtil::dumpEdge(char* label, int i, TopoDS_Edge e)
     const gp_Pnt& vEnd = propEnd.Value();
     //Base::Console().Message("%s edge:%d start:(%.3f,%.3f,%.3f)/%0.3f end:(%.2f,%.3f,%.3f)/%.3f\n",label,i,
     //                        vStart.X(),vStart.Y(),vStart.Z(),start,vEnd.X(),vEnd.Y(),vEnd.Z(),end);
-    Base::Console().Message("%s edge:%d start:(%.3f,%.3f,%.3f)  end:(%.2f,%.3f,%.3f)\n",label,i,
-                            vStart.X(),vStart.Y(),vStart.Z(),vEnd.X(),vEnd.Y(),vEnd.Z());
+    Base::Console().Message("%s edge:%d start:(%.3f,%.3f,%.3f)  end:(%.2f,%.3f,%.3f) Orient: %d\n",label,i,
+                            vStart.X(),vStart.Y(),vStart.Z(),vEnd.X(),vEnd.Y(),vEnd.Z(), e.Orientation());
+    double edgeLength = GCPnts_AbscissaPoint::Length(adapt, Precision::Confusion());
+    Base::Console().Message(">>>>>>> length: %.3f  distance: %.3f ration: %.3f type: %d\n", edgeLength,
+                            vStart.Distance(vEnd), edgeLength / vStart.Distance(vEnd), adapt.GetType());
 }
+
 const char* DrawUtil::printBool(bool b)
 {
     return (b ? "True" : "False");
@@ -1061,12 +1262,28 @@ QString DrawUtil::qbaToDebug(const QByteArray & line)
 }
 
 void DrawUtil::dumpCS(const char* text,
-                      gp_Ax2 CS)
+                      const gp_Ax2& CS)
 {
     gp_Dir baseAxis = CS.Direction();
     gp_Dir baseX    = CS.XDirection();
     gp_Dir baseY    = CS.YDirection();
-    Base::Console().Message("DU::dumpCSDVS - %s Axis: %s X: %s Y: %s\n", text,
+    gp_Pnt baseOrg  = CS.Location();
+    Base::Console().Message("DU::dumpCS - %s Loc: %s Axis: %s X: %s Y: %s\n", text,
+                            DrawUtil::formatVector(baseOrg).c_str(),
+                            DrawUtil::formatVector(baseAxis).c_str(),
+                            DrawUtil::formatVector(baseX).c_str(),
+                            DrawUtil::formatVector(baseY).c_str());
+}
+
+void DrawUtil::dumpCS3(const char* text,
+                       const gp_Ax3& CS)
+{
+    gp_Dir baseAxis = CS.Direction();
+    gp_Dir baseX    = CS.XDirection();
+    gp_Dir baseY    = CS.YDirection();
+    gp_Pnt baseOrg  = CS.Location();
+    Base::Console().Message("DU::dumpCSF - %s Loc: %s Axis: %s X: %s Y: %s\n", text,
+                            DrawUtil::formatVector(baseOrg).c_str(),
                             DrawUtil::formatVector(baseAxis).c_str(),
                             DrawUtil::formatVector(baseX).c_str(),
                             DrawUtil::formatVector(baseY).c_str());

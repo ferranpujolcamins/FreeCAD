@@ -1,5 +1,5 @@
-/***************************************************************************
-*   (c) Jürgen Riegel (juergen.riegel@web.de) 2014                        *
+/**************************************************************************
+*   Copyright (c) 2014 Jürgen Riegel <juergen.riegel@web.de>              *
 *                                                                         *
 *   This file is part of the FreeCAD CAx development system.              *
 *                                                                         *
@@ -41,7 +41,8 @@ FC_LOG_LEVEL_INIT("MDIView",true,true)
 using namespace Gui;
 
 App::DocumentObject *ActiveObjectList::getObject(const ObjectInfo &info, bool resolve,
-        App::DocumentObject **parent, std::string *subname) const
+                                                 App::DocumentObject **parent,
+                                                 std::string *subname) const
 {
     if(parent) *parent = info.obj;
     if(subname) *subname = info.subname;
@@ -56,21 +57,22 @@ App::DocumentObject *ActiveObjectList::getObject(const ObjectInfo &info, bool re
     return resolve?obj->getLinkedObject(true):obj;
 }
 
-void ActiveObjectList::setHighlight(const ObjectInfo &info, HighlightMode mode, bool enable) {
+void ActiveObjectList::setHighlight(const ObjectInfo &info, HighlightMode mode, bool enable)
+{
     auto obj = getObject(info,false);
     if(!obj) return;
     auto vp = dynamic_cast<ViewProviderDocumentObject*>(Application::Instance->getViewProvider(obj));
     if(!vp) return;
 
-    if(TreeParams::Instance()->TreeActiveAutoExpand())
-        vp->getDocument()->signalExpandObject(*vp, 
-                enable?Gui::ExpandPath:Gui::CollapseItem, info.obj, info.subname.c_str());
+    if (TreeParams::Instance()->TreeActiveAutoExpand()) {
+        vp->getDocument()->signalExpandObject(*vp, enable ? TreeItemMode::ExpandPath : TreeItemMode::CollapseItem,
+                                              info.obj, info.subname.c_str());
+    }
 
     vp->getDocument()->signalHighlightObject(*vp, mode,enable,info.obj,info.subname.c_str());
 }
 
-Gui::ActiveObjectList::ObjectInfo Gui::ActiveObjectList::getObjectInfo(
-        App::DocumentObject *obj, const char *subname) const 
+Gui::ActiveObjectList::ObjectInfo Gui::ActiveObjectList::getObjectInfo(App::DocumentObject *obj, const char *subname) const
 {
     ObjectInfo info;
     info.obj = 0;
@@ -78,7 +80,7 @@ Gui::ActiveObjectList::ObjectInfo Gui::ActiveObjectList::getObjectInfo(
         return info;
     if(subname) {
         info.obj = obj;
-        if(subname) info.subname = subname;
+        info.subname = subname;
     }else{
         // If the input object is not from this document, it must be brought in
         // by some link type object of this document. We only accept the object
@@ -107,7 +109,7 @@ Gui::ActiveObjectList::ObjectInfo Gui::ActiveObjectList::getObjectInfo(
     return info;
 }
 
-bool Gui::ActiveObjectList::hasObject(App::DocumentObject *obj, 
+bool Gui::ActiveObjectList::hasObject(App::DocumentObject *obj,
         const char *name, const char *subname) const
 {
     auto it = _ObjectMap.find(name);
@@ -117,7 +119,7 @@ bool Gui::ActiveObjectList::hasObject(App::DocumentObject *obj,
     return info.obj==it->second.obj && info.subname==it->second.subname;
 }
 
-void Gui::ActiveObjectList::setObject(App::DocumentObject* obj, const char* name, 
+void Gui::ActiveObjectList::setObject(App::DocumentObject* obj, const char* name,
         const char *subname, const Gui::HighlightMode& mode)
 {
     auto it = _ObjectMap.find(name);
@@ -130,8 +132,8 @@ void Gui::ActiveObjectList::setObject(App::DocumentObject* obj, const char* name
     auto info = getObjectInfo(obj,subname);
     if(!info.obj) {
         FC_ERR("Cannot set active object "
-                << obj->getFullName() << '.' << (subname?subname:"") 
-                << " in document '" << _Doc->getDocument()->getName() 
+                << obj->getFullName() << '.' << (subname?subname:"")
+                << " in document '" << _Doc->getDocument()->getName()
                 << "'. Not found in current selection");
         return;
     }
@@ -140,7 +142,7 @@ void Gui::ActiveObjectList::setObject(App::DocumentObject* obj, const char* name
     setHighlight(info,mode,true);
 }
 
-bool Gui::ActiveObjectList::hasObject(const char*name)const 
+bool Gui::ActiveObjectList::hasObject(const char*name)const
 {
     return _ObjectMap.find(name) != _ObjectMap.end();
 }

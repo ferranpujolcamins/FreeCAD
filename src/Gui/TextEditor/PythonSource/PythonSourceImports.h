@@ -105,7 +105,7 @@ public:
                                                 const std::string &name);
     /// returns module instance form list with module paths as list of strings
     ///  ie: import sys.path.sub
-    Python::SourceImportModule *getImportModule(const std::list<const std::string> &modInheritance);
+    Python::SourceImportModule *getImportModule(const std::list<std::string> &modInheritance);
 
     /// returns package instance stored in 'filePath' from list
     Python::SourceImportPackage *getImportPackagePath(const std::string &filePath);
@@ -115,21 +115,21 @@ public:
                                                   const std::string &name);
     /// returns package instance form list with module paths as QStringList
     ///  ie: import sys.path.sub
-    Python::SourceImportPackage *getImportPackage(const std::list<const std::string> &modInheritance);
+    Python::SourceImportPackage *getImportPackage(const std::list<std::string> &modInheritance);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    Python::SourceImportModule *setModule(const std::list<const std::string> &rootPackage,
+    Python::SourceImportModule *setModule(const std::list<std::string> &rootPackage,
                                           const std::string &module,
                                           const std::string alias = std::string());
 
-    Python::SourceImportPackage *setPackage(const std::list<const std::string> &rootPackage);
+    Python::SourceImportPackage *setPackage(const std::list<std::string> &rootPackage);
 
     /// set import inserts module at packages path
     /// If already inserted we just return the module
     /// returns Module instance
-    Python::SourceModule *setModuleGlob(const std::list<const std::string> &rootPackage);
+    Python::SourceModule *setModuleGlob(const std::list<std::string> &rootPackage);
 };
 
 } // namespace Python

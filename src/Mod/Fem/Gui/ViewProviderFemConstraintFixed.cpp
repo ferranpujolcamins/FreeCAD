@@ -1,5 +1,6 @@
 /***************************************************************************
- *   Copyright (c) 2013 Jan Rheinländer <jrheinlaender[at]users.sourceforge.net>     *
+ *   Copyright (c) 2013 Jan Rheinländer                                    *
+ *                                   <jrheinlaender@users.sourceforge.net> *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -50,7 +51,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintFixed, FemGui::ViewProviderFemC
 
 ViewProviderFemConstraintFixed::ViewProviderFemConstraintFixed()
 {
-    sPixmap = "fem-constraint-fixed";
+    sPixmap = "FEM_ConstraintFixed";
 }
 
 ViewProviderFemConstraintFixed::~ViewProviderFemConstraintFixed()

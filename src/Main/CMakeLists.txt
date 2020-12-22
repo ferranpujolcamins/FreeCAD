@@ -3,6 +3,10 @@
 
 add_subdirectory(IDE)
 
+configure_file(freecad.rc.cmake ${CMAKE_CURRENT_BINARY_DIR}/freecad.rc)
+configure_file(freecadCmd.rc.cmake ${CMAKE_CURRENT_BINARY_DIR}/freecadCmd.rc)
+file(COPY icon.ico DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
 
 if(BUILD_GUI)
     include_directories(
@@ -27,7 +31,7 @@ endif(BUILD_GUI)
 if(BUILD_GUI)
 
     SET(FreeCAD_SRCS
-        freecad.rc
+        ${CMAKE_CURRENT_BINARY_DIR}/freecad.rc
         icon.ico
         MainGui.cpp
     )
@@ -74,8 +78,11 @@ endif(BUILD_GUI)
 ######################## FreeCADMainCmd ########################
 
 SET(FreeCADMainCmd_SRCS
+    ${CMAKE_CURRENT_BINARY_DIR}/freecadCmd.rc
+    icon.ico
     MainCmd.cpp
 )
+
 add_executable(FreeCADMainCmd ${FreeCADMainCmd_SRCS})
 
 SET(FreeCADMainCmd_LIBS

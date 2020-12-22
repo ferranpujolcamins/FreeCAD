@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (c) Jürgen Riegel          (juergen.riegel@web.de) 2002     *
+ *   Copyright (c) 2002 Jürgen Riegel <juergen.riegel@web.de>              *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -24,7 +24,7 @@
 #ifndef PART_TOPOSHAPE_H
 #define PART_TOPOSHAPE_H
 
-#include <iostream>
+#include <iosfwd>
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_Wire.hxx>
 #include <TopTools_ListOfShape.hxx>
@@ -52,8 +52,6 @@ public:
    NullShapeException();
    NullShapeException(const char * sMessage);
    NullShapeException(const std::string& sMessage);
-   /// Construction
-   NullShapeException(const NullShapeException &inst);
    /// Destruction
    virtual ~NullShapeException() throw() {}
 };
@@ -67,8 +65,6 @@ public:
    BooleanException();
    BooleanException(const char * sMessage);
    BooleanException(const std::string& sMessage);
-   /// Construction
-   BooleanException(const BooleanException &inst);
    /// Destruction
    virtual ~BooleanException() throw() {}
 };
@@ -153,12 +149,16 @@ public:
     /// get the Topo"sub"Shape with the given name
     TopoDS_Shape getSubShape(const char* Type, bool silent=false) const;
     TopoDS_Shape getSubShape(TopAbs_ShapeEnum type, int idx, bool silent=false) const;
+    std::vector<TopoShape> getSubTopoShapes(TopAbs_ShapeEnum type=TopAbs_SHAPE) const;
+    std::vector<TopoDS_Shape> getSubShapes(TopAbs_ShapeEnum type=TopAbs_SHAPE) const;
     unsigned long countSubShapes(const char* Type) const;
     unsigned long countSubShapes(TopAbs_ShapeEnum type) const;
     bool hasSubShape(const char *Type) const;
     bool hasSubShape(TopAbs_ShapeEnum type) const;
     /// get the Topo"sub"Shape with the given name
     PyObject * getPySubShape(const char* Type, bool silent=false) const;
+    PyObject * getPyObject();
+    void setPyObject(PyObject*);
 
     /** @name Save/restore */
     //@{
@@ -198,6 +198,8 @@ public:
     bool isClosed() const;
     bool isCoplanar(const TopoShape &other, double tol=-1) const;
     bool findPlane(gp_Pln &pln, double tol=-1) const;
+    /// Returns true if the expansion of the shape is infinite, false otherwise
+    bool isInfinite() const;
     //@}
 
     /** @name Boolean operation*/
@@ -247,6 +249,9 @@ public:
     TopoDS_Shape revolve(const gp_Ax1&, double d, Standard_Boolean isSolid=Standard_False) const;
     TopoDS_Shape makeSweep(const TopoDS_Shape& profile, double, int) const;
     TopoDS_Shape makeTube(double radius, double tol, int cont, int maxdeg, int maxsegm) const;
+    TopoDS_Shape makeTorus(Standard_Real radius1, Standard_Real radius2,
+        Standard_Real angle1, Standard_Real angle2, Standard_Real angle3,
+        Standard_Boolean isSolid=Standard_True) const;
     TopoDS_Shape makeHelix(Standard_Real pitch, Standard_Real height,
         Standard_Real radius, Standard_Real angle=0,
         Standard_Boolean left=Standard_False, Standard_Boolean style=Standard_False) const;

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="sl" sourcelanguage="en">
+<TS version="2.1" language="sl" sourcelanguage="en">
   <context>
     <name>Angle</name>
     <message>
@@ -23,35 +23,35 @@
       <source>Angle Snap</source>
       <translation>Pripni na kot</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>1 °</source>
       <translation>1°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>2 °</source>
       <translation>2°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>5 °</source>
       <translation>5°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>10 °</source>
       <translation>10°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>20 °</source>
       <translation>20°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>45 °</source>
       <translation>45°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>90 °</source>
       <translation>90°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>180 °</source>
       <translation>180°</translation>
     </message>
@@ -121,6 +121,13 @@
     </message>
   </context>
   <context>
+    <name>Command</name>
+    <message>
+      <source>Edit</source>
+      <translation>Uredi</translation>
+    </message>
+  </context>
+  <context>
     <name>DlgCustomizeSpNavSettings</name>
     <message>
       <source>Spaceball Motion</source>
@@ -160,7 +167,7 @@
     </message>
     <message>
       <source>Global Sensitivity:</source>
-      <translation>Vsezajemajoča občutljivost:</translation>
+      <translation>Obča občutljivost:</translation>
     </message>
   </context>
   <context>
@@ -174,12 +181,16 @@
       <translation>Izid:</translation>
     </message>
     <message>
-      <source>&amp;Discard</source>
-      <translation>&amp;Zavrzi</translation>
-    </message>
-    <message>
       <source>Ok</source>
       <translation>V redu</translation>
+    </message>
+    <message>
+      <source>&amp;Clear</source>
+      <translation>&amp;Počisti</translation>
+    </message>
+    <message>
+      <source>Revert to last calculated value (as constant)</source>
+      <translation>Povrni na zadnjo izračunano vrednost (kot nespremenljivko)</translation>
     </message>
   </context>
   <context>
@@ -239,7 +250,7 @@
     </message>
     <message>
       <source>Fixed object</source>
-      <translation>Pritrjeni predmet</translation>
+      <translation>Nepremičen predmet</translation>
     </message>
   </context>
   <context>
@@ -268,15 +279,15 @@
     <name>Gui::BlenderNavigationStyle</name>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Press SHIFT and middle mouse button</source>
-      <translation>Pritisnite Shift in srednji miškin gumb</translation>
+      <translation>Pritisnite Shift in srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Press middle mouse button</source>
-      <translation>Pritisnite srednjmiškin gumb</translation>
+      <translation>Pritisnite srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Scroll middle mouse button</source>
@@ -287,11 +298,11 @@
     <name>Gui::CADNavigationStyle</name>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Press middle mouse button</source>
-      <translation>Pritisnite srednjmiškin gumb</translation>
+      <translation>Pritisnite srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Press middle+left or middle+right button</source>
@@ -300,15 +311,15 @@
     <message>
       <source>Scroll middle mouse button or keep middle button depressed
 while doing a left or right click and move the mouse up or down</source>
-      <translation>Zavrtite srednji miškin gumb ali ga spustite, medtem ko
-kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
+      <translation>Zavrtite srednjo miškino tipko ali jo spustite, medtem ko
+kliknete na levo oz. desno tipko in premikate miško gor oz. dol</translation>
     </message>
   </context>
   <context>
     <name>Gui::Command</name>
     <message>
       <source>Standard</source>
-      <translation>Standard</translation>
+      <translation>Običajno</translation>
     </message>
   </context>
   <context>
@@ -319,14 +330,14 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>&amp;Cancel</source>
-      <translation>&amp;prekliči</translation>
+      <translation>&amp;Prekliči</translation>
     </message>
   </context>
   <context>
     <name>Gui::ControlSingleton</name>
     <message>
       <source>Task panel</source>
-      <translation>Podokno opravil</translation>
+      <translation>Podokno nalog</translation>
     </message>
   </context>
   <context>
@@ -392,11 +403,11 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>FreeCAD would be nowhere without their efforts:</source>
-      <translation>FreeCAD ne bi obstajal brez njihovih naporov:</translation>
+      <translation>FreeCAD ne bi obstajal brez njihovega truda:</translation>
     </message>
     <message>
       <source>License</source>
-      <translation>Licenca</translation>
+      <translation>Dovoljenje</translation>
     </message>
   </context>
   <context>
@@ -407,11 +418,15 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>This software uses open source components whose copyright and other proprietary rights belong to their respective owners:</source>
-      <translation>To programje uporablja odprtokodne dele katerih avtorske pravice in ostale pravice pripadajo njihovim lastnikom:</translation>
+      <translation>To programje uporablja odprtokodne dele, katerih avtorske pravice in ostale pravice pripadajo njihovim lastnikom:</translation>
     </message>
     <message>
       <source>License</source>
-      <translation>Licenca</translation>
+      <translation>Dovoljenje</translation>
+    </message>
+    <message>
+      <source>Collection</source>
+      <translation>Zbirka</translation>
     </message>
   </context>
   <context>
@@ -423,6 +438,14 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <message>
       <source>Out Of Range</source>
       <translation>Zunaj obsega</translation>
+    </message>
+    <message>
+      <source> "</source>
+      <translation> "</translation>
+    </message>
+    <message>
+      <source>"</source>
+      <translation>"</translation>
     </message>
   </context>
   <context>
@@ -460,11 +483,11 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <name>Gui::Dialog::Clipping</name>
     <message>
       <source>Clipping</source>
-      <translation>Obrezovanje</translation>
+      <translation>Zamejitev</translation>
     </message>
     <message>
       <source>Clipping X</source>
-      <translation>Obrezovanje X</translation>
+      <translation>X zamejitev</translation>
     </message>
     <message>
       <source>Flip</source>
@@ -476,15 +499,15 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Clipping Y</source>
-      <translation>Obrezovanje Y</translation>
+      <translation>Y zamejitev</translation>
     </message>
     <message>
       <source>Clipping Z</source>
-      <translation>Obrezovanje Z</translation>
+      <translation>Z zamejitev</translation>
     </message>
     <message>
       <source>Clipping custom direction</source>
-      <translation>Smer obrezovanja po meri</translation>
+      <translation>Smer zamejitve po meri</translation>
     </message>
     <message>
       <source>View</source>
@@ -510,7 +533,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <name>Gui::Dialog::DemoMode</name>
     <message>
       <source>View Turntable</source>
-      <translation>Obračajoči pogled</translation>
+      <translation>Sukajoči pogled</translation>
     </message>
     <message>
       <source>Speed</source>
@@ -540,11 +563,11 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
       <source>Angle</source>
       <translation>Kot</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>90°</source>
       <translation>90°</translation>
     </message>
-    <message utf8="true">
+    <message>
       <source>-90°</source>
       <translation>-90°</translation>
     </message>
@@ -569,7 +592,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>&amp;Activate</source>
-      <translation>&amp;Aktiviraj</translation>
+      <translation>&amp;Omogoči</translation>
     </message>
     <message>
       <source/>
@@ -581,6 +604,49 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <message>
       <source>Windows</source>
       <translation>Okna</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Dialog::DlgAddProperty</name>
+    <message>
+      <source>Add property</source>
+      <translation>Dodaj lastnost</translation>
+    </message>
+    <message>
+      <source>Type</source>
+      <translation>Vrsta</translation>
+    </message>
+    <message>
+      <source>Group</source>
+      <translation>Skupina</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Ime</translation>
+    </message>
+    <message>
+      <source>Verbose description of the new property.</source>
+      <translation>Podroben opis nove lastnosti.</translation>
+    </message>
+    <message>
+      <source>Documentation</source>
+      <translation>Dokumentacija</translation>
+    </message>
+    <message>
+      <source>Prefix the property name with the group name in the form 'Group_Name' to avoid conflicts with an existing property.
+In this case the prefix will be automatically trimmed when shown in the property editor.
+However, the property is still used in a script with the full name, like 'obj.Group_Name'.
+
+If this is not ticked, then the property must be uniquely named, and it is accessed like 'obj.Name'.</source>
+      <translation>Dodaj ime skupine kot predpono imenu lastnosti v obliki "Ime_skupine", da se izogne sporom z obstoječimi lastnostmi.
+V tem primeru bo predpona pri prikazovanju v urejevalniku lastnosti samodejno odstranjena.
+Neglede na to ima lastnost v skriptih še vedno polni naziv, kot npr. "obj.Ime_Skupine".
+
+Če to ni označeno, je treba lastnost poimenovati z edinstvenimi imeni, dostopna pa je kot "obj.Ime".</translation>
+    </message>
+    <message>
+      <source>Prefix group name</source>
+      <translation>Predpni z imenom skupin</translation>
     </message>
   </context>
   <context>
@@ -735,7 +801,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>No item selected</source>
-      <translation>Noben element ni izbran</translation>
+      <translation>Noben predmet ni izbran</translation>
     </message>
     <message>
       <source>Please select a macro item first.</source>
@@ -800,7 +866,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>&amp;Assign</source>
-      <translation>&amp;dodeli</translation>
+      <translation>&amp;Dodeli</translation>
     </message>
     <message>
       <source>Alt+A</source>
@@ -808,7 +874,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>&amp;Reset</source>
-      <translation>&amp;ponastavi</translation>
+      <translation>&amp;Ponastavi</translation>
     </message>
     <message>
       <source>Alt+R</source>
@@ -967,6 +1033,10 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
       <source>Global</source>
       <translation>Splošno</translation>
     </message>
+    <message>
+      <source>%1 module not loaded</source>
+      <translation>Modul %1 ni naložen</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgCustomizeImp</name>
@@ -1005,16 +1075,16 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
       <translation>Gumbi</translation>
     </message>
     <message>
-      <source>Clear</source>
-      <translation>Počisti</translation>
-    </message>
-    <message>
       <source>Print Reference</source>
       <translation>Natisni sklic</translation>
     </message>
     <message>
       <source>Spaceball Buttons</source>
       <translation>Gumbi 3D miške</translation>
+    </message>
+    <message>
+      <source>Reset</source>
+      <translation>Ponastavi</translation>
     </message>
   </context>
   <context>
@@ -1029,7 +1099,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Transparency:</source>
-      <translation>Prosojnost:</translation>
+      <translation>Prozornost:</translation>
     </message>
     <message>
       <source>Line width:</source>
@@ -1041,7 +1111,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Material</source>
-      <translation>Material</translation>
+      <translation>Snov</translation>
     </message>
     <message>
       <source>...</source>
@@ -1199,7 +1269,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Tab size:</source>
-      <translation>Velikost zavihka:</translation>
+      <translation>Velikost zamika:</translation>
     </message>
     <message>
       <source>Indent size:</source>
@@ -1207,11 +1277,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Keep tabs</source>
-      <translation>Obdrži zavihke</translation>
-    </message>
-    <message>
-      <source>Display Items</source>
-      <translation>Prikaži predmete</translation>
+      <translation>Obdrži zamike</translation>
     </message>
     <message>
       <source>Family:</source>
@@ -1229,6 +1295,46 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
       <source/>
       <translation type="unfinished"/>
     </message>
+    <message>
+      <source>Code lines will be numbered </source>
+      <translation>Vrstice kode bodo oštevilčene </translation>
+    </message>
+    <message>
+      <source>Pressing &lt;Tab&gt; will insert amount of defined indent size</source>
+      <translation>S pritiskom na &lt;Tab&gt; boste vstavili določen zamik</translation>
+    </message>
+    <message>
+      <source>Tabulator raster (how many spaces)</source>
+      <translation>Korak zamikalke (koliko presledkov)</translation>
+    </message>
+    <message>
+      <source>How many spaces will be inserted when pressing &lt;Tab&gt;</source>
+      <translation>Koliko presledkov se vstavi s pritiskom na &lt;Tab&gt;</translation>
+    </message>
+    <message>
+      <source>Pressing &lt;Tab&gt; will insert a tabulator with defined tab size</source>
+      <translation>S pritiskom na &lt;Tab&gt; vstavite zamik določene velikosti</translation>
+    </message>
+    <message>
+      <source>Display items</source>
+      <translation>Prikaži predmete</translation>
+    </message>
+    <message>
+      <source>Font size to be used for selected code type</source>
+      <translation>Velikost pisave za izbrano vrsto kode</translation>
+    </message>
+    <message>
+      <source>Color and font settings will be applied to selected type</source>
+      <translation>Za izbrano vrsto bodo uveljavljene nastavitve barve in pisave</translation>
+    </message>
+    <message>
+      <source>Font family to be used for selected code type</source>
+      <translation>Družina pisave za izbrano vrsto kode</translation>
+    </message>
+    <message>
+      <source>Color:</source>
+      <translation>Barva:</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgGeneral</name>
@@ -1242,7 +1348,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Enable splash screen at start up</source>
-      <translation>Omogoči pozdravni zaslon ob zagonu</translation>
+      <translation>Omogoči pozdravno okno ob zagonu</translation>
     </message>
     <message>
       <source>Auto load module after start up:</source>
@@ -1278,11 +1384,71 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     </message>
     <message>
       <source>Python console</source>
-      <translation>Konzola Python</translation>
+      <translation>Pythonova ukazna miza</translation>
     </message>
     <message>
       <source>Enable word wrap</source>
       <translation>Omogoči prelom besed</translation>
+    </message>
+    <message>
+      <source>Language of the application's user interface</source>
+      <translation>Jezik uporabniškega vmesnika programa</translation>
+    </message>
+    <message>
+      <source>How many files should be listed in recent files list</source>
+      <translation>Koliko datotek naj bo navedenih na seznamu nedavnih datotek</translation>
+    </message>
+    <message>
+      <source>Background of the main window will consist of tiles of a special image.
+See the FreeCAD Wiki for details about the image.</source>
+      <translation>Ozadje glavnega okna bo tlakovano s posebno sliko.
+Za podrobnosti o sliki si oglejte FreeCAD Wiki.</translation>
+    </message>
+    <message>
+      <source>Style sheet how user interface will look like</source>
+      <translation>Slogovna predloga, ki določa videz uporabniškega vmesnika</translation>
+    </message>
+    <message>
+      <source>Choose your preference for toolbar icon size. You can adjust
+this according to your screen size or personal taste</source>
+      <translation>Izberite velikost ikon orodne vrstice, ki vam najbolj odgovarja.
+Prilagodite jo lahko glede na velikost zaslona ali po lastnem okusu</translation>
+    </message>
+    <message>
+      <source>Tree view mode:</source>
+      <translation>Način drevesnega pogleda:</translation>
+    </message>
+    <message>
+      <source>Customize how tree view is shown in the panel (restart required).
+
+'ComboView': combine tree view and property view into one panel.
+'TreeView and PropertyView': split tree view and property view into separate panel.
+'Both': keep all three panels, and you can have two sets of tree view and property view.</source>
+      <translation>Prilagodi način prikazovanja drevesnega pogleda v plošči (potreben vnovični zagon).
+
+"Sestavljen pogled": v eno ploščo združen drevesni pogled in pogled z lastnostmi.
+"Drevesni in Lastnostni pogled": drevesni in lastnostni pogled, vsak na svoji plošči.
+"Oboje": ohrani vse tri plošče tako, da imate lahko dva drevesna in dva lastnostna pogleda.</translation>
+    </message>
+    <message>
+      <source>A Splash screen is a small loading window that is shown
+when FreeCAD is launching. If this option is checked, FreeCAD will
+display the splash screen</source>
+      <translation>Pozdravno okno je majhno okno, ki se prikaže med nalaganje
+FreeCADa ob zagonu. Če je ta možnost označena,
+bo pozdravno okno prikazano</translation>
+    </message>
+    <message>
+      <source>Choose which workbench will be activated and shown
+after FreeCAD launches</source>
+      <translation>Izberite delovna okolja, ki jih želite prikazana
+ob zagodu FreeCAD-a</translation>
+    </message>
+    <message>
+      <source>Words will be wrapped when they exceed available
+horizontal space in Python console</source>
+      <translation>Ko besede presežejo razpložljivo širino na Pythonovi
+ukazni mizi, se prelomijo</translation>
     </message>
   </context>
   <context>
@@ -1311,6 +1477,18 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
       <source>Custom (%1px)</source>
       <translation>Po meri (%1px)</translation>
     </message>
+    <message>
+      <source>Combo View</source>
+      <translation>Sestavljen pogled</translation>
+    </message>
+    <message>
+      <source>TreeView and PropertyView</source>
+      <translation>Drevesni pogled in Pogled z lastnostmi</translation>
+    </message>
+    <message>
+      <source>Both</source>
+      <translation>Oboje</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgInputDialog</name>
@@ -1327,7 +1505,7 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <name>Gui::Dialog::DlgInspector</name>
     <message>
       <source>Scene Inspector</source>
-      <translation>Preglednik scen</translation>
+      <translation>Preglednik torišč</translation>
     </message>
   </context>
   <context>
@@ -1383,6 +1561,10 @@ kliknete na levi ali desni gumb in premikate miško gor oz. dol</translation>
     <message>
       <source>Addons...</source>
       <translation>Dodatki ...</translation>
+    </message>
+    <message>
+      <source>Toolbar</source>
+      <translation>Orodna vrstica</translation>
     </message>
   </context>
   <context>
@@ -1466,6 +1648,48 @@ Perhaps a file permission error?</source>
       <translation>Podvajanje v '%1' ni uspelo.
 Mogoče je napaka pri dostopu do datoteke?</translation>
     </message>
+    <message>
+      <source>Do not show again</source>
+      <translation>Ne prikaži več</translation>
+    </message>
+    <message>
+      <source>Guided Walkthrough</source>
+      <translation>Vodič</translation>
+    </message>
+    <message>
+      <source>This will guide you in setting up this macro in a custom global toolbar.  Instructions will be in red text inside the dialog.
+
+Note: your changes will be applied when you next switch workbenches
+</source>
+      <translation>To vas bo vodilo skozi vgradnjo makra v splošno orodno vrstico po meri. V pogovornem oknu bodo navodila rdeča.
+
+Opomba: spremembe bodo uveljavljene pri naslednjem preklopu med delovnimi okolji
+</translation>
+    </message>
+    <message>
+      <source>Walkthrough, dialog 1 of 2</source>
+      <translation>Vodič, 1. pogovorno okno od 2</translation>
+    </message>
+    <message>
+      <source>Walkthrough instructions: Fill in missing fields (optional) then click Add, then Close</source>
+      <translation>Navodila vodiča: Izpolnite manjkajoča polja (po izbiri), kliknite Dodaj in nato Zapri</translation>
+    </message>
+    <message>
+      <source>Walkthrough, dialog 1 of 1</source>
+      <translation>Vodič, 1. pogovorno okno od 1</translation>
+    </message>
+    <message>
+      <source>Walkthrough, dialog 2 of 2</source>
+      <translation>Vodič, 2. pogovorno okno od 2</translation>
+    </message>
+    <message>
+      <source>Walkthrough instructions: Click right arrow button (-&gt;), then Close.</source>
+      <translation>Navodila vodiča: Kliknite gumb s puščico v desno (-&gt;), nato Zapri.</translation>
+    </message>
+    <message>
+      <source>Walkthrough instructions: Click New, then right arrow (-&gt;) button, then Close.</source>
+      <translation>Navodila vodiča: Kliknite Nov, nato gumb s puščico v desno (-&gt;) in na koncu Zapri.</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgMacroRecord</name>
@@ -1533,15 +1757,15 @@ Mogoče je napaka pri dostopu do datoteke?</translation>
     <name>Gui::Dialog::DlgMaterialProperties</name>
     <message>
       <source>Material properties</source>
-      <translation>Lastnosti materiala</translation>
+      <translation>Lastnosti snovi</translation>
     </message>
     <message>
       <source>Material</source>
-      <translation>Material</translation>
+      <translation>Snov</translation>
     </message>
     <message>
       <source>Diffuse color:</source>
-      <translation>Barva razpršujočosti:</translation>
+      <translation>Odbojna barva:</translation>
     </message>
     <message>
       <source>Specular color:</source>
@@ -1557,7 +1781,7 @@ Mogoče je napaka pri dostopu do datoteke?</translation>
     </message>
     <message>
       <source>Ambient color:</source>
-      <translation>Barva okoline:</translation>
+      <translation>Lastna barva:</translation>
     </message>
     <message>
       <source/>
@@ -1580,7 +1804,7 @@ Mogoče je napaka pri dostopu do datoteke?</translation>
     </message>
     <message>
       <source>Location of start page</source>
-      <translation>Lokacija začetne strani</translation>
+      <translation>Mesto začetne strani</translation>
     </message>
   </context>
   <context>
@@ -1606,7 +1830,7 @@ Navedite drugo mapo.</translation>
     <name>Gui::Dialog::DlgParameter</name>
     <message>
       <source>Parameter Editor</source>
-      <translation>Urejevalnik parametrov</translation>
+      <translation>Urejevalnik določilk</translation>
     </message>
     <message>
       <source>Save to disk</source>
@@ -1623,6 +1847,22 @@ Navedite drugo mapo.</translation>
     <message>
       <source>Find...</source>
       <translation>Poišči ...</translation>
+    </message>
+    <message>
+      <source>Sorted</source>
+      <translation>Razvrščeno</translation>
+    </message>
+    <message>
+      <source>Quick search</source>
+      <translation>Hitro iskanje</translation>
+    </message>
+    <message>
+      <source>Type in a group name to find it</source>
+      <translation>Vrsta, ki jo želite najti v skupinskem imenu</translation>
+    </message>
+    <message>
+      <source>Search Group</source>
+      <translation>Išči skupine</translation>
     </message>
   </context>
   <context>
@@ -1688,7 +1928,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>User parameter</source>
-      <translation>Uporabniški parameter</translation>
+      <translation>Uporabniška določilka</translation>
     </message>
     <message>
       <source>Invalid input</source>
@@ -1700,14 +1940,18 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>System parameter</source>
-      <translation>Sistemski parameter</translation>
+      <translation>Sistemska določilka</translation>
+    </message>
+    <message>
+      <source>Search Group</source>
+      <translation>Išči skupine</translation>
     </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgPreferences</name>
     <message>
       <source>Preferences</source>
-      <translation>Možnosti</translation>
+      <translation>Prednastavitve</translation>
     </message>
     <message>
       <source/>
@@ -1718,7 +1962,7 @@ Navedite drugo mapo.</translation>
     <name>Gui::Dialog::DlgPreferencesImp</name>
     <message>
       <source>Wrong parameter</source>
-      <translation>Napačen parameter</translation>
+      <translation>Napačna določilka</translation>
     </message>
     <message>
       <source>Clear user settings</source>
@@ -1789,11 +2033,15 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>License URL</source>
-      <translation>URL licence</translation>
+      <translation>Spletni naslov dovoljenja</translation>
     </message>
     <message>
       <source>Open in browser</source>
       <translation>Odpri v brskalniku</translation>
+    </message>
+    <message>
+      <source>Program version:</source>
+      <translation>Različica programa:</translation>
     </message>
   </context>
   <context>
@@ -1828,11 +2076,11 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Load project file after creation</source>
-      <translation>Naloži projektno datoteko po izdelavi</translation>
+      <translation>Po ustvaritivi naloži projektno datoteko</translation>
     </message>
     <message>
       <source>Empty source</source>
-      <translation>Prazni vir</translation>
+      <translation>Prazen vir</translation>
     </message>
     <message>
       <source>No source is defined.</source>
@@ -1858,18 +2106,6 @@ Navedite drugo mapo.</translation>
       <translation>Povezava</translation>
     </message>
     <message>
-      <source>Show all object types</source>
-      <translation>Prikaži vse vrste predmetov …</translation>
-    </message>
-    <message>
-      <source>No selection</source>
-      <translation>Brez izbora</translation>
-    </message>
-    <message>
-      <source>Please select an object from the list</source>
-      <translation>Izberite predmet s seznama</translation>
-    </message>
-    <message>
       <source>Search</source>
       <translation>Poišči</translation>
     </message>
@@ -1878,8 +2114,24 @@ Navedite drugo mapo.</translation>
       <translation>Vzorec iskanja za presejanje zgornjih rezultatov</translation>
     </message>
     <message>
-      <source>None (Remove link)</source>
-      <translation>Nič (Odstrani povezavo)</translation>
+      <source>Filter by type</source>
+      <translation>Presejaj po vrsti</translation>
+    </message>
+    <message>
+      <source>Sync sub-object selection</source>
+      <translation>Uskladitev izbora podpredmetov</translation>
+    </message>
+    <message>
+      <source>Reset</source>
+      <translation>Ponastavi</translation>
+    </message>
+    <message>
+      <source>Clear</source>
+      <translation>Počisti</translation>
+    </message>
+    <message>
+      <source>If enabled, then 3D view selection will be synchronized with full object hierarchy.</source>
+      <translation>Če je omogočeno, bo izbor v 3d pogledu usklajen s hierarhijo celega predmeta.</translation>
     </message>
   </context>
   <context>
@@ -1894,7 +2146,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Record log messages</source>
-      <translation>Zapiši dnevniška sporočila</translation>
+      <translation>Zabeleži dnevniška sporočila</translation>
     </message>
     <message>
       <source>Record warnings</source>
@@ -1902,7 +2154,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Record error messages</source>
-      <translation>Zapiši sporočila napak</translation>
+      <translation>Zabeleži sporočila napak</translation>
     </message>
     <message>
       <source>Colors</source>
@@ -1930,15 +2182,111 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Redirect internal Python errors to report view</source>
-      <translation>Preusmeri notranje napake Pythona na pogled poročil</translation>
+      <translation>Preusmeri notranje napake Pythona na poročilni pogled</translation>
     </message>
     <message>
       <source>Redirect internal Python output to report view</source>
-      <translation>Preusmeri notranji izpis Pythona na pogled poročil</translation>
+      <translation>Preusmeri notranji izpis Pythona na poročilni pogled</translation>
     </message>
     <message>
       <source>Python interpreter</source>
       <translation>Tolmač Pythona</translation>
+    </message>
+    <message>
+      <source>Log messages will be recorded</source>
+      <translation>Dnevniška sporočilo bodo zabeležena</translation>
+    </message>
+    <message>
+      <source>Warnings will be recorded</source>
+      <translation>Opozorila bodo zabeležena</translation>
+    </message>
+    <message>
+      <source>Error messages will be recorded</source>
+      <translation>Sporočila o napakah bodo zabeležena</translation>
+    </message>
+    <message>
+      <source>When an error has occurred, the Report View dialog becomes visible
+on-screen while displaying the error</source>
+      <translation>Ko pride do napake, bo pri prikazovanju napake postalo na zaslonu vidno
+poročevalno pogovorno okno</translation>
+    </message>
+    <message>
+      <source>Show report view on error</source>
+      <translation>Prikaži pri napaki poročevalni pogled</translation>
+    </message>
+    <message>
+      <source>When a warning has occurred, the Report View dialog becomes visible
+on-screen while displaying the warning</source>
+      <translation>Ko pride do opozorila, bo pri prikazovanju opozorila postalo na zaslonu vidno
+poročevalno pogovorno okno</translation>
+    </message>
+    <message>
+      <source>Show report view on warning</source>
+      <translation>Prikaži pri opozorilu poročevalni pogled</translation>
+    </message>
+    <message>
+      <source>When a normal message has occurred, the Report View dialog becomes visible
+on-screen while displaying the message</source>
+      <translation>Ko pride do običajnega sporočila, bo pri prikazovanju sporočila postalo na zaslonu
+vidno poročevalno pogovorno okno</translation>
+    </message>
+    <message>
+      <source>Show report view on normal message</source>
+      <translation>Prikaži pri običajnih sporočilih poročevalni pogled</translation>
+    </message>
+    <message>
+      <source>When a log message has occurred, the Report View dialog becomes visible
+on-screen while displaying the log message</source>
+      <translation>Ko pride do dnevniškega sporočila, bo pri prikazovanju zapisa postalo na zaslonu 
+vidno poročevalno pogovorno okno</translation>
+    </message>
+    <message>
+      <source>Show report view on log message</source>
+      <translation>Prikaži pri dnevniškem sporočilu poročevalni pogled</translation>
+    </message>
+    <message>
+      <source>Font color for normal messages in Report view panel</source>
+      <translation>Barva pisave pri običajnih sporočilih in plošči poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Font color for log messages in Report view panel</source>
+      <translation>Barva pisave pri dnevniških sporočilih in plošči poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Font color for warning messages in Report view panel</source>
+      <translation>Barva pisave pri opozorilnih sporočilih in plošči poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Font color for error messages in Report view panel</source>
+      <translation>Barva pisave pri sporočilih o napakah in plošči poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Internal Python output will be redirected
+from Python console to Report view panel</source>
+      <translation>Pythonov notranji izpis bo preusmerjen s
+Pythonove ukazne mize na ploščo poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Internal Python error messages will be redirected
+from Python console to Report view panel</source>
+      <translation>Notranja Pythonova sporočila o napakah bodo preusmerjena
+s Pythonove ukzne mize na ploščo poročevalnega pogleda</translation>
+    </message>
+    <message>
+      <source>Include a timecode for each report</source>
+      <translation>Vsakemu poročilu dodaj časovni žig</translation>
+    </message>
+    <message>
+      <source>Include a timecode for each entry</source>
+      <translation>Vsakemu vpisu dodaj tudi časovni žig</translation>
+    </message>
+    <message>
+      <source>Normal messages will be recorded</source>
+      <translation>Običajna sporočila bodo zabeležena</translation>
+    </message>
+    <message>
+      <source>Record normal messages</source>
+      <translation>Zabeleži običajna sporočila</translation>
     </message>
   </context>
   <context>
@@ -1961,7 +2309,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Accept changes</source>
-      <translation>Potrdi spremembe</translation>
+      <translation>Sprejmi spremembe</translation>
     </message>
     <message>
       <source>Discard changes</source>
@@ -1987,24 +2335,12 @@ Navedite drugo mapo.</translation>
       <translation>3D pogled</translation>
     </message>
     <message>
-      <source>3D View settings</source>
-      <translation>Nastavitev 3D pogleda</translation>
-    </message>
-    <message>
       <source>Show coordinate system in the corner</source>
-      <translation>Pokaži soredniški sistem v vogalu</translation>
+      <translation>Pokaži v vogalu koordinatni sistem</translation>
     </message>
     <message>
       <source>Show counter of frames per second</source>
       <translation>Pokaži števec slik na sekundo</translation>
-    </message>
-    <message>
-      <source>Enable animation</source>
-      <translation>Omogoči animacijo</translation>
-    </message>
-    <message>
-      <source>Eye to eye distance for stereo modes:</source>
-      <translation>Medočesna razdalja za stereo načine:</translation>
     </message>
     <message>
       <source>Camera type</source>
@@ -2013,46 +2349,6 @@ Navedite drugo mapo.</translation>
     <message>
       <source/>
       <translation type="unfinished"/>
-    </message>
-    <message>
-      <source>3D Navigation</source>
-      <translation>Krmarjenje 3D</translation>
-    </message>
-    <message>
-      <source>Mouse...</source>
-      <translation>Miška …</translation>
-    </message>
-    <message>
-      <source>Intensity of backlight</source>
-      <translation>Jakost protiluči</translation>
-    </message>
-    <message>
-      <source>Enable backlight color</source>
-      <translation>Omogoči barvo protiluči</translation>
-    </message>
-    <message>
-      <source>Orbit style</source>
-      <translation>Slog vrtenja</translation>
-    </message>
-    <message>
-      <source>Turntable</source>
-      <translation>Sukajoča pogled</translation>
-    </message>
-    <message>
-      <source>Trackball</source>
-      <translation>Vrtilna krogla</translation>
-    </message>
-    <message>
-      <source>Invert zoom</source>
-      <translation>Obrni povečavo</translation>
-    </message>
-    <message>
-      <source>Zoom at cursor</source>
-      <translation>Povečava ob kazalki</translation>
-    </message>
-    <message>
-      <source>Zoom step</source>
-      <translation>Korak povečave</translation>
     </message>
     <message>
       <source>Anti-Aliasing</source>
@@ -2087,52 +2383,176 @@ Navedite drugo mapo.</translation>
       <translation>Izris v p&amp;erspektivi</translation>
     </message>
     <message>
-      <source>Show navigation cube</source>
-      <translation>Pokaži krmilno kocko</translation>
-    </message>
-    <message>
-      <source>Corner</source>
-      <translation>Vogal</translation>
-    </message>
-    <message>
-      <source>Top left</source>
-      <translation>Zgornji levi</translation>
-    </message>
-    <message>
-      <source>Top right</source>
-      <translation>Zgornji desni</translation>
-    </message>
-    <message>
-      <source>Bottom left</source>
-      <translation>Spodnji levi</translation>
-    </message>
-    <message>
-      <source>Bottom right</source>
-      <translation>Spodnji desni</translation>
-    </message>
-    <message>
-      <source>Use OpenGL Vertex Buffer Object</source>
-      <translation>Uporabi medpomnilnik oglišč OpenGL</translation>
-    </message>
-    <message>
-      <source>New Document Camera Orientation</source>
-      <translation>Pogled kamere novega dokumenta</translation>
-    </message>
-    <message>
-      <source>Prevents view tilting when pinch-zooming. Affects only Gesture nav. style. Mouse tilting is not disabled by this setting.</source>
-      <translation>Prepreči nagibanje pogleda pri prstnem zumanju. Vpliva le na slog krmarjenja s kretnjami. S to nastavitvijo nagibanje miške ni onemogočeno.</translation>
-    </message>
-    <message>
-      <source>Disable touchscreen tilt gesture</source>
-      <translation>Onemogoči potezo nagibanja na zaslonu na dotik</translation>
-    </message>
-    <message>
-      <source>Drag at cursor</source>
-      <translation>Povleci h kazalki</translation>
-    </message>
-    <message>
       <source>Marker size:</source>
       <translation>Velikost oznake:</translation>
+    </message>
+    <message>
+      <source>General</source>
+      <translation>Splošne nastavitve</translation>
+    </message>
+    <message>
+      <source>Main coordinate system will always be shown in
+lower right corner within opened files</source>
+      <translation>Glavni koordinatni sistem bo vedno prikazan v
+spodnjem desnem kotu znotraj odprtih datotek</translation>
+    </message>
+    <message>
+      <source>Time needed for last operation and resulting frame rate
+will be shown at the lower left corner in opened files</source>
+      <translation>V spodnjem levem vogalu odprtih datotek bosta prikazana
+čas, porabljen za zadnje opravilo, in gostota sličic</translation>
+    </message>
+    <message>
+      <source>If checked, application will remember which workbench is active for each tab of the viewport</source>
+      <translation>Če je označeno, si bo program zapomnil, katero delovno okolje je dejavno v vsakem vpogledu</translation>
+    </message>
+    <message>
+      <source>Remember active workbench by tab</source>
+      <translation>Zapomni si dejavna delovna okolja po zavihkih</translation>
+    </message>
+    <message>
+      <source>Rendering</source>
+      <translation>Izrisovanje</translation>
+    </message>
+    <message>
+      <source>If selected, Vertex Buffer Objects (VBO) will be used.
+A VBO is an OpenGL feature that provides methods for uploading
+vertex data (position, normal vector, color, etc.) to the graphics card.
+VBOs offer substantial performance gains because the data resides
+in the graphics memory rather than the system memory and so it
+can be rendered directly by GPU. 
+
+Note: Sometimes this feature may lead to a host of different
+issues ranging from graphical anomalies to GPU crash bugs. Remember to
+report this setting as enabled when seeking support on the FreeCAD forums</source>
+      <translation>Če je izbrano, bodo uporabljeni medpomnilni predmeti oglišč (Vertex Buffer Objects - VBO).
+VBO je zmožnost, ki nudi postopke nalaganja podatkov o ogliščih 
+(položaj, vektor normale, barva, itn.) na grafično kartico.
+VBO-ji nudijo občutno izboljšanje učinkovitosti, saj se podatki
+namesto v delovnem pomnilniku nahajajo v grafičnem pomnilniku, zaradi česar 
+je lahko izrisan neposredno z GPE. 
+
+Opomba: Ta zmožnost lahko pripelje do množice različnih težav,
+od grafičnih nepravilnosti do hroščev sesipanja GPE. Ne pozabite javiti,
+da je bila ta zmožnost omogočena, ko boste iskali podporo na FreeCAD-ovih forumih</translation>
+    </message>
+    <message>
+      <source>Use OpenGL VBO (Vertex Buffer Object)</source>
+      <translation>Uporabi OpenGL VBO (medpomnilnik oglišč)</translation>
+    </message>
+    <message>
+      <source>Render cache</source>
+      <translation>Izrisni predpomnilnik</translation>
+    </message>
+    <message>
+      <source>'Render Caching' is another way to say 'Rendering Acceleration'.
+There are 3 options available to achieve this: 
+1) 'Auto' (default), let Coin3D decide where to cache.
+2) 'Distributed', manually turn on cache for all view provider root node.
+3) 'Centralized', manually turn off cache in all nodes of all view provider, and
+only cache at the scene graph root node. This offers the fastest rendering speed
+but slower response to any scene changes.</source>
+      <translation>"Izrisni predpomnilnik" je drug izraz za "Izrisovalni pospeševalnik".
+Tega lahko dosežete na tri načine: 
+1) "Samodejno" (privzeto), prepusti odložitev o mestu predpomnenja Coin3D-ju
+2) "Porazdeljeno" ročno vklopi predpomnilnik vseh korenskih vozlič ponudnki pogleda.
+3) "Usrediščeno" ročno izklopi predpomnilnik vseh vozlišč ponudnikov pogledov
+razen predpomnilnika korenskega vozlišča na grafu torišča. S tem dobite hitrejše
+izrisovanje, vendar počasnejše odzivanje na spremembe torišča.</translation>
+    </message>
+    <message>
+      <source>Auto</source>
+      <translation>Samodejno</translation>
+    </message>
+    <message>
+      <source>Distributed</source>
+      <translation>Porazdeljeno</translation>
+    </message>
+    <message>
+      <source>Centralized</source>
+      <translation>Usrediščeno</translation>
+    </message>
+    <message>
+      <source>What kind of multisample anti-aliasing is used </source>
+      <translation>Kakšno glajenje robov z večkratnim vzorčenjem je uporabljeno</translation>
+    </message>
+    <message>
+      <source>Transparent objects:</source>
+      <translation>Prozorni predmeti:</translation>
+    </message>
+    <message>
+      <source>Render types of transparent objects</source>
+      <translation>Način izrisovanja prozornih predmetov</translation>
+    </message>
+    <message>
+      <source>One pass</source>
+      <translation>Enkratni prelet</translation>
+    </message>
+    <message>
+      <source>Backface pass</source>
+      <translation>Prelet čez hrbtne ploskve</translation>
+    </message>
+    <message>
+      <source>Size of vertices in the Sketcher workbench</source>
+      <translation>Velikost oglišč v delovnem okolju Očrtovalnik</translation>
+    </message>
+    <message>
+      <source>Eye to eye distance for stereo modes</source>
+      <translation>Medočesna razdalja v dvovidnih načinih</translation>
+    </message>
+    <message>
+      <source>Eye-to-eye distance used for stereo projections.
+The specified value is a factor that will be multiplied with the
+bounding box size of the 3D object that is currently displayed. </source>
+      <translation>Medočesna razdalja, uporabljena v dvovidnih preslikavah.
+Ta vredost predstavlja količnik, ki bo pomnožen z velikostjo
+mejnega kvadra trenutno prikazanega prostorskega predmeta. </translation>
+    </message>
+    <message>
+      <source>Backlight is enabled with the defined color</source>
+      <translation>Protisvetloba je omogočena z določeno barvo</translation>
+    </message>
+    <message>
+      <source>Backlight color</source>
+      <translation>Barva protisvetlobe</translation>
+    </message>
+    <message>
+      <source>Intensity</source>
+      <translation>Jakost</translation>
+    </message>
+    <message>
+      <source>Intensity of the backlight</source>
+      <translation>Jakost protisvetlobe</translation>
+    </message>
+    <message>
+      <source>Objects will be projected in orthographic projection</source>
+      <translation>Predmeti bodo preslikani v pravokotno preslikavo</translation>
+    </message>
+    <message>
+      <source>Objects will appear in a perspective projection</source>
+      <translation>Predmeti bodo prikazani v perspektivni preslikavi</translation>
+    </message>
+    <message>
+      <source>Axis cross will be shown by default at file
+opening or creation</source>
+      <translation>Križ osi bo ob odprtu ali ustvaritvi datoteke
+privzeto prikazan</translation>
+    </message>
+    <message>
+      <source>Show axis cross by default</source>
+      <translation>Privzeto prikaži križ osi</translation>
+    </message>
+    <message>
+      <source>Pick radius (px):</source>
+      <translation>Izberi polmer (px):</translation>
+    </message>
+    <message>
+      <source>Area for picking elements in 3D view.
+Larger value eases to pick things, but can make small features impossible to select.
+               </source>
+      <translation>Površina pri izbiranju v trirazsežnem pogledu.
+Pri večjih vrednostih je izbiranje lažje, vendar pa je lahko zaradi tega izbiranje drobnih reči nemogoče.
+               </translation>
     </message>
   </context>
   <context>
@@ -2169,46 +2589,6 @@ Navedite drugo mapo.</translation>
       <source>15px</source>
       <translation>15px</translation>
     </message>
-    <message>
-      <source>Isometric</source>
-      <translation>Izometrična</translation>
-    </message>
-    <message>
-      <source>Dimetric</source>
-      <translation>Dimetrična</translation>
-    </message>
-    <message>
-      <source>Trimetric</source>
-      <translation>Trimetrična</translation>
-    </message>
-    <message>
-      <source>Top</source>
-      <translation>Zgoraj</translation>
-    </message>
-    <message>
-      <source>Front</source>
-      <translation>Spredaj</translation>
-    </message>
-    <message>
-      <source>Left</source>
-      <translation>Levo</translation>
-    </message>
-    <message>
-      <source>Right</source>
-      <translation>Desno</translation>
-    </message>
-    <message>
-      <source>Rear</source>
-      <translation>Zadaj</translation>
-    </message>
-    <message>
-      <source>Bottom</source>
-      <translation>Spodaj</translation>
-    </message>
-    <message>
-      <source>Custom</source>
-      <translation>Po meri</translation>
-    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgSettingsColorGradient</name>
@@ -2242,7 +2622,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Out g&amp;rayed</source>
-      <translation>Izven dosega p&amp;siveno</translation>
+      <translation>Izven dosega p&amp;osiveno</translation>
     </message>
     <message>
       <source>Alt+R</source>
@@ -2278,7 +2658,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Parameter range</source>
-      <translation>Razpon spremenljivke</translation>
+      <translation>Razpon določilke</translation>
     </message>
     <message>
       <source>Mi&amp;nimum:</source>
@@ -2309,7 +2689,7 @@ Navedite drugo mapo.</translation>
     <name>Gui::Dialog::DlgSettingsColorGradientImp</name>
     <message>
       <source>Wrong parameter</source>
-      <translation>Napačen parameter</translation>
+      <translation>Napačna določilka</translation>
     </message>
     <message>
       <source>The maximum value must be higher than the minimum value.</source>
@@ -2334,7 +2714,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Create new document at start up</source>
-      <translation>Ustvari nov dokument ob zagonu</translation>
+      <translation>Ob zagonu ustvari nov dokument</translation>
     </message>
     <message>
       <source>Storage</source>
@@ -2342,11 +2722,11 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Saving transactions (Auto-save)</source>
-      <translation>Pomožno shranjevanje sprememb (samodejno shranjevanje)</translation>
+      <translation>Shranjevanje izmenjav (samodejno shranjevanje)</translation>
     </message>
     <message>
       <source>Discard saved transaction after saving document</source>
-      <translation>Zavrzi pomožno shranjeno po shranjevanju dokumenta</translation>
+      <translation>Zavrzi shranjeno izmenjavo po shranjevanju dokumenta</translation>
     </message>
     <message>
       <source>Save thumbnail into project file when saving document</source>
@@ -2362,7 +2742,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Allow duplicate object labels in one document</source>
-      <translation>Dovoli podvojene oznake objektov v enem dokumentu</translation>
+      <translation>Dovoli podvojene oznake predmetov v enem dokumentu</translation>
     </message>
     <message>
       <source>Maximum Undo/Redo steps</source>
@@ -2381,14 +2761,6 @@ Navedite drugo mapo.</translation>
       <translation>Ime avtorja</translation>
     </message>
     <message>
-      <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The name to use on document creation.&lt;/p&gt;&lt;p&gt;Keep blank for anonymous.&lt;/p&gt;&lt;p&gt;You can also use the form:&lt;/p&gt;&lt;p&gt;John Doe &amp;lt;john@doe.com&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-      <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ime, ki naj se uporabi ob ustvarjanju dokumenta.&lt;/p&gt;&lt;p&gt;Pustite prazno za anonimno.&lt;/p&gt;&lt;p&gt;Uporabite lahko tudi obliko:&lt;/p&gt;&lt;p&gt;Janez Novak &amp;lt;janez@novak.com&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-      <source>If this is checked, the "Last modified by" field will be set when saving the file</source>
-      <translation>Če je to označeno, bo pri shranjevanju datoteke dodano polje "Nazadnje spremenil"</translation>
-    </message>
-    <message>
       <source>Set on save</source>
       <translation>Glede na shranjevanje</translation>
     </message>
@@ -2401,36 +2773,8 @@ Navedite drugo mapo.</translation>
       <translation>Privzeta licenca</translation>
     </message>
     <message>
-      <source>The default license for new documents</source>
-      <translation>Privzeta licenca novih dokumentov</translation>
-    </message>
-    <message>
       <source>All rights reserved</source>
       <translation>Vse pravice pridržane</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution</source>
-      <translation>Dovoljenje CreativeCommons</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution-ShareAlike</source>
-      <translation>Dovoljenje CreativeCommons - deljenje pod istimi pogoji</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution-NoDerivatives</source>
-      <translation>Dovoljenje CreativeCommons - brez predelav</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution-NonCommercial</source>
-      <translation>Dovoljenje CreativeCommons - netržno</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution-NonCommercial-ShareAlike</source>
-      <translation>Dovoljenje CreativeCommons - netržno - deljenje pod istimi pogoji</translation>
-    </message>
-    <message>
-      <source>CreativeCommons Attribution-NonCommercial-NoDerivatives</source>
-      <translation>Dovoljenje CreativeCommons - netržno - brez predelav</translation>
     </message>
     <message>
       <source>Public Domain</source>
@@ -2446,11 +2790,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>License URL</source>
-      <translation>URL licence</translation>
-    </message>
-    <message>
-      <source>The default company to use for new files</source>
-      <translation>Privzeto podjetje, ki naj se uporabi za nove datoteke</translation>
+      <translation>Spletni naslov dovoljenja</translation>
     </message>
     <message>
       <source>Run AutoRecovery at startup</source>
@@ -2462,11 +2802,162 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Add the program logo to the generated thumbnail</source>
-      <translation>Dodaj logotip programa v proizvedeno sličico</translation>
+      <translation>Dodaj v proizvedeno sličico logotip programa</translation>
     </message>
     <message>
-      <source>A URL where the user can find more details about the license</source>
-      <translation>Povezava URL, na kateri lahko uporabnik najde več podrobnosti o licenci</translation>
+      <source>The application will create a new document when started</source>
+      <translation>Program bo ob zagonu ustvaril nov dokument</translation>
+    </message>
+    <message>
+      <source>Compression level for FCStd files</source>
+      <translation>Raven stiskanja pri datotekah FCtd</translation>
+    </message>
+    <message>
+      <source>All changes in documents are stored so that they can be undone/redone</source>
+      <translation>Vse spremembe v dokumentu so shranjene, da se jih lahko razveljavi oz. uveljavi</translation>
+    </message>
+    <message>
+      <source>How many Undo/Redo steps should be recorded</source>
+      <translation>Koliko korakov za razveljavitev/uveljavitev naj se shrani</translation>
+    </message>
+    <message>
+      <source>Allow user aborting document recomputation by pressing ESC.
+This feature may slightly increase recomputation time.</source>
+      <translation>Dovoli uporabniku prekinitev preračunavanja s pritiskom na Izhod (ESC).
+Ta zmožnost lahko malo podaljša čas preračunavanja.</translation>
+    </message>
+    <message>
+      <source>Allow aborting recomputation</source>
+      <translation>Dovoli prekinitev preračunavanja</translation>
+    </message>
+    <message>
+      <source>If there is a recovery file available the application will
+automatically run a file recovery when it is started.</source>
+      <translation>Če je obnovitvena datoteka na voljo, bo program
+ob zagonu samodejno obnovil datoteko.</translation>
+    </message>
+    <message>
+      <source>How often a recovery file is written</source>
+      <translation>Kako pogosto naj se naredi obnovitvena datoteka</translation>
+    </message>
+    <message>
+      <source>A thumbnail will be stored when document is saved</source>
+      <translation>Pri shranjevanju datoteke se bo shranila tudi sličica</translation>
+    </message>
+    <message>
+      <source>Size</source>
+      <translation>Velikost</translation>
+    </message>
+    <message>
+      <source>Sets the size of the thumbnail that is stored in the document.
+Common sizes are 128, 256 and 512</source>
+      <translation>Nastavi velikost sličice, ki se shrani v dokument.
+Običajne mere so 128, 256 in 512</translation>
+    </message>
+    <message>
+      <source>The program logo will be added to the thumbnail</source>
+      <translation>Sličici bo dodan logotip</translation>
+    </message>
+    <message>
+      <source>How many backup files will be kept when saving document</source>
+      <translation>Koliko varnostnih kopij se ohrani po shranitvi dokumenta</translation>
+    </message>
+    <message>
+      <source>Backup files will get extension '.FCbak' and file names
+get date suffix according to the specified format</source>
+      <translation>Varnostne kopije bodo dobile pripono ".FCbak", imena datotek
+pa pripono glede na določen razpis</translation>
+    </message>
+    <message>
+      <source>Use date and FCBak extension</source>
+      <translation>Uporabi datum in FCBak-ov razširitev</translation>
+    </message>
+    <message>
+      <source>Date format</source>
+      <translation>Zapis datuma</translation>
+    </message>
+    <message>
+      <source>Allow objects to have same label/name</source>
+      <translation>Dovoli, da imajo lahko predmeti enako oznako oz. ime</translation>
+    </message>
+    <message>
+      <source>Enable partial loading of external linked documents.
+Then only referenced objects and their dependencies will be loaded
+when a linked document is auto-opened together with the main document.
+A partially loaded document cannot be edited. Double click the document
+icon in the tree view to fully reload it.</source>
+      <translation>Dovoli delno nalaganje zunanjih povezanih dokumentov.
+V tem primeru bodo pri samodejnem odprtju povezanega dokumenta, skupaj
+z glavnim dokumentom, naloženi le sklicni predmeti in njihove odvisnosti.
+Delno naloženega dokumenta ni mogoče urejati. Z dvoklikom na ikono dokumenta
+v drevesnem pogledu, se bo ta ponovno naložil v celoti.</translation>
+    </message>
+    <message>
+      <source>Disable partial loading of external linked objects</source>
+      <translation>Onemogoči delno nalaganje zunanjih sklicnih predmetov</translation>
+    </message>
+    <message>
+      <source>All documents that will be created will get the specified author name.
+Keep blank for anonymous.
+You can also use the form: John Doe &lt;john@doe.com&gt;</source>
+      <translation>Vsem ustvarjenim dokumentom bo pripisano ime ustvarjalca.
+Če želite brezimnost, pustite polje prazno.
+Lahko uporabite tudi obliko: Neznanec &lt;ne@znanec.com&gt;</translation>
+    </message>
+    <message>
+      <source>The field 'Last modified by' will be set to specified author when saving the file</source>
+      <translation>Polje "Zadnji spremenil" bo pri shranjevanju izpolnjeno z izbranim ustvarjalcem</translation>
+    </message>
+    <message>
+      <source>Default company name to use for new files</source>
+      <translation>Privzeto ime podjetja pri ustvarjanju novih datotek</translation>
+    </message>
+    <message>
+      <source>Default license for new documents</source>
+      <translation>Privzeto dovoljenje za nove dokumente</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution</source>
+      <translation>Dovoljenje Creative Commons</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution-ShareAlike</source>
+      <translation>Dovoljenje Creative Commons - deljenje pod istimi pogoji</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution-NoDerivatives</source>
+      <translation>Dovoljenje Creative Commons - brez predelav</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution-NonCommercial</source>
+      <translation>Dovoljenje Creative Commons - netržno</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution-NonCommercial-ShareAlike</source>
+      <translation>Dovoljenje Creative Commons - netržno - deljenje pod istimi pogoji</translation>
+    </message>
+    <message>
+      <source>Creative Commons Attribution-NonCommercial-NoDerivatives</source>
+      <translation>Dovoljenje Creative Commons - netržno - brez predelav</translation>
+    </message>
+    <message>
+      <source>URL describing more about the license</source>
+      <translation>Spletni naslov s podrobnejšim opisom dovoljenja</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Dialog::DlgSettingsDocumentImp</name>
+    <message>
+      <source>The format of the date to use.</source>
+      <translation>Vrsta zapisa podatkov, ki naj se uporabi.</translation>
+    </message>
+    <message>
+      <source>Default</source>
+      <translation>Privzeti</translation>
+    </message>
+    <message>
+      <source>Format</source>
+      <translation>Zapis</translation>
     </message>
   </context>
   <context>
@@ -2489,7 +2980,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Comment</source>
-      <translation>Pojasnilo</translation>
+      <translation>Opomba</translation>
     </message>
     <message>
       <source>Block comment</source>
@@ -2591,82 +3082,6 @@ Navedite drugo mapo.</translation>
       <translation>Ikona 128 x 128</translation>
     </message>
     <message>
-      <source>CGA       320 x 200</source>
-      <translation>CGA 320 x 200</translation>
-    </message>
-    <message>
-      <source>QVGA     320 x 240</source>
-      <translation>QVGA 320 x 240</translation>
-    </message>
-    <message>
-      <source>VGA       640 x 480</source>
-      <translation>VGA 640 x 480</translation>
-    </message>
-    <message>
-      <source>NTSC     720 x 480</source>
-      <translation>NTSC 720 x 480</translation>
-    </message>
-    <message>
-      <source>PAL        768 x 578</source>
-      <translation>PAL 768 x 578</translation>
-    </message>
-    <message>
-      <source>SVGA     800 x 600</source>
-      <translation>SVGA 800 x 600</translation>
-    </message>
-    <message>
-      <source>XGA       1024 x 768</source>
-      <translation>XGA 1024 x 768</translation>
-    </message>
-    <message>
-      <source>HD720   1280 x 720</source>
-      <translation>HD720 1280 x 720</translation>
-    </message>
-    <message>
-      <source>SXGA     1280 x 1024</source>
-      <translation>SXGA 1280 x 1024</translation>
-    </message>
-    <message>
-      <source>SXGA+   1400 x 1050</source>
-      <translation>SXGA + 1400 x 1050</translation>
-    </message>
-    <message>
-      <source>UXGA     1600 x 1200</source>
-      <translation>UXGA 1600 x 1200</translation>
-    </message>
-    <message>
-      <source>HD1080 1920 x 1080</source>
-      <translation>HD1080 1920 x 1080</translation>
-    </message>
-    <message>
-      <source>WUXGA  1920 x 1200</source>
-      <translation>WUXGA 1920 x 1200</translation>
-    </message>
-    <message>
-      <source>QXGA     2048 x 1538</source>
-      <translation>QXGA 2048 x 1538</translation>
-    </message>
-    <message>
-      <source>WQXGA  2560 x 1600</source>
-      <translation>WQXGA 2560 x 1600</translation>
-    </message>
-    <message>
-      <source>QSXGA   2560 x 2048</source>
-      <translation>QSXGA 2560 x 2048</translation>
-    </message>
-    <message utf8="true">
-      <source>QUXGA   3200 × 2400</source>
-      <translation>QUXGA 3200 × 2400</translation>
-    </message>
-    <message utf8="true">
-      <source>HUXGA   6400 × 4800</source>
-      <translation>HUXGA 6400 × 4800</translation>
-    </message>
-    <message>
-      <source>!!!          10000 x 10000</source>
-      <translation>!!! 10000 x 10000</translation>
-    </message>
-    <message>
       <source>Standard sizes:</source>
       <translation>Standardne velikosti:</translation>
     </message>
@@ -2720,7 +3135,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Insert comment</source>
-      <translation>Vstavi pojasnilo</translation>
+      <translation>Vstavi opombo</translation>
     </message>
     <message>
       <source>Transparent</source>
@@ -2729,6 +3144,33 @@ Navedite drugo mapo.</translation>
     <message>
       <source>Add watermark</source>
       <translation>Dodaj vodni žig</translation>
+    </message>
+    <message>
+      <source>Creation method:</source>
+      <translation>Način ustvarjanja:</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Dialog::DlgSettingsImageImp</name>
+    <message>
+      <source>Offscreen (New)</source>
+      <translation>Zunajzaslonski (Nov)</translation>
+    </message>
+    <message>
+      <source>Offscreen (Old)</source>
+      <translation>Zunajzaslonski (Stari)</translation>
+    </message>
+    <message>
+      <source>Framebuffer (custom)</source>
+      <translation>Slikovni medpomnilnik (po meri)</translation>
+    </message>
+    <message>
+      <source>Framebuffer (as is)</source>
+      <translation>Slikovni medpomnilnik (kakršen je)</translation>
+    </message>
+    <message>
+      <source>Pixel buffer</source>
+      <translation>Medpomnilnik slik. točk</translation>
     </message>
   </context>
   <context>
@@ -2759,11 +3201,11 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Gui commands</source>
-      <translation>Ukazi gr. up vmesnika</translation>
+      <translation>Ukazi graf. up. vmesnika</translation>
     </message>
     <message>
       <source>Record as comment</source>
-      <translation>Beleži kot pripombe</translation>
+      <translation>Beleži kot opombe</translation>
     </message>
     <message>
       <source>Macro path</source>
@@ -2775,11 +3217,256 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Run macros in local environment</source>
-      <translation>Zaženi makre v lokalnem okolju</translation>
+      <translation>Zaženi makre v krajevnem okolju</translation>
     </message>
     <message>
       <source>Record GUI commands</source>
-      <translation>Beleži ukaze gr. up. vmesnika</translation>
+      <translation>Beleži ukaze graf. upor. vmesnika</translation>
+    </message>
+    <message>
+      <source>Variables defined by macros are created as local variables</source>
+      <translation>Spremenljivke, ki jih določi makro, so krajevne spremenljivke</translation>
+    </message>
+    <message>
+      <source>Commands executed by macro scripts are shown in Python console</source>
+      <translation>Ukazi, ki jih izvajajo skripti makra, so prikazani v Pythonovi ukazni mizi</translation>
+    </message>
+    <message>
+      <source>Recorded macros will also contain user interface commands</source>
+      <translation>Posneti makri bodo vsebovali tudi ukaze uporabniškega vmesnika</translation>
+    </message>
+    <message>
+      <source>Recorded macros will also contain user interface commands as comments</source>
+      <translation>Posneti makri bodo kot opombe vsebovali tudi ukaze uporabniškega vmesnika</translation>
+    </message>
+    <message>
+      <source>The directory in which the application will search for macros</source>
+      <translation>Mapa, v kateri bo program iskal makre</translation>
+    </message>
+    <message>
+      <source>Recent macros menu</source>
+      <translation>Meni nedavnih makrov</translation>
+    </message>
+    <message>
+      <source>Size of recent macro list</source>
+      <translation>Velikost seznama nedavnih marov</translation>
+    </message>
+    <message>
+      <source>How many macros should be listed in recent macros list</source>
+      <translation>Koliko makrov naj bo navedenih na seznamu nedavnih makrov</translation>
+    </message>
+    <message>
+      <source>Shortcut count</source>
+      <translation>Štetje bližnjic</translation>
+    </message>
+    <message>
+      <source>How many recent macros should have shortcuts</source>
+      <translation>Koliko nedavnih makrov naj ima bližnjice</translation>
+    </message>
+    <message>
+      <source>Keyboard Modifiers</source>
+      <translation>Tipkovnični spremenilniki</translation>
+    </message>
+    <message>
+      <source>Keyboard modifiers, default = Ctrl+Shift+</source>
+      <translation>Tipkovnični spremenilniki, privzeto = Ctrel+Premakni (Shift)+</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Dialog::DlgSettingsNavigation</name>
+    <message>
+      <source>Navigation</source>
+      <translation>Navigacija</translation>
+    </message>
+    <message>
+      <source>Navigation cube</source>
+      <translation>Krmilna kocka</translation>
+    </message>
+    <message>
+      <source>Steps by turn</source>
+      <translation>Korakov v zaobratu</translation>
+    </message>
+    <message>
+      <source>Number of steps by turn when using arrows (default = 8 : step angle = 360/8 = 45 deg)</source>
+      <translation>Število korakov pri obračanju s puščico v enem zaobratu (privzeto = 8 : koračnih kotov = 360/8 = 45 stopinj)</translation>
+    </message>
+    <message>
+      <source>Corner</source>
+      <translation>Vogal</translation>
+    </message>
+    <message>
+      <source>Corner where navigation cube is shown</source>
+      <translation>Vogal, v katerem je prikazana krmilna kocka</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>Zgornji levi</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>Zgornji desni</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>Spodnji levi</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>Spodnji desni</translation>
+    </message>
+    <message>
+      <source>3D Navigation</source>
+      <translation>3D krmarjenje</translation>
+    </message>
+    <message>
+      <source>List the mouse button configs for each chosen navigation setting.
+Select a set and then press the button to view said configurations.</source>
+      <translation>Naštej nastavitve miškinih tipk za vsako izbrano nastavitev krmarjenja.
+Izberite nastavitev in nato pritisnite tipko za pregled navedenih nastavitev.</translation>
+    </message>
+    <message>
+      <source>Mouse...</source>
+      <translation>Miška …</translation>
+    </message>
+    <message>
+      <source>Navigation settings set</source>
+      <translation>Nabor nastavitev krmarjenja</translation>
+    </message>
+    <message>
+      <source>Orbit style</source>
+      <translation>Slog vrtenja</translation>
+    </message>
+    <message>
+      <source>Rotation orbit style.
+Trackball: moving the mouse horizontally will rotate the part around the y-axis
+Turntable: the part will be rotated around the z-axis.</source>
+      <translation>Slog sukanja krogle.
+Vrtilna krogla: z vodoravnim premikanjem miške se bo del sukal okoli osi y
+Sukajoči pogled: del se bo sukal okrog osi y.</translation>
+    </message>
+    <message>
+      <source>Turntable</source>
+      <translation>Sukajoča pogled</translation>
+    </message>
+    <message>
+      <source>Trackball</source>
+      <translation>Vrtilna krogla</translation>
+    </message>
+    <message>
+      <source>New document scale</source>
+      <translation>Novo merilo dokumenta</translation>
+    </message>
+    <message>
+      <source>Sets camera zoom for new documents.
+The value is the diameter of the sphere to fit on the screen.</source>
+      <translation>Nastavi vidno polje kamere za nove dokumente.
+Vrednost predstavlja premer krogle, včrtane v zaslon.</translation>
+    </message>
+    <message>
+      <source>mm</source>
+      <translation>mm</translation>
+    </message>
+    <message>
+      <source>Enable animated rotations</source>
+      <translation>Omogoči potujoče zasuke</translation>
+    </message>
+    <message>
+      <source>Enable animation</source>
+      <translation>Omogoči potovanje</translation>
+    </message>
+    <message>
+      <source>Zoom operations will be performed at position of mouse pointer</source>
+      <translation>Preodmičenje se bo izvajalo okrog položaja kazalke</translation>
+    </message>
+    <message>
+      <source>Zoom at cursor</source>
+      <translation>Preveličinjenje ob kazalki</translation>
+    </message>
+    <message>
+      <source>Zoom step</source>
+      <translation>Korak preodmičenja</translation>
+    </message>
+    <message>
+      <source>How much will be zoomed.
+Zoom step of '1' means a factor of 7.5 for every zoom step. </source>
+      <translation>Za koliko se bo spremenila velikost.
+Korak preodmičenja "1" pomeni količnik velikost 7,5 za vsak korak. </translation>
+    </message>
+    <message>
+      <source>Direction of zoom operations will be inverted</source>
+      <translation>Smer preodmičenja bo obrnjena</translation>
+    </message>
+    <message>
+      <source>Invert zoom</source>
+      <translation>Obrni preodmičenje</translation>
+    </message>
+    <message>
+      <source>Prevents view tilting when pinch-zooming.
+Affects only gesture navigation style.
+Mouse tilting is not disabled by this setting.</source>
+      <translation>Prepreči nagibanje pogleda pri prstnem preodmičenju.
+Vpliva le na slog krmarjenja s kretnjami.
+S to nastavitvijo nagibanje z miško ni onemogočeno.</translation>
+    </message>
+    <message>
+      <source>Disable touchscreen tilt gesture</source>
+      <translation>Onemogoči potezo nagibanja na zaslonu na dotik</translation>
+    </message>
+    <message>
+      <source>Rotations in 3D will use current cursor position as center for rotation</source>
+      <translation>Pri prostorskem sukanju bo za vrtišče izbran trenutni položaj kazalke</translation>
+    </message>
+    <message>
+      <source>Rotate at cursor</source>
+      <translation>Sukaj okrog kazalke</translation>
+    </message>
+    <message>
+      <source>Isometric</source>
+      <translation>Izometrična</translation>
+    </message>
+    <message>
+      <source>Dimetric</source>
+      <translation>Dimetrična</translation>
+    </message>
+    <message>
+      <source>Trimetric</source>
+      <translation>Trimetrična</translation>
+    </message>
+    <message>
+      <source>Top</source>
+      <translation>Zgoraj</translation>
+    </message>
+    <message>
+      <source>Front</source>
+      <translation>Spredaj</translation>
+    </message>
+    <message>
+      <source>Left</source>
+      <translation>Levo</translation>
+    </message>
+    <message>
+      <source>Right</source>
+      <translation>Desno</translation>
+    </message>
+    <message>
+      <source>Rear</source>
+      <translation>Zadaj</translation>
+    </message>
+    <message>
+      <source>Bottom</source>
+      <translation>Spodaj</translation>
+    </message>
+    <message>
+      <source>Custom</source>
+      <translation>Po meri</translation>
+    </message>
+    <message>
+      <source>Default camera orientation</source>
+      <translation>Privzeta usmeritev kamere</translation>
+    </message>
+    <message>
+      <source>Default camera orientation when creating a new document or selecting the home view</source>
+      <translation>Privzeta usmeritev kamere pri ustvarjanju novega dokumenta ali izbiri domačega pogleda</translation>
     </message>
   </context>
   <context>
@@ -2818,31 +3505,19 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Imperial decimal (in/lb)</source>
-      <translation>Angleške decimalne (palci/funti)</translation>
-    </message>
-    <message utf8="true">
-      <source>Building Euro (cm/m²/m³)</source>
-      <translation>Metrični gradbeni (cm/m²/m³)</translation>
+      <translation>Anglosaške decimalke (palci/funti)</translation>
     </message>
     <message>
-      <source>Building US (ft-in/sqft/cuft)</source>
-      <translation>ZDA gradbeni (ft-in/sqft/cuft)</translation>
+      <source>Building Euro (cm/m²/m³)</source>
+      <translation>Metrični gradbeni (cm/m²/m³)</translation>
     </message>
     <message>
       <source>Metric small parts &amp; CNC(mm, mm/min)</source>
       <translation>Metrični majhni deli in CNC (mm, mm/min)</translation>
     </message>
     <message>
-      <source>Imperial Civil (ft/ft^2/ft^3)</source>
-      <translation>Anglosaške (ft/ft^2/ft^3)</translation>
-    </message>
-    <message>
       <source>Minimum fractional inch:</source>
       <translation>Najmanjši del palca (inch):</translation>
-    </message>
-    <message>
-      <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Minimum fractional inch to display.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-      <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Najmanjši del palca, ki se prikaže.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
       <source>1/2"</source>
@@ -2876,6 +3551,30 @@ Navedite drugo mapo.</translation>
       <source>Unit system:</source>
       <translation>Merski sistem:</translation>
     </message>
+    <message>
+      <source>Number of decimals that should be shown for numbers and dimensions</source>
+      <translation>Število decimalk, ki naj se prikaže pri številkah ter merah</translation>
+    </message>
+    <message>
+      <source>Unit system that should be used for all parts the application</source>
+      <translation>Merski sistem, ki naj se uporabi v vseh delih programa</translation>
+    </message>
+    <message>
+      <source>Minimum fractional inch to be displayed</source>
+      <translation>Najmanjši del palca, ki na jse še prikaže</translation>
+    </message>
+    <message>
+      <source>Building US (ft-in/sqft/cft)</source>
+      <translation>ZDA gradbeni (ft-in/sqft/cft)</translation>
+    </message>
+    <message>
+      <source>Imperial for Civil Eng (ft, ft/sec)</source>
+      <translation>Anglosaške gradbene (ft, ft/s)</translation>
+    </message>
+    <message>
+      <source>FEM (mm, N, sec)</source>
+      <translation>MKE (mm, N, s)</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgSettingsViewColor</name>
@@ -2889,11 +3588,11 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Enable selection highlighting</source>
-      <translation>Omogoči poudarjanje izbir</translation>
+      <translation>Omogoči poudarjanje izbora</translation>
     </message>
     <message>
       <source>Enable preselection highlighting</source>
-      <translation>Omogoči poudarjanje predizbir</translation>
+      <translation>Omogoči poudarjanje predizbora</translation>
     </message>
     <message>
       <source>Background color</source>
@@ -2912,24 +3611,56 @@ Navedite drugo mapo.</translation>
       <translation>Preprosta barva</translation>
     </message>
     <message>
-      <source>Pick radius (px):</source>
-      <translation>Izberi polmer (px):</translation>
-    </message>
-    <message>
-      <source>Sets the area of confusion for picking elements in 3D view. Larger value makes it easier to pick stuff, but will make some small features impossible to select.</source>
-      <translation>Nastavi obseg možne pomote pri izbiranju predmetov v pogledu 3D. Pri večji vrednosti je izbiranje predmetov lažje, vendar je potem nemogoče izbrati nekatere majhne dele.</translation>
-    </message>
-    <message>
-      <source>Tree View</source>
-      <translation>Drevesni pogled</translation>
-    </message>
-    <message>
       <source>Object being edited</source>
       <translation>Predmet v urejanju</translation>
     </message>
     <message>
       <source>Active container</source>
       <translation>Dejavni vsebnik</translation>
+    </message>
+    <message>
+      <source>Enable preselection and highlight by specified color</source>
+      <translation>Omogoči predizbor in poudarjanje z določeno barvo</translation>
+    </message>
+    <message>
+      <source>Enable selection highlighting and use specified color</source>
+      <translation>Omogoči poudarjanje izbora in uporabi določeno barvo</translation>
+    </message>
+    <message>
+      <source>Background color for the model view</source>
+      <translation>Barva ozadja v oblikovalnici</translation>
+    </message>
+    <message>
+      <source>Background will have selected color</source>
+      <translation>Ozadje bo izbrane barve</translation>
+    </message>
+    <message>
+      <source>Color gradient will get selected color as middle color</source>
+      <translation>Barvni preliv bo imel izbrano barvo kot sredinsko barvo</translation>
+    </message>
+    <message>
+      <source>Bottom color</source>
+      <translation>Spodnja barva</translation>
+    </message>
+    <message>
+      <source>Background will have selected color gradient</source>
+      <translation>Ozadje bo izbrani barvni preliv</translation>
+    </message>
+    <message>
+      <source>Top color</source>
+      <translation>Zgornja barva</translation>
+    </message>
+    <message>
+      <source>Tree view</source>
+      <translation>Drevesni pogled</translation>
+    </message>
+    <message>
+      <source>Background color for objects in tree view that are currently edited</source>
+      <translation>Barva ozadja za predmete v drevesem pogledu, ki jih trenutno urejate</translation>
+    </message>
+    <message>
+      <source>Background color for active containers in tree view</source>
+      <translation>Barva ozadja pri dejavnih vsebnikih v drevesnem pogledu</translation>
     </message>
   </context>
   <context>
@@ -2958,14 +3689,6 @@ Navedite drugo mapo.</translation>
       <translation>Količina:</translation>
     </message>
     <message>
-      <source>Units:</source>
-      <translation>Merske enote:</translation>
-    </message>
-    <message>
-      <source>Help</source>
-      <translation>Pomoč</translation>
-    </message>
-    <message>
       <source>Copy</source>
       <translation>Kopiraj</translation>
     </message>
@@ -2973,12 +3696,68 @@ Navedite drugo mapo.</translation>
       <source>Close</source>
       <translation>Zapri</translation>
     </message>
+    <message>
+      <source>Input the source value and unit</source>
+      <translation>Vnesite vhodno vrednost in enoto</translation>
+    </message>
+    <message>
+      <source>Input here the unit for the result</source>
+      <translation>Tukaj vnesite željeno enoto</translation>
+    </message>
+    <message>
+      <source>Result</source>
+      <translation>Izid</translation>
+    </message>
+    <message>
+      <source>List of last used calculations 
+To add a calculation press Return in the value input field</source>
+      <translation>Seznam zadnjih računov 
+Za dodajanje izračuna stisnite v vnosnem polju Nazaj</translation>
+    </message>
+    <message>
+      <source>Quantity</source>
+      <translation>Količina</translation>
+    </message>
+    <message>
+      <source>Unit system:</source>
+      <translation>Merski sistem:</translation>
+    </message>
+    <message>
+      <source>Unit system to be used for the Quantity
+The preference system is the one set in the general preferences.</source>
+      <translation>Merski sistem, ki se uporabi za količino
+Prednostni je sistem, nastavljen v splošnih prednastavitvah.</translation>
+    </message>
+    <message>
+      <source>Decimals:</source>
+      <translation>Decimalke:</translation>
+    </message>
+    <message>
+      <source>Decimals for the Quantity</source>
+      <translation>Decimalke pri količinah</translation>
+    </message>
+    <message>
+      <source>Unit category:</source>
+      <translation>Skupina enot:</translation>
+    </message>
+    <message>
+      <source>Unit category for the Quantity</source>
+      <translation>Skupina enot za količino</translation>
+    </message>
+    <message>
+      <source>Copy the result into the clipboard</source>
+      <translation>Kopiraj rezultat v odložišče</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::DlgUnitsCalculator</name>
     <message>
-      <source>Unit mismatch</source>
-      <translation>Enote se ne ujemajo</translation>
+      <source>unknown unit: </source>
+      <translation>neznana enota: </translation>
+    </message>
+    <message>
+      <source>unit mismatch</source>
+      <translation>neujemajoča enota</translation>
     </message>
   </context>
   <context>
@@ -3032,16 +3811,16 @@ Navedite drugo mapo.</translation>
       <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-weight:600;"&gt;Premakni izbrani predmet gor.&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Predmet se bo premaknil gor.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
-      <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt; font-weight:600;"&gt;Note:&lt;/span&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt;"&gt; The changes become active the next time you start FreeCAD&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-      <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt; font-weight:600;"&gt;Opomba:&lt;/span&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt;"&gt; spremembe bodo začele veljati ob naslednjem zagonu FreeCADa.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
       <source>Add all to enabled workbenches</source>
       <translation>Dodaj vse med omogočena delovna okolja</translation>
     </message>
     <message>
       <source>&lt;p&gt;Sort enabled workbenches&lt;/p&gt;</source>
       <translation>&lt;p&gt;Razvrsti omogočena delovna okolja&lt;/p&gt;</translation>
+    </message>
+    <message>
+      <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt; font-weight:600;"&gt;Note:&lt;/span&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt;"&gt; The changes become active the next time you start the application&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+      <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt; font-weight:600;"&gt;Opomba:&lt;/span&gt;&lt;span style=" font-family:'MS Shell Dlg 2'; font-size:8pt;"&gt; spremembe bodo začele veljati ob naslednjem zagonu programa.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
   </context>
   <context>
@@ -3071,7 +3850,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Start Recovery</source>
-      <translation>Zaženi obnovitev</translation>
+      <translation>Začni obnavljanje</translation>
     </message>
     <message>
       <source>Not yet recovered</source>
@@ -3083,7 +3862,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Failed to recover</source>
-      <translation>Obnovitev ni uspela</translation>
+      <translation>Obnavljanje je spodletelo</translation>
     </message>
     <message>
       <source>Successfully recovered</source>
@@ -3095,7 +3874,7 @@ Navedite drugo mapo.</translation>
     </message>
     <message>
       <source>Cleanup...</source>
-      <translation>Počisti...</translation>
+      <translation>Počisti ...</translation>
     </message>
     <message>
       <source>Delete</source>
@@ -3133,7 +3912,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>When deleting all transient directories you won't be able to recover any files afterwards.</source>
-      <translation>Če bodo izbrisani vsi začasni imeniki, kasneje ne boste mogli obnoviti datotek.</translation>
+      <translation>Če se izbriše vse začasne imenike, kasneje ni več mogoče obnoviti datotek.</translation>
     </message>
   </context>
   <context>
@@ -3188,7 +3967,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>bytes</source>
-      <translation>B</translation>
+      <translation>zlogov</translation>
     </message>
     <message>
       <source>kB</source>
@@ -3215,15 +3994,15 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Download Manager</source>
-      <translation>Upravljalnik prenosov</translation>
+      <translation>Upravljalnik prejemov</translation>
     </message>
     <message>
       <source>1 Download</source>
-      <translation>1 prenos</translation>
+      <translation>1 prejem</translation>
     </message>
     <message>
       <source>%1 Downloads</source>
-      <translation>%1 prenosov</translation>
+      <translation>%1 prejemov</translation>
     </message>
   </context>
   <context>
@@ -3279,7 +4058,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     <name>Gui::Dialog::MouseButtons</name>
     <message>
       <source>Mouse buttons</source>
-      <translation>Miškini gumbi</translation>
+      <translation>Miškine tipke</translation>
     </message>
     <message>
       <source>Configuration</source>
@@ -3299,7 +4078,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Zooming:</source>
-      <translation>Bliže/dlje:</translation>
+      <translation>Preodmičenje:</translation>
     </message>
   </context>
   <context>
@@ -3322,19 +4101,15 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Export parameter</source>
-      <translation>Izvoz spremenljivke</translation>
+      <translation>Izvoz določilke</translation>
     </message>
     <message>
       <source>Import parameter</source>
-      <translation>Uvoz spremenljivke</translation>
+      <translation>Uvoz določilke</translation>
     </message>
     <message>
       <source>Collapse</source>
-      <translation>Strni</translation>
-    </message>
-    <message>
-      <source>Do really want to remove this parameter group?</source>
-      <translation>Ali res želite odstraniti to skupino spremenljivk?</translation>
+      <translation>Zloži</translation>
     </message>
     <message>
       <source>Existing sub-group</source>
@@ -3346,11 +4121,11 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Export parameter to file</source>
-      <translation>Izvozi spremenljivko v datoteko</translation>
+      <translation>Izvozi določilko v datoteko</translation>
     </message>
     <message>
       <source>Import parameter from file</source>
-      <translation>Uvozi spremenljivko iz datoteke</translation>
+      <translation>Uvozi določilko iz datoteke</translation>
     </message>
     <message>
       <source>Import Error</source>
@@ -3359,6 +4134,10 @@ The 'Status' column shows whether the document could be recovered.</source>
     <message>
       <source>Reading from '%1' failed.</source>
       <translation>Branje iz '%1' ni uspelo.</translation>
+    </message>
+    <message>
+      <source>Do you really want to remove this parameter group?</source>
+      <translation>Ali res želite odstraniti to skupino določilk?</translation>
     </message>
   </context>
   <context>
@@ -3440,7 +4219,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Angle:</source>
-      <translation>Kot:</translation>
+      <translation>Kót:</translation>
     </message>
     <message>
       <source>Axis:</source>
@@ -3449,18 +4228,6 @@ The 'Status' column shows whether the document could be recovered.</source>
     <message>
       <source>Center:</source>
       <translation>Središče:</translation>
-    </message>
-    <message>
-      <source>Pitch:</source>
-      <translation>Naklon:</translation>
-    </message>
-    <message>
-      <source>Roll:</source>
-      <translation>Nagib:</translation>
-    </message>
-    <message>
-      <source>Yaw:</source>
-      <translation>Odklon:</translation>
     </message>
     <message>
       <source>Rotation axis with angle</source>
@@ -3485,10 +4252,6 @@ The 'Status' column shows whether the document could be recovered.</source>
     <message>
       <source>There are input fields with incorrect input, please ensure valid placement values!</source>
       <translation>Nekatera vnosna polja so napačno izpolnjena. Vnesite veljavne vrednosti postavitve!</translation>
-    </message>
-    <message>
-      <source>Euler angles (XY'Z'')</source>
-      <translation>Eulerjevi koti (XY'Z")</translation>
     </message>
     <message>
       <source>Use center of mass</source>
@@ -3518,6 +4281,34 @@ The 'Status' column shows whether the document could be recovered.</source>
       <source>Please select 1, 2, or 3 points before clicking this button.  A point may be on a vertex, face, or edge.  If on a face or edge the point used will be the point at the mouse position along face or edge.  If 1 point is selected it will be used as the center of rotation.  If 2 points are selected the midpoint between them will be the center of rotation and a new custom axis will be created, if needed.  If 3 points are selected the first point becomes the center of rotation and lies on the vector that is normal to the plane defined by the 3 points.  Some distance and angle information is provided in the report view, which can be useful when aligning objects.  For your convenience when Shift + click is used the appropriate distance or angle is copied to the clipboard.</source>
       <translation>Izberite 1, 2 ali 3 točke preden kliknete ta gumb.  Točka je lahko na ogljišču, ploskvi ali na robu.  Če bo na ploskvi ali robu, bo uporabljena točka položaja kazalke na ploskvi ali robu.  Če je izbrana 1 točka, bo uporabljena kot središče sukanja.  Če sta izbrani 2 točki, bo točka na sredini med njima središče sukanja in ustvarjena bo nova os po meri, če bo potrebno.  Če so izbrane 3 točke, prva točka postane središče vrtenja in leži na vektorju, ki je pravokoten na ravnino, določeno s temi 3 točkami.  Nekateri podatki o razdaljah in kotih so podani v poročilnem pogledu, ki je lahko koristen posebno pri poravnavanju objektov.  Za lažjo uporabo se s Premakni + klik ustrezna razdalja ali kot kopira v odložišče.</translation>
     </message>
+    <message>
+      <source>Around y-axis:</source>
+      <translation>Okoli osi y:</translation>
+    </message>
+    <message>
+      <source>Around z-axis:</source>
+      <translation>Okoli osi z:</translation>
+    </message>
+    <message>
+      <source>Around x-axis:</source>
+      <translation>Okoli osi x:</translation>
+    </message>
+    <message>
+      <source>Rotation around the x-axis</source>
+      <translation>Sukanje okoli osi x</translation>
+    </message>
+    <message>
+      <source>Rotation around the y-axis</source>
+      <translation>Sukanje okoli osi y</translation>
+    </message>
+    <message>
+      <source>Rotation around the z-axis</source>
+      <translation>Sukanje okoli osi z</translation>
+    </message>
+    <message>
+      <source>Euler angles (xy'z'')</source>
+      <translation>Eulerjevi koti (xy'z")</translation>
+    </message>
   </context>
   <context>
     <name>Gui::Dialog::PrintModel</name>
@@ -3528,6 +4319,37 @@ The 'Status' column shows whether the document could be recovered.</source>
     <message>
       <source>Command</source>
       <translation>Ukaz</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Dialog::RemoteDebugger</name>
+    <message>
+      <source>Attach to remote debugger</source>
+      <translation>Priloži k oddaljenemu razhroščevalniku</translation>
+    </message>
+    <message>
+      <source>winpdb</source>
+      <translation>winpdb</translation>
+    </message>
+    <message>
+      <source>Password:</source>
+      <translation>Geslo:</translation>
+    </message>
+    <message>
+      <source>VS Code</source>
+      <translation>VS koda</translation>
+    </message>
+    <message>
+      <source>Address:</source>
+      <translation>Naslov:</translation>
+    </message>
+    <message>
+      <source>Port:</source>
+      <translation>Vrata:</translation>
+    </message>
+    <message>
+      <source>Redirect output</source>
+      <translation>Preusmeri izhod</translation>
     </message>
   </context>
   <context>
@@ -3564,11 +4386,11 @@ The 'Status' column shows whether the document could be recovered.</source>
     <name>Gui::Dialog::TextureMapping</name>
     <message>
       <source>Texture</source>
-      <translation>Tekstura</translation>
+      <translation>Ustroj</translation>
     </message>
     <message>
       <source>Texture mapping</source>
-      <translation>Preslikava teksture</translation>
+      <translation>Preslikava ustroja</translation>
     </message>
     <message>
       <source>Global</source>
@@ -3592,11 +4414,11 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>No 3d view</source>
-      <translation>Ni pogleda 3D</translation>
+      <translation>Ni prostorskega pogleda</translation>
     </message>
     <message>
       <source>No active 3d view found.</source>
-      <translation>Dejavnih pogledov 3D ni mogoče najdti.</translation>
+      <translation>Dejavnih prostorskih pogledov ni mogoče najti.</translation>
     </message>
   </context>
   <context>
@@ -3608,6 +4430,45 @@ The 'Status' column shows whether the document could be recovered.</source>
     <message>
       <source>Transform</source>
       <translation>Preoblikuj</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::DlgObjectSelection</name>
+    <message>
+      <source>Object selection</source>
+      <translation>Izbor predmetov</translation>
+    </message>
+    <message>
+      <source>The selected objects contain other dependencies. Please select which objects to export. All dependencies are auto selected by default.</source>
+      <translation>Izbrani predmeti vsebujejo druge odvisnosti. Izberite predmete za izvoz. Odvisnosti so privzeto vse samodejno izbrane.</translation>
+    </message>
+    <message>
+      <source>Dependency</source>
+      <translation>Odvisnost</translation>
+    </message>
+    <message>
+      <source>Document</source>
+      <translation>Dokument</translation>
+    </message>
+    <message>
+      <source>Name</source>
+      <translation>Ime</translation>
+    </message>
+    <message>
+      <source>State</source>
+      <translation>Stanje</translation>
+    </message>
+    <message>
+      <source>Hierarchy</source>
+      <translation>Hierarhija</translation>
+    </message>
+    <message>
+      <source>Selected</source>
+      <translation>Izbrano</translation>
+    </message>
+    <message>
+      <source>Partial</source>
+      <translation>Delno</translation>
     </message>
   </context>
   <context>
@@ -3626,41 +4487,29 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
   </context>
   <context>
-    <name>Gui::DockWnd::CombiView</name>
+    <name>Gui::DockWnd::ComboView</name>
     <message>
-      <source>CombiView</source>
+      <source>Combo View</source>
       <translation>Sestavljen pogled</translation>
-    </message>
-    <message>
-      <source>Tasks</source>
-      <translation>Opravila</translation>
     </message>
     <message>
       <source>Model</source>
       <translation>Model</translation>
+    </message>
+    <message>
+      <source>Tasks</source>
+      <translation>Opravila</translation>
     </message>
   </context>
   <context>
     <name>Gui::DockWnd::PropertyDockView</name>
     <message>
       <source>Property View</source>
-      <translation>Pogled lastnosti</translation>
+      <translation>Pogled z lastnostmi</translation>
     </message>
   </context>
   <context>
     <name>Gui::DockWnd::ReportOutput</name>
-    <message>
-      <source>Logging</source>
-      <translation>Beleženje</translation>
-    </message>
-    <message>
-      <source>Warning</source>
-      <translation>Opozorilo</translation>
-    </message>
-    <message>
-      <source>Error</source>
-      <translation>Napaka</translation>
-    </message>
     <message>
       <source>Options</source>
       <translation>Možnosti</translation>
@@ -3691,7 +4540,31 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Plain Text Files</source>
-      <translation>Običajne besedilne datoteke</translation>
+      <translation>Golobesedilne datoteke</translation>
+    </message>
+    <message>
+      <source>Display message types</source>
+      <translation>Prikaži vrste sporočil</translation>
+    </message>
+    <message>
+      <source>Normal messages</source>
+      <translation>Običajna sporočila</translation>
+    </message>
+    <message>
+      <source>Log messages</source>
+      <translation>Dnevniška sporočila</translation>
+    </message>
+    <message>
+      <source>Warnings</source>
+      <translation>Opozorila</translation>
+    </message>
+    <message>
+      <source>Errors</source>
+      <translation>Napake</translation>
+    </message>
+    <message>
+      <source>Show report view on</source>
+      <translation>Prikaži poročevalni pogled pri</translation>
     </message>
   </context>
   <context>
@@ -3702,7 +4575,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Python console</source>
-      <translation>Konzola Python</translation>
+      <translation>Pythonova ukazna miza</translation>
     </message>
   </context>
   <context>
@@ -3721,11 +4594,11 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Select only</source>
-      <translation>Izberi samo</translation>
+      <translation>Izberi le</translation>
     </message>
     <message>
       <source>Selects only this object</source>
-      <translation>Izbere samo ta predmet</translation>
+      <translation>Izbere le ta predmet</translation>
     </message>
     <message>
       <source>Deselect</source>
@@ -3741,7 +4614,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Selects and fits this object in the 3D window</source>
-      <translation>Izbere in prilagodi predmet oknu 3D</translation>
+      <translation>Izbere in prilagodi predmet 3D oknu</translation>
     </message>
     <message>
       <source>Go to selection</source>
@@ -3753,11 +4626,11 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>To python console</source>
-      <translation>Na konzolo Python</translation>
+      <translation>Na Pythonovo ukazno mizo</translation>
     </message>
     <message>
       <source>Reveals this object and its subelements in the python console.</source>
-      <translation>Razkrije ta predmet in njegove podenote v konzoli Python.</translation>
+      <translation>Razkrije ta predmet in njegove podenote v Pythonovi ukazni mizi.</translation>
     </message>
     <message>
       <source>Mark to recompute</source>
@@ -3765,7 +4638,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Mark this object to be recomputed</source>
-      <translation>Označi ta ponovni za ponovni preračun</translation>
+      <translation>Označi ta predmet za ponovni preračun</translation>
     </message>
     <message>
       <source>Selection View</source>
@@ -3783,6 +4656,10 @@ The 'Status' column shows whether the document could be recovered.</source>
       <source>Creates a standalone copy of this subshape in the document</source>
       <translation>V dokumentu ustvari ločeno kopijo te podoblike</translation>
     </message>
+    <message>
+      <source>Picked object list</source>
+      <translation>Seznam izbranih predmetov</translation>
+    </message>
   </context>
   <context>
     <name>Gui::DocumentModel</name>
@@ -3792,7 +4669,7 @@ The 'Status' column shows whether the document could be recovered.</source>
     </message>
     <message>
       <source>Labels &amp; Attributes</source>
-      <translation>Oznake in atributi</translation>
+      <translation>Oznake in značilke</translation>
     </message>
   </context>
   <context>
@@ -3845,11 +4722,25 @@ Ali želite shraniti spremembe?</translation>
     </message>
     <message>
       <source>FreeCAD macro</source>
-      <translation>Makro FreeCAD</translation>
+      <translation>FreeCADov makro</translation>
     </message>
     <message>
       <source>PDF file</source>
       <translation>Datoteka PDF</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::ExpressionLineEdit</name>
+    <message>
+      <source>Exact match</source>
+      <translation>Natančno ujemanje</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::ExpressionTextEdit</name>
+    <message>
+      <source>Exact match</source>
+      <translation>Natančno ujemanje</translation>
     </message>
   </context>
   <context>
@@ -3912,19 +4803,19 @@ Ali želite shraniti spremembe?</translation>
     <name>Gui::GestureNavigationStyle</name>
     <message>
       <source>Tap OR click left mouse button.</source>
-      <translation>Tapnite ali kliknite z levim miškinim gumbom.</translation>
+      <translation>Tapnite ali kliknite z levo miškino tipko.</translation>
     </message>
     <message>
       <source>Drag screen with two fingers OR press right mouse button.</source>
-      <translation>Povlecite po zaslonu z dvema prstoma ali kliknite z desnim miškinim gumbom.</translation>
+      <translation>Povlecite po zaslonu z dvema prstoma ali kliknite z desno miškino tipko.</translation>
     </message>
     <message>
       <source>Drag screen with one finger OR press left mouse button. In Sketcher &amp;&amp; other edit modes, hold Alt in addition.</source>
-      <translation type="unfinished">Drag screen with one finger OR press left mouse button. In Sketcher &amp;&amp; other edit modes, hold Alt in addition.</translation>
+      <translation>Povlecite po zaslonu z enim prstom ali kliknite z levo miškinio tipko. V očrtovalniku in drugih načinih urejanja pridržite še tipko Alt.</translation>
     </message>
     <message>
       <source>Pinch (place two fingers on the screen &amp;&amp; drag them apart from || towards each other) OR scroll middle mouse button OR PgUp/PgDown on keyboard.</source>
-      <translation type="unfinished">Pinch (place two fingers on the screen &amp;&amp; drag them apart from || towards each other) OR scroll middle mouse button OR PgUp/PgDown on keyboard.</translation>
+      <translation>Uščipnite (na zaslonu dva prsta povlecite skupaj ali narazen), zavrtite miškino kolesce ali na tipkovnici pritisnite Stran ↑/Stran ↓.</translation>
     </message>
   </context>
   <context>
@@ -3935,27 +4826,27 @@ Ali želite shraniti spremembe?</translation>
     </message>
     <message>
       <source>PNG format</source>
-      <translation>Zapis PNG</translation>
+      <translation>PNG zapis</translation>
     </message>
     <message>
       <source>Bitmap format</source>
-      <translation>Zapis bitne slike</translation>
+      <translation>Zapis točkovne slike</translation>
     </message>
     <message>
       <source>GIF format</source>
-      <translation>Zapis GIF</translation>
+      <translation>GIF zapis</translation>
     </message>
     <message>
       <source>JPG format</source>
-      <translation>Zapis JPG</translation>
+      <translation>JPG zapis</translation>
     </message>
     <message>
       <source>SVG format</source>
-      <translation>Zapis SVG</translation>
+      <translation>SVG zapis</translation>
     </message>
     <message>
       <source>PDF format</source>
-      <translation>Zapis PDF</translation>
+      <translation>PDF zapis</translation>
     </message>
     <message>
       <source>Graphviz not found</source>
@@ -3971,7 +4862,7 @@ Ali želite shraniti spremembe?</translation>
     </message>
     <message>
       <source>Do you want to specify its installation path if it's already installed?</source>
-      <translation>Ali želite določiti svoje namestitveno mesto, če je že nameščen?</translation>
+      <translation>Ali želite določiti namestitveno mesto, če je že nameščen?</translation>
     </message>
     <message>
       <source>Graphviz installation path</source>
@@ -4001,15 +4892,15 @@ Ali želite shraniti spremembe?</translation>
     <name>Gui::InventorNavigationStyle</name>
     <message>
       <source>Press CTRL and left mouse button</source>
-      <translation>Pritisnite CTRL in levi miškin gumb</translation>
+      <translation>Pritisnite CTRL in levo miškino tipko</translation>
     </message>
     <message>
       <source>Press middle mouse button</source>
-      <translation>Pritisnite srednjmiškin gumb</translation>
+      <translation>Pritisnite srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Scroll middle mouse button</source>
@@ -4031,7 +4922,7 @@ Ali želite shraniti spremembe?</translation>
     </message>
     <message>
       <source>Direction must not be the null vector</source>
-      <translation>Smer mora biti ničelni vektor</translation>
+      <translation>Smer ne sme biti ničelni vektor</translation>
     </message>
     <message>
       <source>X</source>
@@ -4088,7 +4979,7 @@ Ali želite shraniti spremembe?</translation>
     <name>Gui::MainWindow</name>
     <message>
       <source>Dimension</source>
-      <translation>Kota</translation>
+      <translation>Mera</translation>
     </message>
     <message>
       <source>Ready</source>
@@ -4107,14 +4998,18 @@ Ali želite shraniti spremembe?</translation>
       <translation>Zapri vse</translation>
     </message>
     <message>
-      <source>Object dependencies</source>
-      <translation>Odvisnosti predmetov</translation>
+      <source>Unsaved document</source>
+      <translation>Neshranjen dokument</translation>
     </message>
     <message>
-      <source>The selected objects have a dependency to unselected objects.
-Do you want to copy them, too?</source>
-      <translation>Izbrani predmeti so odvisni od neizbranih.
-Ali želite kopirati tudi te?</translation>
+      <source>The exported object contains external link. Please save the documentat least once before exporting.</source>
+      <translation>Izvoženi predmet vsebuje zunanje povezave. Pred izvažanjem shranite dokument vsaj enkrat.</translation>
+    </message>
+    <message>
+      <source>To link to external objects, the document must be saved at least once.
+Do you want to save the document now?</source>
+      <translation>Za povezovanje na zunanje predmete mora biti dokument shranjen vsaj enkrat.
+Ali želite shraniti dokument zdaj?</translation>
     </message>
   </context>
   <context>
@@ -4174,7 +5069,7 @@ v desnem pa %2 točk.</translation>
     <message>
       <source>The alignment failed.
 How do you want to proceed?</source>
-      <translation>Poravnava ni uspela.
+      <translation>Poravnava spodletela.
 Kako želite nadaljevati?</translation>
     </message>
     <message>
@@ -4210,19 +5105,19 @@ Kako želite nadaljevati?</translation>
     <name>Gui::MayaGestureNavigationStyle</name>
     <message>
       <source>Tap OR click left mouse button.</source>
-      <translation>Tapnite ali kliknite z levim miškinim gumbom.</translation>
+      <translation>Tapnite ali kliknite z levo miškino tipko.</translation>
     </message>
     <message>
       <source>Drag screen with two fingers OR press ALT + middle mouse button.</source>
-      <translation>Povlecite po zaslonu z dvema prstoma ali pritisnite Alt + srednji miškin gumb.</translation>
+      <translation>Povlecite po zaslonu z dvema prstoma ali pritisnite Alt + srednjo miškino tipko.</translation>
     </message>
     <message>
       <source>Drag screen with one finger OR press ALT + left mouse button. In Sketcher and other edit modes, hold Alt in addition.</source>
-      <translation>Povlecite po zaslonu z enim prstom ali pritisnite Alt + levi miškin gumb. V očrtovalniku in drugih načinih urejanja pridržite še gumb Alt.</translation>
+      <translation>Povlecite po zaslonu z enim prstom ali pritisnite Alt + levo miškino tipko. V očrtovalniku in drugih načinih urejanja pridržite še gumb Alt.</translation>
     </message>
     <message>
       <source>Pinch (place two fingers on the screen and drag them apart from or towards each other) OR scroll middle mouse button OR press ALT + right mouse button OR PgUp/PgDown on keyboard.</source>
-      <translation>Uščipnite (na zaslonu dva prsta povlecite skupaj ali narazen), zavrtite miškino kolesce, pritisnite Alt + desni gumb miškin gumb ali na tipkovnici pritisnite Stran ↑/Stran ↓.</translation>
+      <translation>Uščipnite (na zaslonu dva prsta povlecite skupaj ali narazen), zavrtite miškino kolesce, pritisnite Alt + desno miškino tipko ali na tipkovnici pritisnite Stran ↑/Stran ↓.</translation>
     </message>
   </context>
   <context>
@@ -4236,19 +5131,19 @@ Kako želite nadaljevati?</translation>
     <name>Gui::OpenCascadeNavigationStyle</name>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Press CTRL and middle mouse button</source>
-      <translation>Pritisnite Ctrl in srednji gumb na miški</translation>
+      <translation>Pritisnite Ctrl in srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Press CTRL and right mouse button</source>
-      <translation>Pritisnite Ctrl in desni gumb na miški</translation>
+      <translation>Pritisnite CTRL in levo miškino tipko</translation>
     </message>
     <message>
       <source>Press CTRL and left mouse button</source>
-      <translation>Pritisnite CTRL in levi miškin gumb</translation>
+      <translation>Pritisnite CTRL in levo miškino tipko</translation>
     </message>
   </context>
   <context>
@@ -4304,24 +5199,48 @@ Kako želite nadaljevati?</translation>
     </message>
   </context>
   <context>
-    <name>Gui::PropertyEditor::LinkListLabel</name>
+    <name>Gui::PropertyEditor::LinkSelection</name>
     <message>
-      <source>Change the linked objects</source>
-      <translation>Spremeni povezane predmete</translation>
+      <source>Error</source>
+      <translation>Napaka</translation>
+    </message>
+    <message>
+      <source>Object not found</source>
+      <translation>Predmeta ni bilo mogoče najti</translation>
     </message>
   </context>
   <context>
     <name>Gui::PropertyEditor::PropertyEditor</name>
     <message>
-      <source>Edit %1</source>
-      <translation>Uredi %1</translation>
+      <source>Edit</source>
+      <translation>Uredi</translation>
+    </message>
+    <message>
+      <source>property</source>
+      <translation>lastnost</translation>
+    </message>
+    <message>
+      <source>Show all</source>
+      <translation>Prikaži vse</translation>
+    </message>
+    <message>
+      <source>Add property</source>
+      <translation>Dodaj lastnost</translation>
+    </message>
+    <message>
+      <source>Remove property</source>
+      <translation>Odstrani lastnost</translation>
+    </message>
+    <message>
+      <source>Expression...</source>
+      <translation>Izraz ...</translation>
     </message>
   </context>
   <context>
     <name>Gui::PropertyEditor::PropertyModel</name>
     <message>
       <source>Property</source>
-      <translation>Lastnosti</translation>
+      <translation>Lastnost</translation>
     </message>
     <message>
       <source>Value</source>
@@ -4353,7 +5272,7 @@ Ali želite končati ne da bi shranili podatke?</translation>
     </message>
     <message>
       <source>Python console</source>
-      <translation>Konzola Python</translation>
+      <translation>Pythonova ukazna miza</translation>
     </message>
     <message>
       <source>Unhandled PyCXX exception.</source>
@@ -4413,7 +5332,7 @@ Ali želite končati ne da bi shranili podatke?</translation>
     </message>
     <message>
       <source>Clear console</source>
-      <translation>Počisti konzolo</translation>
+      <translation>Počisti ukazno mizo</translation>
     </message>
     <message>
       <source>Macro Files</source>
@@ -4423,12 +5342,20 @@ Ali želite končati ne da bi shranili podatke?</translation>
       <source>All Files</source>
       <translation>Vse datoteke</translation>
     </message>
+    <message>
+      <source>Save history</source>
+      <translation>Shrani zgodovino</translation>
+    </message>
+    <message>
+      <source>Saves Python history across %1 sessions</source>
+      <translation>Shrani %1 sej Pythonove zgodovine</translation>
+    </message>
   </context>
   <context>
     <name>Gui::PythonEditor</name>
     <message>
       <source>Comment</source>
-      <translation>Pojasnilo</translation>
+      <translation>Opomba</translation>
     </message>
     <message>
       <source>Uncomment</source>
@@ -4451,18 +5378,33 @@ Ali želite končati ne da bi shranili podatke?</translation>
     </message>
   </context>
   <context>
+    <name>Gui::RecentMacrosAction</name>
+    <message>
+      <source>Run macro %1 (Shift+click to edit) shortcut: %2</source>
+      <translation>Bližnjica za zagon makra %1 (Premakni (Shift)+kliknite za urejanje): %2</translation>
+    </message>
+    <message>
+      <source>File not found</source>
+      <translation>Datoteke ni mogoče najti</translation>
+    </message>
+    <message>
+      <source>The file '%1' cannot be opened.</source>
+      <translation>Datoteke '%1' ni mogoče odpreti.</translation>
+    </message>
+  </context>
+  <context>
     <name>Gui::RevitNavigationStyle</name>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Press middle mouse button</source>
-      <translation>Pritisnite srednjmiškin gumb</translation>
+      <translation>Pritisnite srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Press SHIFT and middle mouse button</source>
-      <translation>Pritisnite Shift in srednji miškin gumb</translation>
+      <translation>Pritisnite Shift in srednjo miškino tipko</translation>
     </message>
     <message>
       <source>Scroll middle mouse button</source>
@@ -4496,7 +5438,7 @@ Ali želite končati ne da bi shranili podatke?</translation>
     </message>
     <message>
       <source>Long description of commands</source>
-      <translation>Dolg opis ukazov</translation>
+      <translation>Obširni opis ukazov</translation>
     </message>
   </context>
   <context>
@@ -4527,7 +5469,7 @@ Ali želite navesti obstoječo mapo?</translation>
     </message>
     <message>
       <source>Missing permission</source>
-      <translation>Manjka dovoljenje</translation>
+      <translation>Manjkajoče dovoljenje</translation>
     </message>
     <message>
       <source>You don't have write permission to '%1'
@@ -4539,7 +5481,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Stop downloading</source>
-      <translation>Ustavi prenos</translation>
+      <translation>Ustavi prejemanje</translation>
     </message>
   </context>
   <context>
@@ -4587,6 +5529,45 @@ Ali želite navesti drugo mapo?</translation>
     </message>
   </context>
   <context>
+    <name>Gui::TaskElementColors</name>
+    <message>
+      <source>Set element color</source>
+      <translation>Nastavi barvo prvine</translation>
+    </message>
+    <message>
+      <source>TextLabel</source>
+      <translation>Besedilna oznaka</translation>
+    </message>
+    <message>
+      <source>Recompute after commit</source>
+      <translation>Ponovno preračunaj po uveljavitivi</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation>Odstrani</translation>
+    </message>
+    <message>
+      <source>Edit</source>
+      <translation>Uredi</translation>
+    </message>
+    <message>
+      <source>Remove all</source>
+      <translation>Odstrani vse</translation>
+    </message>
+    <message>
+      <source>Hide</source>
+      <translation>Skrij</translation>
+    </message>
+    <message>
+      <source>Box select</source>
+      <translation>Izbiralni kvader</translation>
+    </message>
+    <message>
+      <source>On-top when selected</source>
+      <translation>Na vrh, ko je izbrano</translation>
+    </message>
+  </context>
+  <context>
     <name>Gui::TaskView::TaskAppearance</name>
     <message>
       <source>Plot mode:</source>
@@ -4602,7 +5583,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Transparency:</source>
-      <translation>Prosojnost:</translation>
+      <translation>Prozornost:</translation>
     </message>
     <message>
       <source>Appearance</source>
@@ -4668,24 +5649,175 @@ Ali želite navesti drugo mapo?</translation>
       <source>If you don't save, your changes will be lost.</source>
       <translation>Če ne shranite, bodo spremembe izgubljene.</translation>
     </message>
+    <message>
+      <source>Edit text</source>
+      <translation>Uredi besedilo</translation>
+    </message>
   </context>
   <context>
     <name>Gui::TouchpadNavigationStyle</name>
     <message>
       <source>Press left mouse button</source>
-      <translation>Pritisnite levi gumb na miški</translation>
+      <translation>Pritisnite levo miškino tipko</translation>
     </message>
     <message>
       <source>Press SHIFT button</source>
-      <translation>Pritisnite gumb Shift</translation>
+      <translation>Pritisnite Premakni (Shift)</translation>
     </message>
     <message>
       <source>Press ALT button</source>
-      <translation>Pritisnite gumb Alt</translation>
+      <translation>Pritisnite Alt</translation>
     </message>
     <message>
       <source>Press CTRL and SHIFT buttons</source>
-      <translation>Pritisnite gumba Ctrl in Shift</translation>
+      <translation>Pritisnite Ctrl in Premakni (Shift)</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::Translator</name>
+    <message>
+      <source>English</source>
+      <translation>Angleščina</translation>
+    </message>
+    <message>
+      <source>German</source>
+      <translation>Nemščina</translation>
+    </message>
+    <message>
+      <source>Spanish</source>
+      <translation>Španščina</translation>
+    </message>
+    <message>
+      <source>French</source>
+      <translation>Francoščina</translation>
+    </message>
+    <message>
+      <source>Italian</source>
+      <translation>Italijanščina</translation>
+    </message>
+    <message>
+      <source>Japanese</source>
+      <translation>Japonščina</translation>
+    </message>
+    <message>
+      <source>Chinese Simplified</source>
+      <translation>Poenostavljena kitajščina</translation>
+    </message>
+    <message>
+      <source>Chinese Traditional</source>
+      <translation>Tradicionalna kitajščina</translation>
+    </message>
+    <message>
+      <source>Korean</source>
+      <translation>Korejščina</translation>
+    </message>
+    <message>
+      <source>Russian</source>
+      <translation>Ruščina</translation>
+    </message>
+    <message>
+      <source>Swedish</source>
+      <translation>Švedščina</translation>
+    </message>
+    <message>
+      <source>Afrikaans</source>
+      <translation>Afrikanščina</translation>
+    </message>
+    <message>
+      <source>Norwegian</source>
+      <translation>Norveščina</translation>
+    </message>
+    <message>
+      <source>Portuguese, Brazilian</source>
+      <translation>Portugalščina, Brazilija</translation>
+    </message>
+    <message>
+      <source>Portuguese</source>
+      <translation>Portugalščina</translation>
+    </message>
+    <message>
+      <source>Dutch</source>
+      <translation>Nizozemščina</translation>
+    </message>
+    <message>
+      <source>Ukrainian</source>
+      <translation>Ukrajinščina</translation>
+    </message>
+    <message>
+      <source>Finnish</source>
+      <translation>Finščina</translation>
+    </message>
+    <message>
+      <source>Croatian</source>
+      <translation>Hrvaščina</translation>
+    </message>
+    <message>
+      <source>Polish</source>
+      <translation>Poljščina</translation>
+    </message>
+    <message>
+      <source>Czech</source>
+      <translation>Češčina</translation>
+    </message>
+    <message>
+      <source>Hungarian</source>
+      <translation>Madžarščina</translation>
+    </message>
+    <message>
+      <source>Romanian</source>
+      <translation>Romunščina</translation>
+    </message>
+    <message>
+      <source>Slovak</source>
+      <translation>Slovaščina</translation>
+    </message>
+    <message>
+      <source>Turkish</source>
+      <translation>Turščina</translation>
+    </message>
+    <message>
+      <source>Slovenian</source>
+      <translation>Slovenščina</translation>
+    </message>
+    <message>
+      <source>Basque</source>
+      <translation>Baskovščina</translation>
+    </message>
+    <message>
+      <source>Catalan</source>
+      <translation>Katalonščina</translation>
+    </message>
+    <message>
+      <source>Galician</source>
+      <translation>Galicijščina</translation>
+    </message>
+    <message>
+      <source>Kabyle</source>
+      <translation>Kabilščina</translation>
+    </message>
+    <message>
+      <source>Filipino</source>
+      <translation>Filipinščina</translation>
+    </message>
+    <message>
+      <source>Indonesian</source>
+      <translation>Indonezijščina</translation>
+    </message>
+    <message>
+      <source>Lithuanian</source>
+      <translation>Litovščina</translation>
+    </message>
+    <message>
+      <source>Valencian</source>
+      <translation>Valencijanščina</translation>
+    </message>
+    <message>
+      <source>Arabic</source>
+      <translation>Arabščina</translation>
+    </message>
+    <message>
+      <source>Vietnamese</source>
+      <translation>Vietnamščina</translation>
     </message>
   </context>
   <context>
@@ -4726,7 +5858,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Labels &amp; Attributes</source>
-      <translation>Oznake in atributi</translation>
+      <translation>Oznake in značilke</translation>
     </message>
     <message>
       <source>Application</source>
@@ -4746,11 +5878,11 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Activate document %1</source>
-      <translation>Aktiviranje dokumenta %1</translation>
+      <translation>Aktiviranje dokumente %1</translation>
     </message>
     <message>
       <source>Skip recomputes</source>
-      <translation>Preskoči ponoven preračun</translation>
+      <translation>Preskoči ponovne preračune</translation>
     </message>
     <message>
       <source>Enable or disable recomputations of document</source>
@@ -4762,7 +5894,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Mark this object to be recomputed</source>
-      <translation>Označi ta ponovni za ponovni preračun</translation>
+      <translation>Označi ta predmet za ponovni preračun</translation>
     </message>
     <message>
       <source>%1, Internal name: %2</source>
@@ -4775,6 +5907,77 @@ Ali želite navesti drugo mapo?</translation>
     <message>
       <source>Search for objects</source>
       <translation>Išči predmete</translation>
+    </message>
+    <message>
+      <source>Description</source>
+      <translation>Opis</translation>
+    </message>
+    <message>
+      <source>Show hidden items</source>
+      <translation>Prikaži skrito</translation>
+    </message>
+    <message>
+      <source>Show hidden tree view items</source>
+      <translation>Prikaži skrito v drevesnem pogledu</translation>
+    </message>
+    <message>
+      <source>Hide item</source>
+      <translation>Skrij predmet</translation>
+    </message>
+    <message>
+      <source>Hide the item in tree</source>
+      <translation>Skrij predmet v drevesu</translation>
+    </message>
+    <message>
+      <source>Close document</source>
+      <translation>Zapri dokument</translation>
+    </message>
+    <message>
+      <source>Close the document</source>
+      <translation>Zapri dokument</translation>
+    </message>
+    <message>
+      <source>Reload document</source>
+      <translation>Ponovno naloži dokument</translation>
+    </message>
+    <message>
+      <source>Reload a partially loaded document</source>
+      <translation>Ponovno naloži delno naložen dokument</translation>
+    </message>
+    <message>
+      <source>Allow partial recomputes</source>
+      <translation>Dovoli delno praračunavanje</translation>
+    </message>
+    <message>
+      <source>Enable or disable recomputating editing object when 'skip recomputation' is enabled</source>
+      <translation>Omogoči ali onemogoči preračunavanje urejevanih predmetov, ko je onemogočeno "Preskoči preračunavanje"</translation>
+    </message>
+    <message>
+      <source>Recompute object</source>
+      <translation>Preračunaj predmete</translation>
+    </message>
+    <message>
+      <source>Recompute the selected object</source>
+      <translation>Preračunaj izbranie predmet</translation>
+    </message>
+    <message>
+      <source> (but must be executed)</source>
+      <translation> (vendar mora biti izvedeno)</translation>
+    </message>
+  </context>
+  <context>
+    <name>Gui::VectorListEditor</name>
+    <message>
+      <source>Vectors</source>
+      <translation>Vektorji</translation>
+    </message>
+    <message>
+      <source>Table</source>
+      <translation>Preglednica</translation>
+    </message>
+    <message>
+      <source>...</source>
+      <translation>...</translation>
     </message>
   </context>
   <context>
@@ -4823,7 +6026,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Preferences...</source>
-      <translation>Nastavitve...</translation>
+      <translation>Prednastavitve ...</translation>
     </message>
     <message>
       <source>Quit %1</source>
@@ -4943,7 +6146,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Property view</source>
-      <translation>Pogled lastnosti</translation>
+      <translation>Pogled z lastnostmi</translation>
     </message>
     <message>
       <source>Selection view</source>
@@ -4963,7 +6166,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Python console</source>
-      <translation>Konzola Python</translation>
+      <translation>Pythonova ukazna miza</translation>
     </message>
     <message>
       <source>Display properties</source>
@@ -5022,7 +6225,7 @@ Ali želite navesti drugo mapo?</translation>
     </message>
     <message>
       <source>Printing...</source>
-      <translation>Tiskanje...</translation>
+      <translation>Tiskanje ...</translation>
     </message>
     <message>
       <source>Cannot load workbench</source>
@@ -5196,7 +6399,7 @@ Odprite brskalnik in vtipkajte: http://localhost:%1.</translation>
     </message>
     <message>
       <source>Unable to start the server to port %1: %2.</source>
-      <translation>Strežnika na vratih %1 ni mogoče zagnati: %2.</translation>
+      <translation>Strežnika na vratih %1 ni mogoče začeti: %2.</translation>
     </message>
     <message>
       <source>Unable to open your system browser.</source>
@@ -5204,7 +6407,7 @@ Odprite brskalnik in vtipkajte: http://localhost:%1.</translation>
     </message>
     <message>
       <source>Options...</source>
-      <translation>Možnosti...</translation>
+      <translation>Možnosti ...</translation>
     </message>
     <message>
       <source>Out of memory</source>
@@ -5338,7 +6541,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>The %1 is not empty, delete its content as well?</source>
-      <translation>%1 ni prazna, izbrišem tudi njeno vsebino?</translation>
+      <translation>%1 ni prazna, brisanje tudi njene vsebine?</translation>
     </message>
     <message>
       <source>Export failed</source>
@@ -5364,6 +6567,206 @@ Upoštevajte, da je mesto klika pomembno.</translation>
       <source>Edit text</source>
       <translation>Uredi besedilo</translation>
     </message>
+    <message>
+      <source>The exported object contains external link. Please save the documentat least once before exporting.</source>
+      <translation>Izvoženi predmet vsebuje zunanje povezave. Pred izvažanjem shranite dokument vsaj enkrat.</translation>
+    </message>
+    <message>
+      <source>Delete failed</source>
+      <translation>Brisanje spodletelo</translation>
+    </message>
+    <message>
+      <source>Dependency error</source>
+      <translation>Napaka odvisnosti</translation>
+    </message>
+    <message>
+      <source>Copy selected</source>
+      <translation>Kopiraj izbrano</translation>
+    </message>
+    <message>
+      <source>Copy active document</source>
+      <translation>Kopiraj dejavni dokument</translation>
+    </message>
+    <message>
+      <source>Copy all documents</source>
+      <translation>Kopiraj vse dokumente</translation>
+    </message>
+    <message>
+      <source>Paste</source>
+      <translation>Prilepi</translation>
+    </message>
+    <message>
+      <source>Expression error</source>
+      <translation>Napaka izraza</translation>
+    </message>
+    <message>
+      <source>Failed to parse some of the expressions.
+Please check the Report View for more details.</source>
+      <translation>Nekaterh izrazov ni bilo mogoče razčleniti.
+Za več podrobnosti poglejte Poročilni pogled.</translation>
+    </message>
+    <message>
+      <source>Failed to paste expressions</source>
+      <translation>Izraza ni bilo mogoče prilepiti</translation>
+    </message>
+    <message>
+      <source>Simple group</source>
+      <translation>Enostavna skupina</translation>
+    </message>
+    <message>
+      <source>Group with links</source>
+      <translation>Skupina s povezavami</translation>
+    </message>
+    <message>
+      <source>Group with transform links</source>
+      <translation>Skupina s povezavami preoblikovanja</translation>
+    </message>
+    <message>
+      <source>Create link group failed</source>
+      <translation>Ustvarjanje skupine povezav je spodletelo</translation>
+    </message>
+    <message>
+      <source>Create link failed</source>
+      <translation>Ustvarjanje povezave spodletelo</translation>
+    </message>
+    <message>
+      <source>Failed to create relative link</source>
+      <translation>Ustvarjanje odvisne povezave je spodletelo</translation>
+    </message>
+    <message>
+      <source>Unlink failed</source>
+      <translation>Razvezovanje spodletelo</translation>
+    </message>
+    <message>
+      <source>Replace link failed</source>
+      <translation>Nadomeščanje povezave spodletelo</translation>
+    </message>
+    <message>
+      <source>Failed to import links</source>
+      <translation>Uvažanje povezav je spodletelo</translation>
+    </message>
+    <message>
+      <source>Failed to import all links</source>
+      <translation>Uvažanje vseh povezav je spodletelo</translation>
+    </message>
+    <message>
+      <source>Invalid name</source>
+      <translation>Neveljavno ime</translation>
+    </message>
+    <message>
+      <source>The property name or group name must only contain alpha numericals,
+underscore, and must not start with a digit.</source>
+      <translation>Ime lastnosti ali skupine lahko vsebuje le črkovno-številčne znake
+in podčrtaj ter se ne smo začeti s števko.</translation>
+    </message>
+    <message>
+      <source>The property '%1' already exists in '%2'</source>
+      <translation>Lastnost '%1' že obstaja v '%2'</translation>
+    </message>
+    <message>
+      <source>Add property</source>
+      <translation>Dodaj lastnost</translation>
+    </message>
+    <message>
+      <source>Failed to add property to '%1': %2</source>
+      <translation>Ni bilo mogoče dodati lastnosti v '%1': %2</translation>
+    </message>
+    <message>
+      <source>Save dependent files</source>
+      <translation>Shrani odvisne datoteke</translation>
+    </message>
+    <message>
+      <source>The file contains external dependencies. Do you want to save the dependent files, too?</source>
+      <translation>Datoteka vsebuje zunanje odvisnosti. Ali želite shraniti tudi odvisne datoteke?</translation>
+    </message>
+    <message>
+      <source>Failed to save document</source>
+      <translation>Shranjevanje dokumenta spodletelo</translation>
+    </message>
+    <message>
+      <source>Documents contains cyclic dependencies. Do you still want to save them?</source>
+      <translation>Dokumenti vsebujejo krožne odvisnosti. Jih vseeno želite shraniti?</translation>
+    </message>
+    <message>
+      <source>Undo</source>
+      <translation>Razveljavi</translation>
+    </message>
+    <message>
+      <source>Redo</source>
+      <translation>Uveljavi</translation>
+    </message>
+    <message>
+      <source>There are grouped transactions in the following documents with other preceding transactions</source>
+      <translation>V sledečih dokumentih so skupinske izmenjava z drugimi predhodnimi izmenjavami</translation>
+    </message>
+    <message>
+      <source>Choose 'Yes' to roll back all preceding transactions.
+Choose 'No' to roll back in the active document only.
+Choose 'Abort' to abort</source>
+      <translation>Izberite "Da" za povrnitev vseh predhodnih izmenjav.
+Izberite "Ne" za povrnitev le v dejavnem dokumentu.
+Izberite "Prekini" za prekinitev</translation>
+    </message>
+    <message>
+      <source>Do you want to save your changes to document before closing?</source>
+      <translation>Ali želite pred zapiranjem shraniti spremembe dokumenta?</translation>
+    </message>
+    <message>
+      <source>Apply answer to all</source>
+      <translation>Uporabi odgovor za vse</translation>
+    </message>
+    <message>
+      <source>Drag &amp; drop failed</source>
+      <translation>Povleci-spusti spodletelo</translation>
+    </message>
+    <message>
+      <source>Override colors...</source>
+      <translation>Povozi barve ...</translation>
+    </message>
+    <message>
+      <source>Identical physical path detected. It may cause unwanted overwrite of existing document!
+
+</source>
+      <translation>Zaznana enaka tvarna pot. Zaradi tega lahko pride do prepisa obstoječega dokumenta!
+
+</translation>
+    </message>
+    <message>
+      <source>Are you sure you want to continue?</source>
+      <translation>Ali ste prepričani da želite nadaljevati?</translation>
+    </message>
+    <message>
+      <source>
+
+Please check report view for more...</source>
+      <translation>
+
+Za več informacij poglejte poročilni pogled ...</translation>
+    </message>
+    <message>
+      <source>
+
+Pyhsical path: </source>
+      <translation>
+
+Tvarna pot: </translation>
+    </message>
+    <message>
+      <source>
+Document: </source>
+      <translation>
+Dokument: </translation>
+    </message>
+    <message>
+      <source>
+  Path: </source>
+      <translation>
+  Pot: </translation>
+    </message>
+    <message>
+      <source>Identical physical path</source>
+      <translation>Enaka tvarna pot</translation>
+    </message>
   </context>
   <context>
     <name>SelectionFilter</name>
@@ -5377,6 +6780,17 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
+    <name>StdBoxElementSelection</name>
+    <message>
+      <source>Standard-View</source>
+      <translation>Običajni pogled</translation>
+    </message>
+    <message>
+      <source>Box element selection</source>
+      <translation>Izbiranje predmetov s kvadrom</translation>
+    </message>
+  </context>
+  <context>
     <name>StdBoxSelection</name>
     <message>
       <source>Standard-View</source>
@@ -5384,7 +6798,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Box selection</source>
-      <translation>Izbirno polje</translation>
+      <translation>Izbirni kvader</translation>
     </message>
   </context>
   <context>
@@ -5459,7 +6873,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Align the selected objects</source>
-      <translation>Poravnaj izbrane objekte</translation>
+      <translation>Poravnaj izbrane predmete</translation>
     </message>
   </context>
   <context>
@@ -5496,7 +6910,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>&amp;Cascade</source>
-      <translation>&amp;Kaskada</translation>
+      <translation>&amp;Prekrivajoče</translation>
     </message>
     <message>
       <source>Tile pragmatic</source>
@@ -5545,7 +6959,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Opens the command line in the console</source>
-      <translation>Odpre ukazno vrstico v konzoli</translation>
+      <translation>Odpre ukazno vrstico v ukazni mizi</translation>
     </message>
   </context>
   <context>
@@ -5556,11 +6970,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>C&amp;opy</source>
-      <translation>&amp;Kopiraj</translation>
+      <translation>K&amp;opiraj</translation>
     </message>
     <message>
       <source>Copy operation</source>
-      <translation>Opravilo kopiranja</translation>
+      <translation>Kopiranje</translation>
     </message>
   </context>
   <context>
@@ -5601,11 +7015,26 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>View turntable...</source>
-      <translation>Pokaži vrtilno ploščo …</translation>
+      <translation>Pokaži sukajočo ploščo …</translation>
     </message>
     <message>
       <source>View turntable</source>
-      <translation>Pokaži vrtilno ploščo</translation>
+      <translation>Pokaži sukajočo ploščo</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdDependencyGraph</name>
+    <message>
+      <source>Tools</source>
+      <translation>Orodja</translation>
+    </message>
+    <message>
+      <source>Dependency graph...</source>
+      <translation>Graf odvisnosti …</translation>
+    </message>
+    <message>
+      <source>Show the dependency graph of the objects in the active document</source>
+      <translation>Prikaži graf odvisnosti predmetov v dejavnem dokumentu</translation>
     </message>
   </context>
   <context>
@@ -5676,11 +7105,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>E&amp;dit parameters ...</source>
-      <translation>&amp;Uredi spremenljivke …</translation>
+      <translation>&amp;Uredi določilke …</translation>
     </message>
     <message>
       <source>Opens a Dialog to edit the parameters</source>
-      <translation>Odpre pogovorno okno za urejanje spremenljivk</translation>
+      <translation>Odpre pogovorno okno za urejanje določilk</translation>
     </message>
   </context>
   <context>
@@ -5691,11 +7120,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>&amp;Preferences ...</source>
-      <translation>&amp;Možnosti …</translation>
+      <translation>&amp;Prednastavitve …</translation>
     </message>
     <message>
       <source>Opens a Dialog to edit the preferences</source>
-      <translation>Odpre pogovorno okno za urejanje možnosti</translation>
+      <translation>Odpre pogovorno okno za urejanje prednastavitev</translation>
     </message>
   </context>
   <context>
@@ -5722,6 +7151,10 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     <message>
       <source>Draw style</source>
       <translation>Slog risanja</translation>
+    </message>
+    <message>
+      <source>Change the draw style of the objects</source>
+      <translation>Spremeni slog risanja predmetov</translation>
     </message>
   </context>
   <context>
@@ -5755,7 +7188,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Activates or Deactivates the selected object's edit mode</source>
-      <translation>Omogoči ali onemogoči urejevalni način izbrani predmetov</translation>
+      <translation>Omogoči ali onemogoči urejevalni način izbranih predmetov</translation>
     </message>
   </context>
   <context>
@@ -5782,18 +7215,14 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
-    <name>StdCmdExportGraphviz</name>
+    <name>StdCmdExpression</name>
     <message>
-      <source>Tools</source>
-      <translation>Orodja</translation>
+      <source>Edit</source>
+      <translation>Uredi</translation>
     </message>
     <message>
-      <source>Dependency graph...</source>
-      <translation>Graf odvisnosti …</translation>
-    </message>
-    <message>
-      <source>Show the dependency graph of the objects in the active document</source>
-      <translation>Prikaži graf odvisnosti predmetov v dejavnem dokumentu</translation>
+      <source>Expression actions</source>
+      <translation>Dejanja izrazov</translation>
     </message>
   </context>
   <context>
@@ -5808,7 +7237,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Recompute feature or document</source>
-      <translation>Ponovo izračunaj značilnost ali dokument</translation>
+      <translation>Preračunaj značilnost ali dokument</translation>
     </message>
   </context>
   <context>
@@ -5838,15 +7267,15 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>FreeCAD Forum</source>
-      <translation>Forum FreeCAD</translation>
+      <translation>Forum o FreeCADu</translation>
     </message>
     <message>
       <source>The FreeCAD forum, where you can find help from other users</source>
-      <translation>Forum FreeCADa, kjer lahko poiščete pomoč od drugih uporabnikov</translation>
+      <translation>Forum FreeCADa, kjer lahko poiščete pomoč drugih uporabnikov</translation>
     </message>
     <message>
       <source>The FreeCAD Forum</source>
-      <translation>Forum FreeCAD</translation>
+      <translation>Forum o FreeCADu</translation>
     </message>
   </context>
   <context>
@@ -5891,11 +7320,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>FreeCAD Website</source>
-      <translation>Spletna stran FreeCAD</translation>
+      <translation>Spletna stran FreeCADa</translation>
     </message>
     <message>
       <source>The FreeCAD website</source>
-      <translation>Spletna stran FreeCAD</translation>
+      <translation>Spletna stran FreeCADa</translation>
     </message>
   </context>
   <context>
@@ -5925,7 +7354,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Create a new group for ordering objects</source>
-      <translation>Ustvarite novo skupino za razporejanje predmetov</translation>
+      <translation>Ustvari novo skupino za urejanje predmetov</translation>
     </message>
   </context>
   <context>
@@ -5982,6 +7411,197 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
+    <name>StdCmdLinkActions</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>Link actions</source>
+      <translation>Dejanja povezav</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkImport</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Import links</source>
+      <translation>Uvozi povezave</translation>
+    </message>
+    <message>
+      <source>Import selected external link(s)</source>
+      <translation>Uvozi izbrano(e) zunanjo(e) povezavo(e)</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkImportAll</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Import all links</source>
+      <translation>Uvozi vse povezave</translation>
+    </message>
+    <message>
+      <source>Import all links of the active document</source>
+      <translation>Uvozi vse povezave dejavnega dokumenta</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkMake</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Make link</source>
+      <translation>Naredi povezavo</translation>
+    </message>
+    <message>
+      <source>Create a link to the selected object(s)</source>
+      <translation>Ustvari povezavo do izbranega predmeta(ov)</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkMakeGroup</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Make link group</source>
+      <translation>Naredi skupino povezav</translation>
+    </message>
+    <message>
+      <source>Create a group of links</source>
+      <translation>Ustvari skupino povezav</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkMakeRelative</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Make sub-link</source>
+      <translation>Naredi podpovezavo</translation>
+    </message>
+    <message>
+      <source>Create a sub-object or sub-element link</source>
+      <translation>Ustvari povezavo podpredmeta ali podprvine</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkReplace</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Replace with link</source>
+      <translation>Zamenjaj s povezavo</translation>
+    </message>
+    <message>
+      <source>Replace the selected object(s) with link</source>
+      <translation>Zamenjaj izbrani(e) predmet(e) s povezavo</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkSelectActions</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>Link navigation</source>
+      <translation>Krmarjenje po povezavah</translation>
+    </message>
+    <message>
+      <source>Link navigation actions</source>
+      <translation>Dejanja krmarjenja po povezavah</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkSelectAllLinks</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Select all links</source>
+      <translation>Izberi vse povezave</translation>
+    </message>
+    <message>
+      <source>Select all links to the current selected object</source>
+      <translation>Izberi vse povezave do trenutno izbranega predmeta</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkSelectLinked</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Go to linked object</source>
+      <translation>Pojdi na povezani predmet</translation>
+    </message>
+    <message>
+      <source>Select the linked object and switch to its owner document</source>
+      <translation>Izberi povezani predmet in preklopi na dokument njegovega lastnika</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkSelectLinkedFinal</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Go to the deepest linked object</source>
+      <translation>Pojdi na najglobje povezan predmet</translation>
+    </message>
+    <message>
+      <source>Select the deepest linked object and switch to its owner document</source>
+      <translation>Izberi najglobje povezani predmet in preklopi na dokument njegovega lastnika</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdLinkUnlink</name>
+    <message>
+      <source>Link</source>
+      <translation>Povezava</translation>
+    </message>
+    <message>
+      <source>Unlink</source>
+      <translation>Razveži</translation>
+    </message>
+    <message>
+      <source>Strip on level of link</source>
+      <translation>Odreži na raven povezave</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdMacroAttachDebugger</name>
+    <message>
+      <source>Macro</source>
+      <translation>Makro</translation>
+    </message>
+    <message>
+      <source>Attach to remote debugger...</source>
+      <translation>Priloži k oddaljenemu razhroščevalniku ...</translation>
+    </message>
+    <message>
+      <source>Attach to a remotely running debugger</source>
+      <translation>Priloži k razhroščevalniku, ki se izvaja oddaljeno</translation>
+    </message>
+  </context>
+  <context>
     <name>StdCmdMacroStartDebug</name>
     <message>
       <source>Macro</source>
@@ -6015,7 +7635,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Step over</source>
-      <translation>Prestopi</translation>
+      <translation>Zmik</translation>
     </message>
   </context>
   <context>
@@ -6139,7 +7759,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>The website where the help is maintained</source>
-      <translation>Spletna stran, kjer se pomoč vzdrževana</translation>
+      <translation>Spletna stran, kjer je pomoč vzdrževana</translation>
     </message>
   </context>
   <context>
@@ -6354,6 +7974,21 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
+    <name>StdCmdRecentMacros</name>
+    <message>
+      <source>Macro</source>
+      <translation>Makro</translation>
+    </message>
+    <message>
+      <source>Recent macros</source>
+      <translation>Nedavni makri</translation>
+    </message>
+    <message>
+      <source>Recent macro list</source>
+      <translation>Seznam nedavnih makrov</translation>
+    </message>
+  </context>
+  <context>
     <name>StdCmdRedo</name>
     <message>
       <source>Edit</source>
@@ -6414,6 +8049,21 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
+    <name>StdCmdSaveAll</name>
+    <message>
+      <source>File</source>
+      <translation>Datoteka</translation>
+    </message>
+    <message>
+      <source>Save All</source>
+      <translation>Shrani vse</translation>
+    </message>
+    <message>
+      <source>Save all opened document</source>
+      <translation>Shrani vse odprte dokumente</translation>
+    </message>
+  </context>
+  <context>
     <name>StdCmdSaveAs</name>
     <message>
       <source>File</source>
@@ -6425,7 +8075,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Save the active document under a new file name</source>
-      <translation>Shrani dejavni dokument z novim imenom datoteke</translation>
+      <translation>Shrani dejavni dokument z novim imenom</translation>
     </message>
   </context>
   <context>
@@ -6436,11 +8086,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Save a &amp;Copy...</source>
-      <translation>Shrani &amp;dvojnik …</translation>
+      <translation>Shrani &amp;kopijo …</translation>
     </message>
     <message>
       <source>Save a copy of the active document under a new file name</source>
-      <translation>Shrani dvojnik dejavnega dokumenta z novim imenom datoteke</translation>
+      <translation>Shrani kopijo dejavnega dokumenta z novim imenom datoteke</translation>
     </message>
   </context>
   <context>
@@ -6456,6 +8106,51 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     <message>
       <source>Scene inspector</source>
       <translation>Preglednik torišč</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdSelBack</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>&amp;Back</source>
+      <translation>Naza&amp;j</translation>
+    </message>
+    <message>
+      <source>Go back to previous selection</source>
+      <translation>Pojdi na prejšnji izbor</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdSelBoundingBox</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>&amp;Bounding box</source>
+      <translation>&amp;Mejni kvader</translation>
+    </message>
+    <message>
+      <source>Show selection bounding box</source>
+      <translation>Prikaži mejni kvader izbora</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdSelForward</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>&amp;Forward</source>
+      <translation>&amp;Naprej</translation>
+    </message>
+    <message>
+      <source>Repeat the backed selection</source>
+      <translation>Ponovi podprt izbor</translation>
     </message>
   </context>
   <context>
@@ -6486,6 +8181,21 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     <message>
       <source>Select visible objects in the active document</source>
       <translation>Izberi vidne predmete v dejavnem dokumentu</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdSendToPythonConsole</name>
+    <message>
+      <source>Edit</source>
+      <translation>Uredi</translation>
+    </message>
+    <message>
+      <source>&amp;Send to Python Console</source>
+      <translation>&amp;Pošlji na Pythonovo ukazno mizo</translation>
+    </message>
+    <message>
+      <source>Sends the selected object to the Python console</source>
+      <translation>Pošlje izbrane predmete na Pythonovo ukazno mizo</translation>
     </message>
   </context>
   <context>
@@ -6549,6 +8259,21 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
+    <name>StdCmdTextDocument</name>
+    <message>
+      <source>Tools</source>
+      <translation>Orodja</translation>
+    </message>
+    <message>
+      <source>Add text document</source>
+      <translation>Dodaj besedilni dokument</translation>
+    </message>
+    <message>
+      <source>Add text document to active document</source>
+      <translation>Dodaj dejavnemu dokumentu besedilni dokument</translation>
+    </message>
+  </context>
+  <context>
     <name>StdCmdTextureMapping</name>
     <message>
       <source>Tools</source>
@@ -6556,11 +8281,11 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Texture mapping...</source>
-      <translation>Preslikava teksture …</translation>
+      <translation>Preslikava ustroja …</translation>
     </message>
     <message>
       <source>Texture mapping</source>
-      <translation>Preslikava teksture</translation>
+      <translation>Preslikava ustroja</translation>
     </message>
   </context>
   <context>
@@ -6710,18 +8435,63 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
   </context>
   <context>
-    <name>StdCmdTreeSelection</name>
+    <name>StdCmdTreeCollapse</name>
     <message>
       <source>View</source>
       <translation>Pogled</translation>
     </message>
     <message>
-      <source>Go to selection</source>
-      <translation>Pojdi na izbor</translation>
+      <source>Collapse selected item</source>
+      <translation>Zloži izbrani predmet</translation>
     </message>
     <message>
-      <source>Scroll to first selected item</source>
-      <translation>Pomakni se na prvi izbrani predmet</translation>
+      <source>Collapse currently selected tree items</source>
+      <translation>Zloži trenutno izbrane predmete drevesa</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdTreeExpand</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>Expand selected item</source>
+      <translation>Razširi izbrani predmet</translation>
+    </message>
+    <message>
+      <source>Expand currently selected tree items</source>
+      <translation>Razširi trenutno izbrane predmete drevesa</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdTreeSelectAllInstances</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>Select all instances</source>
+      <translation>Izberi vse primerke</translation>
+    </message>
+    <message>
+      <source>Select all instances of the current selected object</source>
+      <translation>Izberi vse primerke trenutno izbranega predmeta</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdTreeViewActions</name>
+    <message>
+      <source>View</source>
+      <translation>Pogled</translation>
+    </message>
+    <message>
+      <source>TreeView actions</source>
+      <translation>Dejanja drevesnega pogleda</translation>
+    </message>
+    <message>
+      <source>TreeView behavior options and actions</source>
+      <translation>Možnost odzivanja in dejanja drevesnega pogleda</translation>
     </message>
   </context>
   <context>
@@ -6811,7 +8581,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Set to dimetric view</source>
-      <translation>Nastavi na dimetričen pogled</translation>
+      <translation>Nastavi na dvomeren pogled</translation>
     </message>
   </context>
   <context>
@@ -6826,7 +8596,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Shows a 3D texture with manipulator</source>
-      <translation>Prikaže 3D teksturo z obdelovalnikom</translation>
+      <translation>Prikaže 3D ustroj z obdelovalnikom</translation>
     </message>
   </context>
   <context>
@@ -6841,7 +8611,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Shows spheres and drag-lights</source>
-      <translation>Prikaže krogle in štartne luči</translation>
+      <translation>Prikaže krogle in vire svetlobe</translation>
     </message>
   </context>
   <context>
@@ -6856,7 +8626,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     </message>
     <message>
       <source>Shows a animated texture</source>
-      <translation>Prikaže animirano teksturo</translation>
+      <translation>Prikaže animiran ustroj</translation>
     </message>
   </context>
   <context>
@@ -6902,6 +8672,21 @@ Upoštevajte, da je mesto klika pomembno.</translation>
     <message>
       <source>Set to front view</source>
       <translation>Nastavi na sprednji pogled</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdCmdViewHome</name>
+    <message>
+      <source>Standard-View</source>
+      <translation>Običajni pogled</translation>
+    </message>
+    <message>
+      <source>Home</source>
+      <translation>Domov</translation>
+    </message>
+    <message>
+      <source>Set to default home view</source>
+      <translation>Nastavi privzeti domači pogled</translation>
     </message>
   </context>
   <context>
@@ -7065,7 +8850,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
       <translation>Zasukaj levo</translation>
     </message>
     <message>
-      <source>Rotate the view by 90Â° counter-clockwise</source>
+      <source>Rotate the view by 90° counter-clockwise</source>
       <translation>Zasukaj pogled za 90° v naspr. smeri ur. kazalca</translation>
     </message>
   </context>
@@ -7080,7 +8865,7 @@ Upoštevajte, da je mesto klika pomembno.</translation>
       <translation>Zasukaj desno</translation>
     </message>
     <message>
-      <source>Rotate the view by 90Â° clockwise</source>
+      <source>Rotate the view by 90° clockwise</source>
       <translation>Zasukaj pogled za 90° v smeri ur. kazalca</translation>
     </message>
   </context>
@@ -7233,10 +9018,6 @@ Upoštevajte, da je mesto klika pomembno.</translation>
   <context>
     <name>StdTreeCollapseDocument</name>
     <message>
-      <source>View</source>
-      <translation>Pogled</translation>
-    </message>
-    <message>
       <source>Collapse/Expand</source>
       <translation>Zloži/Razširi</translation>
     </message>
@@ -7244,50 +9025,144 @@ Upoštevajte, da je mesto klika pomembno.</translation>
       <source>Expand active document and collapse all others</source>
       <translation>Razširi dejavni dokument in zloži vse ostale</translation>
     </message>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreeDrag</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Initiate dragging</source>
+      <translation>Začni z vlečenjem</translation>
+    </message>
+    <message>
+      <source>Initiate dragging of current selected tree items</source>
+      <translation>Začni vlečenje trenutno izbranih predmetov v drevesu</translation>
+    </message>
   </context>
   <context>
     <name>StdTreeMultiDocument</name>
     <message>
-      <source>View</source>
-      <translation>Pogled</translation>
-    </message>
-    <message>
-      <source>Multi Document</source>
-      <translation>Večkraten Dokument</translation>
-    </message>
-    <message>
       <source>Display all documents in the tree view</source>
       <translation>Prikaži vse dokumente v drevesnem pogledu</translation>
+    </message>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Multi document</source>
+      <translation>Večkraten dokument</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreePreSelection</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Pre-selection</source>
+      <translation>Predizbor</translation>
+    </message>
+    <message>
+      <source>Preselect the object in 3D view when mouse over the tree item</source>
+      <translation>Predizberi predmete v prostorskem pogledu, preko katerih se z miško pomika v drevesu</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreeRecordSelection</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Record selection</source>
+      <translation>Posnemi izbor</translation>
+    </message>
+    <message>
+      <source>Record selection in tree view in order to go back/forward using navigation button</source>
+      <translation>Posnemi izbor v drevesnem pogledu, da se lahko s krmilnim gumbom premika nazaj in naprej</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreeSelection</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Go to selection</source>
+      <translation>Pojdi na izbor</translation>
+    </message>
+    <message>
+      <source>Scroll to first selected item</source>
+      <translation>Pomakni se na prvi izbrani predmet</translation>
     </message>
   </context>
   <context>
     <name>StdTreeSingleDocument</name>
     <message>
-      <source>View</source>
-      <translation>Pogled</translation>
-    </message>
-    <message>
-      <source>Single Document</source>
-      <translation>Enojni dokument</translation>
-    </message>
-    <message>
       <source>Only display the active document in the tree view</source>
       <translation>V drevesnem pogledu prikaži samo dejavni dokument</translation>
     </message>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Single document</source>
+      <translation>En dokument</translation>
+    </message>
   </context>
   <context>
-    <name>StdTreeViewDocument</name>
+    <name>StdTreeSyncPlacement</name>
     <message>
-      <source>View</source>
-      <translation>Pogled</translation>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
     </message>
     <message>
-      <source>Document Tree</source>
-      <translation>Drevo Dokumenta</translation>
+      <source>Sync placement</source>
+      <translation>Uskladi postavitev</translation>
     </message>
     <message>
-      <source>Set visibility of inactive documents in tree view</source>
-      <translation>Nastavi vidnost nedejavnega dokumenta v drevesnem pogledu</translation>
+      <source>Auto adjust placement on drag and drop objects across coordinate systems</source>
+      <translation>Samodejno prilagodi postavitev pri vlečenju-spuščanju predmetov po koordinatnih sistemih</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreeSyncSelection</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Sync selection</source>
+      <translation>Uskladi izbor</translation>
+    </message>
+    <message>
+      <source>Auto expand tree item when the corresponding object is selected in 3D view</source>
+      <translation>Samodejno razširi predmet v drevesu, ki odgovarja izbranemu predmetu v prostorskem pogledu</translation>
+    </message>
+  </context>
+  <context>
+    <name>StdTreeSyncView</name>
+    <message>
+      <source>TreeView</source>
+      <translation>DrevesniPogled</translation>
+    </message>
+    <message>
+      <source>Sync view</source>
+      <translation>Uskladi pogled</translation>
+    </message>
+    <message>
+      <source>Auto switch to the 3D view containing the selected item</source>
+      <translation>Samodejno preklopi na prostorski pogled, ki vsebuje izbrani predmet</translation>
     </message>
   </context>
   <context>
@@ -7401,20 +9276,29 @@ Upoštevajte, da je mesto klika pomembno.</translation>
   <context>
     <name>Std_Delete</name>
     <message>
-      <source>These items are linked to items selected for deletion and might break.</source>
-      <translation>Ti predmeti so povezani s predmeti, ki so bili označeni za izbris in se lahko poškodujejo.</translation>
+      <source>The following referencing objects might break.
+
+Are you sure you want to continue?
+</source>
+      <translation>Sledeči sklicevani predmeti bodo lahko okvarjeni.
+
+Ali želite vseeno nadaljevati?
+</translation>
+    </message>
+    <message>
+      <source>Object dependencies</source>
+      <translation>Odvisnosti predmetov</translation>
     </message>
     <message>
       <source>These items are selected for deletion, but are not in the active document.</source>
       <translation>Ti predmeti so označeni za izbris, vendar niso v dejavnem dokumentu.</translation>
     </message>
+  </context>
+  <context>
+    <name>Std_DependencyGraph</name>
     <message>
-      <source>Are you sure you want to continue?</source>
-      <translation>Ali ste prepričani, da želite nadaljevati?</translation>
-    </message>
-    <message>
-      <source>Delete Selection Issues</source>
-      <translation>Izbriši probleme izbora</translation>
+      <source>Dependency graph</source>
+      <translation>Graf odvisnosti</translation>
     </message>
   </context>
   <context>
@@ -7483,16 +9367,10 @@ Upoštevajte, da je mesto klika pomembno.</translation>
       <translation>Odvisnosti predmetov</translation>
     </message>
     <message>
-      <source>The selected objects have a dependency to unselected objects.
-Do you want to duplicate them, too?</source>
-      <translation>Izbrani predmeti so odvisni od neizbranih. Ali želite podvojiti tudi te?</translation>
-    </message>
-  </context>
-  <context>
-    <name>Std_ExportGraphviz</name>
-    <message>
-      <source>Dependency graph</source>
-      <translation>Graf odvisnosti</translation>
+      <source>To link to external objects, the document must be saved at least once.
+Do you want to save the document now?</source>
+      <translation>Za povezovanje na zunanje predmete mora biti dokument shranjen vsaj enkrat.
+Ali želite shraniti dokument zdaj?</translation>
     </message>
   </context>
   <context>
@@ -7500,6 +9378,19 @@ Do you want to duplicate them, too?</source>
     <message>
       <source>Group</source>
       <translation>Skupina</translation>
+    </message>
+  </context>
+  <context>
+    <name>Std_Refresh</name>
+    <message>
+      <source>The document contains dependency cycles.
+Please check the Report View for more details.
+
+Do you still want to proceed?</source>
+      <translation>Dokument vsebuje krožne odvisnosti.
+Za več podrobnosti preverite poročilni pogled.
+
+Ali želite vseeno nadaljevati?</translation>
     </message>
   </context>
   <context>
@@ -7558,7 +9449,7 @@ Do you want to duplicate them, too?</source>
     </message>
     <message>
       <source>Zoom so that model fills the view</source>
-      <translation>Povečaja ali pomanjšaj, da se prilega pogledu</translation>
+      <translation>Povečaj ali pomanjšaj, da se prilega pogledu</translation>
     </message>
   </context>
   <context>
@@ -7577,11 +9468,11 @@ Do you want to duplicate them, too?</source>
     </message>
     <message>
       <source>&amp;Stereo</source>
-      <translation>&amp;Stereo</translation>
+      <translation>D&amp;vovidnost</translation>
     </message>
     <message>
       <source>&amp;Zoom</source>
-      <translation>&amp;Povečava</translation>
+      <translation>P&amp;reodmičenje</translation>
     </message>
     <message>
       <source>Visibility</source>

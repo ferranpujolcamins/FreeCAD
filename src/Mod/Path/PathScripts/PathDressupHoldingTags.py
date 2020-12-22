@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2017 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -21,8 +19,8 @@
 # *   USA                                                                   *
 # *                                                                         *
 # ***************************************************************************
+
 import FreeCAD
-import Part
 import Path
 import PathScripts.PathDressup as PathDressup
 import PathScripts.PathGeom as PathGeom
@@ -35,6 +33,10 @@ import math
 from PathScripts.PathDressupTagPreferences import HoldingTagPreferences
 from PathScripts.PathUtils import waiting_effects
 from PySide import QtCore
+
+# lazily loaded modules
+from lazy_loader.lazy_loader import LazyLoader
+Part = LazyLoader('Part', globals(), 'Part')
 
 PathLog.setLevel(PathLog.Level.INFO, PathLog.thisModule())
 #PathLog.trackModule()
@@ -202,14 +204,13 @@ class Tag:
         return False
 
     def nextIntersectionClosestTo(self, edge, solid, refPt):
-        # ef = edge.valueAt(edge.FirstParameter)
-        # em = edge.valueAt((edge.FirstParameter+edge.LastParameter)/2)
-        # el = edge.valueAt(edge.LastParameter)
-        # print("-------- intersect %s (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f) - (%.2f, %.2f, %.2f)  refp=(%.2f, %.2f, %.2f)" % (type(edge.Curve), ef.x, ef.y, ef.z, em.x, em.y, em.z, el.x, el.y, el.z, refPt.x, refPt.y, refPt.z))
+        # debugEdge(edge, 'intersects_')
 
         vertexes = edge.common(solid).Vertexes
         if vertexes:
-            return sorted(vertexes, key=lambda v: (v.Point - refPt).Length)[0].Point
+            pt = sorted(vertexes, key=lambda v: (v.Point - refPt).Length)[0].Point
+            debugEdge(edge, "intersects (%.2f, %.2f, %.2f) -> (%.2f, %.2f, %.2f)" % (refPt.x, refPt.y, refPt.z, pt.x, pt.y, pt.z))
+            return pt
         return None
 
     def intersects(self, edge, param):
@@ -507,6 +508,7 @@ class MapWireToTag:
         self.tail = None
         self.finalEdge = edge
         if self.tag.solid.isInside(edge.valueAt(edge.LastParameter), PathGeom.Tolerance, True):
+            PathLog.track('solid.isInside')
             self.addEdge(edge)
         else:
             i = self.tag.intersects(edge, edge.LastParameter)
@@ -517,8 +519,10 @@ class MapWireToTag:
                 PathLog.debug('originAt: (%.2f, %.2f, %.2f)' % (o.x, o.y, o.z))
                 i = edge.valueAt(edge.FirstParameter)
             if PathGeom.pointsCoincide(i, edge.valueAt(edge.FirstParameter)):
+                PathLog.track('tail')
                 self.tail = edge
             else:
+                PathLog.track('split')
                 e, tail = PathGeom.splitEdgeAt(edge, i)
                 self.addEdge(e)
                 self.tail = tail
@@ -552,7 +556,10 @@ class PathData:
         self.obj = obj
         self.wire, rapid = PathGeom.wireForPath(obj.Base.Path)
         self.rapid = _RapidEdges(rapid)
-        self.edges = self.wire.Edges
+        if self.wire:
+            self.edges = self.wire.Edges
+        else:
+            self.edges = []
         self.baseWire = self.findBottomWire(self.edges)
 
     def findBottomWire(self, edges):
@@ -671,7 +678,7 @@ class PathData:
             print("tag[%d]" % i)
             if not i in fromObj.Disabled:
                 dist = self.baseWire.distToShape(Part.Vertex(FreeCAD.Vector(pos.x, pos.y, self.minZ)))
-                if dist[0] < W:
+                if True or dist[0] < W:
                     print("tag[%d/%d]: (%.2f, %.2f, %.2f)" % (i, j, pos.x, pos.y, self.minZ))
                     at = dist[1][0][0]
                     tags.append(Tag(j, at.x, at.y,  W, H, A, R, True))
@@ -759,7 +766,13 @@ class ObjectTagDressup:
         obj.addProperty("App::PropertyIntegerList", "Disabled", "Tag", QtCore.QT_TRANSLATE_NOOP("Path_DressupTag", "IDs of disabled holding tags"))
         obj.addProperty("App::PropertyInteger", "SegmentationFactor", "Tag", QtCore.QT_TRANSLATE_NOOP("Path_DressupTag", "Factor determining the # of segments used to approximate rounded tags."))
 
-        self.__setstate__(obj)
+        # for pylint ...
+        self.obj = obj
+        self.solids = []
+        self.tags = []
+        self.pathData = None
+        self.toolRadius = None
+        self.mappers = []
 
         obj.Proxy = self
         obj.Base = base
@@ -928,7 +941,7 @@ class ObjectTagDressup:
                 PathLog.debug("previousTag = %d [%s]" % (i, prev))
             else:
                 disabled.append(i)
-            tag.nr = i  # assigne final nr
+            tag.nr = i  # assign final nr
             tags.append(tag)
             positions.append(tag.originAt(self.pathData.minZ))
         return (tags, positions, disabled)
@@ -1021,7 +1034,7 @@ class ObjectTagDressup:
             #    traceback.print_exc()
             return None
 
-        self.toolRadius = PathDressup.toolController(obj.Base).Tool.Diameter / 2
+        self.toolRadius = float(PathDressup.toolController(obj.Base).Tool.Diameter) / 2
         self.pathData = pathData
         if generate:
             obj.Height = self.pathData.defaultTagHeight()

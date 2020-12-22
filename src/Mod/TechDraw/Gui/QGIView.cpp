@@ -46,6 +46,7 @@
 #include <Gui/Command.h>
 #include <Gui/Application.h>
 #include <Gui/Document.h>
+#include <Gui/Tools.h>
 #include <Gui/ViewProvider.h>
 
 #include "Rez.h"
@@ -72,9 +73,11 @@
 #include <Mod/TechDraw/App/DrawProjGroupItem.h>
 #include <Mod/TechDraw/App/DrawUtil.h>
 
+#include "PreferencesGui.h"
 #include "QGIView.h"
 
 using namespace TechDrawGui;
+using namespace TechDraw;
 
 const float labelCaptionFudge = 0.2f;   // temp fiddle for devel
 
@@ -82,8 +85,7 @@ QGIView::QGIView()
     :QGraphicsItemGroup(),
      viewObj(nullptr),
      m_locked(false),
-     m_innerView(false),
-     m_selectState(0)
+     m_innerView(false)
 {
     setCacheMode(QGraphicsItem::NoCache);
     setHandlesChildEvents(false);
@@ -97,7 +99,8 @@ QGIView::QGIView()
     m_pen.setColor(m_colCurrent);
 
     //Border/Label styling
-    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+//    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+    m_font.setPixelSize(PreferencesGui::labelFontSizePX());
 
     m_decorPen.setStyle(Qt::DashLine);
     m_decorPen.setWidth(0); // 0 => 1px "cosmetic pen"
@@ -159,6 +162,13 @@ bool QGIView::isVisible(void)
     return result;
 }
 
+//Set selection state for this and it's children
+//required for items like dimensions & balloons
+void QGIView::setGroupSelection(bool b)
+{
+    setSelected(b);
+}
+
 void QGIView::alignTo(QGraphicsItem*item, const QString &alignment)
 {
     alignHash.clear();
@@ -209,6 +219,9 @@ QVariant QGIView::itemChange(GraphicsItemChange change, const QVariant &value)
                     }
                 }
             }
+        } else {
+            //not a dpgi, not locked, but moved.
+            //feat->setPosition(Rez::appX(newPos.x()), -Rez::appX(newPos.y());
         }
         return newPos;
     }
@@ -216,10 +229,10 @@ QVariant QGIView::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemSelectedHasChanged && scene()) {
         if(isSelected()) {
             m_colCurrent = getSelectColor();
-            m_selectState = 2;
+//            m_selectState = 2;
         } else {
             m_colCurrent = getNormalColor();
-            m_selectState = 0;
+//            m_selectState = 0;
         }
         drawBorder();
     }
@@ -242,7 +255,10 @@ void QGIView::mousePressEvent(QGraphicsSceneMouseEvent * event)
 
 void QGIView::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
 {
-    //TODO: this should be done in itemChange
+    //TODO: this should be done in itemChange - item position has changed
+    //TODO: and should check for dragging
+//    Base::Console().Message("QGIV::mouseReleaseEvent() - %s\n",getViewName());
+//    if(scene() && this == scene()->mouseGrabberItem()) {
     if(!m_locked) {
         if (!isInnerView()) {
             double tempX = x(),
@@ -257,14 +273,13 @@ void QGIView::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
 
 void QGIView::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
+//    Base::Console().Message("QGIV::hoverEnterEvent()\n");
     Q_UNUSED(event);
     // TODO don't like this but only solution at the minute (MLP)
     if (isSelected()) {
         m_colCurrent = getSelectColor();
-        m_selectState = 2;
     } else {
         m_colCurrent = getPreColor();
-        m_selectState = 1;
     }
     drawBorder();
 }
@@ -274,10 +289,8 @@ void QGIView::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
     Q_UNUSED(event);
     if(isSelected()) {
         m_colCurrent = getSelectColor();
-        m_selectState = 1;
     } else {
         m_colCurrent = getNormalColor();
-        m_selectState = 0;
     }
     drawBorder();
 }
@@ -411,6 +424,18 @@ void QGIView::draw()
     if (getViewObject() != nullptr) {
         x = Rez::guiX(getViewObject()->X.getValue());
         y = Rez::guiX(getViewObject()->Y.getValue());
+        if (getFrameState()) {
+            //+/- space for label if DPGI
+            TechDraw::DrawProjGroupItem* dpgi = dynamic_cast<TechDraw::DrawProjGroupItem*>(getViewObject());
+            if (dpgi != nullptr) {
+                double vertLabelSpace = Rez::guiX(Preferences::labelFontSizeMM());
+                if (y > 0) {
+                    y += vertLabelSpace;
+                } else if (y < 0) {
+                    y -= vertLabelSpace;
+                }
+            }
+        }
         setPosition(x, y);
     }
     if (isVisible()) {
@@ -428,7 +453,8 @@ void QGIView::drawCaption()
     QRectF displayArea = customChildrenBoundingRect();
     m_caption->setDefaultTextColor(m_colCurrent);
     m_font.setFamily(getPrefFont());
-    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+//    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+    m_font.setPixelSize(PreferencesGui::labelFontSizePX());
     m_caption->setFont(m_font);
     QString captionStr = QString::fromUtf8(getViewObject()->Caption.getValue());
     m_caption->setPlainText(captionStr);
@@ -440,7 +466,8 @@ void QGIView::drawCaption()
     if (getFrameState() || vp->KeepLabel.getValue()) {            //place below label if label visible
         m_caption->setY(displayArea.bottom() + labelHeight);
     } else {
-        m_caption->setY(displayArea.bottom() + labelCaptionFudge * getPrefFontSize());
+//        m_caption->setY(displayArea.bottom() + labelCaptionFudge * getPrefFontSize());
+        m_caption->setY(displayArea.bottom() + labelCaptionFudge * Preferences::labelFontSizeMM());
     }
     m_caption->show();
 }
@@ -469,7 +496,8 @@ void QGIView::drawBorder()
 
     m_label->setDefaultTextColor(m_colCurrent);
     m_font.setFamily(getPrefFont());
-    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+//    m_font.setPixelSize(calculateFontPixelSize(getPrefFontSize()));
+    m_font.setPixelSize(PreferencesGui::labelFontSizePX());
 
     m_label->setFont(m_font);
     QString labelStr = QString::fromUtf8(getViewObject()->Label.getValue());
@@ -618,6 +646,16 @@ MDIViewPage* QGIView::getMDIViewPage(void) const
     return MDIViewPage::getFromScene(scene());
 }
 
+//remove a child of this from scene while keeping scene indexes valid
+void QGIView::removeChild(QGIView* child)
+{
+    if ( (child != nullptr) &&
+         (child->parentItem() == this) ) {
+        prepareGeometryChange();
+        scene()->removeItem(child);
+    }
+}
+
 bool QGIView::getFrameState(void)
 {
 //    Base::Console().Message("QGIV::getFrameState() - %s\n",getViewName());
@@ -637,32 +675,29 @@ bool QGIView::getFrameState(void)
     return result;
 }
 
+void QGIView::addArbitraryItem(QGraphicsItem* qgi)
+{
+    if (qgi != nullptr) {
+//        m_randomItems.push_back(qgi); 
+        addToGroup(qgi);
+        qgi->show();
+    }
+}
+
 //TODO: change name to prefNormalColor()
 QColor QGIView::getNormalColor()
 {
-    Base::Reference<ParameterGrp> hGrp = getParmGroupCol();
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("NormalColor", 0x00000000));
-    m_colNormal = fcColor.asValue<QColor>();
-    return m_colNormal;
+    return PreferencesGui::normalQColor();
 }
 
 QColor QGIView::getPreColor()
 {
-    Base::Reference<ParameterGrp> hGrp = getParmGroupCol();
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("PreSelectColor", 0xFFFF0000));
-    m_colPre = fcColor.asValue<QColor>();
-    return m_colPre;
+    return PreferencesGui::preselectQColor();
 }
 
 QColor QGIView::getSelectColor()
 {
-    Base::Reference<ParameterGrp> hGrp = getParmGroupCol();
-    App::Color fcColor;
-    fcColor.setPackedValue(hGrp->GetUnsigned("SelectColor", 0x00FF0000));
-    m_colSel = fcColor.asValue<QColor>();
-    return m_colSel;
+    return PreferencesGui::selectQColor();
 }
 
 Base::Reference<ParameterGrp> QGIView::getParmGroupCol()
@@ -674,24 +709,17 @@ Base::Reference<ParameterGrp> QGIView::getParmGroupCol()
 
 QString QGIView::getPrefFont()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().
-                                         GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Labels");
-    std::string fontName = hGrp->GetASCII("LabelFont", "osifont");
-    return QString::fromStdString(fontName);
+    return Preferences::labelFontQString();
 }
 
 double QGIView::getPrefFontSize()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().
-                                         GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Labels");
-    return hGrp->GetFloat("LabelSize", DefaultFontSizeInMM);
+    return Preferences::labelFontSizeMM();
 }
 
 double QGIView::getDimFontSize()
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().
-                       GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Dimensions");
-    return hGrp->GetFloat("FontSize", DefaultFontSizeInMM);
+    return Preferences::dimFontSizeMM();
 }
 
 int QGIView::calculateFontPixelSize(double sizeInMillimetres)
@@ -704,12 +732,12 @@ int QGIView::calculateFontPixelSize(double sizeInMillimetres)
 int QGIView::calculateFontPixelWidth(const QFont &font)
 {
     // Return the width of digit 0, most likely the most wide digit
-    return QFontMetrics(font).width(QChar::fromLatin1('0'));
+    return Gui::QtTools::horizontalAdvance(QFontMetrics(font), QChar::fromLatin1('0'));
 }
 
 const double QGIView::DefaultFontSizeInMM = 5.0;
 
-void QGIView::dumpRect(char* text, QRectF r) {
+void QGIView::dumpRect(const char* text, QRectF r) {
     Base::Console().Message("DUMP - %s - rect: (%.3f,%.3f) x (%.3f,%.3f)\n",text,
                             r.left(),r.top(),r.right(),r.bottom());
 }
@@ -722,6 +750,7 @@ void QGIView::makeMark(double x, double y, QColor c)
     vItem->setWidth(2.0);
     vItem->setRadius(20.0);
     vItem->setNormalColor(c);
+    vItem->setFillColor(c);
     vItem->setPrettyNormal();
     vItem->setZValue(ZVALUE::VERTEX);
 }

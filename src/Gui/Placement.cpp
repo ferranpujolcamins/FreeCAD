@@ -22,11 +22,14 @@
 
 
 #include "PreCompiled.h"
+#ifndef _PreComp_
 #include <QSignalMapper>
 #include <QDockWidget>
 #include <QMessageBox>
 #include <QClipboard>
 #include <QMetaObject>
+#include <boost_bind_bind.hpp>
+#endif
 
 #include "Placement.h"
 #include "ui_Placement.h"
@@ -45,6 +48,7 @@
 #include <Base/UnitsApi.h>
 
 using namespace Gui::Dialog;
+namespace bp = boost::placeholders;
 
 namespace Gui { namespace Dialog {
 class find_placement
@@ -89,6 +93,7 @@ Placement::Placement(QWidget* parent, Qt::WindowFlags fl)
 
     propertyName = "Placement"; // default name
     ui = new Ui_PlacementComp(this);
+    ui->gridLayout->removeItem(ui->vSpacer);
 
     ui->xPos->setUnit(Base::Unit::Length);
     ui->yPos->setUnit(Base::Unit::Length);
@@ -117,7 +122,7 @@ Placement::Placement(QWidget* parent, Qt::WindowFlags fl)
     connect(signalMapper, SIGNAL(mapped(int)),
             this, SLOT(onPlacementChanged(int)));
     connectAct = Application::Instance->signalActiveDocument.connect
-        (boost::bind(&Placement::slotActiveDocument, this, _1));
+        (boost::bind(&Placement::slotActiveDocument, this, bp::_1));
     App::Document* activeDoc = App::GetApplication().getActiveDocument();
     if (activeDoc) documents.insert(activeDoc->getName());
 
@@ -138,6 +143,13 @@ void Placement::showDefaultButtons(bool ok)
     ui->oKButton->setVisible(ok);
     ui->closeButton->setVisible(ok);
     ui->applyButton->setVisible(ok);
+    ui->buttonBoxLayout->invalidate();
+    if (ok) {
+        ui->buttonBoxLayout->insertSpacerItem(0, ui->buttonBoxSpacer);
+    }
+    else {
+        ui->buttonBoxLayout->removeItem(ui->buttonBoxSpacer);
+    }
 }
 
 void Placement::open()
@@ -257,13 +269,13 @@ void Placement::applyPlacement(const QString& data, bool incremental)
         }
         catch (...) {
         }
-        document->openCommand("Placement");
+        document->openCommand(QT_TRANSLATE_NOOP("Command", "Placement"));
     }
     else {
         std::vector<App::DocumentObject*> sel = Gui::Selection().getObjectsOfType
             (App::DocumentObject::getClassTypeId(), document->getDocument()->getName());
         if (!sel.empty()) {
-            document->openCommand("Placement");
+            document->openCommand(QT_TRANSLATE_NOOP("Command", "Placement"));
             for (std::vector<App::DocumentObject*>::iterator it=sel.begin();it!=sel.end();++it) {
                 std::map<std::string,App::Property*> props;
                 (*it)->getPropertyMap(props);
@@ -552,6 +564,13 @@ void Placement::reject()
     /*emit*/ placementChanged(data, true, false);
 
     revertTransformation();
+
+    // One of the quantity spin boxes still can emit a signal when it has the focus
+    // but its content is not fully updated.
+    // In order to override again the placement the signalMapper is blocked
+    // See related forum thread:
+    // https://forum.freecadweb.org/viewtopic.php?f=3&t=44341#p378659
+    QSignalBlocker block(signalMapper);
     QDialog::reject();
 }
 
@@ -618,6 +637,21 @@ void Placement::on_resetButton_clicked()
     }
 
     onPlacementChanged(0);
+}
+
+void Placement::bindObject()
+{
+    if (!selectionObjects.empty()) {
+        App::DocumentObject* obj = selectionObjects.front().getObject();
+
+        ui->xPos->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Base.x")));
+        ui->yPos->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Base.y")));
+        ui->zPos->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Base.z")));
+
+        ui->yawAngle  ->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Rotation.Yaw")));
+        ui->pitchAngle->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Rotation.Pitch")));
+        ui->rollAngle ->bind(App::ObjectIdentifier::parse(obj, propertyName + std::string(".Rotation.Roll")));
+    }
 }
 
 void Placement::directionActivated(int index)
@@ -825,6 +859,11 @@ TaskPlacement::~TaskPlacement()
     // automatically deleted in the sub-class
 }
 
+void TaskPlacement::bindObject()
+{
+    widget->bindObject();
+}
+
 void TaskPlacement::open()
 {
     widget->open();
@@ -836,7 +875,7 @@ void TaskPlacement::setPropertyName(const QString& name)
 }
 
 QDialogButtonBox::StandardButtons TaskPlacement::getStandardButtons() const
-{ 
+{
     return QDialogButtonBox::Ok|
            QDialogButtonBox::Cancel|
            QDialogButtonBox::Apply;

@@ -46,7 +46,7 @@ PROPERTY_SOURCE(FemGui::ViewProviderFemConstraintPressure, FemGui::ViewProviderF
 
 ViewProviderFemConstraintPressure::ViewProviderFemConstraintPressure()
 {
-    sPixmap = "fem-constraint-pressure";
+    sPixmap = "FEM_ConstraintPressure";
     ADD_PROPERTY(FaceColor,(0.0f,0.2f,0.8f));
 }
 
@@ -91,7 +91,7 @@ bool ViewProviderFemConstraintPressure::setEdit(int ModNum)
 }
 
 #define ARROWLENGTH (4)
-#define ARROWHEADRADIUS (ARROWLENGTH/3)
+#define ARROWHEADRADIUS (ARROWLENGTH/3.0f)
 //#define USE_MULTIPLE_COPY //OvG: MULTICOPY fails to update scaled arrows on initial drawing - so disable
 
 void ViewProviderFemConstraintPressure::updateData(const App::Property* prop)

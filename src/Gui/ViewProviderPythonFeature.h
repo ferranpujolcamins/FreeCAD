@@ -109,16 +109,16 @@ public:
     ValueT dropObject(App::DocumentObject*);
     /** Return false to force drop only operation for a give object*/
     ValueT canDragAndDropObject(App::DocumentObject*) const;
-    /** Query object dropping with full quanlified name */
-    ValueT canDropObjectEx(App::DocumentObject *obj, App::DocumentObject *, 
+    /** Query object dropping with full qualified name */
+    ValueT canDropObjectEx(App::DocumentObject *obj, App::DocumentObject *,
             const char *,const std::vector<std::string> &elements) const;
-    /** Add an object with full quanlified name to the view provider by drag and drop */
+    /** Add an object with full qualified name to the view provider by drag and drop */
     bool dropObjectEx(App::DocumentObject *obj, App::DocumentObject *,
             const char *, const std::vector<std::string> &elements, std::string &ret);
     ValueT replaceObject(App::DocumentObject *, App::DocumentObject *);
     //@}
 
-    bool getLinkedViewProvider(ViewProviderDocumentObject *&res, 
+    bool getLinkedViewProvider(ViewProviderDocumentObject *&res,
             std::string *subname, bool recursive) const;
 
     ValueT canAddToSceneGraph() const;
@@ -211,6 +211,8 @@ public:
         QIcon icon = imp->getIcon();
         if (icon.isNull())
             icon = ViewProviderT::getIcon();
+        else
+            icon = ViewProviderT::mergeOverlayIcons(icon);
         return icon;
     }
 
@@ -223,7 +225,7 @@ public:
 
     /** @name Nodes */
     //@{
-    virtual SoSeparator* getRoot() override {
+    virtual SoSeparator* getRoot() const override {
         return ViewProviderT::getRoot();
     }
     virtual SoSeparator* getFrontRoot() const override {
@@ -405,7 +407,7 @@ public:
             return ViewProviderT::canDragAndDropObject(obj);
         }
     }
-    virtual bool canDropObjectEx(App::DocumentObject *obj, App::DocumentObject *owner, 
+    virtual bool canDropObjectEx(App::DocumentObject *obj, App::DocumentObject *owner,
             const char *subname, const std::vector<std::string> &elements) const override
     {
         switch (imp->canDropObjectEx(obj,owner,subname,elements)) {
@@ -417,8 +419,8 @@ public:
             return ViewProviderT::canDropObjectEx(obj,owner,subname,elements);
         }
     }
-    /** Add an object with full quanlified name to the view provider by drag and drop */
-    virtual std::string dropObjectEx(App::DocumentObject *obj, App::DocumentObject *owner, 
+    /** Add an object with full qualified name to the view provider by drag and drop */
+    virtual std::string dropObjectEx(App::DocumentObject *obj, App::DocumentObject *owner,
             const char *subname, const std::vector<std::string> &elements) override
     {
         App::AutoTransaction committer;
@@ -503,19 +505,16 @@ protected:
                     ViewProviderT::DisplayMode.touch();
                     ViewProviderT::setOverrideMode(viewerMode);
                 }
-                if(!this->testStatus(Gui::isRestoring) && 
-                    ViewProviderT::canAddToSceneGraph() && 
-                    !imp->canAddToSceneGraph())
-                {
+                if (!this->testStatus(Gui::isRestoring) &&
+                    !canAddToSceneGraph()) {
                     this->getDocument()->toggleInSceneGraph(this);
                 }
                 ViewProviderT::updateView();
             }
         }
-        else {
-            imp->onChanged(prop);
-            ViewProviderT::onChanged(prop);
-        }
+
+        imp->onChanged(prop);
+        ViewProviderT::onChanged(prop);
     }
     /// is called by the document when the provider goes in edit mode
     virtual bool setEdit(int ModNum) override
@@ -541,11 +540,11 @@ protected:
         }
     }
     virtual void setEditViewer(View3DInventorViewer *viewer, int ModNum) override {
-        if(!imp->setEditViewer(viewer,ModNum))
+        if (imp->setEditViewer(viewer,ModNum) == ViewProviderPythonFeatureImp::NotImplemented)
             ViewProviderT::setEditViewer(viewer,ModNum);
     }
     virtual void unsetEditViewer(View3DInventorViewer *viewer) override {
-        if(!imp->unsetEditViewer(viewer))
+        if (imp->unsetEditViewer(viewer) == ViewProviderPythonFeatureImp::NotImplemented)
             ViewProviderT::unsetEditViewer(viewer);
     }
 

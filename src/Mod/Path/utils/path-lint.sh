@@ -1,7 +1,5 @@
 #!/bin/bash
-#
 # ***************************************************************************
-# *                                                                         *
 # *   Copyright (c) 2017 sliptonic <shopinthewoods@gmail.com>               *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
@@ -56,6 +54,7 @@ EXTERNAL_MODULES+=' Path'
 EXTERNAL_MODULES+=' PySide'
 EXTERNAL_MODULES+=' PySide.QtCore'
 EXTERNAL_MODULES+=' PySide.QtGui'
+EXTERNAL_MODULES+=' Sketcher'
 EXTERNAL_MODULES+=' TechDraw'
 EXTERNAL_MODULES+=' TestSketcherApp'
 EXTERNAL_MODULES+=' area'

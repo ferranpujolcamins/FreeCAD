@@ -1,5 +1,6 @@
 /******************************************************************************
- *   Copyright (c)2012 Konstantinos Poulios <logari81@gmail.com>              *
+ *   Copyright (c) 2012 Konstantinos Poulios <logari81@gmail.com>             *
+ *                                                                            *
  *   This file is part of the FreeCAD CAx development system.                 *
  *                                                                            *
  *   This library is free software; you can redistribute it and/or            *
@@ -87,7 +88,7 @@ public:
 };
 // Convenience methods
 /// Extract reference from Selection
-void getReferencedSelection(const App::DocumentObject* thisObj, const Gui::SelectionChanges& msg,
+bool getReferencedSelection(const App::DocumentObject* thisObj, const Gui::SelectionChanges& msg,
                             App::DocumentObject*& selObj, std::vector<std::string>& selSub);
 /// Return reference as string for UI elements (format <obj>:<subelement>
 QString getRefStr(const App::DocumentObject* obj, const std::vector<std::string>& sub);

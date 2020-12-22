@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="es-ES" sourcelanguage="en">
+<TS version="2.1" language="es-ES" sourcelanguage="en">
   <context>
     <name>AttachmentEditor</name>
     <message>
@@ -41,7 +41,7 @@
     <message>
       <location filename="../../../AttachmentEditor/TaskAttachmentEditor.py" line="349"/>
       <source>Ignored. Can't attach object to itself!</source>
-      <translation>Ignorado. ¡No se puede adjuntar objeto a sí mismo!</translation>
+      <translation>Ignorado. ¡No se puede adjuntar el objeto por sí mismo!</translation>
     </message>
     <message>
       <location filename="../../../AttachmentEditor/TaskAttachmentEditor.py" line="352"/>
@@ -99,6 +99,11 @@
       <translation>Separación del archivo adjunto:</translation>
     </message>
     <message>
+      <location filename="../../../AttachmentEditor/TaskAttachmentEditor.py" line="608"/>
+      <source>Attachment Offset (in local coordinates):</source>
+      <translation>Desplazamiento adjunto (en coordenadas locales):</translation>
+    </message>
+    <message>
       <location filename="../../../AttachmentEditor/TaskAttachmentEditor.py" line="598"/>
       <source>Attachment Offset (inactive - not attached):</source>
       <translation>Separación archivo adjunto (inactivo - no adjunto):</translation>
@@ -122,6 +127,17 @@
       <translation>Filtro compuesto</translation>
     </message>
     <message>
+      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="59"/>
+      <source>Filter out objects from a selected compound by characteristics like volume,
+area, or length, or by choosing specific items.
+If a second object is selected, it will be used as reference, for example,
+for collision or distance filtering.</source>
+      <translation type="unfinished">Filter out objects from a selected compound by characteristics like volume,
+area, or length, or by choosing specific items.
+If a second object is selected, it will be used as reference, for example,
+for collision or distance filtering.</translation>
+    </message>
+    <message>
       <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="60"/>
       <source>Compound Filter: remove some childs from a compound</source>
       <translation>Filtro compuesto: quitar a algunos vástago de un compuesto</translation>
@@ -132,9 +148,9 @@
       <translation>¡Seleccione una forma que es un compuesto, primero! Segundo elemento seleccionado (opcional) se tratará como una plantilla.</translation>
     </message>
     <message>
-      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="105"/>
-      <source>Bad selection</source>
-      <translation>Mala selección</translation>
+      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="73"/>
+      <source>First select a shape that is a compound. If a second object is selected (optional) it will be treated as a stencil.</source>
+      <translation type="unfinished">First select a shape that is a compound. If a second object is selected (optional) it will be treated as a stencil.</translation>
     </message>
     <message>
       <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="103"/>
@@ -149,6 +165,24 @@ Click 'Continue' to create the feature anyway, or 'Abort' to cancel.</source>
 
 Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' para cancelar.</translation>
     </message>
+    <message>
+      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="105"/>
+      <source>Bad selection</source>
+      <translation>Mala selección</translation>
+    </message>
+    <message>
+      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="106"/>
+      <source>Computing the result failed with an error: 
+
+{errstr}
+
+Click 'Continue' to create the feature anyway, or 'Abort' to cancel.</source>
+      <translation>El cálculo del resultado falló con un error:
+
+{errstr}
+
+Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' para cancelar.</translation>
+    </message>
   </context>
   <context>
     <name>Part_ExplodeCompound</name>
@@ -156,6 +190,13 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
       <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="57"/>
       <source>Explode compound</source>
       <translation>Explotar compuesto</translation>
+    </message>
+    <message>
+      <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="58"/>
+      <source>Split up a compound of shapes into separate objects.
+It will create a 'Compound Filter' for each shape.</source>
+      <translation type="unfinished">Split up a compound of shapes into separate objects.
+It will create a 'Compound Filter' for each shape.</translation>
     </message>
     <message>
       <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="59"/>
@@ -166,6 +207,11 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
       <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="67"/>
       <source>Select a shape that is a compound, first!</source>
       <translation>¡Seleccione una forma que es un compuesto, primero!</translation>
+    </message>
+    <message>
+      <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="68"/>
+      <source>First select a shape that is a compound.</source>
+      <translation type="unfinished">First select a shape that is a compound.</translation>
     </message>
     <message>
       <location filename="../../../CompoundTools/_CommandExplodeCompound.py" line="68"/>
@@ -215,6 +261,29 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
   <context>
     <name>Part_JoinFeatures</name>
     <message>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="86"/>
+      <source>Computing the result failed with an error:
+
+{err}
+
+Click 'Continue' to create the feature anyway, or 'Abort' to cancel.</source>
+      <translation>El cálculo del resultado falló con un error:
+
+{err}
+
+Haga clic en 'Continuar' para crear la función de todos modos, o 'Abortar' para cancelar.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="373"/>
+      <source>Bad selection</source>
+      <translation>Mala selección</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="89"/>
+      <source>Continue</source>
+      <translation>Continuar</translation>
+    </message>
+    <message>
       <location filename="../../../BOPTools/JoinFeatures.py" line="85"/>
       <source>Computing the result failed with an error: 
 
@@ -228,19 +297,14 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
 Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' para cancelar.</translation>
     </message>
     <message>
-      <location filename="../../../BOPTools/JoinFeatures.py" line="373"/>
-      <source>Bad selection</source>
-      <translation>Mala selección</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/JoinFeatures.py" line="89"/>
-      <source>Continue</source>
-      <translation>Continuar</translation>
-    </message>
-    <message>
       <location filename="../../../BOPTools/JoinFeatures.py" line="196"/>
       <source>Select at least two objects, or one or more compounds, first!</source>
       <translation>¡Seleccione al menos dos objetos, o uno o más compuestos, en primer lugar!</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="208"/>
+      <source>Select at least two objects, or one or more compounds</source>
+      <translation type="unfinished">Select at least two objects, or one or more compounds</translation>
     </message>
     <message>
       <location filename="../../../BOPTools/JoinFeatures.py" line="283"/>
@@ -248,26 +312,125 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
       <translation>Seleccione el objeto base, luego el objeto para incrustar e invoque esta herramienta.</translation>
     </message>
     <message>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="304"/>
+      <source>Select base object, then the object to embed, and then invoke this tool.</source>
+      <translation type="unfinished">Select base object, then the object to embed, and then invoke this tool.</translation>
+    </message>
+    <message>
       <location filename="../../../BOPTools/JoinFeatures.py" line="372"/>
       <source>Select the object to make a cutout in, then the object that should fit into the cutout, and invoke this tool.</source>
       <translation>Seleccione el objeto para hacer un recorte, luego el objeto que debe encajar en el recorte, e invoque esta herramienta.</translation>
     </message>
-  </context>
-  <context>
-    <name>Part_MakeTube</name>
     <message>
-      <location filename="../../../BasicShapes/Shapes.py" line="59"/>
-      <source>Create tube</source>
-      <translation>Crear un tubo</translation>
-    </message>
-    <message>
-      <location filename="../../../BasicShapes/Shapes.py" line="62"/>
-      <source>Creates a tube</source>
-      <translation>Crea un tubo</translation>
+      <location filename="../../../BOPTools/JoinFeatures.py" line="399"/>
+      <source>Select the object to make a cutout in, then the object that should fit into the cutout, and then invoke this tool.</source>
+      <translation type="unfinished">Select the object to make a cutout in, then the object that should fit into the cutout, and then invoke this tool.</translation>
     </message>
   </context>
   <context>
     <name>Part_SplitFeatures</name>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="501"/>
+      <source>Computing the result failed with an error:
+
+{err}
+
+Click 'Continue' to create the feature anyway, or 'Abort' to cancel.</source>
+      <translation>El cálculo del resultado falló con un error:
+
+{err}
+
+Haga clic en 'Continuar' para crear la función de todos modos, o 'Abortar' para cancelar.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="479"/>
+      <source>Bad selection</source>
+      <translation>Mala selección</translation>
+    </message>
+    <message>
+      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="107"/>
+      <source>Continue</source>
+      <translation>Continuar</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="188"/>
+      <source>Boolean fragments</source>
+      <translation>Fragmentos booleanos</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="190"/>
+      <source>Create a 'Boolean Fragments' object from two or more selected objects,
+or from the shapes inside a compound.
+This is a boolean union which is then sliced at the intersections
+of the original shapes.
+A 'Compound Filter' can be used to extract the individual slices.</source>
+      <translation type="unfinished">Create a 'Boolean Fragments' object from two or more selected objects,
+or from the shapes inside a compound.
+This is a boolean union which is then sliced at the intersections
+of the original shapes.
+A 'Compound Filter' can be used to extract the individual slices.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="543"/>
+      <source>Select at least two objects, or one or more compounds. If only one compound is selected, the compounded shapes will be intersected between each other (otherwise, compounds with self-intersections are invalid).</source>
+      <translation type="unfinished">Select at least two objects, or one or more compounds. If only one compound is selected, the compounded shapes will be intersected between each other (otherwise, compounds with self-intersections are invalid).</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="310"/>
+      <source>Slice to compound</source>
+      <translation>Corte a compuesto</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="349"/>
+      <source>Slice a selected object by using other objects as cutting tools.
+The resulting pieces will be stored in a compound.
+A 'Compound Filter' can be used to extract the individual slices.</source>
+      <translation type="unfinished">Slice a selected object by using other objects as cutting tools.
+The resulting pieces will be stored in a compound.
+A 'Compound Filter' can be used to extract the individual slices.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="391"/>
+      <source>Select at least two objects. The first one is the object to be sliced; the rest are objects to slice with.</source>
+      <translation>Seleccione al menos dos objetos. El primero es el objeto a cortar; el resto son objetos con los que cortar.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="334"/>
+      <source>Slice apart</source>
+      <translation>Cortar aparte</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="174"/>
+      <source>Boolean Fragments</source>
+      <translation>Fragmentos booleanos</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="176"/>
+      <source>Split objects where they intersect</source>
+      <translation>Corta objetos donde intersectan</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="312"/>
+      <source>Split object by intersections with other objects, and pack the pieces into a compound.</source>
+      <translation>Parte un objeto por las intersecciones con otros objetos, y empaca las piezas en un componente.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="336"/>
+      <source>Split object by intersections with other objects.</source>
+      <translation>Partir un objeto por las intersecciones con otros objetos.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="344"/>
+      <source>Select at least two objects, first! First one is the object to be sliced; the rest are objects to slice with.</source>
+      <translation>¡Seleccione al menos dos objetos, primero! Primero uno es el objeto a ser cortado; el resto son objetos con los cuales cortar.</translation>
+    </message>
+    <message>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="381"/>
+      <source>Slice a selected object by other objects, and split it apart.
+It will create a 'Compound Filter' for each slice.</source>
+      <translation>Cortar un objeto seleccionado por otros objetos, y dividirlo por separado.
+Se creará un 'Filtro Compuesto' para cada corte.</translation>
+    </message>
     <message>
       <location filename="../../../BOPTools/SplitFeatures.py" line="446"/>
       <source>Computing the result failed with an error: 
@@ -282,24 +445,9 @@ Click 'Continue' to create the feature anyway, or 'Abort' to cancel.</source>
 Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' para cancelar.</translation>
     </message>
     <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="479"/>
-      <source>Bad selection</source>
-      <translation>Mala selección</translation>
-    </message>
-    <message>
-      <location filename="../../../CompoundTools/_CommandCompoundFilter.py" line="107"/>
-      <source>Continue</source>
-      <translation>Continuar</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="174"/>
-      <source>Boolean Fragments</source>
-      <translation>Fragmentos booleanos</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="176"/>
-      <source>Split objects where they intersect</source>
-      <translation>Corta objetos donde intersectan</translation>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="470"/>
+      <source>Remove intersection fragments</source>
+      <translation>Eliminar fragmentos de intersección</translation>
     </message>
     <message>
       <location filename="../../../BOPTools/SplitFeatures.py" line="478"/>
@@ -307,39 +455,46 @@ Haga clic en 'Continuar' para crear la operación de todos modos, o 'Abortar' pa
       <translation>¡Seleccione al menos dos objetos, o uno o más compuestos, en primer lugar! Si sólo se selecciona un compuesto, las formas compuestas serán intersectadas entre sí (de lo contrario, los compuestos con intersecciones con uno mismo son inválidos).</translation>
     </message>
     <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="310"/>
-      <source>Slice to compound</source>
-      <translation>Corte a compuesto</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="312"/>
-      <source>Split object by intersections with other objects, and pack the pieces into a compound.</source>
-      <translation>Parte un objeto por las intersecciones con otros objetos, y empaca las piezas en un componente.</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="344"/>
-      <source>Select at least two objects, first! First one is the object to be sliced; the rest are objects to slice with.</source>
-      <translation>¡Seleccione al menos dos objetos, primero! Primero uno es el objeto a ser cortado; el resto son objetos con los cuales cortar.</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="334"/>
-      <source>Slice apart</source>
-      <translation>Cortar aparte</translation>
-    </message>
-    <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="336"/>
-      <source>Split object by intersections with other objects.</source>
-      <translation>Partir un objeto por las intersecciones con otros objetos.</translation>
-    </message>
-    <message>
       <location filename="../../../BOPTools/SplitFeatures.py" line="468"/>
       <source>Boolean XOR</source>
       <translation>XOR booleanos</translation>
     </message>
     <message>
-      <location filename="../../../BOPTools/SplitFeatures.py" line="470"/>
-      <source>Remove intersection fragments</source>
-      <translation>Eliminar fragmentos de intersección</translation>
+      <location filename="../../../BOPTools/SplitFeatures.py" line="531"/>
+      <source>Perform an 'exclusive OR' boolean operation with two or more selected objects,
+or with the shapes inside a compound.
+This means the overlapping volumes of the shapes will be removed.
+A 'Compound Filter' can be used to extract the remaining pieces.</source>
+      <translation>Realiza una operación booleana 'exclusiva OR' con dos o más objetos seleccionados,
+o con las formas dentro de un componente.
+Esto significa que los volúmenes superpuestos de las formas se eliminarán.
+Un 'Filtro Compuesto' se puede utilizar para extraer las piezas restantes.</translation>
+    </message>
+  </context>
+  <context>
+    <name>Part_Tube</name>
+    <message>
+      <location filename="../../../BasicShapes/Shapes.py" line="85"/>
+      <source>Create tube</source>
+      <translation>Crear un tubo</translation>
+    </message>
+    <message>
+      <location filename="../../../BasicShapes/Shapes.py" line="89"/>
+      <source>Creates a tube</source>
+      <translation>Crea un tubo</translation>
+    </message>
+  </context>
+  <context>
+    <name>Part_MakeTube</name>
+    <message>
+      <location filename="../../../BasicShapes/Shapes.py" line="59"/>
+      <source>Create tube</source>
+      <translation>Crear un tubo</translation>
+    </message>
+    <message>
+      <location filename="../../../BasicShapes/Shapes.py" line="62"/>
+      <source>Creates a tube</source>
+      <translation>Crea un tubo</translation>
     </message>
   </context>
   <context>
@@ -1292,7 +1447,7 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
       <location filename="../../AttacherTexts.cpp" line="113"/>
       <source>Align O-Y-Z</source>
       <comment>Attachment3D mode caption</comment>
-      <translation>Alinear O-Y-X</translation>
+      <translation>Alinear O-Y-Z</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="114"/>
@@ -1323,7 +1478,7 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
       <location filename="../../AttacherTexts.cpp" line="177"/>
       <source>Match origin with first Vertex. Align normal and horizontal plane axis towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinee el eje del plano normal y horizontal hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Normal y Horizontal al vértice / a lo largo de la linea.</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="179"/>
@@ -1335,13 +1490,13 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
       <location filename="../../AttacherTexts.cpp" line="180"/>
       <source>Match origin with first Vertex. Align normal and vertical plane axis towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinee el eje del plano vertical y normal hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Normal y Vertical al vértice / a lo largo de la linea.</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="183"/>
       <source>Match origin with first Vertex. Align horizontal and vertical plane axes towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinear el planos de ejes horizontales y verticales hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Horizontal y Vertical al vértice / a lo largo de la linea.</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="185"/>
@@ -1353,7 +1508,7 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
       <location filename="../../AttacherTexts.cpp" line="186"/>
       <source>Match origin with first Vertex. Align horizontal plane axis and normal towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinear los planos de ejes horizontales y verticales hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Horizontal y Normal al vértice / a lo largo de la linea.</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="188"/>
@@ -1365,13 +1520,13 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
       <location filename="../../AttacherTexts.cpp" line="189"/>
       <source>Match origin with first Vertex. Align vertical plane axis and normal towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinear planos de ejes y normal hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Vertical y Normal al vértice / a lo largo de la linea.</translation>
     </message>
     <message>
       <location filename="../../AttacherTexts.cpp" line="192"/>
       <source>Match origin with first Vertex. Align vertical and horizontal plane axes towards vertex/along line.</source>
       <comment>Attachment3D mode tooltip</comment>
-      <translation>Coincidir el origen con el primer vértice. Alinee el eje del plano normal y horizontal hacia el vértice/a lo largo de la línea.</translation>
+      <translation>Coincidir origen con el primer vértice. Alinear los ejes del plano en dirección Vertical y Horizontal al vértice / a lo largo de la linea.</translation>
     </message>
   </context>
   <context>
@@ -1839,7 +1994,7 @@ Posición. Funciona en objetos con ubicaciones y bordes de elipse / parábola / 
     <message>
       <location filename="../../Command.cpp" line="891"/>
       <source>Make a compound of several shapes</source>
-      <translation>Crear cuerpo a partir de varios</translation>
+      <translation>Crear composición desde varias formas</translation>
     </message>
   </context>
   <context>
@@ -3860,10 +4015,10 @@ Por favor selecciona primero una o más aristas.</translation>
       <source>Maximum angular deflection</source>
       <translation>Deflexión angular máxima</translation>
     </message>
-    <message utf8="true">
+    <message>
       <location filename="../../DlgSettings3DViewPart.ui" line="107"/>
       <source> °</source>
-      <translation> °</translation>
+      <translation>  °</translation>
     </message>
     <message>
       <location filename="../../DlgSettings3DViewPartImp.cpp" line="69"/>
@@ -3982,7 +4137,7 @@ Por favor selecciona primero una o más aristas.</translation>
     <message>
       <location filename="../../DlgSettingsObjectColor.ui" line="203"/>
       <source>Default line color</source>
-      <translation>Color de línea predeterminado</translation>
+      <translation>Color de la línea predeterminado</translation>
     </message>
     <message>
       <location filename="../../DlgSettingsObjectColor.ui" line="230"/>
@@ -4787,7 +4942,7 @@ in the 3D view for the sweep path.</source>
     <message>
       <location filename="../../AppPartGui.cpp" line="214"/>
       <source>Display</source>
-      <translation>Visualización</translation>
+      <translation>Mostrar</translation>
     </message>
     <message>
       <location filename="../../Command.cpp" line="284"/>

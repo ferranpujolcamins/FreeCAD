@@ -46,8 +46,12 @@
 #include <Gui/ViewProvider.h>
 #include <Gui/WaitCursor.h>
 
-#include "TaskSectionView.h"
+#include <Mod/TechDraw/App/DrawHatch.h>
+#include <Mod/TechDraw/App/DrawGeomHatch.h>
+//#include <Mod/TechDraw/App/Preferences.h>
 
+#include "PreferencesGui.h"
+#include "TaskSectionView.h"
 #include "ViewProviderViewSection.h"
 
 using namespace TechDrawGui;
@@ -62,10 +66,17 @@ ViewProviderViewSection::ViewProviderViewSection()
     static const char *sgroup = "Cut Surface";
     static const char *hgroup = "Surface Hatch";
     sPixmap = "TechDraw_Tree_Section";
-    ADD_PROPERTY_TYPE(ShowCutSurface ,(true),sgroup,App::Prop_None,"Show/hide the cut surface");
+    //ShowCutSurface is obsolete - use CutSurfaceDisplay
+    ADD_PROPERTY_TYPE(ShowCutSurface ,(true),sgroup,App::Prop_Hidden,"Show/hide the cut surface");
     ADD_PROPERTY_TYPE(CutSurfaceColor,(0.0,0.0,0.0),sgroup,App::Prop_None,"The color to shade the cut surface");
-    ADD_PROPERTY_TYPE(HatchCutSurface ,(false),hgroup,App::Prop_None,"Hatch the cut surface");
-    ADD_PROPERTY_TYPE(HatchColor,(0.0,0.0,0.0),hgroup,App::Prop_None,"The color of the hatch pattern");
+    //HatchCutSurface is obsolete - use CutSurfaceDisplay
+    ADD_PROPERTY_TYPE(HatchCutSurface ,(false),hgroup,App::Prop_Hidden,"Hatch the cut surface");
+
+    ADD_PROPERTY_TYPE(HatchColor,(TechDraw::DrawHatch::prefSvgHatchColor()),
+                        hgroup,App::Prop_None,"The color of the Svg hatch pattern");
+    ADD_PROPERTY_TYPE(GeomHatchColor,(TechDraw::DrawGeomHatch::prefGeomHatchColor()),
+                        hgroup,App::Prop_None,"The color of the Geometric hatch pattern");
+
     ADD_PROPERTY_TYPE(WeightPattern,(0.1),hgroup,App::Prop_None,"GeomHatch pattern line thickness");
 
     getParameters();
@@ -99,9 +110,10 @@ std::vector<std::string> ViewProviderViewSection::getDisplayModes(void) const
 void ViewProviderViewSection::onChanged(const App::Property* prop)
 {
     if (prop == &WeightPattern   ||
-        prop == &HatchCutSurface ||
+//        prop == &HatchCutSurface ||
         prop == &HatchColor      ||
-        prop == &ShowCutSurface  ||
+        prop == &GeomHatchColor      ||
+//        prop == &ShowCutSurface  ||
         prop == &CutSurfaceColor ) {
         updateGraphic();   
     }
@@ -113,6 +125,7 @@ void ViewProviderViewSection::onChanged(const App::Property* prop)
 void ViewProviderViewSection::updateData(const App::Property* prop)
 {
     if (prop == &(getViewObject()->FileHatchPattern)   ||
+        prop == &(getViewObject()->CutSurfaceDisplay)    ||
         prop == &(getViewObject()->NameGeomPattern)    ||
         prop == &(getViewObject()->HatchScale)   ) {
         updateGraphic();
@@ -173,15 +186,24 @@ void ViewProviderViewSection::getParameters(void)
 {
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Colors");
-    App::Color cutColor = App::Color((uint32_t) hGrp->GetUnsigned("CutSurfaceColor", 0xC8C8C800));
+    App::Color cutColor = App::Color((uint32_t) hGrp->GetUnsigned("CutSurfaceColor", 0xD3D3D3FF));
     CutSurfaceColor.setValue(cutColor);
-    App::Color hatchColor = App::Color((uint32_t) hGrp->GetUnsigned("SectionHatchColor", 0x00000000));
-    HatchColor.setValue(hatchColor);
+
+//    App::Color hatchColor = App::Color((uint32_t) hGrp->GetUnsigned("SectionHatchColor", 0x00000000));
+//    HatchColor.setValue(hatchColor);
   
     hGrp = App::GetApplication().GetUserParameter()
         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/PAT"); 
     double lineWeight = hGrp->GetFloat("GeomWeight",0.1);
     WeightPattern.setValue(lineWeight);
+}
+
+bool ViewProviderViewSection::canDelete(App::DocumentObject *obj) const
+{
+    // a section view can be deleted
+    // that its base view cannot be deleted is handled in its the onDelete() function
+    Q_UNUSED(obj)
+    return true;
 }
 
 TechDraw::DrawViewSection* ViewProviderViewSection::getViewObject() const

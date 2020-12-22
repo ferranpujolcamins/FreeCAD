@@ -1,6 +1,6 @@
 # ***************************************************************************
 # *                                                                         *
-# *   Copyright (c) 2016 - Bernd Hahnebach <bernd@bimstatik.org>            *
+# *   Copyright (c) 2016 Bernd Hahnebach <bernd@bimstatik.org>              *
 # *                                                                         *
 # *   This program is free software; you can redistribute it and/or modify  *
 # *   it under the terms of the GNU Lesser General Public License (LGPL)    *
@@ -20,22 +20,24 @@
 # *                                                                         *
 # ***************************************************************************
 
-__title__ = "Tools for the work with Gmsh mesher"
+__title__  = "Tools for the work with Gmsh mesher"
 __author__ = "Bernd Hahnebach"
-__url__ = "http://www.freecadweb.org"
+__url__    = "https://www.freecadweb.org"
 
 ## \addtogroup FEM
 #  @{
 
-import sys
 import subprocess
+import sys
 
 import FreeCAD
 from FreeCAD import Console
-import Fem
 from FreeCAD import Units
+
+import Fem
 from . import meshtools
-import femtools.femutils as femutils
+from femtools import femutils
+from femtools import geomtools
 
 
 class GmshTools():
@@ -201,7 +203,7 @@ class GmshTools():
             else:
                 self.dimension = "0"
                 Console.PrintError(
-                    "Could not retrieve Dimension from shape type. Please choose dimension."
+                    "Could not retrieve Dimension from shape type. Please choose dimension.\n"
                 )
         elif self.dimension == "3D":
             self.dimension = "3"
@@ -336,7 +338,10 @@ class GmshTools():
             "User parameter:BaseApp/Preferences/Mod/Fem/General"
         ).GetBool("AnalysisGroupMeshing", False)
         if self.analysis and analysis_group_meshing:
-            Console.PrintMessage("  Group meshing for analysis.\n")
+            Console.PrintWarning(
+                "  Group meshing for analysis is set to true in FEM General Preferences. "
+                "Are you really sure about this? You could run into trouble!\n"
+            )
             self.group_nodes_export = True
             new_group_elements = meshtools.get_analysis_group_elements(
                 self.analysis,
@@ -365,23 +370,25 @@ class GmshTools():
             # http://forum.freecadweb.org/viewtopic.php?f=18&t=18780&start=40#p149467
             # http://forum.freecadweb.org/viewtopic.php?f=18&t=18780&p=149520#p149520
             part = self.part_obj
-            if self.mesh_obj.MeshRegionList:
-                # other part obj might not have a Proxy, thus an exception would be raised
-                if part.Shape.ShapeType == "Compound" and hasattr(part, "Proxy"):
-                    if part.Proxy.Type == "FeatureBooleanFragments" \
-                            or part.Proxy.Type == "FeatureSlice" \
-                            or part.Proxy.Type == "FeatureXOR":
-                        error_message = (
-                            "  The mesh to shape is a boolean split tools Compound "
-                            "and the mesh has mesh region list. "
-                            "Gmsh could return unexpected meshes in such circumstances. "
-                            "It is strongly recommended to extract the shape to mesh "
-                            "from the Compound and use this one."
-                        )
-                        Console.PrintError(error_message + "\n")
-                        # TODO: no gui popup because FreeCAD will be in a endless output loop
-                        #       as long as the pop up is on --> maybe find a better solution for
-                        #       either of both --> thus the pop up is in task panel
+            if (
+                self.mesh_obj.MeshRegionList and part.Shape.ShapeType == "Compound"
+                and (
+                    femutils.is_of_type(part, "FeatureBooleanFragments")
+                    or femutils.is_of_type(part, "FeatureSlice")
+                    or femutils.is_of_type(part, "FeatureXOR")
+                )
+            ):
+                error_message = (
+                    "  The mesh to shape is a boolean split tools Compound "
+                    "and the mesh has mesh region list. "
+                    "Gmsh could return unexpected meshes in such circumstances. "
+                    "It is strongly recommended to extract the shape to mesh "
+                    "from the Compound and use this one."
+                )
+                Console.PrintError(error_message + "\n")
+                # TODO: no gui popup because FreeCAD will be in a endless output loop
+                #       as long as the pop up is on --> maybe find a better solution for
+                #       either of both --> thus the pop up is in task panel
             for mr_obj in self.mesh_obj.MeshRegionList:
                 # print(mr_obj.Name)
                 # print(mr_obj.CharacteristicLength)
@@ -410,8 +417,8 @@ class GmshTools():
                                     # Shape to mesh and use the found element as elems
                                     # the method getElement(element)
                                     # does not return Solid elements
-                                    ele_shape = meshtools.get_element(sub[0], elems)
-                                    found_element = meshtools.find_element_in_shape(
+                                    ele_shape = geomtools.get_element(sub[0], elems)
+                                    found_element = geomtools.find_element_in_shape(
                                         self.part_obj.Shape, ele_shape
                                     )
                                     if found_element:
@@ -447,8 +454,8 @@ class GmshTools():
                     )
             for eleml in self.ele_length_map:
                 # the method getElement(element) does not return Solid elements
-                ele_shape = meshtools.get_element(self.part_obj, eleml)
-                ele_vertexes = meshtools.get_vertexes_by_element(self.part_obj.Shape, ele_shape)
+                ele_shape = geomtools.get_element(self.part_obj, eleml)
+                ele_vertexes = geomtools.get_vertexes_by_element(self.part_obj.Shape, ele_shape)
                 self.ele_node_map[eleml] = ele_vertexes
             Console.PrintMessage("  {}\n".format(self.ele_length_map))
             Console.PrintMessage("  {}\n".format(self.ele_node_map))
@@ -498,8 +505,8 @@ class GmshTools():
                                     # we try to find the element it in the Shape to mesh
                                     # and use the found element as elems
                                     # the method getElement(element) does not return Solid elements
-                                    ele_shape = meshtools.get_element(sub[0], elems)
-                                    found_element = meshtools.find_element_in_shape(
+                                    ele_shape = geomtools.get_element(sub[0], elems)
+                                    found_element = geomtools.find_element_in_shape(
                                         self.part_obj.Shape,
                                         ele_shape
                                     )
@@ -552,7 +559,7 @@ class GmshTools():
                             setting["FacesList"] = belem_list
                         else:
                             Console.PrintError(
-                                "boundary layer is only supported for 2D and 3D mesh"
+                                "boundary layer is only supported for 2D and 3D mesh.\n"
                             )
                         self.bl_setting_list.append(setting)
                     else:
@@ -723,6 +730,20 @@ class GmshTools():
         geo.write("\n")
         geo.write("// mesh order\n")
         geo.write("Mesh.ElementOrder = " + self.order + ";\n")
+        if self.order == "2":
+            if (
+                hasattr(self.mesh_obj, "SecondOrderLinear")
+                and self.mesh_obj.SecondOrderLinear is True
+            ):
+                geo.write(
+                    "Mesh.SecondOrderLinear = 1; // Second order nodes are created "
+                    "by linear interpolation instead by curvilinear\n"
+                )
+            else:
+                geo.write(
+                    "Mesh.SecondOrderLinear = 0; // Second order nodes are created "
+                    "by linear interpolation instead by curvilinear\n"
+                )
         geo.write("\n")
 
         geo.write(
@@ -776,7 +797,7 @@ class GmshTools():
         geo.write("\n\n")
 
         # some useful information
-        geo.write("//////////////////////////////////////////////////////////////////////\n")
+        geo.write("// " + "*" * 70 + "\n")
         geo.write("// Gmsh documentation:\n")
         geo.write("// http://gmsh.info/doc/texinfo/gmsh.html#Mesh\n")
         geo.write("//\n")
@@ -810,17 +831,29 @@ class GmshTools():
             # but the warnings are in stderr and thus printed :-)
             # print(output)
             # print(error)
-        except:
+        except Exception:
             error = "Error executing: {}\n".format(" ".join(comandlist))
             Console.PrintError(error)
             self.error = True
-        return error
+
+        # workaround
+        # filter useless gmsh warning in the regard of unknown element MSH type 15
+        # https://forum.freecadweb.org/viewtopic.php?f=18&t=33946
+        useless_warning = (
+            "Warning : Unknown element type for UNV export "
+            "(MSH type 15) - output file might be invalid"
+        )
+        new_err = error.replace(useless_warning, "")
+        # remove empty lines, https://stackoverflow.com/a/1140967
+        new_err = "".join([s for s in new_err.splitlines(True) if s.strip("\r\n")])
+
+        return new_err
 
     def read_and_set_new_mesh(self):
         if not self.error:
             fem_mesh = Fem.read(self.temp_file_mesh)
             self.mesh_obj.FemMesh = fem_mesh
-            Console.PrintMessage("  The Part should have a pretty new FEM mesh!\n")
+            Console.PrintMessage("  New mesh was added to the mesh object.\n")
         else:
             Console.PrintError("No mesh was created.\n")
 
