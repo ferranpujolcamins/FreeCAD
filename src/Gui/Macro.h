@@ -30,6 +30,7 @@
 #include <QObject>
 #include <Base/Observer.h>
 #include <Base/Parameter.h>
+#include <App/PythonDebugger.h>
 
 namespace Base {
 class PyExceptionInfo;
@@ -99,7 +100,7 @@ public:
     void setModule(const char* sModule);
     void run(MacroType eType,const char *sName);
     /// Get the Python debugger
-    App::PythonDebugger* debugger() const;
+    App::Debugging::Python::Debugger* debugger() const;
     /** Observes its parameter group. */
     void OnChange(Base::Subject<const char*> &rCaller, const char * sReason);
 
@@ -118,7 +119,7 @@ protected:
     bool scriptToPyConsole;
     bool localEnv;
     PythonConsole* pyConsole;       // link to the python console
-    App::PythonDebugger* pyDebugger;
+    App::Debugging::Python::Debugger* pyDebugger;
     Base::Reference<ParameterGrp> params;  // link to the Macro parameter group
     long totalLines;
     std::vector<std::pair<LineType,std::string> > pendingLine;

@@ -332,25 +332,21 @@ void PythonSyntaxHighlighter::sourceScanTmrCallback() {
     d->srcScanBlocks.clear();
 }
 
-void PythonSyntaxHighlighter::setFilePath(QString filePath)
+void PythonSyntaxHighlighter::setFilePath(QString file)
 {
-    Python::Lexer::setFilePath(filePath.toStdString());
+    SyntaxHighlighter::setFilePath(file);
+    Python::Lexer::setFilePath(file.toStdString());
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QElapsedTimer timer;
     timer.start();
 #endif
 
-    Python::SourceRoot::instance()->scanCompleteModule(filePath.toStdString(), this);
+    Python::SourceRoot::instance()->scanCompleteModule(file.toStdString(), this);
 
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     qDebug() << QString::fromLatin1("scanCompleteModule took %1ms %2ns").arg(timer.elapsed()).arg(timer.nsecsElapsed()) << endl;
 #endif
     d->srcScanBlocks.clear();
-}
-
-QString PythonSyntaxHighlighter::filePath() const
-{
-    return QString::fromStdString(Python::Lexer::filePath());
 }
 
 // --------------------------------------------------------------------------------------------

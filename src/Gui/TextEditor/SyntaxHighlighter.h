@@ -39,8 +39,8 @@ class GuiExport SyntaxHighlighter : public QSyntaxHighlighter
 {
     Q_OBJECT
 public:
-    SyntaxHighlighter(QObject* parent);
-    ~SyntaxHighlighter();
+    explicit SyntaxHighlighter(QObject* parent);
+    virtual ~SyntaxHighlighter();
 
     enum TColor
     {
@@ -155,6 +155,17 @@ public:
     // for example when retranslateing ui or on startup of a editor
     void loadSettings();
 
+    // used by code analyzer, set by editor
+    void setFilePath(QString file);
+    QString filePath() const;
+
+    /// changes the syntax for current file
+    /// Only valid when KF5BUILD_SYNTAX
+    /// returns true if it could change definition
+    bool setSyntax(const QString &defName);
+    QString syntax() const;
+    QMap<QString, QString> syntaxes();
+
     /// returns the color assosiated with type
     QColor colorByType(TColor type) const;
 
@@ -171,9 +182,11 @@ public:
 
 protected:
     virtual void colorChanged(const QString& type, const QColor& col);
+    virtual void highlightBlock(const QString &text) override;
 
 private:
     SyntaxHighlighterP* d;
+    friend class SyntaxHighlighterP;
 };
 
 } // namespace Gui

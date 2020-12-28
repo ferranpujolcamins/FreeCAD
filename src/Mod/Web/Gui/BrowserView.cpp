@@ -653,20 +653,13 @@ void BrowserView::onViewSource(const QUrl &url)
         return;
     QString pageSource = view->page()->currentFrame()->toHtml();
 
-//    QPlainTextEdit *editorWidget = new QPlainTextEdit {};
-//    App::TextDocument *txtDoc = new App::TextDocument;
-//    TextDocumentEditorView *textDocView = new TextDocumentEditorView {
-//                txtDoc, editorWidget, getMainWindow()
-//    };
-//    editorWidget->setReadOnly(true);
-//    editorWidget->setPlainText(pageSource);
-//    getMainWindow()->addWindow(textDocView);
-
-    TextEditor* editor = new TextEditor();
-    EditorView *editorWidget = new EditorView(editor, getMainWindow());
+    auto editView = EditorViewSingleton::instance()->openFile(QString());
+    auto editor = editView->textEditor();
     editor->setReadOnly(true);
+    editor->setSyntax(QString::fromLatin1("HTML"));
+    editor->setFileName(url.path());
     editor->setPlainText(pageSource);
-    getMainWindow()->addWindow(editorWidget);
+    getMainWindow()->addWindow(editView.get());
 }
 #endif
 

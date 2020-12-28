@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  *   Copyright (c) 2004 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *   Copyright (c) 2019 Fredrik Johansson github.com/mumme74               *
  *                                                                         *
@@ -39,6 +39,7 @@
 #include <QStyleOptionSlider>
 #include <QCompleter>
 
+
 #include <QDebug>
 
 using namespace Gui;
@@ -76,20 +77,26 @@ struct TextEditorP
     //QMap<QString, QColor> colormap; // Color map
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
+    QString filename;
+    SyntaxHighlighter* highlighter;
+    LineMarkerArea* lineNumberArea;
     const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
     int lastSavedRevision;
     bool showIndentMarkers,
          showLongLineMarker;
 
-    TextEditorP() :
+    TextEditorP(TextEditor *owner) :
         completer(nullptr),
+        highlighter(new SyntaxHighlighter(owner)),
         lastSavedRevision(0),
         showIndentMarkers(true),
         showLongLineMarker(false)
     {
     }
     ~TextEditorP()
-    { }
+    {
+        delete highlighter;
+    }
 };
 
 } // namespace Gui
@@ -99,18 +106,20 @@ struct TextEditorP
  *  syntax highlighting for the Python language.
  */
 TextEditor::TextEditor(QWidget* parent)
-    : QPlainTextEdit(parent), WindowParameter("Editor"), highlighter(nullptr)
+    : QPlainTextEdit(parent), WindowParameter("Editor")
 {
-    d = new TextEditorP();
-    lineNumberArea = new LineMarkerArea(this);
+    d = new TextEditorP(this);
+    d->lineNumberArea = new LineMarkerArea(this);
+
+    setSyntaxHighlighter(d->highlighter);
 
     // replace scrollbar to a annotated one
     setVerticalScrollBar(new AnnotatedScrollBar(this));
 
     QFont serifFont(QLatin1String("Courier"), 10, QFont::Normal);
     setFont(serifFont);
-    lineNumberArea->setFont(serifFont);
-    lineNumberArea->fontSizeChanged();
+    d->lineNumberArea->setFont(serifFont);
+    d->lineNumberArea->fontSizeChanged();
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     // set default to 4 characters
@@ -130,7 +139,6 @@ TextEditor::TextEditor(QWidget* parent)
 
     connect(lineMarkerArea(), SIGNAL(contextMenuOnLine(int, QContextMenuEvent*)),
             this, SLOT(markerAreaContextMenu(int, QContextMenuEvent*)));
-
     updateLineNumberAreaWidth(0);
     highlightSelections();
 }
@@ -139,7 +147,6 @@ TextEditor::TextEditor(QWidget* parent)
 TextEditor::~TextEditor()
 {
     getWindowParameter()->Detach(this);
-    delete highlighter;
     delete d;
 }
 
@@ -161,7 +168,7 @@ void TextEditor::highlightText(int pos, int len, const QTextCharFormat format)
 
 int TextEditor::lineNumberAreaWidth()
 {
-    return lineNumberArea->sizeHint().width();
+    return d->lineNumberArea->sizeHint().width();
 }
 
 int TextEditor::findAndHighlight(const QString needle, QTextDocument::FindFlags flags)
@@ -198,6 +205,29 @@ int TextEditor::findAndHighlight(const QString needle, QTextDocument::FindFlags 
     return found.size();
 }
 
+int TextEditor::findText(const QString find)
+{
+    if (!find.size())
+        return 0;
+
+    QTextCharFormat format;
+    format.setForeground(QColor(QLatin1String("#110059")));
+    format.setBackground(QColor(QLatin1String("#fff356")));
+
+    int found = 0;
+    for (QTextBlock block = document()->begin();
+         block.isValid(); block = block.next())
+    {
+        int pos = block.text().indexOf(find);
+        if (pos > -1) {
+            ++found;
+            highlightText(block.position() + pos, find.size(), format);
+        }
+    }
+
+    return found;
+}
+
 void TextEditor::setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> selections)
 {
     static const QString highlightLineKey(QLatin1String("highlightCurrentLine"));
@@ -220,6 +250,30 @@ void TextEditor::setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> se
          show.prepend(d->extraSelections[highlightLineKey][0]);
 
      setExtraSelections(show);
+}
+
+void TextEditor::setFileName(const QString &fn)
+{
+    if (fn != d->filename) {
+        d->filename = fn;
+        d->highlighter->setFilePath(fn);
+        Q_EMIT fileNameChanged(fn);
+    }
+}
+
+QString TextEditor::fileName() const
+{
+    return d->filename;
+}
+
+bool TextEditor::setSyntax(const QString &defName)
+{
+    return d->highlighter->setSyntax(defName);
+}
+
+QString TextEditor::syntax() const
+{
+    return d->highlighter->syntax();
 }
 
 void TextEditor::setCompleter(QCompleter *completer) const
@@ -257,9 +311,9 @@ void TextEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
 void TextEditor::updateLineNumberArea(const QRect &rect, int dy)
 {
     if (dy)
-        lineNumberArea->scroll(0, dy);
+        d->lineNumberArea->scroll(0, dy);
     else
-        lineNumberArea->update(0, rect.y(), lineNumberArea->width(), rect.height());
+        d->lineNumberArea->update(0, rect.y(), d->lineNumberArea->width(), rect.height());
 
     if (rect.contains(viewport()->rect()))
         updateLineNumberAreaWidth(0);
@@ -270,17 +324,68 @@ void TextEditor::resizeEvent(QResizeEvent *e)
     QPlainTextEdit::resizeEvent(e);
 
     QRect cr = contentsRect();
-    lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+    d->lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+}
+
+void TextEditor::contextMenuEvent(QContextMenuEvent *e)
+{
+    QMenu *menu = createStandardContextMenu(e->globalPos());
+    menu->addSeparator();
+    if (d->highlighter) {
+        // syntax selection
+        auto hlActionGroup = new QActionGroup(menu);
+        hlActionGroup->setExclusive(true);
+        auto hlGroupMenu = menu->addMenu(QStringLiteral("Syntax"));
+        QMenu *hlSubMenu = hlGroupMenu;
+        QMap<QString, QMenu*> grpMenus;
+        QString currentGroup;
+        auto syntaxes = d->highlighter->syntaxes();
+        for (const auto &name : syntaxes.keys()) {
+            if (currentGroup != syntaxes[name] && syntaxes[name].size()) {
+                currentGroup = syntaxes[name];
+                hlSubMenu = grpMenus[currentGroup];
+                if (!hlSubMenu) {
+                    hlSubMenu = hlGroupMenu->addMenu(currentGroup);
+                    grpMenus[currentGroup] = hlSubMenu;
+                }
+            }
+
+            Q_ASSERT(hlSubMenu);
+            QAction *action;
+            if (syntaxes[name].size()) {
+                action = hlSubMenu->addAction(name);
+                hlActionGroup->addAction(action);
+            } else {
+                action = hlGroupMenu->addAction(name);
+                hlGroupMenu->addAction(action);
+            }
+            action->setCheckable(true);
+            action->setData(name);
+            if (name == d->highlighter->syntax())
+                action->setChecked(true);
+        }
+        connect(hlActionGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+            const auto name = action->data().toString();
+            d->highlighter->setSyntax(name);
+        });
+    }
+    menu->exec(e->globalPos());
+    delete menu;
+}
+
+LineMarkerArea *TextEditor::lineMarkerArea() const
+{
+    return d->lineNumberArea;
 }
 
 void TextEditor::highlightSelections()
 {
     QList<QTextEdit::ExtraSelection> extraSelections;
 
-    if (!isReadOnly() && highlighter) {
+    if (!isReadOnly() && d->highlighter) {
         // highlight current line
         QTextEdit::ExtraSelection selection;
-        QColor lineColor = highlighter->color(QLatin1String("color_Currentline")); //d->colormap[QLatin1String("Current line highlight")];
+        QColor lineColor = d->highlighter->color(QLatin1String("color_Currentline")); //d->colormap[QLatin1String("Current line highlight")];
         int col = (lineColor.red() << 24) | (lineColor.green() << 16) | (lineColor.blue() << 8);
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         unsigned long value = static_cast<unsigned long>(col);
@@ -343,14 +448,17 @@ void TextEditor::drawMarker(int line, int x, int y, QPainter* p)
 
 void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
 {
-    if (sh)
+    if (sh) {
         sh->setDocument(this->document());
-    this->highlighter = sh;
+        if (d->highlighter && d->highlighter != sh)
+            delete d->highlighter;
+    }
+    d->highlighter = sh;
 }
 
 SyntaxHighlighter *TextEditor::syntaxHighlighter() const
 {
-    return highlighter;
+    return d->highlighter;
 }
 
 void TextEditor::keyPressEvent (QKeyEvent * e)
@@ -480,38 +588,29 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         
         QFont font(fontFamily, fontSize);
         setFont(font);
-        lineNumberArea->setFont(font);
+        d->lineNumberArea->setFont(font);
 
         // resize linemarker icons
-        lineNumberArea->fontSizeChanged();
+        d->lineNumberArea->fontSizeChanged();
 
     } else if (strncmp(sReason, "color_", 6) == 0) {
-        if (this->highlighter)
-            this->highlighter->loadSettings();
-        /*
-        QMap<QString, QColor>::ConstIterator it = d->colormap.find(QString::fromLatin1(sReason));
-        if (it != d->colormap.end()) {
-            QColor color = it.value();
-            unsigned int col = (color.red() << 24) | (color.green() << 16) | (color.blue() << 8);
-            unsigned long value = static_cast<unsigned long>(col);
-            value = hPrefGrp->GetUnsigned(sReason, value);
-            col = static_cast<unsigned int>(value);
-            color.setRgb((col>>24)&0xff, (col>>16)&0xff, (col>>8)&0xff);
-            if (this->highlighter)
-                this->highlighter->setColor(QLatin1String(sReason), color);
-        }
-        */
+        if (d->highlighter)
+            d->highlighter->loadSettings();
+
     } else if (strcmp(sReason, "TabSize") == 0 || strcmp(sReason, "FontSize") == 0) {
         int tabWidth = static_cast<int>(hPrefGrp->GetInt("TabSize", 4));
         QFontMetrics metric(font());
         int fontSize = metric.width(QLatin1String("0"));
         setTabStopWidth(tabWidth * fontSize);
+
     } else if (strncmp(sReason, "EnableIndentMarkers", 30) == 0) {
         d->showIndentMarkers = hPrefGrp->GetBool("EnableIndentMarkers", true);
         repaint();
+
     } else if (strncmp(sReason, "EnableLongLineMarker", 30) == 0) {
         d->showLongLineMarker = hPrefGrp->GetBool("EnableLongLineMarker", false);
         repaint();
+
     } else if (strncmp(sReason, "EnableLineWrap", 25) == 0) {
         // enable/disable linewrap mode in Editor from Edit->Preferences->Editor menu.
         QPlainTextEdit::LineWrapMode wrapMode;
@@ -519,16 +618,17 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
         wrapMode = wrap ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap;
         setLineWrapMode(wrapMode);
         repaint();
+
     } else if (strncmp(sReason, "EnableLineNumber", 25) == 0) {
         // Enables/Disables Line number in the Macro Editor from Edit->Preferences->Editor menu.
         QRect cr = contentsRect();
         bool show = hPrefGrp->GetBool( "EnableLineNumber", true );
         if(show) {
-            lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+            d->lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
         } else {
-            lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
+            d->lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
         }
-        lineNumberArea->setLineNumbersVisible(show);
+        d->lineNumberArea->setLineNumbersVisible(show);
     }
 }
 
@@ -553,7 +653,7 @@ bool TextEditor::event(QEvent *event)
 
         if (point.rx() < lineNumberAreaWidth()) {
             // on linenumberarea
-            int line = lineNumberArea->lineFromPos(point);
+            int line = d->lineNumberArea->lineFromPos(point);
             return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
 
         } else {
@@ -759,6 +859,7 @@ void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
     penShadow.setWidth(3);
     QPen pen(QColor(65,75,55));
     pen.setWidth(2);
+    painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(penShadow);
     painter.setBrush(Qt::white);
 
@@ -880,9 +981,9 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
     const int foldingWidth = fontMetrics().height() +2;
+    const auto lineHeight = fontMetrics().lineSpacing() +1;
     const int textWidth = width() - foldingWidth;
     const int fontHeight = fontMetrics().height();
-    const int halfHeight = fontHeight / 2;
     const bool paintFold = d->textEditor->getWindowParameter()->GetBool("EnableFolding", true);
 
     QTextBlock block = d->textEditor->firstVisibleBlock();
@@ -891,6 +992,8 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     int top = static_cast<int>(d->textEditor->blockBoundingGeometry(block)
                                 .translated(d->textEditor->contentOffset()).top());
     int bottom = top + static_cast<int>(d->textEditor->blockBoundingRect(block).height());
+
+
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (bottom >= event->rect().top()) {
@@ -925,27 +1028,28 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
                 TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
                 if (userData) {
                     // draw block arrow if row is visible
-                    if (paintFold && userData->blockState() > 0 && block.isVisible()) {
-                        QColor color = QColor(114, 116, 117);
-                        painter.setPen(color);
-                        painter.setBrush(color);
-                        //painter.setRenderHint(QPainter::Antialiasing, true);
+                    if (paintFold && block.isVisible() && userData->foldingBeginID()) {
+                        QPolygonF polygon;
 
                         if (block.next().isVisible()) {
-                            const QPointF unfoldedArrow[] = {
-                                QPointF(textWidth + 4, top + 4),
-                                QPointF(textWidth + 4 + fontHeight -4, top + 4),
-                                QPointF(textWidth + 4 + ((fontHeight-4) / 2), top + (fontHeight / 2) +2)
-                            };
-                            painter.drawPolygon(unfoldedArrow, 3, Qt::WindingFill);
+                            polygon << QPointF(lineHeight * 0.25, lineHeight * 0.4);
+                            polygon << QPointF(lineHeight * 0.75, lineHeight * 0.4);
+                            polygon << QPointF(lineHeight * 0.5, lineHeight * 0.8);
                         } else {
-                            const QPointF foldedArrow[] = {
-                                QPointF(textWidth + 6, top + 2),
-                                QPointF(textWidth + 6 + ((fontHeight-4) / 2), top + halfHeight),
-                                QPointF(textWidth + 6, top + fontHeight -2),
-                            };
-                            painter.drawPolygon(foldedArrow, 3, Qt::WindingFill);
+                            polygon << QPointF(lineHeight * 0.4, lineHeight * 0.25);
+                            polygon << QPointF(lineHeight * 0.4, lineHeight * 0.75);
+                            polygon << QPointF(lineHeight * 0.8, lineHeight * 0.5);
                         }
+
+                        QColor color = QColor(114, 116, 117);
+                        painter.save();
+                        painter.setPen(color);
+                        painter.setBrush(color);
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        painter.translate(width() - lineHeight, top);
+                        painter.setPen(Qt::NoPen);
+                        painter.drawPolygon(polygon);
+                        painter.restore();
                     }
 
                     // draw bookmark
@@ -1006,212 +1110,35 @@ void LineMarkerArea::contextMenuEvent(QContextMenuEvent *event)
 void LineMarkerArea::foldingClicked(int line)
 {
     // hide or show lines below that was previously folded
-    QTextBlock block = d->textEditor->document()->findBlockByNumber(line -1);
-    if (block.isValid() && block.isVisible()) {
-        TextEditBlockData *userData = dynamic_cast<TextEditBlockData*>(block.userData());
-        if (userData && userData->blockState() > 0) {
+    auto startBlock = d->textEditor->document()->findBlockByNumber(line -1);
+    if (startBlock.isValid() && startBlock.isVisible()) {
+        auto userData = dynamic_cast<TextEditBlockData*>(startBlock.userData());
+        if (userData) {
+            auto foldId = userData->foldingBeginID();
+            if (!foldId)
+                return;
+
             // we have a blockstarter line!
-            int curBlockCnt = userData->blockState(),
-                direction   = 0;
-            block = block.next();
+            auto endBlock = userData->foldingEndBlock(userData);
+            auto block = startBlock.next();
+            bool show = !block.isVisible();
 
-            while(curBlockCnt > 0 && block.isValid()) {
-                userData = dynamic_cast<TextEditBlockData*>(block.userData());
-                curBlockCnt += userData->blockState();
-                if (direction == 0)
-                    direction = userData->isFolded() ? -1 : 1; // first loop determine fold or unfold
-
-                if (direction > 0)  // fold
-                    userData->foldBlockEvt();
-                else // unfold
-                    userData->unfoldedEvt();
+            while(block != endBlock && block.isValid()) {
+                block.setVisible(show);
                 block = block.next();
             }
 
-            // re-render
-            if (direction != 0) {
-                d->textEditor->viewport()->update();
-                repaint();
-            }
+            // redraw document
+            auto doc = d->textEditor->document();
+            doc->markContentsDirty(startBlock.position(),
+                                   block.position() - startBlock.position() + 1);
+
+            // update scrollbars
+            Q_EMIT doc->documentLayout()->
+                        documentSizeChanged(doc->documentLayout()->documentSize());
         }
     }
 
-}
-
-// ----------------------------------------------------------------------------
-
-TextEditBlockData::TextEditBlockData(QTextBlock block) :
-    m_block(block),
-    m_scanInfo(nullptr),
-    m_bookmarkSet(false),
-    m_blockStateCnt(0),
-    m_foldCnt(0)
-{
-}
-
-TextEditBlockData::TextEditBlockData(const TextEditBlockData &other):
-    m_block(other.m_block),
-    m_scanInfo(other.m_scanInfo),
-    m_bookmarkSet(other.m_bookmarkSet),
-    m_blockStateCnt(other.m_blockStateCnt),
-    m_foldCnt(other.m_foldCnt)
-{
-}
-
-TextEditBlockData::~TextEditBlockData()
-{
-    if (m_scanInfo)
-        delete m_scanInfo;
-}
-
-TextEditBlockData *TextEditBlockData::blockDataFromCursor(const QTextCursor &cursor)
-{
-    QTextBlock block = cursor.block();
-    if (!block.isValid())
-        return nullptr;
-
-    return dynamic_cast<TextEditBlockData*>(block.userData());
-}
-
-const QTextBlock &TextEditBlockData::block() const
-{
-    return m_block;
-}
-
-TextEditBlockData *TextEditBlockData::nextBlock() const
-{
-    QTextBlock nextBlock = block().next();
-    if (!nextBlock.isValid())
-        return nullptr;
-    return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
-}
-
-TextEditBlockData *TextEditBlockData::previousBlock() const
-{
-    QTextBlock nextBlock = block().previous();
-    if (!nextBlock.isValid())
-        return nullptr;
-    return dynamic_cast<TextEditBlockData*>(nextBlock.userData());
-}
-
-void TextEditBlockData::copyBlock(const TextEditBlockData &other)
-{
-    m_bookmarkSet = other.m_bookmarkSet;
-    m_blockStateCnt = other.m_blockStateCnt;
-}
-
-void TextEditBlockData::foldBlockEvt()
-{
-    ++m_foldCnt;
-    m_block.setVisible(false);
-}
-
-void TextEditBlockData::unfoldedEvt()
-{
-    if (m_foldCnt > 0)
-        --m_foldCnt;
-
-    m_block.setVisible(m_foldCnt < 1);
-}
-
-// ------------------------------------------------------------------------------------
-
-TextEditBlockScanInfo::ParseMsg::ParseMsg(QString message, int start, int end, TextEditBlockScanInfo::MsgType type) :
-    m_message(message), m_startPos(start),
-    m_endPos(end), m_type(type)
-{}
-
-TextEditBlockScanInfo::ParseMsg::~ParseMsg()
-{
-}
-
-QString TextEditBlockScanInfo::ParseMsg::msgTypeAsString() const
-{
-    switch (m_type) {
-    case Message: return QLatin1String("Message");
-    case LookupError: return QLatin1String("LookupError");
-    case SyntaxError: return QLatin1String("SyntaxError");
-    case IndentError: return QLatin1String("IndentError");
-    case Warning: return QLatin1String("Warning");
-    //case AllMsgTypes:
-    default: return QLatin1String("UnknownError");
-    }
-}
-
-QString TextEditBlockScanInfo::ParseMsg::message() const
-{
-    return m_message;
-}
-
-int TextEditBlockScanInfo::ParseMsg::startPos() const
-{
-    return m_startPos;
-}
-
-int TextEditBlockScanInfo::ParseMsg::endPos() const
-{
-    return m_endPos;
-}
-
-TextEditBlockScanInfo::MsgType TextEditBlockScanInfo::ParseMsg::type() const
-{
-    return m_type;
-}
-
-// ------------------------------------------------------------------------------------
-
-TextEditBlockScanInfo::TextEditBlockScanInfo()
-{
-}
-
-TextEditBlockScanInfo::~TextEditBlockScanInfo()
-{
-}
-
-void TextEditBlockScanInfo::setParseMessage(int startPos, int endPos, QString message,
-                                              MsgType type)
-{
-    ParseMsg msg(message, startPos, endPos, type);
-    m_parseMessages.push_back(msg);
-}
-
-const TextEditBlockScanInfo::ParseMsg
-*TextEditBlockScanInfo::getParseMessage(int startPos, int endPos,
-                                          TextEditBlockScanInfo::MsgType type) const
-{
-    for (const ParseMsg &msg : m_parseMessages) {
-        if (msg.startPos() <= startPos && msg.endPos() >= endPos) {
-            if (type == AllMsgTypes)
-                return &msg;
-            else if (msg.type() == type)
-                return &msg;
-            break;
-        }
-    }
-    return nullptr;
-}
-
-QString TextEditBlockScanInfo::parseMessage(int col, MsgType type) const
-{
-    const ParseMsg *parseMsg = getParseMessage(col, col, type);
-    if (parseMsg)
-        return parseMsg->message();
-    return QString();
-}
-
-void TextEditBlockScanInfo::clearParseMessage(int col)
-{
-    int idx = -1;
-    for (ParseMsg &msg : m_parseMessages) {
-        ++idx;
-        if (msg.startPos() <= col && msg.endPos() >= col)
-            m_parseMessages.removeAt(idx);
-    }
-}
-
-void TextEditBlockScanInfo::clearParseMessages()
-{
-    m_parseMessages.clear();
 }
 
 // -----------------------------------------------------------------------------

@@ -23,22 +23,15 @@ namespace Ide {
 
 
 MainWindow::MainWindow():
-    Gui::MainWindow(nullptr),
-    editorView(nullptr)
+    Gui::MainWindow(nullptr)
 {
-    Gui::TextEditor *edit = new Gui::TextEditor(this);
-    editorView = new Gui::EditorView(edit, this);
-    editorView->resize(400, 300);
-    //setCentralWidget(editorView);
-    addWindow(editorView);
+    newEditorView();
 
     createActions();
     createStatusBar();
 
     readSettings();
 
-    connect(edit, SIGNAL(documentWasModified()),
-            this, SLOT(documentWasModified));
 
 #ifndef QT_NO_SESSIONMANAGER
     QGuiApplication::setFallbackSessionManagementEnabled(false);
@@ -68,24 +61,39 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::newFile()
 {
-    if (maybeSave()) {
-        editorView->closeFile();
-        //setCurrentFile(QString());
-    }
+    newEditorView();
 }
 
 void MainWindow::open()
 {
-    if (maybeSave()) {
-        QString fileName = QFileDialog::getOpenFileName(this);
-        if (!fileName.isEmpty())
-            loadFile(fileName);
+    QString fileName = QFileDialog::getOpenFileName(this);
+    if (fileName.isEmpty())
+        return;
+
+    auto editView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (!editView)
+        editView = newEditorView();
+
+    auto editWrapper = Gui::EditorViewSingleton::instance()->
+            getWrapper(fileName, editView);
+    // check if already openend
+    for (auto view : windows()) {
+        auto eView = dynamic_cast<Gui::EditorView*>(view);
+        if (eView && eView->fileName() == fileName) {
+
+            editView = eView;
+            break;
+        }
     }
+
+    setActiveWindow(editView);
+    loadFile(fileName);
 }
 
 bool MainWindow::save()
 {
-    if (!editorView->save())
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView && !editorView->save())
         return false;
 
     statusBar()->showMessage(tr("File saved"), 2000);
@@ -94,7 +102,8 @@ bool MainWindow::save()
 
 bool MainWindow::saveAs()
 {
-    if (!editorView->saveAs())
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView && !editorView->saveAs())
         return false;
 
     statusBar()->showMessage(tr("File saved"), 2000);
@@ -109,9 +118,34 @@ void MainWindow::about()
                "toolbars, and a status bar."));
 }
 
+void MainWindow::cut()
+{
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView) {
+        editorView->cut();
+    }
+}
+
+void MainWindow::copy()
+{
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView) {
+        editorView->copy();
+    }
+}
+void MainWindow::paste()
+{
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView) {
+        editorView->paste();
+    }
+}
+
 void MainWindow::documentWasModified()
 {
-    setWindowModified(editorView->getEditor()->document()->isModified());
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView)
+        setWindowModified(editorView->editor()->document()->isModified());
 }
 
 void MainWindow::showOptions()
@@ -174,9 +208,6 @@ void MainWindow::createActions()
     cutAct->setShortcuts(QKeySequence::Cut);
     cutAct->setStatusTip(tr("Cut the current selection's contents to the "
                             "clipboard"));
-    connect(cutAct, &QAction::triggered, editorView, &Gui::EditorView::cut);
-    editMenu->addAction(cutAct);
-    editToolBar->addAction(cutAct);
 
     const QIcon copyIcon = QIcon::fromTheme(QLatin1String("edit-copy"),
                                             QIcon(QLatin1String(":/images/copy.png")));
@@ -184,19 +215,27 @@ void MainWindow::createActions()
     copyAct->setShortcuts(QKeySequence::Copy);
     copyAct->setStatusTip(tr("Copy the current selection's contents to the "
                              "clipboard"));
-    connect(copyAct, &QAction::triggered, editorView, &Gui::EditorView::copy);
-    editMenu->addAction(copyAct);
-    editToolBar->addAction(copyAct);
 
-    const QIcon pasteIcon = QIcon::fromTheme(QLatin1String("edit-paste"),
-                                             QIcon(QLatin1String(":/images/paste.png")));
-    QAction *pasteAct = new QAction(pasteIcon, tr("&Paste"), this);
-    pasteAct->setShortcuts(QKeySequence::Paste);
-    pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
-                              "selection"));
-    connect(pasteAct, &QAction::triggered, editorView, &Gui::EditorView::paste);
-    editMenu->addAction(pasteAct);
-    editToolBar->addAction(pasteAct);
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (editorView) {
+        connect(cutAct, &QAction::triggered, this, &MainWindow::cut);
+        editMenu->addAction(cutAct);
+        editToolBar->addAction(cutAct);
+
+        connect(copyAct, &QAction::triggered, this, &MainWindow::copy);
+        editMenu->addAction(copyAct);
+        editToolBar->addAction(copyAct);
+
+        const QIcon pasteIcon = QIcon::fromTheme(QLatin1String("edit-paste"),
+                                                 QIcon(QLatin1String(":/images/paste.png")));
+        QAction *pasteAct = new QAction(pasteIcon, tr("&Paste"), this);
+        pasteAct->setShortcuts(QKeySequence::Paste);
+        pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
+                                  "selection"));
+        connect(pasteAct, &QAction::triggered, this, &MainWindow::paste);
+        editMenu->addAction(pasteAct);
+        editToolBar->addAction(pasteAct);
+    }
 
     menuBar()->addSeparator();
 
@@ -250,7 +289,8 @@ void MainWindow::writeSettings()
 
 bool MainWindow::maybeSave()
 {
-    if (!editorView->getEditor()->document()->isModified())
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (!editorView || !editorView->editor()->document()->isModified())
         return true;
     const QMessageBox::StandardButton ret
         = QMessageBox::warning(this, tr("Application"),
@@ -268,35 +308,37 @@ bool MainWindow::maybeSave()
     return true;
 }
 
+Gui::EditorView* MainWindow::newEditorView()
+{
+    auto edit = std::make_shared<Gui::TextEditor>(this);
+    auto editorView = new Gui::EditorView(edit, this);
+    editorView->resize(400, 300);
+    editorView->setDisplayName(Gui::EditorView::FileName);
+    //setCentralWidget(editorView);
+    addWindow(editorView);
+    setActiveWindow(editorView);
+
+    connect(edit.get(), SIGNAL(documentWasModified()),
+            this, SLOT(documentWasModified));
+
+    return editorView;
+}
+
 void MainWindow::loadFile(const QString &fileName)
 {
-    if (!editorView->open(fileName)) {
+
+    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    if (!editorView)
+        editorView = newEditorView();
+
+    if (editorView && !editorView->open(fileName)) {
         QMessageBox::warning(this, tr("Application"),
                              tr("Cannot read file %1:\n.")
                              .arg(QDir::toNativeSeparators(fileName)));
         return;
     }
-
     statusBar()->showMessage(tr("File loaded"), 2000);
 }
-
-/*
-bool MainWindow::saveFile(const QString &fileName)
-{
-    QFile file(fileName);
-    if (!file.open(QFile::WriteOnly | QFile::Text)) {
-        QMessageBox::warning(this, tr("Application"),
-                             tr("Cannot write file %1:\n%2.")
-                             .arg(QDir::toNativeSeparators(fileName),
-                                  file.errorString()));
-        return false;
-    }
-
-    editorView->saveAs(fileName);
-    statusBar()->showMessage(tr("File saved"), 2000);
-    return true;
-}
-*/
 
 QString MainWindow::strippedName(const QString &fullFileName)
 {
@@ -310,7 +352,8 @@ void MainWindow::commitData(QSessionManager &manager)
             manager.cancel();
     } else {
         // Non-interactive: save without asking
-        if (editorView->getEditor()->document()->isModified())
+        auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+        if (editorView && editorView->editor()->document()->isModified())
             save();
     }
 }
@@ -358,6 +401,7 @@ void MainWindow::createDockWindows()
     dock->setWidget(paragraphsList);
     addDockWidget(Qt::RightDockWidgetArea, dock);
     viewMenu->addAction(dock->toggleViewAction());
+
 
     //connect(customerList, &QListWidget::currentTextChanged,
     //        this, &MainWindow::insertCustomer);

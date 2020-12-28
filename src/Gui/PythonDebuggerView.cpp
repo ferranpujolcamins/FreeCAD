@@ -78,6 +78,7 @@ static ParameterGrp::handle _GetParam() {
 namespace Gui {
 namespace DockWnd {
 
+
 class PythonDebuggerViewP
 {
 public:
@@ -269,7 +270,7 @@ void PythonDebuggerView::startDebug()
 
 void PythonDebuggerView::enableButtons()
 {
-    App::PythonDebugger *debugger = App::PythonDebugger::instance();
+    auto debugger = App::Debugging::Python::Debugger::instance();
     bool running = debugger->isRunning();
     bool halted = debugger->isHalted();
     if (d->m_startDebugBtn->isEnabled() != !running)
@@ -297,7 +298,7 @@ void PythonDebuggerView::enableButtons()
 void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
                                                  const QModelIndex &previous)
 {
-    Q_UNUSED(previous);
+    Q_UNUSED(previous)
 
     QAbstractItemModel *viewModel = d->m_stackView->model();
     QModelIndex idxLeft = viewModel->index(current.row(), 0, QModelIndex());
@@ -315,19 +316,20 @@ void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
         return;
     QVariant idx = model->data(stackIdx, Qt::DisplayRole);
 
-    App::PythonDebugger::instance()->setStackLevel(idx.toInt());
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    debugger->setStackLevel(idx.toInt());
 }
 
 void PythonDebuggerView::breakpointViewCurrentChanged(const QModelIndex &current,
                                                       const QModelIndex &previous)
 {
     Q_UNUSED(previous)
-    App::BreakpointLine *bpl = App::PythonDebugger::instance()->
-                                        getBreakpointLineFromIdx(current.row());
-    if (!bpl)
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto bp = debugger->getBreakpointFromIdx(current.row());
+    if (!bp)
         return;
 
-    setFileAndScrollToLine(bpl->parent()->fileName(), bpl->lineNr());
+    setFileAndScrollToLine(bp->bpFile()->fileName(), bp->lineNr());
 }
 
 void PythonDebuggerView::issuesViewCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -348,8 +350,8 @@ void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
     if (!currentItem.isValid())
         return;
 
-    App::BreakpointLine *bpl = App::PythonDebugger::instance()->
-                                getBreakpointLineFromIdx(currentItem.row());
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto bpl = debugger->getBreakpointFromIdx(currentItem.row());
     if (!bpl)
         return;
 
@@ -384,9 +386,9 @@ void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
         PythonEditorBreakpointDlg dlg(this, bpl);
         dlg.exec();
     } else if (res == &del) {
-        App::PythonDebugger::instance()->deleteBreakpoint(bpl);
+        debugger->deleteBreakpoint(bpl);
     } else if (res == &clear) {
-        App::PythonDebugger::instance()->clearAllBreakPoints();
+        debugger->clearAllBreakPoints();
     }
 }
 
@@ -422,11 +424,13 @@ void PythonDebuggerView::customIssuesContextMenu(const QPoint &pos)
 
     // run context menu
     QAction *res = menu.exec(d->m_issuesView->mapToGlobal(pos));
+
+    auto debugger = App::Debugging::Python::Debugger::instance();
     // rely on signals between our model and PythonDebugger
     if (res == clearCurrent)
-        App::PythonDebugger::instance()->sendClearException(fn, line);
+        debugger->sendClearException(fn, line);
     else
-        App::PythonDebugger::instance()->sendClearAllExceptions();
+        debugger->sendClearAllExceptions();
 
     if (clearCurrent)
         delete clearCurrent;
@@ -483,7 +487,7 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
     d->m_stepOutBtn->setAutoRepeat(true);
     enableButtons();
 
-    App::PythonDebugger *debugger = App::PythonDebugger::instance();
+    auto debugger = App::Debugging::Python::Debugger::instance();
 
     connect(d->m_startDebugBtn, SIGNAL(clicked()), this, SLOT(startDebug()));
     connect(d->m_stopDebugBtn, SIGNAL(clicked()), debugger, SLOT(stop()));
@@ -514,9 +518,9 @@ void PythonDebuggerView::setFileAndScrollToLine(const QString &fn, int line)
 
 
     // scroll to view
-    QTextCursor cursor(editView->getEditor()->document()->
+    QTextCursor cursor(editView->editor()->document()->
                        findBlockByLineNumber(line - 1)); // ln-1 because line number starts from 0
-    editView->getEditor()->setTextCursor(cursor);
+    editView->editor()->setTextCursor(cursor);
 }
 
 // ---------------------------------------------------------------------------
@@ -583,8 +587,7 @@ StackFramesModel::StackFramesModel(QObject *parent) :
     QAbstractTableModel(parent),
     m_currentFrame(nullptr)
 {
-
-    App::PythonDebugger *debugger = App::PythonDebugger::instance();
+    auto debugger = App::Debugging::Python::Debugger::instance();
 
     connect(debugger, SIGNAL(functionCalled(PyFrameObject*)),
                this, SLOT(updateFrames(PyFrameObject*)));
@@ -600,7 +603,8 @@ StackFramesModel::~StackFramesModel()
 int StackFramesModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
-    return App::PythonDebugger::instance()->callDepth(m_currentFrame);
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    return debugger->callDepth(m_currentFrame);
 }
 
 int StackFramesModel::columnCount(const QModelIndex &parent) const
@@ -620,11 +624,13 @@ QVariant StackFramesModel::data(const QModelIndex &index, int role) const
     if (index.column() > colCount)
         return QVariant();
 
+    auto debugger = App::Debugging::Python::Debugger::instance();
+
     Base::PyGILStateLocker locker;
     PyFrameObject *frame = m_currentFrame;
 
     int i = 0,
-        j = App::PythonDebugger::instance()->callDepth(m_currentFrame);
+        j = debugger->callDepth(m_currentFrame);
 
     while (nullptr != frame) {
         if (i == index.row()) {
@@ -719,13 +725,13 @@ void StackFramesModel::updateFrames(PyFrameObject *frame)
 PythonBreakpointModel::PythonBreakpointModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    App::PythonDebugger *dbg = App::PythonDebugger::instance();
-    connect(dbg, SIGNAL(breakpointAdded(const App::BreakpointLine*)),
-            this, SLOT(added(const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointChanged(const App::BreakpointLine*)),
-            this, SLOT(changed(const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointRemoved(int, const App::BreakpointLine*)),
-            this, SLOT(removed(int, const App::BreakpointLine*)));
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    connect(debugger, SIGNAL(breakpointAdded(const BreakpointPtr*)),
+            this, SLOT(added(const BreakpointPtr*)));
+    connect(debugger, SIGNAL(breakpointChanged(const BreakpointPtr*)),
+            this, SLOT(changed(const BreakpointPtr*)));
+    connect(debugger, SIGNAL(breakpointRemoved(int, const BreakpointPtr*)),
+            this, SLOT(removed(int, const BreakpointPtr*)));
 }
 
 PythonBreakpointModel::~PythonBreakpointModel()
@@ -735,7 +741,8 @@ PythonBreakpointModel::~PythonBreakpointModel()
 int PythonBreakpointModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
-    return App::PythonDebugger::instance()->breakpointCount();
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    return debugger->breakpointCount();
 }
 
 int PythonBreakpointModel::columnCount(const QModelIndex &parent) const
@@ -756,7 +763,8 @@ QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
     if (index.column() > colCount)
         return QVariant();
 
-    App::BreakpointLine *bpl = App::PythonDebugger::instance()->getBreakpointLineFromIdx(index.row());
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto bpl = debugger->getBreakpointFromIdx(index.row());
     if (!bpl)
         return QVariant();
 
@@ -774,15 +782,15 @@ QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
 
         QString txt = QString(QLatin1String("line %1 [%2] number: %3\n%4"))
                     .arg(bpl->lineNr()).arg(enabledStr)
-                    .arg(bpl->uniqueNr()).arg(bpl->parent()->fileName());
+                    .arg(bpl->uniqueId()).arg(bpl->bpFile()->fileName());
         return QVariant(txt);
     }
 
     switch(index.column()) {
     case 0:
-        return QString::number(bpl->uniqueNr());
+        return QString::number(bpl->uniqueId());
     case 1: {// file
-        return bpl->parent()->fileName();
+        return bpl->bpFile()->fileName();
     }
     case 2: {// line
         return QString::number(bpl->lineNr());
@@ -811,7 +819,7 @@ QVariant PythonBreakpointModel::headerData(int section,
     }
 }
 
-void PythonBreakpointModel::added(const App::BreakpointLine *bp)
+void PythonBreakpointModel::added(const BreakpointPtr bp)
 {
     Q_UNUSED(bp)
     int count = rowCount();
@@ -819,17 +827,18 @@ void PythonBreakpointModel::added(const App::BreakpointLine *bp)
     endInsertRows();
 }
 
-void PythonBreakpointModel::changed(const App::BreakpointLine *bp)
+void PythonBreakpointModel::changed(const BreakpointPtr bp)
 {
-    int idx = App::PythonDebugger::instance()->getIdxFromBreakpointLine(*bp);
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    int idx = debugger->getIdxFromBreakpoint(bp);
     if (idx > -1) {
         Q_EMIT dataChanged(index(idx, 0), index(idx, colCount));
     }
 }
 
-void PythonBreakpointModel::removed(int idx, const App::BreakpointLine *bpl)
+void PythonBreakpointModel::removed(int idx, const BreakpointPtr bp)
 {
-    Q_UNUSED(bpl)
+    Q_UNUSED(bp)
     beginRemoveRows(QModelIndex(), idx, idx);
     endRemoveRows();
 }
@@ -840,15 +849,16 @@ void PythonBreakpointModel::removed(int idx, const App::BreakpointLine *bpl)
 IssuesModel::IssuesModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    connect(App::PythonDebugger::instance(), SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    connect(debugger, SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
             this, SLOT(exceptionOccured(Base::PyExceptionInfo*)));
 
-    connect(App::PythonDebugger::instance(), SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
+    connect(debugger, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
             this, SLOT(exception(Base::PyExceptionInfo*)));
 
-    connect(App::PythonDebugger::instance(), SIGNAL(started()), this, SLOT(clear()));
-    connect(App::PythonDebugger::instance(), SIGNAL(clearAllExceptions()), this, SLOT(clear()));
-    connect(App::PythonDebugger::instance(), SIGNAL(clearException(QString,int)),
+    connect(debugger, SIGNAL(started()), this, SLOT(clear()));
+    connect(debugger, SIGNAL(clearAllExceptions()), this, SLOT(clear()));
+    connect(debugger, SIGNAL(clearException(QString,int)),
             this, SLOT(clearException(QString,int)));
 
 
@@ -1214,7 +1224,7 @@ VarTreeModelBase::VarTreeModelBase(QObject *parent) :
     rootData << tr("Name") << tr("Value") << tr("Type");
     m_rootItem = new VariableTreeItem(rootData, nullptr);
 
-    App::PythonDebugger *debugger = App::PythonDebugger::instance();
+    auto debugger = App::Debugging::Python::Debugger::instance();
 
     connect(debugger, SIGNAL(nextInstruction(PyFrameObject*)),
                this, SLOT(updateVariables(PyFrameObject*)));
@@ -1710,7 +1720,8 @@ void WatchModel::addItem(QString name)
     Q_EMIT layoutChanged();
 
     // update variables with newly added
-    PyFrameObject *frm = App::PythonDebugger::instance()->currentFrame();
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    PyFrameObject *frm = debugger->currentFrame();
     if (frm)
         updateVariables(frm);
 }

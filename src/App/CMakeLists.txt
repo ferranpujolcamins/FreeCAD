@@ -251,30 +251,33 @@ SET(Properties_SRCS
 SOURCE_GROUP("Properties" FILES ${Properties_SRCS})
 
 #-----------------------------------------------------------------
-# the python debugger stuff
-SET(PythonDebugger_CPP_SRCS
+# the debugger stuff
+SET(Debugger_CPP_SRCS
+    DebuggerBase.cpp
     PythonDebugger.cpp
 )
-SET(PythonDebugger_HPP_SRCS
+SET(Debugger_HPP_SRCS
+    DebuggerBase.h
     PythonDebugger.h
 )
-SET(PythonDebugger_MOC_HDRS
+SET(Debugger_MOC_HDRS
+    DebuggerBase.h
     PythonDebugger.h
 )
-fc_wrap_cpp(PythonDebugger_MOC_SRCS ${PythonDebugger_MOC_HDRS})
-SET(PythonDebugger_SRCS
-    ${PythonDebugger_CPP_SRCS}
-    ${PythonDebugger_HPP_SRCS}
-    ${PythonDebugger_MOC_SRCS}
+fc_wrap_cpp(Debugger_MOC_SRCS ${Debugger_MOC_HDRS})
+SET(Debugger_SRCS
+    ${Debugger_CPP_SRCS}
+    ${Debugger_HPP_SRCS}
+    ${Debugger_MOC_SRCS}
 )
-SOURCE_GROUP("PythonDebugger" FILES ${PythonDebugger_SRCS})
+SOURCE_GROUP("Debugger" FILES ${Debugger_SRCS})
 
 # ----------------------------------------------------------------
 # all combined
 SET(FreeCADApp_CPP_SRCS
     ${Document_CPP_SRCS}
     ${Properties_CPP_SRCS}
-    ${PythonDebugger_CPP_SRCS}
+    ${Debugger_CPP_SRCS}
     Application.cpp
     ApplicationPy.cpp
     AutoTransaction.cpp
@@ -290,7 +293,7 @@ SET(FreeCADApp_CPP_SRCS
 SET(FreeCADApp_HPP_SRCS
     ${Document_HPP_SRCS}
     ${Properties_HPP_SRCS}
-    ${PythonDebugger_HPP_SRCS}
+    ${Debugger_HPP_SRCS}
     Application.h
     AutoTransaction.h
     Branding.h

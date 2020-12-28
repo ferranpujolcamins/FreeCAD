@@ -54,8 +54,8 @@ MacroManager::MacroManager()
     guiAsComment(true),
     scriptToPyConsole(true),
     localEnv(true),
-    pyConsole(0),
-    pyDebugger(App::PythonDebugger::instance()),
+    pyConsole(nullptr),
+    pyDebugger(App::Debugging::Python::Debugger::instance()),
     totalLines(0)
 {
     // Attach to the Parametergroup regarding macros
@@ -290,7 +290,7 @@ void MacroManager::run(MacroType eType, const char *sName)
     }
 }
 
-App::PythonDebugger* MacroManager::debugger() const
+App::Debugging::Python::Debugger *MacroManager::debugger() const
 {
     return pyDebugger;
 }

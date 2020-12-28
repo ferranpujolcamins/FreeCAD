@@ -77,6 +77,14 @@ else(MSVC)
     )
 endif(MSVC)
 
+# generic syntax highlighter
+if (KF5SYNTAX_LIBDIR)
+    list(APPEND FreeCADGui_LIBS ${KF5SYNTAX_LIB})
+    add_definitions(-DBUILD_KF5SYNTAX)
+    include_directories(APPEND ${KF5SYNTAX_INCLUDE_DIRS})
+    #message(FATAL_ERROR "lib: ${KF5SYNTAX_LIB}")
+endif(KF5SYNTAX_LIBDIR)
+
 # add dependency to textEditor lib
 list(APPEND FreeCADGui_LIBS TextEditor)
 
@@ -112,6 +120,7 @@ if (BUILD_QT5)
         ${Qt5WinExtras_LIBRARIES}
       )
     endif()
+
 else()
     include_directories(
         ${QT_INCLUDE_DIR}

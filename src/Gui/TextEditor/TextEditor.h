@@ -33,8 +33,9 @@
 #include <QListWidget>
 #include <QPlainTextEdit>
 #include <QScrollBar>
-#include <QTextBlockUserData>
 #include <QMenu>
+
+#include "TextEditBlockData.h"
 
 QT_BEGIN_NAMESPACE
 class QCompleter;
@@ -71,15 +72,29 @@ public:
 
     //void lineNumberAreaPaintEvent(QPaintEvent* );
     int lineNumberAreaWidth();
+    LineMarkerArea* lineMarkerArea() const;
     int findAndHighlight(const QString needle, QTextDocument::FindFlags flags = nullptr);
-    // highlights text such as search for
+    int findText(const QString find);
+    /// highlights text such as search for
     void setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> selections);
+
+    /// sets the filename, note save is handled by editor view
+    virtual QString fileName() const;
+    /// current used syntax
+    QString syntax() const;
+
 
     void setCompleter(QCompleter *completer) const;
     QCompleter *completer() const;
 
+Q_SIGNALS:
+    void fileNameChanged(const QString &fn);
+
 public Q_SLOTS:
     void onSave();
+    void setFileName(const QString& fn);
+    // set syntax definitions, does nothing if built without KSyntaxtHighlighter
+    bool setSyntax(const QString &defName);
 
 private Q_SLOTS:
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -92,8 +107,7 @@ protected:
     /** Draw a beam in the line where the cursor is. */
     void paintEvent (QPaintEvent * e);
     void resizeEvent(QResizeEvent* e);
-    LineMarkerArea* lineMarkerArea() const
-    { return lineNumberArea; }
+    void contextMenuEvent(QContextMenuEvent* e);
     virtual void drawMarker(int line, int x, int y, QPainter*);
     bool event(QEvent *event);
     virtual bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
@@ -120,8 +134,6 @@ protected:
 
 
 private:
-    SyntaxHighlighter* highlighter;
-    LineMarkerArea* lineNumberArea;
     struct TextEditorP* d;
 
     void paintIndentMarkers(QPaintEvent *e);
@@ -172,129 +184,6 @@ private:
     LineMarkerAreaP *d;
 };
 
-// --------------------------------------------------------------------------------
-class TextEditBlockScanInfo;
-
-class TextEditBlockData : public QTextBlockUserData
-{
-    // QTextBlockUserData does not inherit QObject
-public:
-    explicit TextEditBlockData(QTextBlock block);
-    TextEditBlockData(const TextEditBlockData &other);
-    virtual ~TextEditBlockData();
-
-    /**
-     * @brief bookmark sets if this row has a bookmark
-     *         (shows in scrollbar and linemarkerArea)
-     */
-    bool bookmark() const { return m_bookmarkSet; }
-    void setBookmark(bool active) { m_bookmarkSet = active; }
-
-    /**
-     * @brief blockState tells if this block starts a new block,
-     *         such as '{' in C like languages or ':' in python
-     *         +1 = blockstart, -1 = blockend, -2 = 2 blockends ie '}}'
-     */
-    virtual int blockState() const { return m_blockStateCnt; }
-    virtual int incBlockState() { return ++m_blockStateCnt; }
-    virtual int decBlockState() { return --m_blockStateCnt; }
-
-    /**
-     * @brief foldBlockEvt folds (makes invisible) this block and increments foldCounter
-     */
-    void foldBlockEvt();
-    /**
-     * @brief unfoldedEvt, decreases foldCounter nad if it reaches 0 makes this block visible again
-     */
-    void unfoldedEvt();
-
-    bool isFolded() const { return m_foldCnt > 0; }
-
-
-
-    static TextEditBlockData *blockDataFromCursor(const QTextCursor &cursor);
-
-    const QTextBlock &block() const;
-
-    virtual TextEditBlockData *nextBlock() const;
-    virtual TextEditBlockData *previousBlock() const;
-
-    /**
-     * @brief copyBlock copies a textblocks info, such as bookmark, etc
-     * @param other TextBlockData to copy
-     */
-    void copyBlock(const TextEditBlockData &other);
-
-
-    /**
-     * @brief scanInfo contains messages for a specific code line/col
-     * @return nullptr if no parsemsgs  or PythonTextBlockScanInfo*
-     */
-    TextEditBlockScanInfo *scanInfo() const { return m_scanInfo; }
-
-    /**
-     * @brief setScanInfo set class with parsemessages
-     * @param scanInfo instance of PythonTextBlockScanInfo
-     *                 this takes ownership of scanInfo
-     */
-    void setScanInfo(TextEditBlockScanInfo *scanInfo) { m_scanInfo = scanInfo; }
-
-protected:
-    QTextBlock m_block;
-    TextEditBlockScanInfo *m_scanInfo;
-    bool m_bookmarkSet;
-    int m_blockStateCnt, // +1 = new Block, -1 pop a block
-        m_foldCnt;       // indicates if we have folded this textBlock
-};
-
-// --------------------------------------------------------------------------------
-
-/**
- * @brief The TextEditBlockScanInfo class stores scaninfo for this row
- *          Such as SyntaxError annotations
- */
-class TextEditBlockScanInfo
-{
-public:
-    /// types of messages, sorted in priority, higher idx == higher prio
-    enum MsgType { Invalid, AllMsgTypes, Message, Warning, LookupError, IndentError, SyntaxError };
-    struct ParseMsg {
-    public:
-        explicit ParseMsg(QString message, int start, int end, MsgType type);
-        ~ParseMsg();
-        QString msgTypeAsString() const;
-        QString message() const;
-        int startPos() const;
-        int endPos() const;
-        MsgType type() const;
-
-    private:
-        QString m_message;
-        int m_startPos, m_endPos;
-        MsgType m_type;
-    };
-    typedef QList<ParseMsg> parsemsgs_t;
-    explicit TextEditBlockScanInfo();
-    virtual ~TextEditBlockScanInfo();
-
-    /// set message at line with startPos - endPos boundaries
-    void setParseMessage(int startPos, int endPos, QString message, MsgType type = Message);
-    /// get the ParseMsg that is contained within startPos, endPos,, filter by type
-    /// nullptr if not found
-    const ParseMsg *getParseMessage(int startPos, int endPos, MsgType type = AllMsgTypes) const;
-    /// get parseMessage for line contained by col, filter by type
-    QString parseMessage(int col, MsgType type = AllMsgTypes) const;
-    /// clears message that is contained by col
-    void clearParseMessage(int col);
-    /// clears all messages on this line
-    void clearParseMessages();
-
-    /// get all parseMessages for this module
-    const parsemsgs_t allMessages() const { return m_parseMessages; }
-
-private:
-    parsemsgs_t m_parseMessages;
-};
 
 // ---------------------------------------------------------------------------------
 

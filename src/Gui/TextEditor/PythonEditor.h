@@ -32,6 +32,7 @@
 #include "PythonSyntaxHighlighter.h"
 #include "PythonJedi.h"
 #include <Gui/Window.h>
+#include <App/PythonDebugger.h>
 
 #include <QDialog>
 #include <QAbstractListModel>
@@ -66,7 +67,6 @@ class GuiExport PythonEditor : public TextEditor
 public:
     PythonEditor(QWidget *parent = nullptr);
     ~PythonEditor();
-    const QString &fileName() const;
     PythonEditorCodeAnalyzer *codeAnalyzer() const;
     void setCodeAnalyzer(PythonEditorCodeAnalyzer *analyzer);
 
@@ -95,7 +95,6 @@ public Q_SLOTS:
     void onAutoIndent();
 
     void setFileName(const QString&);
-    int  findText(const QString find);
     void startDebug();
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
@@ -113,13 +112,10 @@ protected:
     void setUpMarkerAreaContextMenu(int line);
     void handleMarkerAreaContextMenu(QAction *res, int line);
 
-Q_SIGNALS:
-    void fileNameChanged(const QString &fn);
-
 private Q_SLOTS:
-    void breakpointAdded(const App::BreakpointLine *bpl);
-    void breakpointChanged(const App::BreakpointLine *bpl);
-    void breakpointRemoved(int idx, const App::BreakpointLine *bpl);
+    void breakpointAdded(const App::Debugging::Python::BrkPnt *bpl);
+    void breakpointChanged(const App::Debugging::Python::BrkPnt *bpl);
+    void breakpointRemoved(int idx, const App::Debugging::Python::BrkPnt *bpl);
     void exception(Base::PyExceptionInfo *exc);
 
 
@@ -136,12 +132,13 @@ class PythonEditorBreakpointDlg : public QDialog
 {
     Q_OBJECT
 public:
-    PythonEditorBreakpointDlg(QWidget *parent, App::BreakpointLine *bp);
+    PythonEditorBreakpointDlg(QWidget *parent,
+                              std::shared_ptr<App::Debugging::Python::BrkPnt> bp);
     ~PythonEditorBreakpointDlg();
 protected:
     void accept();
  private:
-    App::BreakpointLine *m_bpl;
+    std::shared_ptr<App::Debugging::Python::BrkPnt> m_bpl;
 
     QSpinBox  *m_ignoreToHits;
     QSpinBox  *m_ignoreFromHits;

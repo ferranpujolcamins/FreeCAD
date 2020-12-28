@@ -46,6 +46,14 @@ else()
     )
 endif()
 
+# generic syntax highlighter
+if (KF5SYNTAX_LIBDIR)
+    list(APPEND Common_LIBS ${KF5SYNTAX_LIB})
+    add_definitions(-DBUILD_KF5SYNTAX)
+    include_directories(APPEND ${KF5SYNTAX_INCLUDE_DIRS})
+    link_directories(${KF5SYNTAX_LIBDIR})
+endif(KF5SYNTAX_LIBDIR)
+
 # dependencies
 list(APPEND Common_LIBS
     FreeCADBase FreeCADApp)
@@ -75,30 +83,36 @@ endif(BUILD_JEDI)
 # The editor sources
 SET(TextEditor_CPP_SRCS
     EditorView.cpp
-    TextDocumentEditorView.cpp
+    LangSpecifics.cpp
     PythonCode.cpp
     PythonEditor.cpp
     PythonSyntaxHighlighter.cpp
     SyntaxHighlighter.cpp
+    TextDocumentEditorView.cpp
     TextEditor.cpp
+    TextEditBlockData.cpp
 )
 SET(TextEditor_HPP_SRCS
     EditorView.h
-    TextDocumentEditorView.h
+    LangSpecifics.h
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
+    TextDocumentEditorView.h
     TextEditor.h
+    TextEditBlockData.h
 )
 SET(TextEditor_MOC_HDRS
     EditorView.h
-    TextDocumentEditorView.h
+    LangSpecifics.h
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
+    TextDocumentEditorView.h
     TextEditor.h
+    TextEditBlockData.h
 )
 # run moc
 fc_wrap_cpp(TextEditor_MOC_SRCS ${TextEditor_MOC_HDRS})
@@ -164,6 +178,7 @@ endif(BUILD_USE_PCH)
 #create library
 ADD_LIBRARY(${EditorLibName} STATIC ${TextEditorAll_SRCS})
 TARGET_LINK_LIBRARIES(${EditorLibName} ${Common_LIBS} ${JediLibName} PythonSource)
+
 
 # install to default target defined by
 INSTALL(TARGETS ${EditorLibName}

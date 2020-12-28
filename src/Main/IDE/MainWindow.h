@@ -5,6 +5,7 @@
 #include <Gui/MainWindow.h>
 //#include <QMainWindow>
 #include <QSessionManager>
+#include <memory>
 
 /*
 class MainWindow : public QMainWindow
@@ -51,6 +52,9 @@ private Q_SLOTS:
     bool save();
     bool saveAs();
     void about();
+    void cut();
+    void copy();
+    void paste();
     void documentWasModified();
     void showOptions();
 #ifndef QT_NO_SESSIONMANAGER
@@ -63,11 +67,12 @@ private:
     void readSettings();
     void writeSettings();
     bool maybeSave();
+    Gui::EditorView* newEditorView();
     //bool saveFile(const QString &fileName);
     void createDockWindows();
     QString strippedName(const QString &fullFileName);
+    QList<std::shared_ptr<Gui::EditorView>> editViews;
 
-    Gui::EditorView *editorView;
     QString curFile;
 
 

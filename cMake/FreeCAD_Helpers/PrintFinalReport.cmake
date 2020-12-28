@@ -107,6 +107,8 @@ macro(PrintFinalReport)
                 message(STATUS "Qt5WinExtras:        ${Qt5WinExtras_VERSION}")
             endif()
 
+            message(STATUS "KF5SyntaxHighlighter:${KF5SyntaxHighlighting_VERSION}")
+
         else(BUILD_GUI)
             message(STATUS "Qt5Widgets:          not needed")
             message(STATUS "Qt5PrintSupport:     not needed")

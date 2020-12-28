@@ -139,8 +139,9 @@ out:
 // must traverse from os, then os.path before os.path.join
 QString Python::Code::findFromCurrentFrame(const Python::Token *tok)
 {
+    auto debugger = App::Debugging::Python::Debugger::instance();
     Base::PyGILStateLocker locker;
-    PyFrameObject *frame = App::PythonDebugger::instance()->currentFrame();
+    PyFrameObject *frame = debugger->currentFrame();
     if (frame == nullptr)
         return QString();
 
@@ -156,11 +157,11 @@ QString Python::Code::findFromCurrentFrame(const Python::Token *tok)
 
     // if not found look in globals
     if (!obj)
-        obj = getDeepObject(App::PythonDebugger::instance()->currentFrame()->f_globals,
+        obj = getDeepObject(debugger->currentFrame()->f_globals,
                             tok, foundKey);
     // or in builtins
     if (!obj)
-        obj = getDeepObject(App::PythonDebugger::instance()->currentFrame()->f_builtins,
+        obj = getDeepObject(debugger->currentFrame()->f_builtins,
                             tok, foundKey);
     if (!obj)
         return QString();

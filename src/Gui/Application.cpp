@@ -504,7 +504,8 @@ Application::Application(bool GUIenabled)
     }
 
     // Python console binding
-    App::PythonDebugModule      ::init_module();
+    App::Debugging::Python::DebugModule::init_module();
+
     PythonStdout                ::init_type();
     PythonStderr                ::init_type();
     OutputStdout                ::init_type();

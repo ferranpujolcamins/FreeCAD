@@ -439,6 +439,7 @@ PythonConsoleTextEdit::PythonConsoleTextEdit(QWidget* parent)
 /** Destroys the object and frees any allocated resources */
 PythonConsoleTextEdit::~PythonConsoleTextEdit()
 {
+    delete listBox;
 }
 
 /**
@@ -740,7 +741,7 @@ PythonConsole::~PythonConsole()
     saveHistory();
     Base::PyGILStateLocker lock;
     getWindowParameter()->Detach( this );
-    delete pythonSyntax;
+    //delete pythonSyntax; // eleted from QTextDocument destructor
     Py_XDECREF(d->_stdoutPy);
     Py_XDECREF(d->_stderrPy);
     Py_XDECREF(d->_stdinPy);

@@ -54,8 +54,9 @@ void DlgPythonSettings::accept()
 
         QStringList types;
         types << QLatin1String("py") << QLatin1String("FCMacro");
-        for (auto &wrapper : EditorViewSingleton::instance()->openedByType(types)) {
-            auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(wrapper->editor()->syntaxHighlighter());
+        for (auto &wrapper : EditorViewSingleton::instance()->openedBySuffix(types)) {
+            auto textEdit = std::dynamic_pointer_cast<TextEditor>(wrapper->editor());
+            auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(textEdit->syntaxHighlighter());
             if (highlighter)
                 highlighter->rehighlight();
         }

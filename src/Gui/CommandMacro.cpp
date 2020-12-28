@@ -194,7 +194,7 @@ StdCmdMacroStartDebug::StdCmdMacroStartDebug()
 void StdCmdMacroStartDebug::activated(int iMsg)
 {
     Q_UNUSED(iMsg); 
-    App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    auto dbg = Application::Instance->macroManager()->debugger();
 
     if (!dbg->isRunning())
         doCommand(Command::Gui,"Gui.SendMsgToActiveView(\"StartDebug\")");
@@ -230,7 +230,7 @@ void StdCmdMacroStopDebug::activated(int iMsg)
 
 bool StdCmdMacroStopDebug::isActive(void)
 {
-    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static auto dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -257,7 +257,7 @@ void StdCmdMacroStepOver::activated(int iMsg)
 
 bool StdCmdMacroStepOver::isActive(void)
 {
-    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static auto dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -284,7 +284,7 @@ void StdCmdMacroHaltOnNext::activated(int iMsg)
 
 bool StdCmdMacroHaltOnNext::isActive(void)
 {
-    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static auto dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -311,7 +311,7 @@ void StdCmdMacroStepInto::activated(int iMsg)
 
 bool StdCmdMacroStepInto::isActive(void)
 {
-    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static auto dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 
@@ -338,7 +338,7 @@ void StdCmdMacroStepOut::activated(int iMsg)
 
 bool StdCmdMacroStepOut::isActive(void)
 {
-    static App::PythonDebugger* dbg = Application::Instance->macroManager()->debugger();
+    static auto dbg = Application::Instance->macroManager()->debugger();
     return dbg->isRunning();
 }
 

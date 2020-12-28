@@ -34,8 +34,8 @@ class GuiExport PythonSyntaxHighlighter : public Gui::SyntaxHighlighter,
 {
     Q_OBJECT
 public:
-    PythonSyntaxHighlighter(QObject* parent);
-    ~PythonSyntaxHighlighter() override;
+    explicit PythonSyntaxHighlighter(QObject* parent);
+    virtual ~PythonSyntaxHighlighter() override;
 
     void highlightBlock (const QString & text) override;
 
@@ -58,23 +58,22 @@ public:
     QTextCharFormat getFormatToken(const Python::Token *token) const;
 
     /// update how this token is rendered
-    void tokenTypeChanged(const Python::Token *tok) const override;
+    virtual void tokenTypeChanged(const Python::Token *tok) const override;
 
     /// these formats a line in a predefined maner to to highlight were the error occured
-    void setMessage(const Python::Token *tok) const override;
-    void setIndentError(const Python::Token *tok) const override;
-    void setSyntaxError(const Python::Token *tok) const override;
+    virtual void setMessage(const Python::Token *tok) const override;
+    virtual void setIndentError(const Python::Token *tok) const override;
+    virtual void setSyntaxError(const Python::Token *tok) const override;
 
     /// inserts a new format for token
     void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
 
     // used by code analyzer, set by editor
-    void setFilePath(QString filePath);
-    QString filePath() const;
+    void setFilePath(QString file);
 
 protected:
     /// sets (re-colors) txt contained from token
-    void tokenUpdated(const Python::Token *tok) override;
+    virtual void tokenUpdated(const Python::Token *tok) override;
 
 private Q_SLOTS:
     void sourceScanTmrCallback();

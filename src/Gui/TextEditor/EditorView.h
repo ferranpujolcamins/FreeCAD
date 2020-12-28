@@ -1,5 +1,6 @@
 /***************************************************************************
  *   Copyright (c) 2007 Werner Mayer <wmayer[at]users.sourceforge.net>     *
+ *   Copyright (c) 2020 Fredrik Johansson github.com/mumme74               *
  *                                                                         *
  *   This file is part of the FreeCAD CAx development system.              *
  *                                                                         *
@@ -50,7 +51,8 @@ class TextEditor;
  * the editor and embeds it in a window.
  * @author Werner Mayer
  */
-class GuiExport EditorView : public MDIView, public WindowParameter
+class GuiExport EditorView : public MDIView, public WindowParameter,
+                             public std::enable_shared_from_this<EditorView>
 {
     Q_OBJECT
 
@@ -61,17 +63,20 @@ public:
         BaseName
     };
 
-    EditorView(TextEditor *editor, QWidget* parent);
+    explicit EditorView(std::shared_ptr<QPlainTextEdit> editor, QWidget* parent);
+    // for backwards compatability
+    explicit EditorView(QPlainTextEdit* editor, QWidget *parent);
     ~EditorView();
 
-    QPlainTextEdit* getEditor() const;
+    std::shared_ptr<QPlainTextEdit> editor() const;
+    std::shared_ptr<TextEditor> textEditor() const;
     void setDisplayName(DisplayName);
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
     const char *getName(void) const {return "EditorView";}
     void onUpdate(void){}
 
-    bool onMsg(const char* pMsg,const char** ppReturn);
+    bool onMsg(const char* pMsg, const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
     virtual bool canClose(void);
@@ -85,14 +90,14 @@ public:
     virtual void cut    ();
     virtual void copy   ();
     virtual void paste  ();
-    void undo   ();
-    void redo   ();
+    virtual void undo   ();
+    virtual void redo   ();
     void print  ();
     void printPdf();
     void printPreview();
     void print(QPrinter*);
-    void showFindBar();
-    void hideFindBar();
+    virtual void showFindBar();
+    virtual void hideFindBar();
     //@}
 
     QStringList undoActions() const;
@@ -101,8 +106,8 @@ public:
     void setFileName(QString fileName);
 
     // sets a topbar widget
-    void setTopbar(EditorViewTopBar *topBar);
-    EditorViewTopBar *topBar();
+    void setTopbar(std::shared_ptr<EditorViewTopBar> topBar);
+    std::shared_ptr<EditorViewTopBar> topBar();
 
 public Q_SLOTS:
     void setWindowModified(bool modified);
@@ -115,7 +120,7 @@ protected:
      * @param index at index, -1 is last
      */
     void insertWidget(QWidget *wgt, int index = -1);
-    EditorViewWrapper *editorWrapper() const;
+    std::shared_ptr<EditorViewWrapper> editorWrapper() const;
 
 
 
@@ -150,7 +155,7 @@ Q_SIGNALS:
 private:
     void setCurrentFileName(const QString &fileName);
     bool saveFile();
-    QPlainTextEdit* swapEditor(QPlainTextEdit *newEditor);
+    QPlainTextEdit* swapEditor(std::shared_ptr<QPlainTextEdit> newEditor);
 
 private:
     EditorViewP* d;
@@ -167,7 +172,7 @@ class GuiExport PythonEditorView : public EditorView
     Q_OBJECT
 
 public:
-    PythonEditorView(PythonEditor* editor, QWidget* parent);
+    PythonEditorView(std::shared_ptr<PythonEditor> editor, QWidget* parent);
     ~PythonEditorView();
 
     bool onMsg(const char* pMsg,const char** ppReturn);
@@ -193,32 +198,33 @@ private:
  * undo/ redo, timestamp etc
  */
 class EditorViewWrapperP;
-class GuiExport EditorViewWrapper
+class GuiExport EditorViewWrapper : public std::enable_shared_from_this<EditorViewWrapper>
 {
     EditorViewWrapperP *d;
 public:
     /// Constructor
     /// editor = pointer to a editor in heap, wrapper takes ownership
     /// fn = filename
-    EditorViewWrapper(TextEditor *editor, const QString &fn);
-    ~EditorViewWrapper();
+    explicit EditorViewWrapper(std::shared_ptr<QPlainTextEdit> editor, const QString &fn);
+    virtual ~EditorViewWrapper();
 
     /**
      * @brief attach/detach from EditorView
      * @param sharedOwner, current view
      */
-    void attach(EditorView* sharedOwner);
-    void detach(EditorView* sharedOwner);
+    void attach(std::shared_ptr<EditorView> sharedOwner);
+    void detach(std::shared_ptr<EditorView> sharedOwner);
     /**
      * @brief detaches from sharedOwner and if file has no other owners,
      *      editor gets destroyed
      * @param sharedOwner, ownerView
      * @return true if editor gets destoyed (no other shared owners)
      */
-    bool close(EditorView* sharedOwner);
+    bool close(std::shared_ptr<EditorView> sharedOwner);
 
-    TextEditor *editor() const;
-    EditorView* owner() const;
+    std::shared_ptr<QPlainTextEdit> editor() const;
+    std::shared_ptr<TextEditor> textEditor() const;
+    std::shared_ptr<EditorView> view() const;
     QString fileName() const;
     void setFileName(const QString &fn);
     uint timestamp() const;
@@ -244,9 +250,10 @@ class GuiExport EditorViewSingleton : public QObject
 {
     Q_OBJECT
 
+    //friend class EditorViewWrapper;
     EditorViewSingletonP *d;
 public:
-    typedef TextEditor* (*createT)();
+    typedef std::shared_ptr<QPlainTextEdit> (*createT)();
 
     EditorViewSingleton();
     ~EditorViewSingleton();
@@ -260,17 +267,66 @@ public:
      */
     static EditorViewSingleton* instance();
 
-    EditorViewWrapper *getWrapper(const QString &fn, EditorView *ownerView);
-    QList<EditorViewWrapper*> getWrappers(const QString &fn);
-    EditorViewWrapper *createWrapper(const QString &fn, TextEditor *editor = nullptr);
+    /**
+     * @brief openFile opens fn in view
+     * @param fn filename to open
+     * @param view the view to open fn in,
+     *         if null open in activeview, create a editorview if not opened
+     * @return the editorView now open
+     */
+    std::shared_ptr<EditorView> openFile(const QString fn,
+                                         std::shared_ptr<EditorView> view = nullptr);
+
+    /**
+     * @brief getWrapper gets the EditViewWrapper for the file
+     * @param fn filename to search for
+     * @param ownerView in wich view to search
+     * @return the wrapper for this file or nullptr if not found
+     */
+    std::shared_ptr<EditorViewWrapper>
+    getWrapper(const QString &fn, std::shared_ptr<EditorView> ownerView);
+    EditorViewWrapper*
+    getWrapper(const QString &fn, EditorView* ownerView);
+
+    /**
+     * @brief getWrappers get a list of all global wrappers
+     * @param fn filename to search for
+     * @return list af all wrappers that matches fn
+     */
+    QList<std::shared_ptr<EditorViewWrapper>> getWrappers(const QString &fn);
+
+    /**
+     * @brief createWrapper create a new wrapper for fn
+     * @param fn filename
+     * @param editor (optional) if none it creates a new Editor
+     * @return the fresh wrapper
+     */
+    std::shared_ptr<EditorViewWrapper>
+    createWrapper(const QString &fn, std::shared_ptr<QPlainTextEdit> editor = nullptr);
+
+    /**
+     * @brief removeWrapper removes the wrapper from global store
+     * @param ew the EditViewWrapper to remove
+     * @return true if successfull (found and removed)
+     */
+    bool removeWrapper(std::shared_ptr<EditorViewWrapper> ew);
     bool removeWrapper(EditorViewWrapper *ew);
+
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
      * @param backSteps negative numer back from current accessed, ie -1 for previous
      * @return the corresponding EditorWrapper
      */
-    EditorViewWrapper *lastAccessed(EditorView *view, int backSteps = 0);
-    QList<const EditorViewWrapper*> openedByType(QStringList types = QStringList());
+    std::shared_ptr<EditorViewWrapper>
+    lastAccessed(std::shared_ptr<EditorView> view, int backSteps = 0);
+
+    /**
+     * @brief openedBySuffix gets wrappers opened differentiated by file suffixes
+     * @param types list of file suffixes
+     * @return a list of all EditorViewWrappers opened by mimetypes
+     */
+    QList<std::shared_ptr<const EditorViewWrapper>>
+    openedBySuffix(QStringList types = QStringList());
 
 Q_SIGNALS:
     /**
@@ -300,8 +356,6 @@ private Q_SLOTS:
     void docModifiedChanged(bool changed);
     void connectToDebugger(void);
 
-private:
-    friend class EditorViewWrapper;
 };
 
 // ---------------------------------------------------------------------------

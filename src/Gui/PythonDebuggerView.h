@@ -30,6 +30,8 @@
 #include "Window.h"
 #include <frameobject.h>
 #include <QVariant>
+#include <App/PythonDebugger.h>
+#include <memory>
 
 QT_BEGIN_NAMESPACE
 class QVBoxLayout;
@@ -51,6 +53,8 @@ namespace DockWnd {
 
 class PythonDebuggerViewP;
 class VariableModelP;
+
+using BreakpointPtr = std::shared_ptr<App::Debugging::Python::BrkPnt>;
 
 // -------------------------------------------------------------------------------
 /**
@@ -151,9 +155,9 @@ public:
                         int role = Qt::DisplayRole) const;
 
 private Q_SLOTS:
-    void added(const App::BreakpointLine *bp);
-    void changed(const App::BreakpointLine *bp);
-    void removed(int idx, const App::BreakpointLine *bpl);
+    void added(const BreakpointPtr bp);
+    void changed(const BreakpointPtr bp);
+    void removed(int idx, const BreakpointPtr bpl);
 
 private:
     static const int colCount = 2;

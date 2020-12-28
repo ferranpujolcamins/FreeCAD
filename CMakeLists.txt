@@ -69,6 +69,7 @@ if(NOT FREECAD_LIBPACK_USE OR FREECAD_LIBPACK_CHECKFILE_CLBUNDLER)
         SetupSpaceball()
         SetupShibokenAndPyside()
         SetupMatplotlib()
+        SetupKF5SyntaxHighlighting()
     endif(BUILD_GUI)
 endif(NOT FREECAD_LIBPACK_USE OR FREECAD_LIBPACK_CHECKFILE_CLBUNDLER)
 
