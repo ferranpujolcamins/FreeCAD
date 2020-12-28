@@ -279,7 +279,7 @@ Q_SIGNALS:
     void breakpointAdded(size_t uniqeId);
     void breakpointChanged(size_t uniqeId);
     void breakpointRemoved(size_t uniqeId);
-    void exceptionOccured(Base::Exception *exeption);
+    void exceptionOccured(std::shared_ptr<Base::Exception> exeption);
     void exceptionCleared(const QString &fn, int line);
     void allExceptionsCleared();
 };
@@ -530,6 +530,12 @@ bool BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::addBreakpoint(int line) {
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
 void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::removeBreakpointByLine(int line) {
     std::shared_ptr<T_bp> bp;
+
+    // we need to emit before removal to make reciever lookup this breakpoint
+    if (!d->debugger.expired() && bp)
+        Q_EMIT d->debugger.lock()->breakpointRemoved(bp->uniqueId());
+
+    // do the removal
     std::remove_if(d->lines.begin(), d->lines.end(),
                    [&] (std::shared_ptr<T_bp> b) {
         if (b->lineNr() == line) {
@@ -538,8 +544,6 @@ void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::removeBreakpointByLine(int line) {
         }
         return false;
     });
-    if (!d->debugger.expired() && bp)
-        Q_EMIT d->debugger.lock()->breakpointRemoved(bp->uniqueId());
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>

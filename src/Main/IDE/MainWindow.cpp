@@ -74,8 +74,6 @@ void MainWindow::open()
     if (!editView)
         editView = newEditorView();
 
-    auto editWrapper = Gui::EditorViewSingleton::instance()->
-            getWrapper(fileName, editView);
     // check if already openend
     for (auto view : windows()) {
         auto eView = dynamic_cast<Gui::EditorView*>(view);
@@ -310,7 +308,7 @@ bool MainWindow::maybeSave()
 
 Gui::EditorView* MainWindow::newEditorView()
 {
-    auto edit = std::make_shared<Gui::TextEditor>(this);
+    auto edit = new Gui::TextEditor(this);
     auto editorView = new Gui::EditorView(edit, this);
     editorView->resize(400, 300);
     editorView->setDisplayName(Gui::EditorView::FileName);
@@ -318,8 +316,8 @@ Gui::EditorView* MainWindow::newEditorView()
     addWindow(editorView);
     setActiveWindow(editorView);
 
-    connect(edit.get(), SIGNAL(documentWasModified()),
-            this, SLOT(documentWasModified));
+    connect(edit->document(), &QTextDocument::contentsChanged,
+            this, &MainWindow::documentWasModified);
 
     return editorView;
 }

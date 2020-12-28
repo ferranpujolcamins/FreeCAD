@@ -55,6 +55,7 @@ class PythonDebuggerViewP;
 class VariableModelP;
 
 using BreakpointPtr = std::shared_ptr<App::Debugging::Python::BrkPnt>;
+using PyDebugger = App::Debugging::Python::Debugger;
 
 // -------------------------------------------------------------------------------
 /**
@@ -129,7 +130,7 @@ public Q_SLOTS:
     void clear();
 
 private Q_SLOTS:
-    void updateFrames(PyFrameObject *frame);
+    void updateFrames();
 
 private:
     PyFrameObject *m_currentFrame;
@@ -155,9 +156,9 @@ public:
                         int role = Qt::DisplayRole) const;
 
 private Q_SLOTS:
-    void added(const BreakpointPtr bp);
-    void changed(const BreakpointPtr bp);
-    void removed(int idx, const BreakpointPtr bpl);
+    void added(size_t uniqueId);
+    void changed(size_t uniqueId);
+    void removed(size_t uniqueId);
 
 private:
     static const int colCount = 2;
@@ -180,14 +181,14 @@ public:
     bool removeRows(int row, int count, const QModelIndex & parent = QModelIndex());
 
 private Q_SLOTS:
-    void exceptionOccured(Base::PyExceptionInfo *exc);
-    void exception(Base::PyExceptionInfo *exc);
+    void exceptionFilter(std::shared_ptr<Base::Exception> exc);
+    void exception(std::shared_ptr<Base::PyExceptionInfo> exc);
     void clear();
     void clearException(const QString &fn, int line);
 
 private:
     static const int colCount = 3;
-    QList<Base::PyExceptionInfo*> m_exceptions;
+    QList<std::shared_ptr<Base::PyExceptionInfo>> m_exceptions;
 };
 
 // -------------------------------------------------------------------------------
@@ -274,7 +275,7 @@ public Q_SLOTS:
     virtual void clear() = 0;
 
 protected Q_SLOTS:
-    virtual void updateVariables(PyFrameObject *frame) = 0;
+    virtual void updateVariables() = 0;
     void lazyLoad(const QModelIndex &parent);
     void lazyLoad(VariableTreeItem *parentItem);
 };
@@ -286,14 +287,14 @@ class VariableTreeModel : public VarTreeModelBase
     Q_OBJECT
 
 public:
-    VariableTreeModel(QObject *parent = 0);
-    ~VariableTreeModel();
+    VariableTreeModel(QObject *parent = nullptr);
+    ~VariableTreeModel() override;
 
 public Q_SLOTS:
-    void clear();
+    void clear() override;
 
 protected Q_SLOTS:
-    void updateVariables(PyFrameObject *frame);
+    void updateVariables() override;
 
 private:
     //void setupModelData(const QStringList &lines, VariableTreeItem *parent);
@@ -318,7 +319,7 @@ public Q_SLOTS:
     void clear();
 
 protected Q_SLOTS:
-    void updateVariables(PyFrameObject *frame);
+    void updateVariables() override;
 
 private:
     QList<VariableTreeItem*> m_items;

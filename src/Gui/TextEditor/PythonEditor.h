@@ -54,7 +54,6 @@ class SyntaxHighlighter;
 class SyntaxHighlighterP;
 class PythonEditorBreakpointDlg;
 class PythonEditorCodeAnalyzer;
-class PythonDebugger;
 
 /**
  * Python text editor with syntax highlighting.
@@ -113,10 +112,10 @@ protected:
     void handleMarkerAreaContextMenu(QAction *res, int line);
 
 private Q_SLOTS:
-    void breakpointAdded(const App::Debugging::Python::BrkPnt *bpl);
-    void breakpointChanged(const App::Debugging::Python::BrkPnt *bpl);
-    void breakpointRemoved(int idx, const App::Debugging::Python::BrkPnt *bpl);
-    void exception(Base::PyExceptionInfo *exc);
+    void breakpointAdded(size_t uniqueId);
+    void breakpointChanged(size_t uniqueId);
+    void breakpointRemoved(size_t uniqueId);
+    void exception(std::shared_ptr<Base::PyExceptionInfo> exc);
 
 
 private:

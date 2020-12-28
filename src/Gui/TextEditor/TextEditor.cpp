@@ -1119,11 +1119,11 @@ void LineMarkerArea::foldingClicked(int line)
                 return;
 
             // we have a blockstarter line!
-            auto endBlock = userData->foldingEndBlock(userData);
+            auto endBlockNr = userData->foldingEndBlock(userData).blockNumber();
             auto block = startBlock.next();
             bool show = !block.isVisible();
 
-            while(block != endBlock && block.isValid()) {
+            while(block.blockNumber() <= endBlockNr && block.isValid()) {
                 block.setVisible(show);
                 block = block.next();
             }

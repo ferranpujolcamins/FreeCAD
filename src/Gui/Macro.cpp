@@ -55,7 +55,6 @@ MacroManager::MacroManager()
     scriptToPyConsole(true),
     localEnv(true),
     pyConsole(nullptr),
-    pyDebugger(App::Debugging::Python::Debugger::instance()),
     totalLines(0)
 {
     // Attach to the Parametergroup regarding macros
@@ -66,7 +65,6 @@ MacroManager::MacroManager()
 
 MacroManager::~MacroManager()
 {
-    delete pyDebugger;
     this->params->Detach(this);
 }
 
@@ -282,8 +280,8 @@ void MacroManager::run(MacroType eType, const char *sName)
     catch (const Base::PyException& e) {
         e.ReportException();
         // notify our textedit and debuggerview
-        Base::PyExceptionInfo exc(e);
-        Q_EMIT exceptionFatal(&exc);
+        auto exc = std::make_shared<Base::PyExceptionInfo>(e);
+        Q_EMIT exceptionFatal(exc);
     }
     catch (const Base::Exception& e) {
         qWarning("%s",e.what());
@@ -292,7 +290,7 @@ void MacroManager::run(MacroType eType, const char *sName)
 
 App::Debugging::Python::Debugger *MacroManager::debugger() const
 {
-    return pyDebugger;
+    return App::Debugging::Python::Debugger::instance();
 }
 
 #include "moc_Macro.cpp"

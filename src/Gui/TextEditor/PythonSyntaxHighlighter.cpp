@@ -706,7 +706,7 @@ void PythonMatchingChars::cursorPositionChange()
 
 // ------------------------------------------------------------------------
 
-PyExceptionInfoGui::PyExceptionInfoGui(Base::PyExceptionInfo *exc) :
+PyExceptionInfoGui::PyExceptionInfoGui(std::shared_ptr<Base::PyExceptionInfo> exc) :
     m_exc(exc)
 {
 }

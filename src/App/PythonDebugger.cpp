@@ -417,7 +417,6 @@ Debugger::Debugger(QObject *parent)
   : AbstractDbgr<Debugger, BrkPnt, BrkPntFile>(parent)
   , d(new DebuggerP(this))
 {
-    globalInstance = this;
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(onAppQuit()));
 
     typedef void (*STATICFUNC)( );
@@ -429,7 +428,7 @@ Debugger::~Debugger()
 {
     stop();
     delete d;
-    globalInstance = nullptr;
+    //globalInstance = nullptr; // smart pointers destruct again here
 }
 
 void Debugger::runFile(const QString& fn)
@@ -481,7 +480,7 @@ void Debugger::runFile(const QString& fn)
         if (!result) {
             if (!d->trystop && state() != State::Stopped) {
                 // script failed, syntax error, import error, etc
-                auto exc = std::make_shared< Base::PyExceptionInfo>();
+                auto exc = std::make_shared<Base::PyExceptionInfo>();
                 if (exc->isValid() && !exc->isSystemExit() && !exc->isKeyboardInterupt()) {
                     Q_EMIT exceptionFatal(exc);
 
@@ -720,14 +719,14 @@ bool Debugger::setStackLevel(int level)
 }
 
 // is owned by macro manager which handles delete
-Debugger* Debugger::globalInstance = nullptr;
+std::shared_ptr<Debugger> Debugger::globalInstance = nullptr;
 
 Debugger *Debugger::instance()
 {
     if (globalInstance == nullptr)
         // is owned by macro manager which handles delete
-        globalInstance = new Debugger();
-    return globalInstance;
+        globalInstance = std::make_shared<Debugger>();
+    return globalInstance.get();
 }
 
 // http://www.koders.com/cpp/fidBA6CD8A0FE5F41F1464D74733D9A711DA257D20B.aspx?s=PyEval_SetTrace

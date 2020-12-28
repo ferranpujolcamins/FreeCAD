@@ -240,7 +240,7 @@ private:
     bool frameRelatedToOpenedFiles(const PyFrameObject *frame) const;
 
     struct DebuggerP* d;
-    static Debugger *globalInstance;
+    static std::shared_ptr<Debugger> globalInstance;
 };
 
 } // namespace Python

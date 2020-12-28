@@ -659,7 +659,7 @@ void BrowserView::onViewSource(const QUrl &url)
     editor->setSyntax(QString::fromLatin1("HTML"));
     editor->setFileName(url.path());
     editor->setPlainText(pageSource);
-    getMainWindow()->addWindow(editView.get());
+    getMainWindow()->addWindow(editView);
 }
 #endif
 

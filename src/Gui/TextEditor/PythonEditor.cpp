@@ -70,6 +70,8 @@
 
 using namespace Gui;
 
+using PyDebugger = App::Debugging::Python::Debugger;
+
 namespace Gui {
 struct PythonEditorP
 {
@@ -80,7 +82,7 @@ struct PythonEditorP
     QPixmap breakpointDisabled;
     QPixmap debugMarker;
     Python::Code *pythonCode;
-    QHash <int, Base::PyExceptionInfo> exceptions;
+    QHash <int, std::shared_ptr<Base::PyExceptionInfo>> exceptions;
     //CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
@@ -220,26 +222,26 @@ PythonEditor::PythonEditor(QWidget* parent)
             this, SLOT(onAutoIndent()));
 
     auto dbg = App::Debugging::Python::Debugger::instance();
-    connect(dbg, SIGNAL(stopped()), this, SLOT(hideDebugMarker()));
-    connect(dbg, SIGNAL(breakpointAdded(const App::BreakpointLine*)),
-            this, SLOT(breakpointAdded(const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointChanged(const App::BreakpointLine*)),
-            this, SLOT(breakpointChanged(const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointRemoved(int,const App::BreakpointLine*)),
-            this, SLOT(breakpointRemoved(int,const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(breakpointRemoved(int,const App::BreakpointLine*)),
-            this, SLOT(breakpointRemoved(int,const App::BreakpointLine*)));
-    connect(dbg, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
-            this, SLOT(exception(Base::PyExceptionInfo*)));
-    connect(dbg, SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
-            this, SLOT(exception(Base::PyExceptionInfo*)));
-    connect(dbg, SIGNAL(started()), this, SLOT(clearAllExceptions()));
-    connect(dbg, SIGNAL(clearAllExceptions()), this, SLOT(clearAllExceptions()));
-    connect(dbg, SIGNAL(clearException(QString,int)), this, SLOT(clearException(QString,int)));
+    connect(dbg, &PyDebugger::stopped, this, &PythonEditor::hideDebugMarker);
+    connect(dbg, &PyDebugger::breakpointAdded,
+            this, &PythonEditor::breakpointAdded);
+    connect(dbg, &PyDebugger::breakpointChanged,
+            this, &PythonEditor::breakpointChanged);
+    connect(dbg, &PyDebugger::breakpointRemoved,
+            this, &PythonEditor::breakpointRemoved);
+    connect(dbg, &PyDebugger::breakpointRemoved,
+            this, &PythonEditor::breakpointRemoved);
+    connect(dbg, &PyDebugger::exceptionFatal,
+            this, &PythonEditor::exception);
+    connect(dbg, &PyDebugger::exceptionOccured,
+            this, &PythonEditor::exception);
+    connect(dbg, &PyDebugger::started, this, &PythonEditor::clearAllExceptions);
+    connect(dbg, &PyDebugger::clearAllExceptions, this, &PythonEditor::clearAllExceptions);
+    connect(dbg, &PyDebugger::clearException, this, &PythonEditor::clearException);
 
     MacroManager *macroMgr = Application::Instance->macroManager();
-    connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
-            this, SLOT(exception(Base::PyExceptionInfo*)));
+    connect(macroMgr, &MacroManager::exceptionFatal,
+            this, &PythonEditor::exception);
 
     d->matchingChars = new PythonMatchingChars(this);
 
@@ -440,8 +442,7 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
     }
     // exceptions from Python interpreter
     if (d->exceptions.contains(line)) {
-        Base::PyExceptionInfo *exc = &d->exceptions[line];
-        PyExceptionInfoGui excGui(exc);
+        PyExceptionInfoGui excGui(d->exceptions[line]);
         QIcon icon = BitmapFactory().iconFromTheme(excGui.iconName());
         int excX = x;
         if (lineMarkerArea()->lineNumbersVisible() && hadBreakpoint)
@@ -819,8 +820,9 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
 
     // exceptions
     if (d->exceptions.contains(line)) {
-        QString srcText = QString::fromStdWString(d->exceptions[line].text());
-        int offset = d->exceptions[line].getOffset();
+        auto exc = d->exceptions[line];
+        QString srcText = QString::fromStdWString(exc->text());
+        int offset = exc->getOffset();
         if (offset > 0) {
             if (!srcText.endsWith(QLatin1String("\n")))
                 srcText += QLatin1String("\n");
@@ -831,9 +833,9 @@ bool PythonEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
         }
 
         QString txt = QString((tr("%1 on line %2\nreason: '%4'\n\n%5")))
-                .arg(QString::fromStdString(d->exceptions[line].getErrorType(true)))
-                .arg(QString::number(d->exceptions[line].getLine()))
-                .arg(QString::fromStdString(d->exceptions[line].getMessage()))
+                .arg(QString::fromStdString(exc->getErrorType(true)))
+                .arg(QString::number(exc->getLine()))
+                .arg(QString::fromStdString(exc->getMessage()))
                 .arg(srcText);
         QToolTip::showText(pos, txt, this);
         return true;
@@ -907,8 +909,7 @@ void PythonEditor::setUpMarkerAreaContextMenu(int line)
     m_markerAreaContextMenu.addSeparator();
 
     if (d->exceptions.contains(line)) {
-        Base::PyExceptionInfo exc(d->exceptions[line]);
-        PyExceptionInfoGui excGui(&exc);
+        PyExceptionInfoGui excGui(d->exceptions[line]);
         QAction *clearException = new QAction(BitmapFactory().iconFromTheme(excGui.iconName()),
                                               tr("Clear exception"), &m_markerAreaContextMenu);
         m_markerAreaContextMenu.addAction(clearException);
@@ -948,41 +949,42 @@ void PythonEditor::setUpMarkerAreaContextMenu(int line)
     }
 }
 
-void PythonEditor::breakpointAdded(const App::Debugging::Python::BrkPnt *bpl)
+void PythonEditor::breakpointAdded(size_t uniqueId)
 {
-    if (bpl->bpFile()->fileName() != fileName())
+    auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
+    if (!bp || bp->bpFile()->fileName() != fileName())
         return;
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
     if (vBar)
-        vBar->setMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
+        vBar->setMarker(bp->lineNr(), d->breakPointScrollBarMarkerColor);
 
     lineMarkerArea()->update();
 }
 
-void PythonEditor::breakpointChanged(const App::Debugging::Python::BrkPnt *bpl)
+void PythonEditor::breakpointChanged(size_t uniqueId)
 {
-    if (bpl->bpFile()->fileName() != fileName())
+    auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
+    if (!bp || bp->bpFile()->fileName() != fileName())
         return;
 
     lineMarkerArea()->update();
 }
 
-void PythonEditor::breakpointRemoved(int idx, const  App::Debugging::Python::BrkPnt *bpl)
+void PythonEditor::breakpointRemoved(size_t uniqueId)
 {
-    Q_UNUSED(idx)
-
-    if (bpl->bpFile()->fileName() != fileName())
+    auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
+    if (!bp || bp->bpFile()->fileName() != fileName())
         return;
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
     if (vBar)
-        vBar->clearMarker(bpl->lineNr(), d->breakPointScrollBarMarkerColor);
+        vBar->clearMarker(bp->lineNr(), d->breakPointScrollBarMarkerColor);
 
     lineMarkerArea()->update();
 }
 
-void PythonEditor::exception(Base::PyExceptionInfo *exc)
+void PythonEditor::exception(std::shared_ptr<Base::PyExceptionInfo> exc)
 {
     int linenr = exc->getLine();
 
@@ -1007,7 +1009,7 @@ void PythonEditor::exception(Base::PyExceptionInfo *exc)
     if (d->exceptions.contains(linenr))
         return; // already set
 
-    d->exceptions[linenr] = *exc;
+    d->exceptions[linenr] = exc;
     renderExceptionExtraSelections();
     lineMarkerArea()->update();
 
@@ -1019,10 +1021,10 @@ void PythonEditor::exception(Base::PyExceptionInfo *exc)
 void PythonEditor::clearAllExceptions()
 {
     for (int i : d->exceptions.keys()) {
-        Base::PyExceptionInfo exc = d->exceptions.take(i);
+        auto exc = d->exceptions.take(i);
         AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
         if (vBar)
-            vBar->clearMarker(exc.getLine(), d->exceptionScrollBarMarkerColor);
+            vBar->clearMarker(exc->getLine(), d->exceptionScrollBarMarkerColor);
     }
 
     renderExceptionExtraSelections();
@@ -1072,14 +1074,14 @@ void PythonEditor::renderExceptionExtraSelections()
 {
     QList<QTextEdit::ExtraSelection> selections;
 
-    for (Base::PyExceptionInfo &exc : d->exceptions) {
-        if (exc.getOffset() > 0) {
+    for (auto &exc : d->exceptions) {
+        if (exc->getOffset() > 0) {
             // highlight text up to error in editor
             QTextEdit::ExtraSelection sel;
             sel.cursor = textCursor();
-            QTextBlock block = document()->findBlockByLineNumber(exc.getLine() -1);
+            QTextBlock block = document()->findBlockByLineNumber(exc->getLine() -1);
             sel.cursor.setPosition(block.position());
-            sel.cursor.setPosition(sel.cursor.position() + exc.getOffset(),
+            sel.cursor.setPosition(sel.cursor.position() + exc->getOffset(),
                                QTextCursor::KeepAnchor);
 
             sel.format.setBackground(QColor("#e5e5de")); // lightgray

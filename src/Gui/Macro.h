@@ -37,10 +37,6 @@ class PyExceptionInfo;
 class PyException;
 }
 
-namespace App {
-class PythonDebugger;
-}
-
 namespace Gui {
 struct ApplicationP;
 class PythonConsole;
@@ -108,7 +104,7 @@ public:
     long getLines() const {return totalLines;}
 
 Q_SIGNALS:
-    void exceptionFatal(Base::PyExceptionInfo *exception);
+    void exceptionFatal(std::shared_ptr<Base::PyExceptionInfo> exception);
 
 protected:
     QStringList macroInProgress;    /**< Container for the macro */
@@ -119,7 +115,6 @@ protected:
     bool scriptToPyConsole;
     bool localEnv;
     PythonConsole* pyConsole;       // link to the python console
-    App::Debugging::Python::Debugger* pyDebugger;
     Base::Reference<ParameterGrp> params;  // link to the Macro parameter group
     long totalLines;
     std::vector<std::pair<LineType,std::string> > pendingLine;

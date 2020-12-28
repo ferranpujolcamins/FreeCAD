@@ -270,7 +270,7 @@ void PythonDebuggerView::startDebug()
 
 void PythonDebuggerView::enableButtons()
 {
-    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto debugger = PyDebugger::instance();
     bool running = debugger->isRunning();
     bool halted = debugger->isHalted();
     if (d->m_startDebugBtn->isEnabled() != !running)
@@ -589,11 +589,11 @@ StackFramesModel::StackFramesModel(QObject *parent) :
 {
     auto debugger = App::Debugging::Python::Debugger::instance();
 
-    connect(debugger, SIGNAL(functionCalled(PyFrameObject*)),
-               this, SLOT(updateFrames(PyFrameObject*)));
-    connect(debugger, SIGNAL(functionExited(PyFrameObject*)),
-               this, SLOT(updateFrames(PyFrameObject*)));
-    connect(debugger, SIGNAL(stopped()), this, SLOT(clear()));
+    connect(debugger, &PyDebugger::functionCalled,
+               this, &StackFramesModel::updateFrames);
+    connect(debugger, &PyDebugger::functionExited,
+               this, &StackFramesModel::updateFrames);
+    connect(debugger, &PyDebugger::stopped, this, &StackFramesModel::clear);
 }
 
 StackFramesModel::~StackFramesModel()
@@ -706,9 +706,10 @@ void StackFramesModel::clear()
     endRemoveRows();
 }
 
-void StackFramesModel::updateFrames(PyFrameObject *frame)
+void StackFramesModel::updateFrames()
 {
     Base::PyGILStateLocker locker;
+    PyFrameObject* frame = PyDebugger::instance()->currentFrame();
     if (m_currentFrame != frame) {
         clear();
         m_currentFrame = frame;
@@ -725,13 +726,13 @@ void StackFramesModel::updateFrames(PyFrameObject *frame)
 PythonBreakpointModel::PythonBreakpointModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    auto debugger = App::Debugging::Python::Debugger::instance();
-    connect(debugger, SIGNAL(breakpointAdded(const BreakpointPtr*)),
-            this, SLOT(added(const BreakpointPtr*)));
-    connect(debugger, SIGNAL(breakpointChanged(const BreakpointPtr*)),
-            this, SLOT(changed(const BreakpointPtr*)));
-    connect(debugger, SIGNAL(breakpointRemoved(int, const BreakpointPtr*)),
-            this, SLOT(removed(int, const BreakpointPtr*)));
+    auto debugger = PyDebugger::instance();
+    connect(debugger, &PyDebugger::breakpointAdded,
+            this, &PythonBreakpointModel::added);
+    connect(debugger, &PyDebugger::breakpointChanged,
+            this, &PythonBreakpointModel::changed);
+    connect(debugger, &PyDebugger::breakpointRemoved,
+            this, &PythonBreakpointModel::removed);
 }
 
 PythonBreakpointModel::~PythonBreakpointModel()
@@ -741,8 +742,7 @@ PythonBreakpointModel::~PythonBreakpointModel()
 int PythonBreakpointModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
-    auto debugger = App::Debugging::Python::Debugger::instance();
-    return debugger->breakpointCount();
+    return PyDebugger::instance()->breakpointCount();
 }
 
 int PythonBreakpointModel::columnCount(const QModelIndex &parent) const
@@ -763,7 +763,7 @@ QVariant PythonBreakpointModel::data(const QModelIndex &index, int role) const
     if (index.column() > colCount)
         return QVariant();
 
-    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto debugger = PyDebugger::instance();
     auto bpl = debugger->getBreakpointFromIdx(index.row());
     if (!bpl)
         return QVariant();
@@ -819,26 +819,29 @@ QVariant PythonBreakpointModel::headerData(int section,
     }
 }
 
-void PythonBreakpointModel::added(const BreakpointPtr bp)
+void PythonBreakpointModel::added(size_t uniqueId)
 {
-    Q_UNUSED(bp)
+    Q_UNUSED(uniqueId)
     int count = rowCount();
     beginInsertRows(QModelIndex(), count, count);
     endInsertRows();
 }
 
-void PythonBreakpointModel::changed(const BreakpointPtr bp)
+void PythonBreakpointModel::changed(size_t uniqueId)
 {
-    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto debugger = PyDebugger::instance();
+    auto bp = debugger->getBreakpointFromUniqueId(uniqueId);
     int idx = debugger->getIdxFromBreakpoint(bp);
     if (idx > -1) {
         Q_EMIT dataChanged(index(idx, 0), index(idx, colCount));
     }
 }
 
-void PythonBreakpointModel::removed(int idx, const BreakpointPtr bp)
+void PythonBreakpointModel::removed(size_t uniqueId)
 {
-    Q_UNUSED(bp)
+    Q_UNUSED(uniqueId)
+    auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
+    int idx = static_cast<int>(bp->uniqueId());
     beginRemoveRows(QModelIndex(), idx, idx);
     endRemoveRows();
 }
@@ -849,27 +852,27 @@ void PythonBreakpointModel::removed(int idx, const BreakpointPtr bp)
 IssuesModel::IssuesModel(QObject *parent) :
     QAbstractTableModel(parent)
 {
-    auto debugger = App::Debugging::Python::Debugger::instance();
-    connect(debugger, SIGNAL(exceptionOccured(Base::PyExceptionInfo*)),
-            this, SLOT(exceptionOccured(Base::PyExceptionInfo*)));
+    auto debugger = PyDebugger::instance();
+    connect(debugger, &PyDebugger::exceptionOccured,
+            this, &IssuesModel::exceptionFilter);
 
-    connect(debugger, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
-            this, SLOT(exception(Base::PyExceptionInfo*)));
+    connect(debugger, &PyDebugger::exceptionFatal,
+            this, &IssuesModel::exception);
 
-    connect(debugger, SIGNAL(started()), this, SLOT(clear()));
-    connect(debugger, SIGNAL(clearAllExceptions()), this, SLOT(clear()));
-    connect(debugger, SIGNAL(clearException(QString,int)),
-            this, SLOT(clearException(QString,int)));
+    connect(debugger, &PyDebugger::started, this, &IssuesModel::clear);
+    connect(debugger, &PyDebugger::clearAllExceptions, this, &IssuesModel::clear);
+    connect(debugger, &PyDebugger::clearException,
+            this, &IssuesModel::clearException);
 
 
     MacroManager *macroMgr = Application::Instance->macroManager();
-    connect(macroMgr, SIGNAL(exceptionFatal(Base::PyExceptionInfo*)),
-            this, SLOT(exception(Base::PyExceptionInfo*)));
+    connect(macroMgr, &MacroManager::exceptionFatal,
+            this, &IssuesModel::exception);
 }
 
 IssuesModel::~IssuesModel()
 {
-    qDeleteAll(m_exceptions);
+    //qDeleteAll(m_exceptions); // not applicable to smart pointers
 }
 
 int IssuesModel::rowCount(const QModelIndex &parent) const
@@ -896,7 +899,7 @@ QVariant IssuesModel::data(const QModelIndex &index, int role) const
     if (index.column() > colCount)
         return QVariant();
 
-    Base::PyExceptionInfo *exc = m_exceptions.at(index.row());
+    auto exc = m_exceptions.at(index.row());
     if (!exc || !exc->isValid())
         return QVariant();
 
@@ -971,28 +974,31 @@ bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
     return true;
 }
 
-void IssuesModel::exceptionOccured(Base::PyExceptionInfo *exc)
+void IssuesModel::exceptionFilter(std::shared_ptr<Base::Exception> exc)
 {
+    auto excPy = std::dynamic_pointer_cast<Base::PyExceptionInfo>(exc);
+    if (!excPy)
+        return;
+
     // on runtime, we don't want to catch runtime exceptions before they are fatal
     // but we do want to catch warnings
     //if (exc->isWarning())
-        exception(exc);
+        exception(excPy);
 
 }
 
-void IssuesModel::exception(Base::PyExceptionInfo *exception)
+void IssuesModel::exception(std::shared_ptr<Base::PyExceptionInfo> exception)
 {
     // already set?
-    for (const Base::PyExceptionInfo *exc : m_exceptions) {
+    for (const auto &exc : m_exceptions) {
         if (exc->getFile() == exception->getFile() &&
             exc->getLine() == exception->getLine())
             return;
     }
 
     // copy exception and store it
-    Base::PyExceptionInfo *exc = new Base::PyExceptionInfo(*exception);
     beginInsertRows(QModelIndex(), m_exceptions.size(), m_exceptions.size());
-    m_exceptions.append(exc);
+    m_exceptions.append(exception);
     endInsertRows();
 }
 
@@ -1224,15 +1230,15 @@ VarTreeModelBase::VarTreeModelBase(QObject *parent) :
     rootData << tr("Name") << tr("Value") << tr("Type");
     m_rootItem = new VariableTreeItem(rootData, nullptr);
 
-    auto debugger = App::Debugging::Python::Debugger::instance();
+    auto debugger = PyDebugger::instance();
 
-    connect(debugger, SIGNAL(nextInstruction(PyFrameObject*)),
-               this, SLOT(updateVariables(PyFrameObject*)));
+    connect(debugger, &PyDebugger::nextInstruction,
+               this, &VarTreeModelBase::updateVariables);
 
-    connect(debugger, SIGNAL(functionExited(PyFrameObject*)),
-               this, SLOT(clear()));
+    connect(debugger, &PyDebugger::functionExited,
+               this, &VarTreeModelBase::clear);
 
-    connect(debugger, SIGNAL(stopped()), this, SLOT(clear()));
+    connect(debugger, &PyDebugger::stopped, this, &VarTreeModelBase::clear);
 }
 
 VarTreeModelBase::~VarTreeModelBase()
@@ -1342,7 +1348,7 @@ QVariant VarTreeModelBase::data(const QModelIndex &index, int role) const
 Qt::ItemFlags VarTreeModelBase::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
-        return 0;
+        return nullptr;
 
     return QAbstractItemModel::flags(index); // Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 }
@@ -1662,16 +1668,16 @@ void VariableTreeModel::clear()
     }
 }
 
-void VariableTreeModel::updateVariables(PyFrameObject *frame)
+void VariableTreeModel::updateVariables()
 {
     Base::PyGILStateLocker lock;
 
-
+    PyFrameObject *frame = PyDebugger::instance()->currentFrame();
     PyFrame_FastToLocals(frame);
 
     // first locals
     VariableTreeItem *parentItem = m_localsItem;
-    PyObject *rootObject = (PyObject*)frame->f_locals;
+    PyObject *rootObject = static_cast<PyObject*>(frame->f_locals);
     if (rootObject) {
         m_localsItem->setMeAsRoot(Py::Object(rootObject));
         scanObject(rootObject, parentItem, 0, true);
@@ -1721,9 +1727,8 @@ void WatchModel::addItem(QString name)
 
     // update variables with newly added
     auto debugger = App::Debugging::Python::Debugger::instance();
-    PyFrameObject *frm = debugger->currentFrame();
-    if (frm)
-        updateVariables(frm);
+    if (debugger->currentFrame())
+        updateVariables();
 }
 
 void WatchModel::removeItem(QString name)
@@ -1749,16 +1754,17 @@ void WatchModel::clear()
     }
 }
 
-void WatchModel::updateVariables(PyFrameObject *frame)
+void WatchModel::updateVariables()
 {
     Base::PyGILStateLocker lock;
 
+    PyFrameObject *frame = PyDebugger::instance()->currentFrame();
     PyFrame_FastToLocals(frame);
 
     // stored variables
     for (int i = 0; i < m_rootItem->childCount(); ++i) {
         VariableTreeItem *itm = m_rootItem->child(i);
-        PyObject *rootObject = (PyObject*)frame->f_locals;
+        PyObject *rootObject = static_cast<PyObject*>(frame->f_locals);
         if (rootObject && PyDict_Check(rootObject)) {
             Py::Dict locals(rootObject);
             if (locals.hasKey(itm->data(0).toString().toStdString())) {

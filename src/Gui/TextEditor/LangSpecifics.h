@@ -52,7 +52,7 @@ class AbstractLangView : public std::enable_shared_from_this<AbstractLangView>
     AbstractLangViewP *d;
     const char *m_lang;
 public:
-    explicit AbstractLangView(std::weak_ptr<EditorView> editView, const char *langName);
+    explicit AbstractLangView(EditorView *editView, const char *langName);
     virtual ~AbstractLangView();
 
     const char* name() const;
@@ -69,7 +69,7 @@ public:
 class AbstractLangViewDbg : public AbstractLangView
 {
 public:
-    explicit AbstractLangViewDbg(std::weak_ptr<EditorView> editView,
+    explicit AbstractLangViewDbg(EditorView* editView,
                                  const char* langName);
     ~AbstractLangViewDbg();
 
@@ -106,7 +106,7 @@ class PythonLangViewDbg : public QObject,
     Q_OBJECT
     PythonLangViewDbgP *d;
 public:
-    explicit PythonLangViewDbg(std::weak_ptr<EditorView> editView);
+    explicit PythonLangViewDbg(EditorView* editView);
     ~PythonLangViewDbg() override;
 
     App::Debugging::Python::Debugger* debugger() override;

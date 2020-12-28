@@ -551,7 +551,7 @@ const Python::SourceIdentifier *Python::SourceParser::lookupIdentifierReference(
 
         if (!tmpIdent) {
             tok->ownerLine()->setLookupErrorMsg(tok);
-        } else {
+        } else if (lookFromToken) {
             assign = tmpIdent->getFromPos(lookFromToken);
             if (assign && assign->typeInfo().isValid()) {
                 if (assign->token()->type() == Python::Token::T_IdentifierSelf)

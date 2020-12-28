@@ -30,12 +30,12 @@ using namespace Gui;
 namespace Gui {
 class AbstractLangViewP {
 public:
-    explicit AbstractLangViewP(std::weak_ptr<EditorView> editorView, const char* langName)
+    explicit AbstractLangViewP(EditorView *editorView, const char* langName)
         : view(editorView)
         , lang(langName)
     {}
     ~AbstractLangViewP() {}
-    std::weak_ptr<EditorView> view;
+    EditorView* view;
     const char *lang;
 };
 
@@ -48,7 +48,7 @@ public:
 
 // -----------------------------------------------------------------
 
-AbstractLangView::AbstractLangView(std::weak_ptr<EditorView> editView, const char* langName)
+AbstractLangView::AbstractLangView(EditorView* editView, const char* langName)
     : d(new AbstractLangViewP(editView, langName))
 {
 }
@@ -66,7 +66,7 @@ const char *AbstractLangView::name() const
 // -------------------------------------------------------------------
 
 
-AbstractLangViewDbg::AbstractLangViewDbg(std::weak_ptr<EditorView> editView,
+AbstractLangViewDbg::AbstractLangViewDbg(EditorView *editView,
                                          const char *langName)
     : AbstractLangView(editView, langName)
 {
@@ -81,8 +81,8 @@ AbstractLangViewDbg::~AbstractLangViewDbg()
 
 
 
-PythonLangViewDbg::PythonLangViewDbg(std::weak_ptr<EditorView> editView)
-    : QObject(),
+PythonLangViewDbg::PythonLangViewDbg(EditorView *editView)
+    : QObject(editView),
       AbstractLangViewDbg(editView, "Python")
 {
     auto dbgr = debugger();
@@ -123,7 +123,7 @@ void PythonLangViewDbg::onBreakPointChanged(size_t uniqueId)
     if (!bp || bp->bpFile()->fileName() != view()->fileName())
         return;
 
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(view()->editor());
+    auto textEditor = dynamic_cast<TextEditor*>(view()->editor());
     if (textEditor)
         textEditor->lineMarkerArea()->update();
 }

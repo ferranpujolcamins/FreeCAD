@@ -46,6 +46,8 @@ class EditorViewTopBar;
 class EditorViewWrapper;
 class EditorSearchClearEdit;
 class TextEditor;
+class EditorType;
+
 /**
  * A special view class which sends the messages from the application to
  * the editor and embeds it in a window.
@@ -63,13 +65,11 @@ public:
         BaseName
     };
 
-    explicit EditorView(std::shared_ptr<QPlainTextEdit> editor, QWidget* parent);
-    // for backwards compatability
-    explicit EditorView(QPlainTextEdit* editor, QWidget *parent);
+    explicit EditorView(QPlainTextEdit* editor, QWidget* parent);
     ~EditorView();
 
-    std::shared_ptr<QPlainTextEdit> editor() const;
-    std::shared_ptr<TextEditor> textEditor() const;
+    QPlainTextEdit *editor() const;
+    TextEditor* textEditor() const;
     void setDisplayName(DisplayName);
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
@@ -95,7 +95,6 @@ public:
     void print  ();
     void printPdf();
     void printPreview();
-    void print(QPrinter*);
     virtual void showFindBar();
     virtual void hideFindBar();
     //@}
@@ -106,11 +105,12 @@ public:
     void setFileName(QString fileName);
 
     // sets a topbar widget
-    void setTopbar(std::shared_ptr<EditorViewTopBar> topBar);
-    std::shared_ptr<EditorViewTopBar> topBar();
+    void setTopbar(EditorViewTopBar* topBar);
+    EditorViewTopBar* topBar();
 
 public Q_SLOTS:
     void setWindowModified(bool modified);
+    void print(QPrinter*);
 
 protected:
     void focusInEvent(QFocusEvent* e);
@@ -120,7 +120,7 @@ protected:
      * @param index at index, -1 is last
      */
     void insertWidget(QWidget *wgt, int index = -1);
-    std::shared_ptr<EditorViewWrapper> editorWrapper() const;
+    EditorViewWrapper* editorWrapper() const;
 
 
 
@@ -155,7 +155,7 @@ Q_SIGNALS:
 private:
     void setCurrentFileName(const QString &fileName);
     bool saveFile();
-    QPlainTextEdit* swapEditor(std::shared_ptr<QPlainTextEdit> newEditor);
+    QPlainTextEdit* swapEditor(QPlainTextEdit* newEditor);
 
 private:
     EditorViewP* d;
@@ -172,7 +172,7 @@ class GuiExport PythonEditorView : public EditorView
     Q_OBJECT
 
 public:
-    PythonEditorView(std::shared_ptr<PythonEditor> editor, QWidget* parent);
+    PythonEditorView(PythonEditor* editor, QWidget* parent);
     ~PythonEditorView();
 
     bool onMsg(const char* pMsg,const char** ppReturn);
@@ -198,33 +198,33 @@ private:
  * undo/ redo, timestamp etc
  */
 class EditorViewWrapperP;
-class GuiExport EditorViewWrapper : public std::enable_shared_from_this<EditorViewWrapper>
+class GuiExport EditorViewWrapper
 {
     EditorViewWrapperP *d;
 public:
     /// Constructor
     /// editor = pointer to a editor in heap, wrapper takes ownership
     /// fn = filename
-    explicit EditorViewWrapper(std::shared_ptr<QPlainTextEdit> editor, const QString &fn);
+    explicit EditorViewWrapper(QPlainTextEdit* editor, const QString &fn);
     virtual ~EditorViewWrapper();
 
     /**
      * @brief attach/detach from EditorView
      * @param sharedOwner, current view
      */
-    void attach(std::shared_ptr<EditorView> sharedOwner);
-    void detach(std::shared_ptr<EditorView> sharedOwner);
+    void attach(EditorView* sharedOwner);
+    void detach(EditorView* sharedOwner);
     /**
      * @brief detaches from sharedOwner and if file has no other owners,
      *      editor gets destroyed
      * @param sharedOwner, ownerView
      * @return true if editor gets destoyed (no other shared owners)
      */
-    bool close(std::shared_ptr<EditorView> sharedOwner);
+    bool close(EditorView* sharedOwner);
 
-    std::shared_ptr<QPlainTextEdit> editor() const;
-    std::shared_ptr<TextEditor> textEditor() const;
-    std::shared_ptr<EditorView> view() const;
+    QPlainTextEdit* editor() const;
+    TextEditor* textEditor() const;
+    EditorView* view() const;
     QString fileName() const;
     void setFileName(const QString &fn);
     uint timestamp() const;
@@ -253,7 +253,7 @@ class GuiExport EditorViewSingleton : public QObject
     //friend class EditorViewWrapper;
     EditorViewSingletonP *d;
 public:
-    typedef std::shared_ptr<QPlainTextEdit> (*createT)();
+    typedef QPlainTextEdit* (*createT)();
 
     EditorViewSingleton();
     ~EditorViewSingleton();
@@ -274,26 +274,22 @@ public:
      *         if null open in activeview, create a editorview if not opened
      * @return the editorView now open
      */
-    std::shared_ptr<EditorView> openFile(const QString fn,
-                                         std::shared_ptr<EditorView> view = nullptr);
+    EditorView* openFile(const QString fn, EditorView* view = nullptr);
 
     /**
      * @brief getWrapper gets the EditViewWrapper for the file
      * @param fn filename to search for
-     * @param ownerView in wich view to search
+     * @param ownerView in which view to search
      * @return the wrapper for this file or nullptr if not found
      */
-    std::shared_ptr<EditorViewWrapper>
-    getWrapper(const QString &fn, std::shared_ptr<EditorView> ownerView);
-    EditorViewWrapper*
-    getWrapper(const QString &fn, EditorView* ownerView);
+    EditorViewWrapper* getWrapper(const QString &fn, EditorView* ownerView);
 
     /**
      * @brief getWrappers get a list of all global wrappers
      * @param fn filename to search for
      * @return list af all wrappers that matches fn
      */
-    QList<std::shared_ptr<EditorViewWrapper>> getWrappers(const QString &fn);
+    QList<EditorViewWrapper*> getWrappers(const QString &fn);
 
     /**
      * @brief createWrapper create a new wrapper for fn
@@ -301,32 +297,43 @@ public:
      * @param editor (optional) if none it creates a new Editor
      * @return the fresh wrapper
      */
-    std::shared_ptr<EditorViewWrapper>
-    createWrapper(const QString &fn, std::shared_ptr<QPlainTextEdit> editor = nullptr);
+    EditorViewWrapper* createWrapper(const QString &fn, QPlainTextEdit* editor = nullptr);
+
+    /**
+     * @brief createView create a new EditorView and attach it to MainWindow
+     * @param edit optional QPlainTextEdit
+     * @return the created EditorView
+     */
+    EditorView* createView(QPlainTextEdit *edit = nullptr);
+
+    /**
+     * @brief createEditor create a new editor with type based on fn's mimetype.
+     * @param fn filename to open
+     * @param view parent view
+     * @return the new editor, view has ownership
+     */
+    QPlainTextEdit* createEditor(const QString &fn) const;
 
     /**
      * @brief removeWrapper removes the wrapper from global store
      * @param ew the EditViewWrapper to remove
      * @return true if successfull (found and removed)
      */
-    bool removeWrapper(std::shared_ptr<EditorViewWrapper> ew);
-    bool removeWrapper(EditorViewWrapper *ew);
+    bool removeWrapper(EditorViewWrapper* ew);
 
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
      * @param backSteps negative numer back from current accessed, ie -1 for previous
      * @return the corresponding EditorWrapper
      */
-    std::shared_ptr<EditorViewWrapper>
-    lastAccessed(std::shared_ptr<EditorView> view, int backSteps = 0);
+    EditorViewWrapper* lastAccessed(EditorView* view, int backSteps = 0);
 
     /**
      * @brief openedBySuffix gets wrappers opened differentiated by file suffixes
      * @param types list of file suffixes
      * @return a list of all EditorViewWrappers opened by mimetypes
      */
-    QList<std::shared_ptr<const EditorViewWrapper>>
-    openedBySuffix(QStringList types = QStringList());
+    QList<const EditorViewWrapper*> openedBySuffix(QStringList types = QStringList());
 
 Q_SIGNALS:
     /**
@@ -356,6 +363,7 @@ private Q_SLOTS:
     void docModifiedChanged(bool changed);
     void connectToDebugger(void);
 
+    const EditorType *editorTypeForFile(const QString &fn) const;
 };
 
 // ---------------------------------------------------------------------------
