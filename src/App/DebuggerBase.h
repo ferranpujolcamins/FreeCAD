@@ -117,12 +117,12 @@ public:
 template<typename T_bpfile>
 class AbstractDbgrP {
 public:
-    explicit AbstractDbgrP()
-    { }
-    ~AbstractDbgrP()
-    { }
+    explicit AbstractDbgrP() : currentLine(-1) { }
+    ~AbstractDbgrP() { }
     State state;
     std::vector<std::shared_ptr<T_bpfile>> bps;
+    QString currentFile;
+    int currentLine;
 };
 
 // *********************** end private data classes ****************************
@@ -257,6 +257,15 @@ class DebuggerBase : public QObject
 public:
     explicit DebuggerBase(QObject *parent = nullptr);
     virtual ~DebuggerBase();
+
+    /// returns the file we are currently at
+    /// might change on every functionCalled
+    /// empty when not halted
+    virtual QString currentFile() const = 0;
+    /// returns the line we are at
+    /// -1 when not halted
+    virtual int currentLine() const = 0;
+
 
 public Q_SLOTS:
     virtual bool start() = 0;

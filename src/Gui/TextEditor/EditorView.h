@@ -47,6 +47,7 @@ class EditorViewWrapper;
 class EditorSearchClearEdit;
 class TextEditor;
 class EditorType;
+class AbstractLangPlugin;
 
 /**
  * A special view class which sends the messages from the application to
@@ -86,7 +87,7 @@ public:
     //@{
     virtual bool open   (const QString &f);
     virtual bool save   ();
-    virtual bool saveAs (const QString fileName = QString());
+    virtual bool saveAs (const QString filename = QString());
     virtual void cut    ();
     virtual void copy   ();
     virtual void paste  ();
@@ -101,8 +102,10 @@ public:
 
     QStringList undoActions() const;
     QStringList redoActions() const;
-    QString fileName() const;
-    void setFileName(QString fileName);
+    QString filename() const;
+    void setFilename(QString filename);
+
+    const QList<AbstractLangPlugin*> currentPlugins() const;
 
     // sets a topbar widget
     void setTopbar(EditorViewTopBar* topBar);
@@ -111,6 +114,7 @@ public:
 public Q_SLOTS:
     void setWindowModified(bool modified);
     void print(QPrinter*);
+    void refreshLangPlugins();
 
 protected:
     void focusInEvent(QFocusEvent* e);
@@ -134,18 +138,18 @@ Q_SIGNALS:
     /**
      * @brief changeFileName emitted when filename changes, such as save as
      */
-    void changeFileName(const QString &fileName);
+    void changeFileName(const QString &filename);
 
     /**
      * @brief switchedFile emitted when another file is shown in view
      * for exapmle when we debug trace into another file
      */
-    void switchedFile(const QString &fileName);
+    void switchedFile(const QString &filename);
 
     /**
      * @brief closedFile emitted when a file is closed
      */
-    void closedFile(const QString &fileName);
+    void closedFile(const QString &filename);
 
     /**
      * @brief modifiedChanged emitted when current editor modified status changes
@@ -153,7 +157,7 @@ Q_SIGNALS:
     void modifiedChanged(bool unsaved);
 
 private:
-    void setCurrentFileName(const QString &fileName);
+    void setCurrentFileName(const QString &filename);
     bool saveFile();
     QPlainTextEdit* swapEditor(QPlainTextEdit* newEditor);
 
@@ -178,14 +182,14 @@ public:
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
-    static PythonEditorView *setAsActive(QString fileName = QString());
+    static PythonEditorView *setAsActive(QString filename = QString());
 
 public Q_SLOTS:
     void executeScript();
     void startDebug();
     void toggleBreakpoint();
-    void showDebugMarker(const QString &fileName, int line);
-    void hideDebugMarker(const QString &fileName, int line);
+    void showDebugMarker(const QString &filename, int line);
+    void hideDebugMarker(const QString &filename, int line);
 
 private:
     PythonEditorViewP *d;
@@ -225,8 +229,11 @@ public:
     QPlainTextEdit* editor() const;
     TextEditor* textEditor() const;
     EditorView* view() const;
-    QString fileName() const;
-    void setFileName(const QString &fn);
+    QString filename() const;
+    void setFilename(const QString &fn);
+
+    const QString& mimetype() const;
+    void setMimetype(QString mime);
     uint timestamp() const;
     void setTimestamp(uint timestamp);
     void setLocked(bool locked);
@@ -260,6 +267,9 @@ public:
     static bool registerTextEditorType(createT factory, const QString &name,
                                        const QStringList &suffixes, const QStringList &mimetypes,
                                        const QString &icon = QLatin1String("accessories-text-editor"));
+
+    // register new plugin. takes ownership
+    static void registerLangPlugin(AbstractLangPlugin *plugin);
 
     /**
      * @brief instance, gets the singleton
@@ -361,8 +371,6 @@ Q_SIGNALS:
 
 private Q_SLOTS:
     void docModifiedChanged(bool changed);
-    void connectToDebugger(void);
-
     const EditorType *editorTypeForFile(const QString &fn) const;
 };
 

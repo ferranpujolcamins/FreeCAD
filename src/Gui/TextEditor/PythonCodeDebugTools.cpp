@@ -288,7 +288,7 @@ void DebugWindow::dumpFrames()
     tmpFilePtr = tmpfile();
 
     //DumpSyntaxTokens dump(document()->begin());
-    QString fileName = m_editor->fileName();
+    QString fileName = m_editor->filename();
     Python::SourceModule *module =
             Python::SourceRoot::instance()->moduleFromPath(fileName.toStdString());
     Python::DumpModule dMod(module, tmpFilePtr);

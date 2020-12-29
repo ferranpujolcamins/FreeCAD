@@ -320,6 +320,7 @@ void PythonSyntaxHighlighter::tokenUpdated(const Python::Token *tok)
 }
 
 void PythonSyntaxHighlighter::sourceScanTmrCallback() {
+    if (!document()) return;
     for(int row : d->srcScanBlocks) {
         QTextBlock block = document()->findBlockByNumber(row);
         if (block.isValid()) {
@@ -332,9 +333,9 @@ void PythonSyntaxHighlighter::sourceScanTmrCallback() {
     d->srcScanBlocks.clear();
 }
 
-void PythonSyntaxHighlighter::setFilePath(QString file)
+void PythonSyntaxHighlighter::setFilepath(QString file)
 {
-    SyntaxHighlighter::setFilePath(file);
+    SyntaxHighlighter::setFilepath(file);
     Python::Lexer::setFilePath(file.toStdString());
 #ifdef BUILD_PYTHON_DEBUGTOOLS
     QElapsedTimer timer;

@@ -93,7 +93,7 @@ public Q_SLOTS:
      */
     void onAutoIndent();
 
-    void setFileName(const QString&);
+    void setFilename(const QString&);
     void startDebug();
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);

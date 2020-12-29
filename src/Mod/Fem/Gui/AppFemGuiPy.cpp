@@ -126,7 +126,7 @@ private:
         QString ext = fi.completeSuffix().toLower();
         QList<Gui::EditorView*> views = Gui::getMainWindow()->findChildren<Gui::EditorView*>();
         for (QList<Gui::EditorView*>::Iterator it = views.begin(); it != views.end(); ++it) {
-            if ((*it)->fileName() == fileName) {
+            if ((*it)->filename() == fileName) {
                 (*it)->setFocus();
                 return Py::None();
             }

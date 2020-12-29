@@ -152,11 +152,9 @@ public:
     PyFrameObject* currentFrame;
     DebugExcept* pypde;
     QEventLoop loop;
-    //RunningState state;
     int maxHaltLevel;
     int showStackLevel;
     bool init, trystop, halted;
-    //std::vector<BreakpointPyFile*> bps;
 
     DebuggerP(Debugger* that) :
         maxHaltLevel(-1), showStackLevel(-1),
@@ -663,6 +661,23 @@ PyFrameObject *Debugger::currentFrame() const
 
     return fr;
 
+}
+
+QString Debugger::currentFile() const
+{
+    if (d->currentFrame && isHalted()) {
+        const char *filename = PY_AS_C_STRING(d->currentFrame->f_code->co_filename);
+        return QString::fromUtf8(filename);
+    }
+    return QString();
+}
+
+int Debugger::currentLine() const
+{
+    if (d->currentFrame && isHalted()) {
+        return PyCode_Addr2Line(d->currentFrame->f_code, d->currentFrame->f_lasti);
+    }
+    return -1;
 }
 
 int Debugger::callDepth(const PyFrameObject *frame) const

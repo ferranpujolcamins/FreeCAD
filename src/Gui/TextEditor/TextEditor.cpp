@@ -34,10 +34,14 @@
 #include "TextEditor.h"
 #include "SyntaxHighlighter.h"
 #include "BitmapFactory.h"
+#include "LangPluginBase.h"
+#include "EditorView.h"
 
 #include <QScrollBar>
 #include <QStyleOptionSlider>
 #include <QCompleter>
+#include <QMimeDatabase>
+#include <QFileInfo>
 
 
 #include <QDebug>
@@ -77,7 +81,9 @@ struct TextEditorP
     //QMap<QString, QColor> colormap; // Color map
     QHash<QString, QList<QTextEdit::ExtraSelection> > extraSelections;
     QCompleter *completer;
-    QString filename;
+    QString filename,
+            mime;
+    EditorViewWrapper *wrapper;
     SyntaxHighlighter* highlighter;
     LineMarkerArea* lineNumberArea;
     const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
@@ -85,12 +91,13 @@ struct TextEditorP
     bool showIndentMarkers,
          showLongLineMarker;
 
-    TextEditorP(TextEditor *owner) :
-        completer(nullptr),
-        highlighter(new SyntaxHighlighter(owner)),
-        lastSavedRevision(0),
-        showIndentMarkers(true),
-        showLongLineMarker(false)
+    TextEditorP(TextEditor *owner)
+        : completer(nullptr)
+        , wrapper(nullptr)
+        , highlighter(new SyntaxHighlighter(owner))
+        , lastSavedRevision(0)
+        , showIndentMarkers(true)
+        , showLongLineMarker(false)
     {
     }
     ~TextEditorP()
@@ -252,16 +259,29 @@ void TextEditor::setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> se
      setExtraSelections(show);
 }
 
-void TextEditor::setFileName(const QString &fn)
+void TextEditor::setFilename(const QString &fn)
 {
     if (fn != d->filename) {
-        d->filename = fn;
-        d->highlighter->setFilePath(fn);
-        Q_EMIT fileNameChanged(fn);
+        QFileInfo oldFi(d->filename);
+
+        d->filename = QFileInfo(fn).absoluteFilePath();
+
+        QFileInfo fi(fn);
+        if (!fn.isEmpty() && fi.suffix() != fi.baseName() && fi.suffix() != oldFi.suffix()) {
+            QMimeDatabase db;
+            QMimeType type = db.mimeTypeForFile(fn);
+            if (type.isValid())
+                d->mime = type.name();
+        }
+
+        auto hl = dynamic_cast<SyntaxHighlighter*>(d->highlighter);
+        if (hl)
+            d->highlighter->setFilepath(fn);
+        Q_EMIT filenameChanged(fn);
     }
 }
 
-QString TextEditor::fileName() const
+QString TextEditor::filename() const
 {
     return d->filename;
 }
@@ -274,6 +294,33 @@ bool TextEditor::setSyntax(const QString &defName)
 QString TextEditor::syntax() const
 {
     return d->highlighter->syntax();
+}
+
+const QString &TextEditor::mimetype() const
+{
+    return d->mime;
+}
+
+void TextEditor::setMimetype(QString mime)
+{
+    d->mime = mime;
+    if (d->wrapper) {
+        if (d->wrapper->mimetype() != mime)
+            d->wrapper->setMimetype(mime);
+
+        if (d->wrapper->view())
+            d->wrapper->view()->refreshLangPlugins();
+    }
+}
+
+EditorViewWrapper *TextEditor::wrapper() const
+{
+    return d->wrapper;
+}
+
+void TextEditor::setWrapper(EditorViewWrapper *wrapper)
+{
+    d->wrapper = wrapper;
 }
 
 void TextEditor::setCompleter(QCompleter *completer) const
@@ -329,7 +376,11 @@ void TextEditor::resizeEvent(QResizeEvent *e)
 
 void TextEditor::contextMenuEvent(QContextMenuEvent *e)
 {
-    QMenu *menu = createStandardContextMenu(e->globalPos());
+    auto menu = createStandardContextMenu(e->globalPos());
+
+    auto cursor = cursorForPosition(e->globalPos());
+    auto line = cursor.block().blockNumber();
+
     menu->addSeparator();
     if (d->highlighter) {
         // syntax selection
@@ -369,6 +420,15 @@ void TextEditor::contextMenuEvent(QContextMenuEvent *e)
             d->highlighter->setSyntax(name);
         });
     }
+
+    // let plugins extend context menu
+    if (d->wrapper && d->wrapper->view()) {
+        for (auto plugin : d->wrapper->view()->currentPlugins()) {
+            auto pydbg = dynamic_cast<AbstractLangPluginDbg*>(plugin);
+            if (pydbg) pydbg->contextMenuTextArea(d->wrapper->view(), menu, d->filename, line);
+        }
+    }
+
     menu->exec(e->globalPos());
     delete menu;
 }
@@ -579,11 +639,11 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
     Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (strcmp(sReason, "FontSize") == 0 || strcmp(sReason, "Font") == 0) {
-#ifdef FC_OS_LINUX
-        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 15));
-#else
+//#ifdef FC_OS_LINUX
+//        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 15));
+//#else
         int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 10));
-#endif
+//#endif
         QString fontFamily = QString::fromLatin1(hPrefGrp->GetASCII( "Font", "Courier" ).c_str());
         
         QFont font(fontFamily, fontSize);
@@ -629,6 +689,14 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
             d->lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), 20, cr.height()));
         }
         d->lineNumberArea->setLineNumbersVisible(show);
+    }
+
+    // let our plugins know
+    if (d->wrapper && d->wrapper->view()) {
+        auto view = d->wrapper->view();
+        for (auto plugin : d->wrapper->view()->currentPlugins())
+            plugin->OnChange(view, rCaller, sReason);
+
     }
 }
 
@@ -733,6 +801,14 @@ void TextEditor::setUpMarkerAreaContextMenu(int line)
     QAction *bookmark = new QAction(BitmapFactory().iconFromTheme("bookmark"), bookmarkTxt, &m_markerAreaContextMenu);
     bookmark->setData(Bookmark);
     m_markerAreaContextMenu.addAction(bookmark);
+
+    // let plugins extend context menu
+    if (d->wrapper && d->wrapper->view()) {
+        for (auto plugin : d->wrapper->view()->currentPlugins()) {
+            auto pydbg = dynamic_cast<AbstractLangPluginDbg*>(plugin);
+            if (pydbg) pydbg->contextMenuLineNr(d->wrapper->view(), &m_markerAreaContextMenu, d->filename, line);
+        }
+    }
 }
 
 void TextEditor::handleMarkerAreaContextMenu(QAction *res, int line)
@@ -992,11 +1068,16 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
     int top = static_cast<int>(d->textEditor->blockBoundingGeometry(block)
                                 .translated(d->textEditor->contentOffset()).top());
     int bottom = top + static_cast<int>(d->textEditor->blockBoundingRect(block).height());
+    QRect rowRect(0, 0,
+                    (d->lineNumberActive ? textWidth : 0) +
+                    (paintFold ? foldingWidth : 0),
+                  lineHeight);
 
 
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (bottom >= event->rect().top()) {
+            rowRect.moveTop(top);
             if (d->lineNumberActive && block.isVisible()) {
                 // we should paint linenumbers
                 QString number = QString::number(blockNumber + 1);
@@ -1060,6 +1141,16 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
             }
 
             if (block.isVisible()) {
+                // let plugins render there own stuff
+                if (d->textEditor->wrapper() && d->textEditor->wrapper()->view()) {
+                    painter.save();
+
+                    auto view = d->textEditor->wrapper()->view();
+                    for (auto plugin : view->currentPlugins())
+                        plugin->paintEventLineNumberArea(view, &painter, block, rowRect);
+
+                    painter.restore();
+                }
                 // let special things in editor render it's stuff, ie. debugmarker breakpoints etc.
                 d->textEditor->drawMarker(blockNumber + 1, 1, top, &painter);
             }

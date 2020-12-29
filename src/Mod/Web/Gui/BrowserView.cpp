@@ -657,7 +657,7 @@ void BrowserView::onViewSource(const QUrl &url)
     auto editor = editView->textEditor();
     editor->setReadOnly(true);
     editor->setSyntax(QString::fromLatin1("HTML"));
-    editor->setFileName(url.path());
+    editor->setFilename(url.path());
     editor->setPlainText(pageSource);
     getMainWindow()->addWindow(editView);
 }

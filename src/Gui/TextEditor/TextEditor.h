@@ -44,7 +44,7 @@ QT_END_NAMESPACE
 namespace Gui {
 class SyntaxHighlighter;
 
-
+class EditorViewWrapper;
 class LineMarkerArea;
 class SyntaxHighlighter;
 class TextEditBlockData;
@@ -64,11 +64,10 @@ public:
      */
     virtual void highlightText(int pos, int len, const QTextCharFormat format);
 
-
     void setSyntaxHighlighter(SyntaxHighlighter*);
     SyntaxHighlighter *syntaxHighlighter() const;
 
-    void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
+    void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason) override;
 
     //void lineNumberAreaPaintEvent(QPaintEvent* );
     int lineNumberAreaWidth();
@@ -79,20 +78,27 @@ public:
     void setTextMarkers(QString key, QList<QTextEdit::ExtraSelection> selections);
 
     /// sets the filename, note save is handled by editor view
-    virtual QString fileName() const;
+    virtual QString filename() const;
     /// current used syntax
     QString syntax() const;
+
+    /// mime type for this editor
+    const QString &mimetype() const;
+    void setMimetype(QString mime);
+
+    EditorViewWrapper* wrapper() const;
+    void setWrapper(EditorViewWrapper *wrapper);
 
 
     void setCompleter(QCompleter *completer) const;
     QCompleter *completer() const;
 
 Q_SIGNALS:
-    void fileNameChanged(const QString &fn);
+    void filenameChanged(const QString &fn);
 
 public Q_SLOTS:
     void onSave();
-    void setFileName(const QString& fn);
+    void setFilename(const QString& fn);
     // set syntax definitions, does nothing if built without KSyntaxtHighlighter
     bool setSyntax(const QString &defName);
 

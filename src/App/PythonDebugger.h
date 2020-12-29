@@ -179,7 +179,16 @@ public:
 
     bool isHalted() const;
 
+    /// returns the last frame from last halt
     PyFrameObject *currentFrame() const;
+
+    /// returns the file we are currently at
+    /// might change on every functionCalled
+    /// empty when not halted
+    QString currentFile() const;
+    /// returns the line we are at
+    /// -1 when not halted
+    int currentLine() const;
 
     /**
      * @brief callDepth: gets the call depth of frame
@@ -213,10 +222,10 @@ public Q_SLOTS:
     void stepContinue();
     void sendClearException(const QString &fn, int line);
     void sendClearAllExceptions();
-
-private Q_SLOTS:
     void onFileOpened(const QString &fn);
     void onFileClosed(const QString &fn);
+
+private Q_SLOTS:
     void onAppQuit();
 
 Q_SIGNALS:

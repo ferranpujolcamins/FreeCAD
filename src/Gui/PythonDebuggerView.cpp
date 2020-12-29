@@ -489,17 +489,26 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
 
     auto debugger = App::Debugging::Python::Debugger::instance();
 
-    connect(d->m_startDebugBtn, SIGNAL(clicked()), this, SLOT(startDebug()));
-    connect(d->m_stopDebugBtn, SIGNAL(clicked()), debugger, SLOT(stop()));
-    connect(d->m_haltOnNextBtn, SIGNAL(clicked()), debugger, SLOT(haltOnNext()));
-    connect(d->m_stepIntoBtn, SIGNAL(clicked()), debugger, SLOT(stepInto()));
-    connect(d->m_stepOverBtn, SIGNAL(clicked()), debugger, SLOT(stepOver()));
-    connect(d->m_stepOutBtn, SIGNAL(clicked()), debugger, SLOT(stepOut()));
-    connect(d->m_continueBtn, SIGNAL(clicked()), debugger, SLOT(stepContinue()));
+    connect(d->m_startDebugBtn, &QPushButton::clicked,
+            this, &PythonDebuggerView::startDebug);
+    connect(d->m_stopDebugBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::stop);
+    connect(d->m_haltOnNextBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::haltOnNext);
+    connect(d->m_stepIntoBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::stepInto);
+    connect(d->m_stepOverBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::stepOver);
+    connect(d->m_stepOutBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::stepOut);
+    connect(d->m_continueBtn, &QPushButton::clicked,
+            debugger, &PyDebugger::stepContinue);
     connect(debugger, SIGNAL(haltAt(QString,int)), this, SLOT(enableButtons()));
     connect(debugger, SIGNAL(releaseAt(QString,int)), this, SLOT(enableButtons()));
-    connect(debugger, SIGNAL(started()), this, SLOT(enableButtons()));
-    connect(debugger, SIGNAL(stopped()), this, SLOT(enableButtons()));
+    connect(debugger, &PyDebugger::started,
+            this, &PythonDebuggerView::enableButtons);
+    connect(debugger, &PyDebugger::stopped,
+            this, &PythonDebuggerView::enableButtons);
 
 }
 
@@ -513,7 +522,7 @@ void PythonDebuggerView::setFileAndScrollToLine(const QString &fn, int line)
         return;
 
     //getMainWindow()->setActiveWindow(editView);
-    if (editView->fileName() != fn)
+    if (editView->filename() != fn)
         editView->open(fn);
 
 

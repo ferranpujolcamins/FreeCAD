@@ -544,7 +544,7 @@ void SyntaxHighlighter::loadSettings()
     d->rehighlightTmr.start();
 }
 
-void SyntaxHighlighter::setFilePath(QString file)
+void SyntaxHighlighter::setFilepath(QString file)
 {
     d->filePath = file;
 #ifdef BUILD_KF5SYNTAX

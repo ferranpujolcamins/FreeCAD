@@ -432,7 +432,7 @@ PyObject* Application::sOpen(PyObject * /*self*/, PyObject *args)
         QString ext = fi.suffix().toLower();
         QList<EditorView*> views = getMainWindow()->findChildren<EditorView*>();
         for (QList<EditorView*>::Iterator it = views.begin(); it != views.end(); ++it) {
-            if ((*it)->fileName() == fileName) {
+            if ((*it)->filename() == fileName) {
                 (*it)->setFocus();
                 Py_Return;
             }

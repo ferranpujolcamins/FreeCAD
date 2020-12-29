@@ -156,7 +156,7 @@ public:
     void loadSettings();
 
     // used by code analyzer, set by editor
-    void setFilePath(QString file);
+    void setFilepath(QString file);
     QString filePath() const;
 
     /// changes the syntax for current file

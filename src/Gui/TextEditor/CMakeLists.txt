@@ -83,7 +83,7 @@ endif(BUILD_JEDI)
 # The editor sources
 SET(TextEditor_CPP_SRCS
     EditorView.cpp
-    LangSpecifics.cpp
+    LangPluginBase.cpp
     PythonCode.cpp
     PythonEditor.cpp
     PythonSyntaxHighlighter.cpp
@@ -94,7 +94,7 @@ SET(TextEditor_CPP_SRCS
 )
 SET(TextEditor_HPP_SRCS
     EditorView.h
-    LangSpecifics.h
+    LangPluginBase.h
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h
@@ -105,7 +105,7 @@ SET(TextEditor_HPP_SRCS
 )
 SET(TextEditor_MOC_HDRS
     EditorView.h
-    LangSpecifics.h
+    LangPluginBase.h
     PythonCode.h
     PythonEditor.h
     PythonSyntaxHighlighter.h

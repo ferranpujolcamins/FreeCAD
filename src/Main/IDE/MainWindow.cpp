@@ -77,7 +77,7 @@ void MainWindow::open()
     // check if already openend
     for (auto view : windows()) {
         auto eView = dynamic_cast<Gui::EditorView*>(view);
-        if (eView && eView->fileName() == fileName) {
+        if (eView && eView->filename() == fileName) {
 
             editView = eView;
             break;

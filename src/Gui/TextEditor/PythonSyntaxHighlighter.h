@@ -69,7 +69,7 @@ public:
     void newFormatToken(const Python::Token *tok, QTextCharFormat format) const;
 
     // used by code analyzer, set by editor
-    void setFilePath(QString file);
+    void setFilepath(QString file);
 
 protected:
     /// sets (re-colors) txt contained from token

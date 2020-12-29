@@ -282,14 +282,14 @@ void PythonEditor::setCodeAnalyzer(PythonEditorCodeAnalyzer *analyzer)
     d->codeAnalyzer = analyzer;
 }
 
-void PythonEditor::setFileName(const QString& fn)
+void PythonEditor::setFilename(const QString& fn)
 {
-    TextEditor::setFileName(fn);
-    if (fn != fileName()) {
+    TextEditor::setFilename(fn);
+    if (fn != filename()) {
         // rescan
         PythonSyntaxHighlighter *ps = dynamic_cast<PythonSyntaxHighlighter*>(syntaxHighlighter());
         if (ps)
-            ps->setFilePath(fn);
+            ps->setFilepath(fn);
     }
 }
 
@@ -300,7 +300,7 @@ void PythonEditor::startDebug()
     debugger->stop();
 
     if (debugger->start()) {
-        debugger->runFile(fileName());
+        debugger->runFile(filename());
         //if (d) // if app gets closed during debugging halt, d is deleted
         //    d->debugger->stop();
     }
@@ -338,11 +338,11 @@ void PythonEditor::toggleBreakpoint()
     QTextCursor cursor = textCursor();
     int line = cursor.blockNumber() + 1;
     auto debugger = App::Debugging::Python::Debugger::instance();
-    auto bp = debugger->getBreakpoint(fileName(), line);
+    auto bp = debugger->getBreakpoint(filename(), line);
     if (bp)
         debugger->deleteBreakpoint(bp);
     else
-        debugger->setBreakpoint(fileName(), line);
+        debugger->setBreakpoint(filename(), line);
     lineMarkerArea()->update();
 }
 
@@ -431,7 +431,7 @@ void PythonEditor::drawMarker(int line, int x, int y, QPainter* p)
     }
     // breakpoints
     auto debugger = App::Debugging::Python::Debugger::instance();
-    auto bpl = debugger->getBreakpoint(fileName(), line);
+    auto bpl = debugger->getBreakpoint(filename(), line);
     bool hadBreakpoint = false;
     if (bpl != nullptr) {
         if (bpl->disabled())
@@ -701,7 +701,7 @@ void PythonEditor::keyPressEvent(QKeyEvent * e)
         if (beforeLineNr != afterLineNr) {
             int move = afterLineNr - beforeLineNr;
             auto debugger = App::Debugging::Python::Debugger::instance();
-            auto bp = debugger->getBreakpointFile(fileName());
+            auto bp = debugger->getBreakpointFile(filename());
             if (bp) {
                 bp->moveLines(beforeLineNr +1, move);
             }
@@ -769,7 +769,7 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
             tooltipStrs << QLatin1String("\n");
 
         Python::SourceModule *mod = Python::SourceRoot::instance()->
-                moduleFromPath(fileName().toStdString());
+                moduleFromPath(filename().toStdString());
         if (!mod)
             return false;
 
@@ -871,19 +871,19 @@ void PythonEditor::handleMarkerAreaContextMenu(QAction *res, int line)
 {
     if (res && res->data().canConvert(QVariant::Int)) {
         auto debugger = App::Debugging::Python::Debugger::instance();
-        auto bpl = debugger->getBreakpoint(fileName(), line);
+        auto bpl = debugger->getBreakpoint(filename(), line);
 
         ContextEvtType type = static_cast<ContextEvtType>(res->data().toInt());
         switch (type) {
         case BreakpointAdd:
-            debugger->setBreakpoint(fileName(), line);
+            debugger->setBreakpoint(filename(), line);
             break;
         case BreakpointEdit: {
             PythonEditorBreakpointDlg dlg(this, bpl);
             dlg.exec();
         }   break;
         case BreakpointDelete:
-            debugger->deleteBreakpointByLine(fileName(), line);
+            debugger->deleteBreakpointByLine(filename(), line);
             break;
         case BreakpointDisable:
             bpl->setDisabled(true);
@@ -892,7 +892,7 @@ void PythonEditor::handleMarkerAreaContextMenu(QAction *res, int line)
             bpl->setDisabled(false);
             break;
         case ExceptionClear:
-            debugger->sendClearException(fileName(), line);
+            debugger->sendClearException(filename(), line);
             break;
         default:
             // let baseclass handle this
@@ -917,7 +917,7 @@ void PythonEditor::setUpMarkerAreaContextMenu(int line)
     }
 
     auto debugger = App::Debugging::Python::Debugger::instance();
-    auto bpl = debugger->getBreakpoint(fileName(), line);
+    auto bpl = debugger->getBreakpoint(filename(), line);
     if (bpl != nullptr) {
         if (!bpl->disabled()) {
             QAction *disable = new QAction(BitmapFactory().iconFromTheme("breakpoint-disabled"),
@@ -952,7 +952,7 @@ void PythonEditor::setUpMarkerAreaContextMenu(int line)
 void PythonEditor::breakpointAdded(size_t uniqueId)
 {
     auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
-    if (!bp || bp->bpFile()->fileName() != fileName())
+    if (!bp || bp->bpFile()->fileName() != filename())
         return;
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
@@ -965,7 +965,7 @@ void PythonEditor::breakpointAdded(size_t uniqueId)
 void PythonEditor::breakpointChanged(size_t uniqueId)
 {
     auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
-    if (!bp || bp->bpFile()->fileName() != fileName())
+    if (!bp || bp->bpFile()->fileName() != filename())
         return;
 
     lineMarkerArea()->update();
@@ -974,7 +974,7 @@ void PythonEditor::breakpointChanged(size_t uniqueId)
 void PythonEditor::breakpointRemoved(size_t uniqueId)
 {
     auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
-    if (!bp || bp->bpFile()->fileName() != fileName())
+    if (!bp || bp->bpFile()->fileName() != filename())
         return;
 
     AnnotatedScrollBar *vBar = qobject_cast<AnnotatedScrollBar*>(verticalScrollBar());
@@ -995,7 +995,7 @@ void PythonEditor::exception(std::shared_ptr<Base::PyExceptionInfo> exc)
         if (!editView)
             return;
 
-        editView->open(fileName());
+        editView->open(filename());
 
         // scroll to view
         QTextCursor cursor(editView->editor()->document()->
@@ -1003,7 +1003,7 @@ void PythonEditor::exception(std::shared_ptr<Base::PyExceptionInfo> exc)
         editView->editor()->setTextCursor(cursor);
     }
 
-    if (exc->getFile() != fileName().toStdString())
+    if (exc->getFile() != filename().toStdString())
         return;
 
     if (d->exceptions.contains(linenr))
@@ -1033,7 +1033,7 @@ void PythonEditor::clearAllExceptions()
 
 void PythonEditor::clearException(const QString &fn, int line)
 {
-    if (fn == fileName() && d->exceptions.contains(line)) {
+    if (fn == filename() && d->exceptions.contains(line)) {
         d->exceptions.remove(line);
         renderExceptionExtraSelections();
         lineMarkerArea()->update();
@@ -1063,7 +1063,7 @@ void PythonEditor::breakpointPasteOrCut(bool doCut)
     int currentLineNr = textCursor().block().blockNumber();
     if (beforeLineNr != currentLineNr) {
         int move = beforeLineNr - currentLineNr;
-        auto bp = debugger->getBreakpointFile(fileName());
+        auto bp = debugger->getBreakpointFile(filename());
         if (bp)
             bp->moveLines(beforeLineNr, move);
     }
@@ -1459,7 +1459,7 @@ QIcon PythonEditorCodeAnalyzer::getIconForDefinition(JediBaseDefinition_ptr_t de
 
     // add extra markers
     if (allowMarkers) {
-        QFileInfo fi_scr(d->editor->fileName());
+        QFileInfo fi_scr(d->editor->filename());
         if (module_name != fi_scr.fileName())
             imgLayers << QLatin1String("ClassBrowser/imported_marker.svg");
         if (obj->in_builtin_module())
@@ -1503,7 +1503,7 @@ void PythonEditorCodeAnalyzer::parseDocument()
     int lineNr = block.firstLineNumber() +1;
     int column = cursor.position() - block.position();
     d->currentScript.reset(new JediScriptObj(doc->toPlainText(), lineNr,
-                                             column, d->editor->fileName()));
+                                             column, d->editor->filename()));
     if (d->taskAfterReparse == d->Completer || d->taskAfterReparse == d->Both)
         complete();
     if (d->taskAfterReparse == d->CallSignature || d->taskAfterReparse == d->Both)
