@@ -47,7 +47,8 @@ public:
         SingleStep,
         StepOver,
         StepOut,
-        HaltOnNext
+        HaltOnNext,
+        Halted
     };
 
     State(): state(Stopped) {  }
@@ -89,7 +90,6 @@ public:
     }
     ~BrkPntBaseP()
     { }
-
     std::weak_ptr<T_bpfile> bpFile;
     size_t uniqueId; // a global unique number
     int lineNr,
@@ -174,8 +174,14 @@ public:
 
     size_t uniqueId() const { return d->uniqueId; }
 
+
+
     typedef typename std::shared_ptr<T_bpfile> BkrPntFilePtr;
     BkrPntFilePtr bpFile() const { return d->bpFile.lock(); }
+
+    // should be called from BrPntFile
+    virtual void serialize(QDataStream& out) const;
+    virtual void deserialize(QDataStream& in);
 };
 
 // ------------------------------------------------------------------------
@@ -192,6 +198,7 @@ class AppExport BrkPntBaseFile : public
 public:
     typedef std::shared_ptr<BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>> PtrType;
     typedef typename std::shared_ptr<T_bp> BrkPntPtr;
+
     explicit BrkPntBaseFile(std::shared_ptr<T_dbgr> dbgr);
     BrkPntBaseFile(const BrkPntBaseFile& other);
     virtual ~BrkPntBaseFile() { delete d; }
@@ -243,6 +250,27 @@ public:
      * @return moved lines count
      */
     int moveLines(int startLine, int moveSteps) const;
+
+    /**
+     * @brief serialize serialize this breakpointfile for later restore
+     * @param out stream to write to
+     */
+    virtual void serialize(QDataStream& out) const;
+    /**
+     * @brief deserialize base for deserialize, subclasses
+     *        must implement
+     * @param in stream to read from
+     * @return if the data was for us
+     */
+    virtual bool deserialize(QDataStream& in) = 0;
+
+protected:
+    void setDebugger(std::weak_ptr<T_dbgr> dbgr) {
+        d->debugger = dbgr;
+    }
+    void setBreakpoint(BrkPntPtr bp) {
+        d->lines.push_back(bp);
+    }
 };
 
 // --------------------------------------------------------------------------
@@ -266,6 +294,8 @@ public:
     /// -1 when not halted
     virtual int currentLine() const = 0;
 
+    virtual const char* debuggerName() const = 0;
+
 
 public Q_SLOTS:
     virtual bool start() = 0;
@@ -288,7 +318,7 @@ Q_SIGNALS:
     void breakpointAdded(size_t uniqeId);
     void breakpointChanged(size_t uniqeId);
     void breakpointRemoved(size_t uniqeId);
-    void exceptionOccured(std::shared_ptr<Base::Exception> exeption);
+    void exceptionOccured(Base::Exception* exeption);
     void exceptionCleared(const QString &fn, int line);
     void allExceptionsCleared();
 };
@@ -337,6 +367,7 @@ public:
     bool setBreakpoint(const QString fn, int line);
     bool setBreakpoint(const QString fn, std::shared_ptr<T_bp> bp);
     std::list<BrkPntPtr> allBreakpoints() const;
+    const std::vector<std::shared_ptr<T_bpfile>> allBreakpointFiles() const;
 
     /**
      * @brief Returns which number in store bpl has
@@ -352,12 +383,13 @@ public:
     bool setBreakpointFile(BrkPntFilePtr bpFile);
     BrkPntFilePtr createBreakpointFile(const QString fn);
     /**
-     * @brief deleteBreakpointFile stop tracing this file, used when editor closes file
+     * @brief removeBreakpointFile stop tracing this file, used when editor closes file
      * @param fn = fileName
      */
-    void deleteBreakpointFile(const QString &fn);
-    void deleteBreakpointByLine(const QString fn, int line);
-    void deleteBreakpoint(BrkPntPtr bp);
+    void removeBreakpointFile(const QString &fn);
+    void removeBreakpointFile(const BrkPntFilePtr bpf);
+    void removeBreakpointByLine(const QString fn, int line);
+    void removeBreakpoint(BrkPntPtr bp);
     void clearAllBreakPoints();
 
     /// returns the running state, halted, running etc
@@ -365,9 +397,11 @@ public:
     /// running, not halted
     virtual bool isRunning() const { return d->state == State::Running; }
     /// stopped, debugging inspection
-    virtual bool isHalted() const { return d->state == State::Stopped; }
+    virtual bool isHalted() const { return d->state == State::Halted; }
     /// halt on next iteration
     virtual bool isHaltOnNext() const { return d->state == State::HaltOnNext; }
+    /// Stopped, ut in debug mode
+    virtual bool isStopped() const { return d->state == State::Stopped; }
 
 
 /// signals and slots declared in Signals class,
@@ -404,6 +438,10 @@ BrkPntBase<T_bpfile>::BrkPntBase(const BrkPntBase &other)
 template<typename T_bpfile>
 BrkPntBase<T_bpfile>::~BrkPntBase()
 {
+    auto bpfile = bpFile();
+    if (bpfile) {
+        bpfile->removeBreakpointById(d->uniqueId);
+    }
     delete d;
 }
 
@@ -477,6 +515,19 @@ void BrkPntBase<T_bpfile>::setDisabled(bool disable)
     Q_EMIT d->bpFile.lock()->debugger()->breakpointChanged(d->uniqueId);
 }
 
+template<typename T_bpfile>
+void BrkPntBase<T_bpfile>::serialize(QDataStream &out) const
+{
+    out << d->lineNr << d->disabled
+        << d->ignoreTo << d->ignoreFrom;
+}
+
+template<typename T_bpfile>
+void BrkPntBase<T_bpfile>::deserialize(QDataStream &in){
+    in >> d->lineNr >> d->disabled
+       >> d->ignoreTo >> d->ignoreFrom;
+}
+
 // -------------------------------------------------------------------------------
 
 
@@ -538,51 +589,32 @@ bool BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::addBreakpoint(int line) {
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
 void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::removeBreakpointByLine(int line) {
-    std::shared_ptr<T_bp> bp;
-
-    // we need to emit before removal to make reciever lookup this breakpoint
-    if (!d->debugger.expired() && bp)
-        Q_EMIT d->debugger.lock()->breakpointRemoved(bp->uniqueId());
-
-    // do the removal
-    std::remove_if(d->lines.begin(), d->lines.end(),
-                   [&] (std::shared_ptr<T_bp> b) {
-        if (b->lineNr() == line) {
-            bp = b;
-            return true;
-        }
-        return false;
-    });
+    auto bp = getBreakpoint(line);
+    removeBreakpoint(bp);
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
 void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::removeBreakpointById(size_t id) {
-    std::shared_ptr<T_bp> bp;
-    std::remove_if(d->lines.begin(), d->lines.end(),
-                   [&] (std::shared_ptr<T_bp> b) {
-        if (b->uniqueId() == id) {
-            bp = b;
-            return true;
-        }
-        return false;
-    });
-    if (!d->debugger.expired())
-        Q_EMIT d->debugger.lock()->breakpointRemoved(bp->uniqueId());
+    auto bp = getBreakpointFromId(id);
+    removeBreakpoint(bp);
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
 void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::removeBreakpoint(std::shared_ptr<T_bp> bp) {
-    std::shared_ptr<T_bp> bpd;
-    std::remove_if(d->lines.begin(), d->lines.end(),
-                   [&] (std::shared_ptr<T_bp> b) {
-        if (b == bp) {
-            bpd = b;
-            return true;
-        }
-        return false;
-    });
+    if (!bp)
+        return;
+
+    // we need to emit before removal to make reciever lookup this breakpoint
     if (!d->debugger.expired())
         Q_EMIT d->debugger.lock()->breakpointRemoved(bp->uniqueId());
+
+    d->lines.erase(
+        std::remove_if(d->lines.begin(), d->lines.end(),
+                       [&] (std::shared_ptr<T_bp> b) {
+            return (b && b == bp);
+        }),
+        d->lines.end()
+    );
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
@@ -590,8 +622,8 @@ typename BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::BrkPntPtr
 BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::getBreakpoint(int line) const {
     auto it = std::find_if(d->lines.begin(), d->lines.end(),
                            [&] (std::shared_ptr<T_bp> bp) {
-            return bp->lineNr() == line;
-});
+            return bp && bp->lineNr() == line;
+    });
 
     return it != d->lines.end() ? *it : nullptr;
 }
@@ -609,8 +641,8 @@ typename BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::BrkPntPtr
 BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::getBreakpointFromId(size_t id) const {
     auto it = std::find_if(d->lines.begin(), d->lines.end(),
                            [id] (std::shared_ptr<T_bp> bp) {
-            return bp->uniqueId() == id;
-});
+            return bp && bp->uniqueId() == id;
+    });
 
     return it != d->lines.end() ? *it : nullptr;
 }
@@ -649,6 +681,21 @@ int BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::moveLines(int startLine, int moveSte
         }
     }
     return count;
+}
+
+template<typename T_dbgr, typename T_bp, typename T_bpfile>
+void BrkPntBaseFile<T_dbgr, T_bp, T_bpfile>::serialize(QDataStream &out) const
+{
+    if (!debugger())
+        return;
+
+    QString dbgname = QLatin1String(debugger()->debuggerName());
+
+    out << dbgname
+        << d->filename
+        << static_cast<quint16>(d->lines.size());
+    for (auto bp : d->lines)
+        bp->serialize(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -730,7 +777,7 @@ typename AbstractDbgr<T_dbgr, T_bp, T_bpfile>::BrkPntPtr
 AbstractDbgr<T_dbgr, T_bp, T_bpfile>::getBreakpointFromUniqueId(size_t uniqueId) const {
     for (auto bpf : d->bps)
         for (auto bpl : *bpf)
-            if (bpl->uniqueId() == uniqueId)
+            if (bpl && bpl->uniqueId() == uniqueId)
                 return bpl;
     return nullptr;
 }
@@ -767,8 +814,16 @@ AbstractDbgr<T_dbgr, T_bp, T_bpfile>::allBreakpoints() const {
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
+const std::vector<std::shared_ptr<T_bpfile>>
+AbstractDbgr<T_dbgr, T_bp, T_bpfile>::allBreakpointFiles() const
+{
+    return d->bps;
+}
+
+template<typename T_dbgr, typename T_bp, typename T_bpfile>
 int AbstractDbgr<T_dbgr, T_bp, T_bpfile>::getIdxFromBreakpoint(const BrkPntPtr bp) const
 {
+    if (!bp) return -1;
     int count = 0;
     for (auto bpf : d->bps) {
         for (auto b : *bpf) {
@@ -803,28 +858,43 @@ AbstractDbgr<T_dbgr, T_bp, T_bpfile>::createBreakpointFile(const QString fn) {
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
-void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::deleteBreakpointFile(const QString &fn) {
-    std::remove_if(d->bps.begin(), d->bps.end(),
-                   [fn] (BrkPntFilePtr bpf) {
-        return bpf->fileName() == fn;
-    });
+void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::removeBreakpointFile(const QString &fn) {
+    auto bpf = getBreakpointFile(fn);
+    removeBreakpointFile(bpf);
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
-void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::deleteBreakpointByLine(const QString fn, int line) {
+void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::removeBreakpointFile(
+        const AbstractDbgr::BrkPntFilePtr bpf)
+{
+    if (!bpf)
+        return;
+
+    d->bps.erase(
+        std::remove_if(d->bps.begin(), d->bps.end(),
+                       [&] (BrkPntFilePtr& bf) {
+            return bpf.get() == bf.get();
+        }),
+        d->bps.end()
+    );
+}
+
+template<typename T_dbgr, typename T_bp, typename T_bpfile>
+void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::removeBreakpointByLine(const QString fn, int line) {
     auto bpf = getBreakpointFile(fn);
     if (bpf)
         bpf->removeBreakpointByLine(line);
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
-void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::deleteBreakpoint(AbstractDbgr::BrkPntPtr bp) {
+void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::removeBreakpoint(AbstractDbgr::BrkPntPtr bp) {
+    if (!bp) return;
     bp->bpFile()->removeBreakpointById(bp->uniqueId());
 }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
 void AbstractDbgr<T_dbgr, T_bp, T_bpfile>::clearAllBreakPoints() {
-    d->bps.clear();
+    d->bps.clear(); // let shared _ptr do the erase/removal
 }
 
 

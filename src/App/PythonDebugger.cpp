@@ -43,59 +43,21 @@
 # define PY_AS_C_STRING(pyObj) PyBytes_AsString(pyObj)
 #endif
 
-using namespace App;
-using namespace Debugging;
-using namespace Python;
 
-BrkPnt::BrkPnt(int lineNr, std::weak_ptr<BrkPntFile> parent)
-    : BrkPntBase<BrkPntFile>(lineNr, parent)
+
+// for serializing deserializing breakpoint on app end/open
+QDataStream& operator << (QDataStream& out,
+                          const App::Debugging::Python::BrkPntFile& bpf)
 {
+    bpf.serialize(out);
+    return out;
 }
 
-BrkPnt::BrkPnt(const BrkPnt &other)
-    : BrkPntBase<BrkPntFile>(other)
+QDataStream& operator >> (QDataStream& in,
+                          App::Debugging::Python::BrkPntFile& bpf)
 {
-    m_condition = other.m_condition;
-}
-
-BrkPnt::~BrkPnt()
-{
-}
-
-BrkPnt& BrkPnt::operator=(const BrkPnt& other)
-{
-    BrkPntBase<BrkPntFile>::operator=(other);
-    m_condition = other.m_condition;
-    return *this;
-}
-
-void BrkPnt::setCondition(const QString condition)
-{
-    QRegExp re(QLatin1String("([^=><!])=([^=])"));
-    m_condition =  QString(condition).replace(re, QLatin1String("\\1==\\2"));
-    bpFile()->debugger()->breakpointChanged(uniqueId());
-}
-
-const QString BrkPnt::condition() const
-{
-    return m_condition;
-}
-
-// -------------------------------------------------------------------------------------
-
-BrkPntFile::BrkPntFile(std::shared_ptr<Debugger> dbgr)
-    : BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>(dbgr)
-{
-}
-
-
-BrkPntFile::BrkPntFile(const BrkPntFile &other)
-    : BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>(other)
-{
-}
-
-BrkPntFile::~BrkPntFile()
-{
+    bpf.deserialize(in);
+    return in;
 }
 
 
@@ -154,11 +116,11 @@ public:
     QEventLoop loop;
     int maxHaltLevel;
     int showStackLevel;
-    bool init, trystop, halted;
+    bool init, trystop; //, halted;
 
     DebuggerP(Debugger* that) :
         maxHaltLevel(-1), showStackLevel(-1),
-        init(false), trystop(false),halted(false)
+        init(false), trystop(false) //,halted(false)
     {
         out_o = nullptr;
         err_o = nullptr;
@@ -189,6 +151,112 @@ public:
 } // namespace Python
 } // namespace Debugging
 } // namespace App
+
+// ----------------------------------------------------------------------------
+
+using namespace App;
+using namespace Debugging;
+using namespace Python;
+
+BrkPnt::BrkPnt(int lineNr, std::weak_ptr<BrkPntFile> parent)
+    : BrkPntBase<BrkPntFile>(lineNr, parent)
+{
+}
+
+BrkPnt::BrkPnt(const BrkPnt &other)
+    : BrkPntBase<BrkPntFile>(other)
+{
+    m_condition = other.m_condition;
+}
+
+BrkPnt::~BrkPnt()
+{
+}
+
+BrkPnt& BrkPnt::operator=(const BrkPnt& other)
+{
+    BrkPntBase<BrkPntFile>::operator=(other);
+    m_condition = other.m_condition;
+    return *this;
+}
+
+void BrkPnt::setCondition(const QString condition)
+{
+    QRegExp re(QLatin1String("([^=><!])=([^=])"));
+    m_condition =  QString(condition).replace(re, QLatin1String("\\1==\\2"));
+    bpFile()->debugger()->breakpointChanged(uniqueId());
+}
+
+const QString BrkPnt::condition() const
+{
+    return m_condition;
+}
+
+// -------------------------------------------------------------------------------------
+
+// only here to make Qt Serialize work for QVariant
+BrkPntFile::BrkPntFile()
+    : BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>(nullptr)
+{
+}
+
+BrkPntFile::BrkPntFile(std::shared_ptr<Debugger> dbgr)
+    : BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>(dbgr)
+{
+}
+
+
+BrkPntFile::BrkPntFile(const BrkPntFile &other)
+    : BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>(other)
+{
+}
+
+BrkPntFile::~BrkPntFile()
+{
+    if (weak_from_this().expired())
+        return;
+    auto self = std::dynamic_pointer_cast<BrkPntFile>(shared_from_this());
+    debugger()->removeBreakpointFile(self);
+}
+
+void BrkPntFile::serialize(QDataStream &out) const
+{
+    BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>::serialize(out);
+    // we dont have any properties inn this class to serialze, only in subclass
+}
+
+bool BrkPntFile::deserialize(QDataStream &in)
+{
+    in.startTransaction();
+    QString filename,
+            debuggerName;
+    quint16 siz = 0;
+    in >> debuggerName >> filename >> siz;
+    if (debuggerName != QString::fromLatin1(Debugger::instance()->debuggerName())) {
+        in.rollbackTransaction();
+        return false;
+    }
+
+    auto dbgr = std::dynamic_pointer_cast<Debugger>(Debugger::instance()->shared_from_this());
+
+    // smart pointers as such a bad thing, more in the way than ehlpfull
+    // this object is created from new without a shared object and ref counter
+    // we need to make a new one from within here
+    auto self = std::make_shared<BrkPntFile>(dbgr);
+    self->setFilename(filename);
+    dbgr->setBreakpointFile(self);
+
+    setFilename(filename);
+
+    for (quint16 i = 0; i < siz; ++i) {
+        auto bp = std::make_shared<BrkPnt>(0, self);
+        bp->deserialize(in);
+        self->setBreakpoint(bp);
+    }
+
+    return true;
+}
+
 // ----------------------------------------------------------------------------------
 
 void DebugModule::init_module(void)
@@ -433,7 +501,7 @@ void Debugger::runFile(const QString& fn)
 {
     try {
         if (state() != State::HaltOnNext)
-            state() = State::Running;
+            setState(State::Running);
         QByteArray pxFileName = fn.toUtf8();
 #ifdef FC_OS_WIN32
         Base::FileInfo fi((const char*)pxFileName);
@@ -442,7 +510,7 @@ void Debugger::runFile(const QString& fn)
         FILE *fp = fopen(static_cast<const char*>(pxFileName), "r");
 #endif
         if (!fp) {
-            state() = State::Stopped;
+            setState(State::Stopped);
             return;
         }
 
@@ -478,7 +546,7 @@ void Debugger::runFile(const QString& fn)
         if (!result) {
             if (!d->trystop && state() != State::Stopped) {
                 // script failed, syntax error, import error, etc
-                auto exc = std::make_shared<Base::PyExceptionInfo>();
+                auto exc = new Base::PyExceptionInfo();
                 if (exc->isValid() && !exc->isSystemExit() && !exc->isKeyboardInterupt()) {
                     Q_EMIT exceptionFatal(exc);
 
@@ -488,10 +556,12 @@ void Debugger::runFile(const QString& fn)
                                             exc->getStackTrace().c_str(),
                                             exc->getMessage().c_str());
                     PyErr_Clear();
-                }
+                } else
+                    delete exc;
 
             }
             setState(State::Stopped);
+            Q_EMIT stopped();
          } else
             Py_DECREF(result);
     }
@@ -509,16 +579,10 @@ void Debugger::runFile(const QString& fn)
     setState(State::Stopped);
 }
 
-bool Debugger::isHalted() const
-{
-    Base::PyGILStateLocker locker;
-    return d->halted;
-}
-
 bool Debugger::start()
 {
     if (state() == State::Stopped)
-        state() = State::Running;
+        setState(State::Running);
 
     if (d->init)
         return false;
@@ -547,7 +611,7 @@ bool Debugger::stop()
 {
     if (!d->init)
         return false;
-    if (d->halted) {
+    if (isHalted()) {
         d->trystop = true;
         _signalNextStep();
         return false;
@@ -564,7 +628,6 @@ bool Debugger::stop()
     } // end thread lock code block
     d->currentFrame = nullptr;
     setState(State::Stopped);
-    d->halted = false;
     d->trystop = false;
     Q_EMIT stopped();
     return true;
@@ -636,7 +699,7 @@ void Debugger::onFileClosed(const QString &fn)
     if (fi.suffix().toLower() == QLatin1String("py") ||
         fi.suffix().toLower() == QLatin1String("fcmacro"))
     {
-        deleteBreakpointFile(fn);
+        removeBreakpointFile(fn);
     }
 }
 
@@ -702,7 +765,7 @@ int Debugger::callDepth() const
 
 bool Debugger::setStackLevel(int level)
 {
-    if (!d->halted)
+    if (!isHalted())
         return false;
 
     --level; // 0 based
@@ -742,6 +805,10 @@ Debugger *Debugger::instance()
         // is owned by macro manager which handles delete
         globalInstance = std::make_shared<Debugger>();
     return globalInstance.get();
+}
+
+const char *Debugger::debuggerName() const {
+    return "App::Debugging::Python::Debugger";
 }
 
 // http://www.koders.com/cpp/fidBA6CD8A0FE5F41F1464D74733D9A711DA257D20B.aspx?s=PyEval_SetTrace
@@ -816,7 +883,7 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                 if (!dbg->frameRelatedToOpenedFiles(frame))
                     return 0;
 
-                while(dbg->d->halted) {
+                while(dbg->isHalted()) {
                     // already halted, must be another thread here
                     // halt until current thread releases
                     QCoreApplication::processEvents();
@@ -827,12 +894,12 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                     Base::PyGILStateLocker locker;
                     dbg->d->currentFrame = frame;
 
-                    if (!dbg->d->halted) {
+                    if (!dbg->isHalted()) {
                         try {
                             Q_EMIT dbg->functionCalled();
                         } catch (...) { }
                     }
-                    dbg->d->halted = true;
+                    dbg->setState(State::Halted);
                     try {
                         Q_EMIT dbg->haltAt(file, line);
                         Q_EMIT dbg->nextInstruction();
@@ -844,7 +911,7 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                 loop.exec();
                 {   // threadlock block
                     Base::PyGILStateLocker locker;
-                    dbg->d->halted = false;
+                    dbg->setState(State::Running);
                 }   // end threadlock block
                 try {
                     Q_EMIT dbg->releaseAt(file, line);
@@ -878,7 +945,7 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                 f = f->f_back; // try with previous (calling) frame
             }
 
-            auto exc = std::make_shared<Base::PyExceptionInfo>(arg);
+            auto exc = new Base::PyExceptionInfo(arg);
             if (exc->isValid()) {
                 Q_EMIT dbg->exceptionOccured(exc);
 
@@ -886,10 +953,11 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                 ParameterGrp::handle hPrefGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")
                                                     ->GetGroup("Preferences")->GetGroup("Editor");
                 if (hPrefGrp->GetBool("EnableHaltDebuggerOnExceptions", true)) {
-                    dbg->state() = State::HaltOnNext;
+                    dbg->setState(State::HaltOnNext);
                     return Debugger::tracer_callback(obj, frame, PyTrace_LINE, arg);
                 }
-            }
+            } else
+                delete exc;
         }
         return 0;
     case PyTrace_C_CALL:

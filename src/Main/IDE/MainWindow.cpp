@@ -5,19 +5,12 @@
 #include <QtWidgets>
 #include <Gui/TextEditor/TextEditor.h>
 #include <Gui/TextEditor/EditorView.h>
+#include <Gui/PythonDebuggerView.h>
+#include <Gui/DockWindowManager.h>
 
-/*
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent)
-{
-    setVisible(true);
-}
+#include <QDebug>
 
-MainWindow::~MainWindow()
-{
-}
 
-*/
 
 namespace Ide {
 
@@ -25,13 +18,13 @@ namespace Ide {
 MainWindow::MainWindow():
     Gui::MainWindow(nullptr)
 {
-    newEditorView();
+    readSettings();
+
+    if (Gui::EditorViewSingleton::instance()->editorViews().isEmpty())
+        newEditorView();
 
     createActions();
     createStatusBar();
-
-    readSettings();
-
 
 #ifndef QT_NO_SESSIONMANAGER
     QGuiApplication::setFallbackSessionManagementEnabled(false);
@@ -44,9 +37,9 @@ MainWindow::MainWindow():
 
     createDockWindows();
 
-    setUnifiedTitleAndToolBarOnMac(true);
-
-
+    statusBar()->hide();
+    connect(statusBar(), SIGNAL(messageChanged(const QString &message)),
+            this, SLOT(showMessage(const QString &message, int timeout)));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -66,10 +59,15 @@ void MainWindow::newFile()
 
 void MainWindow::open()
 {
-    QString fileName = QFileDialog::getOpenFileName(this);
-    if (fileName.isEmpty())
+    QString filename = QFileDialog::getOpenFileName(this);
+    if (filename.isEmpty())
         return;
 
+    openFile(filename);
+}
+
+void MainWindow::openFile(const QString& filename)
+{
     auto editView = dynamic_cast<Gui::EditorView*>(activeWindow());
     if (!editView)
         editView = newEditorView();
@@ -77,7 +75,7 @@ void MainWindow::open()
     // check if already openend
     for (auto view : windows()) {
         auto eView = dynamic_cast<Gui::EditorView*>(view);
-        if (eView && eView->filename() == fileName) {
+        if (eView && eView->filename() == filename) {
 
             editView = eView;
             break;
@@ -85,7 +83,7 @@ void MainWindow::open()
     }
 
     setActiveWindow(editView);
-    loadFile(fileName);
+    loadFile(filename);
 }
 
 bool MainWindow::save()
@@ -266,6 +264,12 @@ void MainWindow::createStatusBar()
 
 void MainWindow::readSettings()
 {
+    // must create here because smart pointer delete it otherwise
+    auto dbgr = App::Debugging::Python::Debugger::instance();
+
+    // to make breakpoint streamable to be persitent between sessions
+    qRegisterMetaTypeStreamOperators<App::Debugging::Python::BrkPntFile>("BrkPntFile");
+
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
     const QByteArray geometry = settings.value(QLatin1String("geometry"),
                                                QByteArray()).toByteArray();
@@ -277,12 +281,53 @@ void MainWindow::readSettings()
     } else {
         restoreGeometry(geometry);
     }
+
+    // restore opened files
+    auto files = settings.value(QLatin1String("openedfiles"), QStringList()).toStringList();
+    for (auto &fn : files)
+        openFile(fn);
+
+    // restore breakpoints
+    // is actually done when first read to settings is made (deserialize stream)
+    /*auto bpfileVar = settings.value(QLatin1String("pybeakpoints"));
+    if (!bpfileVar.isNull()) {
+        if (bpfileVar.canConvert<QList<QVariant>>()) {
+            auto bpfiles = bpfileVar.value<QList<QVariant>>();
+            for (auto bpfileVar : bpfiles) {
+                auto bpfile = bpfileVar.value<App::Debugging::Python::BrkPntFile>();
+                auto shPtr = std::dynamic_pointer_cast<App::Debugging::Python::BrkPntFile>(bpfile.shared_from_this());
+                dbgr->setBreakpointFile(shPtr);
+            }
+        }
+    }*/
 }
 
 void MainWindow::writeSettings()
 {
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
     settings.setValue(QLatin1String("geometry"), saveGeometry());
+
+    // save opened files
+    auto editors = Gui::EditorViewSingleton::instance()->editorViews();
+    QStringList files;
+    for (auto edit : editors) {
+        if (!edit->filename().isEmpty())
+            files.push_back(edit->filename());
+    }
+
+    settings.setValue(QLatin1String("openedfiles"), files);
+
+    // save breakpoints set
+    QList<QVariant> bpFiles;
+    auto brkpntfiles = App::Debugging::Python::Debugger::instance()->allBreakpointFiles();
+    for (auto bpfile : brkpntfiles) {
+        auto bpfileVar = QVariant::fromValue<App::Debugging::Python::BrkPntFile>(*bpfile);
+        bpFiles.push_back(bpfileVar);
+    }
+
+    settings.setValue(QLatin1String("pybreakpoints"), bpFiles);
+
+    auto var = settings.value(QLatin1String("pybreakpoints"));
 }
 
 bool MainWindow::maybeSave()
@@ -359,52 +404,19 @@ void MainWindow::commitData(QSessionManager &manager)
 
 void MainWindow::createDockWindows()
 {
-    QMenu men;
-    QMenu *viewMenu = &men;
+    QMenu *viewMenu = new QMenu(this);
     menuBar()->addMenu(viewMenu);
-    QDockWidget *dock = new QDockWidget(tr("Customers"), this);
-    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    customerList = new QListWidget(dock);
-    customerList->addItems(QStringList()
-            << QLatin1String("John Doe, Harmony Enterprises, 12 Lakeside, Ambleton")
-            << QLatin1String("Jane Doe, Memorabilia, 23 Watersedge, Beaton")
-            << QLatin1String("Tammy Shea, Tiblanka, 38 Sea Views, Carlton")
-            << QLatin1String("Tim Sheen, Caraba Gifts, 48 Ocean Way, Deal")
-            << QLatin1String("Sol Harvey, Chicos Coffee, 53 New Springs, Eccleston")
-            << QLatin1String("Sally Hobart, Tiroli Tea, 67 Long River, Fedula"));
-    dock->setWidget(customerList);
-    addDockWidget(Qt::RightDockWidgetArea, dock);
-    viewMenu->addAction(dock->toggleViewAction());
-
-    dock = new QDockWidget(tr("Paragraphs"), this);
-    paragraphsList = new QListWidget(dock);
-    paragraphsList->addItems(QStringList()
-            << QLatin1String("Thank you for your payment which we have received today.")
-            << QLatin1String("Your order has been dispatched and should be with you "
-               "within 28 days.")
-            << QLatin1String("We have dispatched those items that were in stock. The "
-               "rest of your order will be dispatched once all the "
-               "remaining items have arrived at our warehouse. No "
-               "additional shipping charges will be made.")
-            << QLatin1String("You made a small overpayment (less than $5) which we "
-               "will keep on account for you, or return at your request.")
-            << QLatin1String("You made a small underpayment (less than $1), but we have "
-               "sent your order anyway. We'll add this underpayment to "
-               "your next bill.")
-            << QLatin1String("Unfortunately you did not send enough money. Please remit "
-               "an additional $. Your order will be dispatched as soon as "
-               "the complete amount has been received.")
-            << QLatin1String("You made an overpayment (more than $5). Do you wish to "
-               "buy more items, or should we return the excess to you?"));
-    dock->setWidget(paragraphsList);
-    addDockWidget(Qt::RightDockWidgetArea, dock);
-    viewMenu->addAction(dock->toggleViewAction());
 
 
-    //connect(customerList, &QListWidget::currentTextChanged,
-    //        this, &MainWindow::insertCustomer);
-    //connect(paragraphsList, &QListWidget::currentTextChanged,
-    //        this, &MainWindow::addParagraph);
+    auto pyDock = new QDockWidget(tr("Python"), this);
+    pyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    pyDock->setWidget(new Gui::DockWnd::PythonDebuggerView(pyDock));
+    pyDock->setObjectName(QString::fromLatin1(QT_TRANSLATE_NOOP("QDockWidget","Debugger view")));
+    viewMenu->addAction(pyDock->toggleViewAction());
+    addDockWidget(Qt::RightDockWidgetArea, pyDock);
+
+    // accept drops on the window, get handled in dropEvent, dragEnterEvent
+    setAcceptDrops(true);
 }
 
 } // namespace Ide

@@ -7,20 +7,6 @@
 #include <QSessionManager>
 #include <memory>
 
-/*
-class MainWindow : public QMainWindow
-{
-    Q_OBJECT
-public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    virtual ~MainWindow();
-
-signals:
-
-public slots:
-};
-
-*/
 
 namespace Gui {
 //class TextEditor;
@@ -42,6 +28,8 @@ public:
     MainWindow();
 
     void loadFile(const QString &fileName);
+
+    void openFile(const QString &filename);
 
 protected:
     void closeEvent(QCloseEvent *event) override;

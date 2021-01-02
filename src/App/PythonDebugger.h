@@ -22,8 +22,8 @@
  ***************************************************************************/
 
 
-#ifndef GUI_PYTHONDEBUG_H
-#define GUI_PYTHONDEBUG_H
+#ifndef APP_PYTHONDEBUG_H
+#define APP_PYTHONDEBUG_H
 
 #include <FCConfig.h>
 #include <CXX/Extensions.hxx>
@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 #include <QObject>
+#include <QDataStream>
 
 #include "DebuggerBase.h"
 
@@ -86,10 +87,16 @@ private:
 class AppExport BrkPntFile : public BrkPntBaseFile<Debugger, BrkPnt, BrkPntFile>
 {
 public:
+    BrkPntFile(); // use for serialize for QVariant
     explicit BrkPntFile(std::shared_ptr<Debugger> dbgr);
     BrkPntFile(const BrkPntFile& other);
-    ~BrkPntFile();
+    ~BrkPntFile() override;
+
+    void serialize(QDataStream &out) const override;
+    bool deserialize(QDataStream &in) override;
 };
+
+
 
 // ---------------------------------------------------------------------
 
@@ -177,8 +184,6 @@ public:
 
     void runFile(const QString& fn);
 
-    bool isHalted() const;
-
     /// returns the last frame from last halt
     PyFrameObject *currentFrame() const;
 
@@ -211,6 +216,8 @@ public:
      */
     static Debugger *instance();
 
+    const char* debuggerName() const override;
+
 public Q_SLOTS:
     bool start();
     bool stop();
@@ -220,7 +227,7 @@ public Q_SLOTS:
     void stepInto();
     void stepOut();
     void stepContinue();
-    void sendClearException(const QString &fn, int line);
+    void sendClearException(const QString& fn, int line);
     void sendClearAllExceptions();
     void onFileOpened(const QString &fn);
     void onFileClosed(const QString &fn);
@@ -235,10 +242,11 @@ Q_SIGNALS:
     void nextInstruction();
     void functionCalled();
     void functionExited();
+    void setActiveLine(const QString &filename, int line);
     void haltAt(const QString &filename, int line);
     void releaseAt(const QString &filename, int line);
-    void exceptionOccured(std::shared_ptr<Base::PyExceptionInfo> exeption);
-    void exceptionFatal(std::shared_ptr<Base::PyExceptionInfo> exception);
+    void exceptionOccured(Base::PyExceptionInfo* exeption);
+    void exceptionFatal(Base::PyExceptionInfo* exception);
     void clearException(const QString &fn, int line);
     void clearAllExceptions();
 
@@ -254,6 +262,13 @@ private:
 
 } // namespace Python
 } // namespace Debugging
-} // namespace Gui
+} // namespace App
 
-#endif // GUI_PYTHONDEBUG_H
+// for serializing deserializing breakpoint on app end/open
+Q_DECLARE_METATYPE(App::Debugging::Python::BrkPntFile);
+QDataStream& operator << (QDataStream& out,
+                          const App::Debugging::Python::BrkPntFile& bpf);
+QDataStream& operator >> (QDataStream& in,
+                          App::Debugging::Python::BrkPntFile& bpf);
+
+#endif // APP_PYTHONDEBUG_H
