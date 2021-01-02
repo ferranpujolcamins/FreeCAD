@@ -180,15 +180,18 @@ public:
                         int role = Qt::DisplayRole) const;
     bool removeRows(int row, int count, const QModelIndex & parent = QModelIndex());
 
+    QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
+
+
 private Q_SLOTS:
-    void exceptionFilter(std::shared_ptr<Base::Exception> exc);
-    void exception(std::shared_ptr<Base::PyExceptionInfo> exc);
+    void exceptionFilter(Base::Exception* exc);
+    void exception(Base::PyExceptionInfo* exc);
     void clear();
     void clearException(const QString &fn, int line);
 
 private:
     static const int colCount = 3;
-    QList<std::shared_ptr<Base::PyExceptionInfo>> m_exceptions;
+    QList<Base::PyExceptionInfo*> m_exceptions;
 };
 
 // -------------------------------------------------------------------------------

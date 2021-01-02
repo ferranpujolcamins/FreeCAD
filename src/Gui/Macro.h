@@ -104,7 +104,7 @@ public:
     long getLines() const {return totalLines;}
 
 Q_SIGNALS:
-    void exceptionFatal(std::shared_ptr<Base::PyExceptionInfo> exception);
+    void exceptionFatal(Base::PyExceptionInfo *exception);
 
 protected:
     QStringList macroInProgress;    /**< Container for the macro */

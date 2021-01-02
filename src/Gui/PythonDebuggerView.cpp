@@ -188,8 +188,14 @@ PythonDebuggerView::PythonDebuggerView(QWidget *parent)
 
     connect(d->m_issuesView->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex&)),
             this, SLOT(issuesViewCurrentChanged(const QModelIndex&, const QModelIndex&)));
-    connect(d->m_issuesView, SIGNAL(customContextMenuRequested(const QPoint&)),
-            this, SLOT(customIssuesContextMenu(const QPoint&)));
+    connect(d->m_issuesView, &QTableView::customContextMenuRequested,
+            this, &PythonDebuggerView::customIssuesContextMenu);
+    connect(issueModel, &IssuesModel::rowsInserted, [&](const QModelIndex&, int, int last){
+        d->m_stackTabWgt->setCurrentWidget(d->m_issuesView);
+        auto line = d->m_issuesView->model()->index(last, 0).data().toInt();
+        auto file = d->m_issuesView->model()->index(last, 1).data().toString();
+        PyDebugger::instance()->setActiveLine(file, line);
+    });
 
     setLayout(vLayout);
 
@@ -263,9 +269,29 @@ void PythonDebuggerView::changeEvent(QEvent *e)
 
 void PythonDebuggerView::startDebug()
 {
-    PythonEditorView *editView = PythonEditorView::setAsActive();
-    if (editView)
-        editView->startDebug();
+
+    EditorView* view = dynamic_cast<EditorView*>(MainWindow::getInstance()->activeWindow());
+    if (!view) {
+        auto views = EditorViewSingleton::instance()->editorViews();
+        if (views.isEmpty()) {
+            auto edit = new TextEditor(nullptr);
+            view = EditorViewSingleton::instance()->createView(edit);
+            if (!view->openDlg()) {
+                MainWindow::getInstance()->removeWindow(view, false);
+                delete view;
+                return;
+            }
+        }
+    }
+
+    view->setFocus();
+    view->save();
+
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    debugger->stop();
+
+    if (debugger->start())
+        debugger->runFile(view->filename());
 }
 
 void PythonDebuggerView::enableButtons()
@@ -360,22 +386,27 @@ void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
                     tr("Disable breakpoint"), &menu);
     QAction enable(BitmapFactory().iconFromTheme("breakpoint"),
                    tr("Enable breakpoint"), &menu);
-    QAction edit(BitmapFactory().iconFromTheme("preferences-general"),
-                    tr("Edit breakpoint"), &menu);
-    QAction del(BitmapFactory().iconFromTheme("delete"),
-                   tr("Delete breakpoint"), &menu);
-    QAction clear(BitmapFactory().iconFromTheme("process-stop"),
-                  tr("Clear all breakpoints"), &menu);
 
     if (bpl->disabled())
         menu.addAction(&enable);
     else
         menu.addAction(&disable);
+
+    QAction edit(BitmapFactory().iconFromTheme("preferences-general"),
+                    tr("Edit breakpoint"), &menu);
     menu.addAction(&edit);
+    QAction del(BitmapFactory().iconFromTheme("delete"),
+                   tr("Delete breakpoint"), &menu);
     menu.addAction(&del);
     menu.addSeparator();
+    QAction clear(BitmapFactory().iconFromTheme("process-stop"),
+                  tr("Clear all breakpoints"), &menu);
     menu.addAction(&clear);
 
+    QAction showLine(BitmapFactory().iconFromTheme("document-python.svg"),
+                  tr("Show line"), &menu);
+    menu.addSeparator();
+    menu.addAction(&showLine);
 
     QAction *res = menu.exec(d->m_breakpointView->mapToGlobal(pos));
     if (res == &disable) {
@@ -386,9 +417,12 @@ void PythonDebuggerView::customBreakpointContextMenu(const QPoint &pos)
         PythonEditorBreakpointDlg dlg(this, bpl);
         dlg.exec();
     } else if (res == &del) {
-        debugger->deleteBreakpoint(bpl);
+        debugger->removeBreakpoint(bpl);
     } else if (res == &clear) {
         debugger->clearAllBreakPoints();
+    } else if (res == &showLine) {
+        EditorViewSingleton::instance()->activeView()->
+                open(bpl->bpFile()->fileName());
     }
 }
 
@@ -516,15 +550,8 @@ void PythonDebuggerView::initButtons(QVBoxLayout *vLayout)
 void PythonDebuggerView::setFileAndScrollToLine(const QString &fn, int line)
 {
     // switch file in editor so we can view line
-    PythonEditorView* editView = qobject_cast<PythonEditorView*>(
-                                        getMainWindow()->activeWindow());
-    if (!editView)
-        return;
-
-    //getMainWindow()->setActiveWindow(editView);
-    if (editView->filename() != fn)
-        editView->open(fn);
-
+    auto editView = EditorViewSingleton::instance()->activeView();
+    editView->open(fn);
 
     // scroll to view
     QTextCursor cursor(editView->editor()->document()->
@@ -850,9 +877,11 @@ void PythonBreakpointModel::removed(size_t uniqueId)
 {
     Q_UNUSED(uniqueId)
     auto bp = PyDebugger::instance()->getBreakpointFromUniqueId(uniqueId);
-    int idx = static_cast<int>(bp->uniqueId());
-    beginRemoveRows(QModelIndex(), idx, idx);
-    endRemoveRows();
+    if (bp) {
+        int idx = static_cast<int>(bp->uniqueId());
+        beginRemoveRows(QModelIndex(), idx, idx);
+        endRemoveRows();
+    }
 }
 
 // --------------------------------------------------------------------
@@ -983,9 +1012,15 @@ bool IssuesModel::removeRows(int row, int count, const QModelIndex &parent)
     return true;
 }
 
-void IssuesModel::exceptionFilter(std::shared_ptr<Base::Exception> exc)
+QModelIndex IssuesModel::index(int row, int column, const QModelIndex &parent) const
 {
-    auto excPy = std::dynamic_pointer_cast<Base::PyExceptionInfo>(exc);
+    (void)parent;
+    return createIndex(row, column);
+}
+
+void IssuesModel::exceptionFilter(Base::Exception* exc)
+{
+    auto excPy = dynamic_cast<Base::PyExceptionInfo*>(exc);
     if (!excPy)
         return;
 
@@ -996,7 +1031,7 @@ void IssuesModel::exceptionFilter(std::shared_ptr<Base::Exception> exc)
 
 }
 
-void IssuesModel::exception(std::shared_ptr<Base::PyExceptionInfo> exception)
+void IssuesModel::exception(Base::PyExceptionInfo* exception)
 {
     // already set?
     for (const auto &exc : m_exceptions) {
@@ -1514,6 +1549,8 @@ void VarTreeModelBase::scanObject(PyObject *startObject, VariableTreeItem *paren
 
     // traverse and compare
     for (Py::List::iterator it = keys.begin(); it != keys.end(); ++it) {
+        if ((*it).ptr() == nullptr)
+            continue;
         Py::String key(*it);
         QString name = QString::fromStdString(key);
         // PyCXX methods throws here on type objects from class self type?

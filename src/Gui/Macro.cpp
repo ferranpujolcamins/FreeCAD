@@ -280,7 +280,7 @@ void MacroManager::run(MacroType eType, const char *sName)
     catch (const Base::PyException& e) {
         e.ReportException();
         // notify our textedit and debuggerview
-        auto exc = std::make_shared<Base::PyExceptionInfo>(e);
+        auto exc = new Base::PyExceptionInfo(e);
         Q_EMIT exceptionFatal(exc);
     }
     catch (const Base::Exception& e) {

@@ -82,7 +82,7 @@ struct PythonEditorP
     QPixmap breakpointDisabled;
     QPixmap debugMarker;
     Python::Code *pythonCode;
-    QHash <int, std::shared_ptr<Base::PyExceptionInfo>> exceptions;
+    QHash <int, Base::PyExceptionInfo*> exceptions;
     //CallTipsList* callTipsList;
     PythonMatchingChars* matchingChars;
     const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
@@ -231,10 +231,10 @@ PythonEditor::PythonEditor(QWidget* parent)
             this, &PythonEditor::breakpointRemoved);
     connect(dbg, &PyDebugger::breakpointRemoved,
             this, &PythonEditor::breakpointRemoved);
-    connect(dbg, &PyDebugger::exceptionFatal,
-            this, &PythonEditor::exception);
-    connect(dbg, &PyDebugger::exceptionOccured,
-            this, &PythonEditor::exception);
+//    connect(dbg, &PyDebugger::exceptionFatal,
+//            this, &PythonEditor::exception);
+//    connect(dbg, &PyDebugger::exceptionOccured,
+//            this, &PythonEditor::exception);
     connect(dbg, &PyDebugger::started, this, &PythonEditor::clearAllExceptions);
     connect(dbg, &PyDebugger::clearAllExceptions, this, &PythonEditor::clearAllExceptions);
     connect(dbg, &PyDebugger::clearException, this, &PythonEditor::clearException);
@@ -340,7 +340,7 @@ void PythonEditor::toggleBreakpoint()
     auto debugger = App::Debugging::Python::Debugger::instance();
     auto bp = debugger->getBreakpoint(filename(), line);
     if (bp)
-        debugger->deleteBreakpoint(bp);
+        debugger->removeBreakpoint(bp);
     else
         debugger->setBreakpoint(filename(), line);
     lineMarkerArea()->update();
@@ -883,7 +883,7 @@ void PythonEditor::handleMarkerAreaContextMenu(QAction *res, int line)
             dlg.exec();
         }   break;
         case BreakpointDelete:
-            debugger->deleteBreakpointByLine(filename(), line);
+            debugger->removeBreakpointByLine(filename(), line);
             break;
         case BreakpointDisable:
             bpl->setDisabled(true);
@@ -984,7 +984,7 @@ void PythonEditor::breakpointRemoved(size_t uniqueId)
     lineMarkerArea()->update();
 }
 
-void PythonEditor::exception(std::shared_ptr<Base::PyExceptionInfo> exc)
+void PythonEditor::exception(Base::PyExceptionInfo* exc)
 {
     int linenr = exc->getLine();
 

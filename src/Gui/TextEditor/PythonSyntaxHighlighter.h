@@ -224,11 +224,11 @@ public:
 class PyExceptionInfoGui
 {
 public:
-    explicit PyExceptionInfoGui(std::shared_ptr<Base::PyExceptionInfo> exc);
+    explicit PyExceptionInfoGui(Base::PyExceptionInfo* exc);
     ~PyExceptionInfoGui();
     const char *iconName() const;
 private:
-    std::shared_ptr<Base::PyExceptionInfo> m_exc;
+    Base::PyExceptionInfo* m_exc;
 };
 
 } // namespace Gui

@@ -66,62 +66,62 @@ class GuiExport PythonEditor : public TextEditor
 public:
     PythonEditor(QWidget *parent = nullptr);
     ~PythonEditor();
-    PythonEditorCodeAnalyzer *codeAnalyzer() const;
-    void setCodeAnalyzer(PythonEditorCodeAnalyzer *analyzer);
+    PythonEditorCodeAnalyzer *codeAnalyzer() const; // plugin TODO
+    void setCodeAnalyzer(PythonEditorCodeAnalyzer *analyzer);// plugin TODO
 
 public Q_SLOTS:
-    void toggleBreakpoint();
-    void showDebugMarker(int line);
-    void hideDebugMarker();
-    void clearAllExceptions();
-    void clearException(const QString &fn, int line);
+    void toggleBreakpoint();// plugin implemented
+    void showDebugMarker(int line);// plugin implemented
+    void hideDebugMarker();// plugin implemented
+    void clearAllExceptions();// plugin implemented
+    void clearException(const QString &fn, int line);// plugin implemented
 
 
     /** Inserts a '#' at the beginning of each selected line or the current line if 
      * nothing is selected
      */
-    void onComment();
+    void onComment();// plugin TODO
     /**
      * Removes the leading '#' from each selected line or the current line if
      * nothing is selected. In case a line hasn't a leading '#' then
      * this line is skipped.
      */
-    void onUncomment();
+    void onUncomment();// plugin TODO
     /**
      * @brief onAutoIndent
      * Indents selected codeblock
      */
-    void onAutoIndent();
+    void onAutoIndent();// plugin TODO
 
-    void setFilename(const QString&);
-    void startDebug();
+    void setFilename(const QString&); // finished
+    void startDebug(); // not through editor
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
-    void cut();
-    void paste();
+    void cut();// plugin TODO
+    void paste();// plugin TODO
 
 protected:
     /** Pops up the context menu with some extensions */
-    void contextMenuEvent ( QContextMenuEvent* e );
-    void drawMarker(int line, int x, int y, QPainter*);
-    void keyPressEvent(QKeyEvent * e);
-    bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
-    bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
+    void contextMenuEvent ( QContextMenuEvent* e ); // plugin finished
+    void drawMarker(int line, int x, int y, QPainter*);// plugin finished
+    void keyPressEvent(QKeyEvent * e);// plugin TODO
+    bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);// plugin TODO
+    bool lineMarkerAreaToolTipEvent(QPoint pos, int line); // plugin finished
     void setUpMarkerAreaContextMenu(int line);
     void handleMarkerAreaContextMenu(QAction *res, int line);
 
 private Q_SLOTS:
-    void breakpointAdded(size_t uniqueId);
-    void breakpointChanged(size_t uniqueId);
-    void breakpointRemoved(size_t uniqueId);
-    void exception(std::shared_ptr<Base::PyExceptionInfo> exc);
+    void breakpointAdded(size_t uniqueId); // plugin finished
+    void breakpointChanged(size_t uniqueId); // plugin finished
+    void breakpointRemoved(size_t uniqueId); // plugin finished
+    void exception(Base::PyExceptionInfo *exc); // plugin finished
 
 
 private:
     void breakpointPasteOrCut(bool doCut);
     QString introspect(QString varName);
-    void renderExceptionExtraSelections();
+    void renderExceptionExtraSelections(); // plugin finished
     struct PythonEditorP* d;
 };
 
