@@ -43,13 +43,13 @@
 #include "ExceptionFactory.h"
 
 #if PY_MAJOR_VERSION >= 3
-#define PY_AS_LONG(pyObj) PyLong_AS_LONG(pyObj)
-#define PY_LONG_CHECK(pyObj) PyLong_Check(pyObj)
-#define PY_AS_C_STRING(pyObj) PyUnicode_AsUTF8(pyObj)
+# define PY_AS_LONG(pyObj) PyLong_AS_LONG(pyObj)
+# define PY_LONG_CHECK(pyObj) PyLong_Check(pyObj)
+# define PY_AS_C_STRING(pyObj) PyUnicode_AsUTF8(pyObj)
 #else
-#define PY_AS_LONG(pyObj) PyInt_AS_LONG(pyObj)
-#define PY_LONG_CHECK(pyObj) PyInt_Check(pyObj)
-#define PY_AS_C_STRING(pyObj) PyBytes_AsString(pyObj)
+# define PY_AS_LONG(pyObj) PyInt_AS_LONG(pyObj)
+# define PY_LONG_CHECK(pyObj) PyInt_Check(pyObj)
+# define PY_AS_C_STRING(pyObj) PyBytes_AsString(pyObj)
 #endif
 
 
@@ -203,51 +203,54 @@ void PyException::_init()
 
         // linenr global space
         if (_line == 0) {
-            PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
-            if (lineobj) {
-                long line = PY_AS_LONG(lineobj);
-                Py_DECREF(lineobj);
-                _line = static_cast<int>(line);
-            } else
-                PyErr_Clear();
+//            PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
+//            if (lineobj) {
+//                long line = PY_AS_LONG(lineobj);
+//                Py_DECREF(lineobj);
+//                _line = static_cast<int>(line);
+//            } else
+//                PyErr_Clear();
+            _line = _getAttrAsInt(_pyValue, "lineno");
         }
 
         // fileName global space
         if (_file.empty()) {
-            PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
-            if (filenameobj) {
-                if (PyBytes_Check(filenameobj)) {
-                    const char *msg = PyBytes_AS_STRING(filenameobj);
-                    _file = msg;
-                } else if (PyUnicode_Check(filenameobj)) {
-#if PY_MAJOR_VERSION >= 3
-                    const char *msg = PyUnicode_AsUTF8(filenameobj);
-#else
-                    PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
-                    const char *msg = PyBytes_AsString(pyBytes);
-                    Py_XDECREF(pyBytes);
-#endif
-                    _file = msg;
-                }
-                Py_XDECREF(filenameobj);
-            } else
-                PyErr_Clear();
+//            PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
+//            if (filenameobj) {
+//                if (PyBytes_Check(filenameobj)) {
+//                    const char *msg = PyBytes_AS_STRING(filenameobj);
+//                    _file = msg;
+//                } else if (PyUnicode_Check(filenameobj)) {
+//#if PY_MAJOR_VERSION >= 3
+//                    const char *msg = PyUnicode_AsUTF8(filenameobj);
+//#else
+//                    PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
+//                    const char *msg = PyBytes_AsString(pyBytes);
+//                    Py_XDECREF(pyBytes);
+//#endif
+//                    _file = msg;
+//                }
+//                Py_XDECREF(filenameobj);
+//            } else
+//                PyErr_Clear();
+            _file = _getAttrAsString(_pyValue, "filename");
         }
     }
 
     if (_pyValue) {
-        // we get here regardless of traceback or not
-#if PY_MAJOR_VERSION >= 3
-        // hack, py3.7 needs to call args before filename?
-        PyObject *vlu = PyObject_GetAttrString(_pyValue, "args");
-        Py_XDECREF(vlu);
-#endif
-        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
-        if (offsetobj) {
-            long offset = PY_AS_LONG(offsetobj);
-            _offset = static_cast<int>(offset);
-        } else
-            PyErr_Clear();
+//        // we get here regardless of traceback or not
+//#if PY_MAJOR_VERSION >= 3
+//        // hack, py3.7 needs to call args before filename?
+//        PyObject *vlu = PyObject_GetAttrString(_pyValue, "args");
+//        Py_XDECREF(vlu);
+//#endif
+//        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
+//        if (offsetobj) {
+//            long offset = PY_AS_LONG(offsetobj);
+//            _offset = static_cast<int>(offset);
+//        } else
+//            PyErr_Clear();
+        _offset = _getAttrAsInt(_pyValue, "offset");
     }
     // must restore for PP_Fetch_Error_Text()
     PyErr_Restore(_pyType, _pyValue, _pyTraceback);
@@ -302,6 +305,51 @@ void PyException::_init()
     if (_stackTrace.empty())
         _stackTrace = PP_last_error_trace;     /* exception traceback text */
     PyErr_Clear(); // must be called to keep Python interpreter in a valid state (Werner)
+}
+
+int PyException::_getAttrAsInt(PyObject *obj, const char *attr)
+{
+#if PY_MAJOR_VERSION >= 3
+    // hack, py3.7 needs to call args before getattr
+    PyObject *vlu = PyObject_GetAttrString(obj, "args");
+    Py_XDECREF(vlu);
+#endif
+    PyObject *longObj = PyObject_GetAttrString(obj, attr); // new ref
+    if (longObj) {
+        long value = PY_AS_LONG(longObj);
+        return static_cast<int>(value);
+    } else
+        PyErr_Clear();
+    return 0;
+}
+
+const char *PyException::_getAttrAsString(PyObject *obj, const char *attr)
+{
+#if PY_MAJOR_VERSION >= 3
+    // hack, py3.7 needs to call args before getattr
+    PyObject *vlu = PyObject_GetAttrString(obj, "args");
+    Py_XDECREF(vlu);
+#endif
+
+    PyObject *strObj = PyObject_GetAttrString(obj, attr); // new ref
+    if (strObj) {
+        if (PyBytes_Check(strObj)) {
+            const char *msg = PyBytes_AS_STRING(strObj);
+            return  msg;
+        } else if (PyUnicode_Check(strObj)) {
+#if PY_MAJOR_VERSION >= 3
+            const char *msg = PyUnicode_AsUTF8(strObj);
+#else
+            PyObject *pyBytes = PyUnicode_AsUTF8String(strObj);
+            const char *msg = PyBytes_AsString(pyBytes);
+            Py_XDECREF(pyBytes);
+#endif
+            return msg;
+        }
+        Py_XDECREF(strObj);
+    } else
+        PyErr_Clear();
+    return nullptr;
 }
 
 // helper function, should be called from copy constructor or from copy operator
@@ -419,7 +467,6 @@ void PyException::setPyException() const
 // ---------------------------------------------------------
 
 Base::PyExceptionInfo::PyExceptionInfo() :
-
     PyException()
 {
     _tracebackLevel = tracebackSize() -1;

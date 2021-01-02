@@ -112,7 +112,7 @@ public:
     PyException(PyObject *tracebackArg);
     PyException(const PyException &other);
     PyException(const Py::Object &obj);
-    ~PyException() throw();
+    virtual ~PyException() throw() override;
 
     PyException& operator =(const PyException &other);
 
@@ -153,6 +153,9 @@ protected:
     void _clone(const PyException &other);
     void _init();
 
+    int _getAttrAsInt(PyObject* obj, const char *attr);
+    const char* _getAttrAsString(PyObject* obj, const char *attr);
+
 private:
     //PyObject *_exceptionType;
 };
@@ -168,7 +171,7 @@ public:
     explicit PyExceptionInfo();
     PyExceptionInfo(const PyException &exc);
     PyExceptionInfo(const PyExceptionInfo &other);
-    ~PyExceptionInfo() throw();
+    virtual ~PyExceptionInfo() throw() override;
 
     PyExceptionInfo &operator =(const PyExceptionInfo &other);
     PyException &operator =(const PyException &other);
