@@ -52,19 +52,21 @@ class Code : QObject
 {
     Q_OBJECT
 public:
-    Code(QObject *parent = nullptr);
+    explicit Code(QObject *parent = nullptr);
     virtual ~Code();
 
 
     // copies object and all subobjects
-    PyObject* deepCopy(PyObject *obj);
+    PyObject* deepCopy(PyObject *obj) const;
 
-    QString findFromCurrentFrame(const Python::Token *tok);
+    QString findFromCurrentFrame(const QString lineText, int pos, const QString word) const;
+
+    QString findFromCurrentFrame(const Python::Token *tok) const;
 
     // get the root of the parent identifier ie os.path.join
     //                                                    ^
     // must traverse from os, then os.path before os.path.join
-    PyObject *getDeepObject(PyObject *obj, const Python::Token *needleTok, QString &foundKey);
+    PyObject *getDeepObject(PyObject *obj, const Python::Token *needleTok, QString &foundKey) const;
 
 private:
     Python::CodeP *d;

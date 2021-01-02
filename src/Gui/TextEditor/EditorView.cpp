@@ -138,13 +138,14 @@ public:
 class EditorViewWrapperP {
 public:
     EditorViewWrapperP(QPlainTextEdit* editor)
-        : plainEdit(editor)
+        : view(nullptr)
+        , plainEdit(editor)
         , timestamp(0)
         , lock(false)
     {}
     ~EditorViewWrapperP()
     {
-        plainEdit = nullptr;
+        delete plainEdit;
     }
     EditorView* view;
     QString filename,
@@ -251,12 +252,14 @@ static struct _PyEditorRegister
 EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
     : MDIView(nullptr, parent, nullptr), WindowParameter( "Editor" )
 {
+    // we must have a editor
+    if (!editor)
+        editor = new TextEditor(this);
 
     // create d pointer obj and init viewData obj (switches when switching file)
     d = new EditorViewP(this, editor);
     d->displayName = EditorView::FullName;
 
-    d->editWrapper->attach(this);
 
     // create searchbar
     d->searchBar = new EditorSearchBar(this, d);
@@ -265,21 +268,13 @@ EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
     d->centralLayout = new QVBoxLayout;
     QFrame*     vbox = new QFrame(this);
     d->centralLayout->setMargin(0);
+
+    d->editWrapper->attach(this);
+
     d->centralLayout->addWidget(editor);
     editor->setParent(this);
     d->centralLayout->addWidget(d->searchBar);
     vbox->setLayout(d->centralLayout);
-
-    // file selection drop down at top of widget
-    setTopbar(new EditorViewTopBar(this));
-
-    QFrame* hbox = new QFrame(this);
-    hbox->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    QHBoxLayout* hLayout = new QHBoxLayout;
-    hLayout->setMargin(1);
-    hLayout->addWidget(vbox);
-    hbox->setLayout(hLayout);
-    setCentralWidget(hbox);
 
     editor->setParent(vbox);
     editor->document()->setModified(false);
@@ -287,6 +282,19 @@ EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
     editor->setFocus();
 
     setWindowIcon(editor->windowIcon());
+
+
+    // file selection drop down at top of widget
+    setTopbar(new EditorViewTopBar(this));
+
+    QFrame* hbox = new QFrame(this);
+    hbox->setFrameStyle(QFrame::NoFrame);
+    QHBoxLayout* hLayout = new QHBoxLayout;
+    hLayout->setMargin(1);
+    hLayout->addWidget(vbox);
+    hbox->setLayout(hLayout);
+    setCentralWidget(hbox);
+
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     hPrefGrp->Attach( this );
@@ -462,7 +470,7 @@ bool EditorView::closeFile()
 {
     if (canClose()) {
         auto oldWrapper = d->editWrapper;
-        auto newWrapper = EditorViewSingleton::instance()->lastAccessed(this, -1);
+        auto newWrapper = EditorViewSingleton::instance()->lastAccessedEditor(this, -1);
 
         bool created = false;
         if (!newWrapper || oldWrapper == newWrapper) {
@@ -474,7 +482,7 @@ bool EditorView::closeFile()
         if (!old) {
             if (created) {
                 newWrapper->close(this);
-                //delete newWrapper;
+                delete newWrapper;
             }
             return false;
         }
@@ -487,7 +495,7 @@ bool EditorView::closeFile()
         d->editWrapper = newWrapper;
         newWrapper->attach(this);
         oldWrapper->close(this);
-        //delete oldWrapper;
+        delete oldWrapper;
         return true;
     }
     return false;
@@ -616,11 +624,36 @@ bool EditorView::open(const QString& fileName)
     return true;
 }
 
+bool EditorView::openDlg()
+{
+    if (editor()->document()->isModified())
+        save();
+
+    WindowParameter param("PythonDebuggerView");
+    QString path = QString::fromStdString(
+                        param.getWindowParameter()->GetASCII("MacroPath",
+                               App::Application::getUserMacroDir().c_str()));
+
+    QString fn;
+    if (filename().isEmpty())
+        fn = QFileDialog::getOpenFileName(getMainWindow(), tr("Open file"),
+                                               path, QLatin1String("*.py;;*.FCMacro;;*"));
+    if (!fn.isEmpty()) {
+        EditorViewSingleton::instance()->openFile(fn, this);
+        return true;
+    }
+    return false;
+}
+
 bool EditorView::save()
 {
-    if (filename().isEmpty())
-        return saveAs();
-    return saveFile();
+    if (filename().isEmpty()) {
+        if (editor()->document()->isModified())
+            return saveAs();
+    } else
+        return saveFile();
+
+    return false;
 }
 
 /**
@@ -716,10 +749,8 @@ void EditorView::refreshLangPlugins()
 
     d->currentPlugins.clear();
     for(auto plugin : langPlugins) {
-        for (const auto &pmime : plugin->mimetypes()) {
-            if (pmime == editor->mimetype())
-                d->currentPlugins.push_back(plugin);
-        }
+        if (plugin->matchesMimeType(editor->filename(), editor->mimetype()))
+            d->currentPlugins.push_back(plugin);
     }
 }
 
@@ -801,6 +832,15 @@ void EditorView::setFilename(QString fileName)
 const QList<AbstractLangPlugin *> EditorView::currentPlugins() const
 {
     return d->currentPlugins;
+}
+
+const AbstractLangPlugin* EditorView::currentPluginByName(const char* name)
+{
+    for (auto plugin : d->currentPlugins) {
+        if (strncmp(plugin->name(), name, 1024) == 0)
+            return plugin;
+    }
+    return nullptr;
 }
 
 void EditorView::setTopbar(EditorViewTopBar* topBar)
@@ -1240,10 +1280,8 @@ bool EditorViewWrapper::close(EditorView* sharedOwner)
 
     // cleanup and memory release
     EditorViewSingleton::instance()->removeWrapper(this);
-    if (d->plainEdit) {
+    if (d->plainEdit)
         d->plainEdit->setDocument(nullptr);
-        d->plainEdit = nullptr;
-    }
 
     // emit changes
     Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
@@ -1375,7 +1413,7 @@ bool EditorViewSingleton::registerTextEditorType(EditorViewSingleton::createT fa
 void EditorViewSingleton::registerLangPlugin(AbstractLangPlugin *plugin)
 {
     for (auto plug : langPlugins) {
-        if (plug->pluginName() == plugin->pluginName()) {
+        if (plug->name() == plugin->name()) {
             delete plugin;
             return;
         }
@@ -1388,14 +1426,8 @@ void EditorViewSingleton::registerLangPlugin(AbstractLangPlugin *plugin)
 
     for(const auto &wrp : instance()->d->wrappers) {
         if (wrp && wrp->editor() == wrp->view()->editor()) {
-            auto edit = wrp->textEditor();
-            for (const auto &mime : plugin->mimetypes()) {
-                if (mime == wrp->mimetype() ||
-                    (edit && edit->mimetype() == mime))
-                {
-                    wrp->view()->refreshLangPlugins();
-                }
-            }
+            if (plugin->matchesMimeType(wrp->filename(), wrp->mimetype()))
+                wrp->view()->refreshLangPlugins();
         }
     }
 }
@@ -1407,21 +1439,16 @@ EditorViewSingleton* EditorViewSingleton::instance()
     return _instance;
 }
 
-EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view)
+EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view) const
 {
     if (!view) {
         // find a edit view among windows
-        EditorView* tmpView = nullptr;
-        for (auto item : MainWindow::getInstance()->windows()) {
-            tmpView = dynamic_cast<EditorView*>(item);
-            if (tmpView) {
-                view = tmpView;
-                break;
-            }
-        }
+        auto views = editorViews();
 
-        // create a new view
-        if (!view)
+        if (!views.isEmpty())
+            view = views.first();
+        else
+            // create a new view
             view = createView(createEditor(fn));
     }
 
@@ -1433,7 +1460,7 @@ EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view)
 }
 
 EditorViewWrapper*
-EditorViewSingleton::getWrapper(const QString &fn, EditorView* ownerView)
+EditorViewSingleton::getWrapper(const QString &fn, EditorView* ownerView) const
 {
     for (auto editWrapper : d->wrappers) {
         if ((editWrapper->filename() == fn) &&
@@ -1451,7 +1478,7 @@ EditorViewSingleton::getWrapper(const QString &fn, EditorView* ownerView)
 }
 
 QList<EditorViewWrapper*>
-EditorViewSingleton::getWrappers(const QString &fn)
+EditorViewSingleton::getWrappers(const QString &fn) const
 {
     QList<EditorViewWrapper*> wrappers;
     for (auto editWrapper : d->wrappers) {
@@ -1463,7 +1490,7 @@ EditorViewSingleton::getWrappers(const QString &fn)
 }
 
 EditorViewWrapper*
-EditorViewSingleton::createWrapper(const QString &fn, QPlainTextEdit* editor)
+EditorViewSingleton::createWrapper(const QString &fn, QPlainTextEdit* editor) const
 {
     EditorViewWrapper* ew = nullptr;
     QString icon(QLatin1String("accessories-text-editor"));
@@ -1499,13 +1526,13 @@ EditorViewSingleton::createWrapper(const QString &fn, QPlainTextEdit* editor)
     return ew;
 }
 
-EditorView *EditorViewSingleton::createView(QPlainTextEdit *edit)
+EditorView *EditorViewSingleton::createView(QPlainTextEdit *edit, bool addToMainWindow) const
 {
     auto mainWindow = MainWindow::getInstance();
     auto editorView = new EditorView(edit, mainWindow);
     editorView->setDisplayName(EditorView::FileName);
-    mainWindow->addWindow(editorView);
-    mainWindow->setActiveWindow(editorView);
+    if (addToMainWindow)
+        MainWindow::getInstance()->addWindow(editorView);
     return editorView;
 }
 
@@ -1541,7 +1568,7 @@ bool EditorViewSingleton::removeWrapper(EditorViewWrapper* ew)
 }
 
 EditorViewWrapper*
-EditorViewSingleton::lastAccessed(EditorView* view, int backSteps)
+EditorViewSingleton::lastAccessedEditor(EditorView* view, int backSteps) const
 {
     int idx = d->accessOrder.size() + backSteps -1;
     if (idx >= 0 && d->accessOrder.size() > idx)
@@ -1550,7 +1577,7 @@ EditorViewSingleton::lastAccessed(EditorView* view, int backSteps)
 }
 
 QList<const EditorViewWrapper*>
-EditorViewSingleton::openedBySuffix(QStringList types)
+EditorViewSingleton::openedBySuffix(QStringList types) const
 {
     QList<const EditorViewWrapper*> res;
     for (auto editWrapper : d->wrappers) {
@@ -1561,7 +1588,32 @@ EditorViewSingleton::openedBySuffix(QStringList types)
     return res;
 }
 
-void EditorViewSingleton::docModifiedChanged(bool changed)
+QList<EditorView *> EditorViewSingleton::editorViews(const QString &name) const
+{
+    QList<EditorView*> views;
+    for (auto wdgt : QApplication::topLevelWidgets()) {
+        auto v = wdgt->findChildren<EditorView*>(name);
+        if (!v.isEmpty())
+            views.append(v);
+    }
+
+    return views;
+}
+
+EditorView *EditorViewSingleton::activeView() const
+{
+    auto views = editorViews();
+    for (auto view : editorViews()) {
+        if (view->editor()->hasFocus())
+            return view;
+    }
+
+    if (views.isEmpty())
+        return createView();
+    return views.last();
+}
+
+void EditorViewSingleton::docModifiedChanged(bool changed) const
 {
     QObject *obj = sender();
     for (auto ew : d->wrappers) {

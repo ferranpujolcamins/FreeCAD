@@ -42,6 +42,7 @@
 #include <QCompleter>
 #include <QMimeDatabase>
 #include <QFileInfo>
+#include <QToolTip>
 
 
 #include <QDebug>
@@ -114,8 +115,8 @@ struct TextEditorP
  */
 TextEditor::TextEditor(QWidget* parent)
     : QPlainTextEdit(parent), WindowParameter("Editor")
+    , d(new TextEditorP(this))
 {
-    d = new TextEditorP(this);
     d->lineNumberArea = new LineMarkerArea(this);
 
     setSyntaxHighlighter(d->highlighter);
@@ -129,8 +130,6 @@ TextEditor::TextEditor(QWidget* parent)
     d->lineNumberArea->fontSizeChanged();
 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
-    // set default to 4 characters
-    hPrefGrp->SetInt( "TabSize", 4 );
     hPrefGrp->Attach( this );
 
     // set colors and font
@@ -323,6 +322,13 @@ void TextEditor::setWrapper(EditorViewWrapper *wrapper)
     d->wrapper = wrapper;
 }
 
+EditorView *TextEditor::view() const
+{
+    if (d->wrapper)
+        return d->wrapper->view();
+    return nullptr;
+}
+
 void TextEditor::setCompleter(QCompleter *completer) const
 {
     d->completer = completer;
@@ -478,34 +484,6 @@ void TextEditor::drawMarker(int line, int x, int y, QPainter* p)
     Q_UNUSED(p)
 }
 
-//void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event)
-//{
-//    QPainter painter(lineNumberArea);
-//    //painter.fillRect(event->rect(), Qt::lightGray);
-
-//    QTextBlock block = firstVisibleBlock();
-//    int blockNumber = block.blockNumber();
-//    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
-//    int bottom = top + (int) blockBoundingRect(block).height();
-
-//    while (block.isValid() && top <= event->rect().bottom()) {
-//        if (block.isVisible() && bottom >= event->rect().top()) {
-//            QString number = QString::number(blockNumber + 1);
-//            QPalette pal = palette();
-//            QColor color = pal.windowText().color();
-//            painter.setPen(color);
-//            painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
-//                             Qt::AlignRight, number);
-//            drawMarker(blockNumber + 1, 1, top, &painter);
-//        }
-
-//        block = block.next();
-//        top = bottom;
-//        bottom = top + (int) blockBoundingRect(block).height();
-//        ++blockNumber;
-//    }
-//}
-
 void TextEditor::setSyntaxHighlighter(SyntaxHighlighter* sh)
 {
     if (sh) {
@@ -639,11 +617,7 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
     Q_UNUSED(rCaller)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (strcmp(sReason, "FontSize") == 0 || strcmp(sReason, "Font") == 0) {
-//#ifdef FC_OS_LINUX
-//        int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 15));
-//#else
         int fontSize = static_cast<int>(hPrefGrp->GetInt("FontSize", 10));
-//#endif
         QString fontFamily = QString::fromLatin1(hPrefGrp->GetASCII( "Font", "Courier" ).c_str());
         
         QFont font(fontFamily, fontSize);
@@ -703,13 +677,54 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
 void TextEditor::paintEvent(QPaintEvent *e)
 {
     QPlainTextEdit::paintEvent(e);
-    if (d->showIndentMarkers)
-        paintIndentMarkers(e);
 
     if (d->showLongLineMarker)
         paintTextWidthMarker(e);
 
-    paintFoldedTextMarker(e);
+
+    // TODO merge above into this algorithm, draw function called on line basis
+    QPainter painter(viewport());
+    QTextBlock block = firstVisibleBlock();
+    int blockNumber = block.blockNumber();
+    auto blockRectF = blockBoundingGeometry(block);
+    auto offsetTopLeft = contentOffset();
+    auto docMargins = static_cast<int>(document()->documentMargin());
+    QRect rowRect = blockRectF.translated(offsetTopLeft).toRect();
+    rowRect.moveLeft(viewport()->contentsMargins().left() + docMargins);
+    rowRect.setRight(rowRect.right() - docMargins*2);
+    int top = static_cast<int>(blockRectF.translated(offsetTopLeft).top());
+    int bottom = top + static_cast<int>(blockRectF.height());
+
+    while (block.isValid() && top <= e->rect().bottom()) {
+        if (bottom >= e->rect().top()) {
+            rowRect.moveTop(top);
+
+            if (block.isVisible()) {
+                if (d->showIndentMarkers)
+                    paintIndentMarkers(&painter, block, rowRect);
+
+                paintFoldedTextMarker(&painter, block, rowRect);
+
+                // let plugins render there own stuff
+                if (view()) {
+                    painter.save();
+                    for (auto plugin : view()->currentPlugins())
+                        plugin->paintEventTextArea(this, &painter, block, rowRect);
+                    painter.restore();
+                }
+            }
+        }
+
+        // advance  top-bottom visible boundaries for next row
+        if (block.isVisible() || block.next().isVisible()) {
+            blockRectF = blockBoundingRect(block.next());
+            top = bottom;
+            bottom = top + static_cast<int>(blockRectF.height());
+        }
+
+        block = block.next();
+        ++blockNumber;
+    }
 }
 
 bool TextEditor::event(QEvent *event)
@@ -719,10 +734,14 @@ bool TextEditor::event(QEvent *event)
         QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
         QPoint point = helpEvent->pos();
 
+        QString text; // this becomes the toolTip text if set
+        bool ret;
+
+        int line = d->lineNumberArea->lineFromPos(point);
+
         if (point.rx() < lineNumberAreaWidth()) {
             // on linenumberarea
-            int line = d->lineNumberArea->lineFromPos(point);
-            return lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line);
+            ret = lineMarkerAreaToolTipEvent(helpEvent->globalPos(), line, text);
 
         } else {
 
@@ -761,28 +780,46 @@ bool TextEditor::event(QEvent *event)
                 cursor.setPosition(endPos, QTextCursor::KeepAnchor);
                 QPoint evtPos = helpEvent->pos();
                 evtPos.rx() -= lineMarkerArea()->width();
-                return editorToolTipEvent(evtPos, cursor.selectedText());
+                ret = editorToolTipEvent(evtPos, line, text, cursor.selectedText());
 
             } else {
-                return editorToolTipEvent(helpEvent->globalPos(), QString());
+                ret = editorToolTipEvent(helpEvent->globalPos(), line, text, QString());
             }
         }
+
+        if (!text.isEmpty())
+            QToolTip::showText(helpEvent->globalPos(), text, this);
+
+        return ret;
     }
 
     return QPlainTextEdit::event(event);
 }
 
-bool TextEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
+bool TextEditor::editorToolTipEvent(QPoint pos, int line, QString &toolTipTxt,
+                                    const QString &textUnderPos)
 {
-    Q_UNUSED(pos)
     Q_UNUSED(textUnderPos)
-    return false;
+    bool ret = false;
+    if (view()) {
+        for (auto plugin : view()->currentPlugins()) {
+            auto plug = dynamic_cast<AbstractLangPluginDbg*>(plugin);
+            ret = plug->textAreaToolTipEvent(this, pos, line, toolTipTxt);
+        }
+    }
+    return ret;
 }
 
-bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line)
+bool TextEditor::lineMarkerAreaToolTipEvent(QPoint pos, int line, QString &toolTipTxt)
 {
     Q_UNUSED(pos)
     Q_UNUSED(line)
+    if (view()) {
+        for (auto plugin : view()->currentPlugins()) {
+            auto plug = dynamic_cast<AbstractLangPluginDbg*>(plugin);
+            plug->lineNrToolTipEvent(this, pos, line, toolTipTxt);
+        }
+    }
     return false;
 }
 
@@ -803,8 +840,8 @@ void TextEditor::setUpMarkerAreaContextMenu(int line)
     m_markerAreaContextMenu.addAction(bookmark);
 
     // let plugins extend context menu
-    if (d->wrapper && d->wrapper->view()) {
-        for (auto plugin : d->wrapper->view()->currentPlugins()) {
+    if (view()) {
+        for (auto plugin : view()->currentPlugins()) {
             auto pydbg = dynamic_cast<AbstractLangPluginDbg*>(plugin);
             if (pydbg) pydbg->contextMenuLineNr(d->wrapper->view(), &m_markerAreaContextMenu, d->filename, line);
         }
@@ -844,58 +881,39 @@ void TextEditor::handleMarkerAreaContextMenu(QAction *res, int line)
         default:
             return;
         }
-    } else {
-        // custom data
-        //QSting actionStr = res->data().toString();
-        //if (actionStr == QLatin1String("special")) {
-        //    // do something
-        //}
     }
 }
 
-void TextEditor::paintIndentMarkers(QPaintEvent *e)
-{
+void TextEditor::paintIndentMarkers(QPainter *painter, QTextBlock &block, QRect &rowRect)
+{    
     // paint indentmarkers
-    QPainter painter(viewport());
-    painter.setClipRect(e->rect());
-    painter.setPen(QColor(171, 172, 165));
-    painter.setFont(font());
-
-    QPointF offset(contentOffset());
-    QTextBlock block = firstVisibleBlock();
-    const QRect viewportRect = viewport()->rect();
-    const int margin = static_cast<int>(document()->documentMargin());
     const int indentSize = static_cast<int>(getWindowParameter()->GetInt( "IndentSize", 4 ));
-    QString indentBlock;
-    indentBlock = indentBlock.leftJustified(indentSize, QLatin1Char(' '));
-    QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, indentBlock);
-    const int indBlockWidth = fontRect.width();
-    const int cursorPos = textCursor().position();
+    const int tabSize = static_cast<int>(getWindowParameter()->GetInt( "TabSize", 4 ));
 
-    while(block.isValid()) {
-        const QRect rect = QRectF(blockBoundingRect(block).translated(offset)).toRect();
-        if (block.isVisible()) {
-            int indents = 0;
-            for (const QChar &ch: block.text()) {
-                if (ch == QLatin1Char(' '))
-                    ++indents;
-                else if (ch == QLatin1Char('\t'))
-                    indents += indentSize;
-                else
-                    break;
-            }
+    QLatin1Char iCh(' ');
+    auto fm = fontMetrics();
+    int indentWidth = fm.width(QString().fill(iCh, indentSize));
+    QString indentStr;
 
-            for(int i = indentSize, counts = 1; i < indents; i += indentSize, ++counts) {
-                const int x0 = rect.x() + (indBlockWidth * counts) + margin;
-                if (block.position() + i != cursorPos)
-                    painter.drawLine(x0, rect.top(), x0,
-                                     rect.top() + (rect.height() - (rect.height() * (block.lineCount() - 1))));// rect.bottom() - 1);
-            }
-        }
-        offset.ry() += rect.height();
-        if (offset.y() > viewportRect.height())
-            break; // outside our visible area
-        block = block.next();
+    for (const auto &ch : block.text()) {
+        if (ch == iCh)
+            indentStr += ch;
+        else if (ch == QLatin1Char('\t'))
+            indentStr += QString().fill(iCh, tabSize);
+        else
+            break;
+    }
+
+    int leftPos =  rowRect.left();
+    int maxRight = fm.width(indentStr) + leftPos;
+    painter->setPen(QColor(171, 172, 165));
+
+    for (int i = leftPos + indentWidth, p = block.position() + indentSize;
+         i < maxRight;
+         i += indentWidth, p += indentSize)
+    {
+        if (p != textCursor().position())
+            painter->drawLine(i, rowRect.top(), i, rowRect.bottom());
     }
 }
 
@@ -926,61 +944,49 @@ void TextEditor::paintTextWidthMarker(QPaintEvent *e)
     painter.drawRect(overWidthRect);
 }
 
-void TextEditor::paintFoldedTextMarker(QPaintEvent *e)
+void TextEditor::paintFoldedTextMarker(QPainter *painter, QTextBlock& block, QRect& rowRect)
 {
     // paint indentmarkers
-    QPainter painter(viewport());
-    painter.setClipRect(e->rect());
-    QPen penShadow(QColor(136, 167, 140));
-    penShadow.setWidth(3);
-    QPen pen(QColor(65,75,55));
-    pen.setWidth(2);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(penShadow);
-    painter.setBrush(Qt::white);
+    const int rightOfText = 10;
 
-    QPointF offset(contentOffset());
-    QTextBlock block = firstVisibleBlock();
-    QString dotText = QLatin1String(" ... ");
-    const QRect viewportRect = viewport()->rect();
-    const int margin = static_cast<int>(document()->documentMargin());
-    const int xOffset = 10;
-    const int w = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, dotText).width();
-    int h = static_cast<int>(blockBoundingRect(block).height());
+    if (block.isVisible() && !block.next().isVisible()) {
+        // find the last block not visible (should be the closing one)
+        auto lastBlock = block.next();
+        while (lastBlock.isValid() && !lastBlock.isVisible())
+            lastBlock = lastBlock.next();
 
-    QTextBlock prevBlock = block;
-    while(block.isValid() && prevBlock.isValid()) {
-        if (!block.isVisible() && prevBlock.isVisible()) {
-            QRectF prevRect = blockBoundingRect(prevBlock);
-            h = static_cast<int>(prevRect.height() / prevBlock.lineCount());
-            const qreal y = offset.y() - h;
-            QRect fontRect = fontMetrics().boundingRect(e->rect(), Qt::AlignLeft, prevBlock.text());
-            const qreal x = fontRect.width() + margin + xOffset;
-            QRectF rectangle(x, y, w, h);
-            QRectF rectShadow(x+1, y+1, w, h);
-            qreal radius = h / 4;
+        QString dotText = QLatin1String(" ...");
 
-            painter.setPen(penShadow);
-            painter.drawRoundedRect(rectShadow, radius, radius);
-
-            painter.setPen(pen);
-            painter.drawRoundedRect(rectangle, radius, radius);
-            QPointF txtPos(x, y + h -radius);
-            painter.drawText(txtPos, dotText);
+        // find the first non whiteSpace
+        if (lastBlock.isValid()) {
+            auto re = QRegExp(QLatin1String("^\\s*([\\]\\}\\)])"));
+            if (re.indexIn(lastBlock.previous().text()) > -1)
+                dotText += re.cap(1);
         }
 
-        // check so we don't go out of our visible area
-        if (block.isVisible()) {
-            QRectF rect = blockBoundingRect(block);
-            offset.ry() += rect.height();
-        }
+        dotText += QLatin1Char(' ');
 
-        if (offset.y() > viewportRect.height())
-            break; // outside our visible area
+        auto fm = fontMetrics();
+        int textWidth = fm.width(block.text());
+        qreal radius = rowRect.height() / 4;
+        QRect rect(textWidth + rightOfText + rowRect.left(), rowRect.top(),
+                   fm.width(dotText) + 6, rowRect.height());
 
-        prevBlock = block;
-        block = block.next();
-    }
+        QPen pen(QColor(136, 167, 140));
+        pen.setWidth(2);
+        painter->setPen(pen);
+        QBrush brush(QColor(242, 239, 155));
+        painter->setBrush(brush);
+        painter->drawRoundedRect(rect, radius, radius);
+
+        pen.setColor(QColor(65,75,55));
+        pen.setWidth(1);
+        painter->setPen(pen);
+        painter->setBrush(Qt::NoBrush);
+        auto textPnt = rect.topLeft();
+        textPnt.ry() += fm.ascent();
+        painter->drawText(textPnt, dotText);
+  }
 }
 
 // ------------------------------------------------------------------------------
@@ -1142,12 +1148,11 @@ void LineMarkerArea::paintEvent(QPaintEvent* event)
 
             if (block.isVisible()) {
                 // let plugins render there own stuff
-                if (d->textEditor->wrapper() && d->textEditor->wrapper()->view()) {
+                if (d->textEditor->view()) {
                     painter.save();
 
-                    auto view = d->textEditor->wrapper()->view();
-                    for (auto plugin : view->currentPlugins())
-                        plugin->paintEventLineNumberArea(view, &painter, block, rowRect);
+                    for (auto plugin : d->textEditor->view()->currentPlugins())
+                        plugin->paintEventLineNumberArea(d->textEditor, &painter, block, rowRect);
 
                     painter.restore();
                 }

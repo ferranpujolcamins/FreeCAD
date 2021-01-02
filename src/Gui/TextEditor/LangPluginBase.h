@@ -62,22 +62,28 @@ public:
     explicit AbstractLangPlugin(const char *langName);
     virtual ~AbstractLangPlugin();
 
-    const char* pluginName() const;
+    const char* name() const;
 
-    virtual QStringList mimetypes() const = 0;
-    bool matchesMimeType(const QString &fn, const QString &mime) const;
+    virtual QStringList mimetypes() const = 0; /// used to identify if should load plugin fro this mimetype
+    virtual QStringList suffixes() const = 0; /// used to determine if we should load plugin with these fileendings
+    bool matchesMimeType(const QString &fn, const QString &mime = QString()) const;
 
     virtual void contextMenuLineNr(EditorView *view, QMenu *menu,
                                    const QString &fn, int line) const = 0;
     virtual void contextMenuTextArea(EditorView *view, QMenu *menu,
                                      const QString &fn, int line) const = 0;
 
+    virtual  bool lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
+                                     int line, QString &toolTipStr) const = 0;
+    virtual  bool textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
+                                       int line, QString &toolTipStr) const = 0;
+
     virtual void OnChange(EditorView *view, Base::Subject<const char *> &rCaller,
                           const char *rcReason) const = 0;
 
-    virtual void paintEventTextArea(EditorView *view, QPainter* painter,
+    virtual void paintEventTextArea(TextEditor *edit, QPainter* painter,
                                     const QTextBlock &block, QRect &coords) const = 0;
-    virtual void paintEventLineNumberArea(EditorView *view, QPainter* painter,
+    virtual void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
                                           const QTextBlock &block, QRect &coords) const = 0;
 
 
@@ -108,12 +114,10 @@ public:
     /// returns the iconname to use for this exception, name as in resourcefile (qrc)
     virtual const char* iconNameForException(const QString &fn, int excNr)  const = 0;
 
-    /// retuns a list with all editorViews in MainWindow
-    QList<EditorView*> editorViews() const;
-
     /// returns a list with all TextEditor derived editors
     /// that currentsly shown in editorViews
-    QList<TextEditor*> editors() const;
+    QList<TextEditor*> editors(const QString &fn = QString()) const;
+
 
     const QPixmap& breakpointIcon() const;
     const QPixmap& breakpointDisabledIcon() const;
@@ -133,9 +137,13 @@ public: // Q_SLOTS:
     virtual bool editorHideDbgMrk(const QString &fn, int line) = 0;
 
 
-    virtual void exceptionOccured(std::shared_ptr<Base::Exception> exeption)  = 0;
+    virtual void exceptionOccured(Base::Exception* exeption)  = 0;
     virtual void exceptionCleared(const QString &fn, int line) = 0;
     virtual void allExceptionsCleared() = 0;
+
+protected:
+    /// scrolls to line
+    void scrollToPos(TextEditor *edit, int line) const;
 };
 
 // ---------------------------------------------------------------------
@@ -153,18 +161,26 @@ public:
     App::Debugging::Python::Debugger* debugger() override;
 
     QStringList mimetypes() const override;
+    QStringList suffixes() const override;
 
     void OnChange(EditorView *view, Base::Subject<const char *> &rCaller,
                   const char *rcReason) const override;
 
     const char *iconNameForException(const QString &fn, int line) const override;
 
+    bool lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
+                            int line, QString &toolTipStr) const;
+    bool textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
+                              int line, QString &toolTipStr) const;
+
+
+
     void contextMenuLineNr(EditorView *view, QMenu *menu, const QString &fn, int line) const override;
     void contextMenuTextArea(EditorView *view, QMenu *menu, const QString &fn, int line) const override;
 
-    void paintEventTextArea(EditorView *view, QPainter* painter,
+    void paintEventTextArea(TextEditor *edit, QPainter* painter,
                             const QTextBlock& block, QRect &coords) const override;
-    void paintEventLineNumberArea(EditorView *view, QPainter* painter,
+    void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
                                   const QTextBlock& block, QRect &coords) const override;
 
 public Q_SLOTS:
@@ -181,7 +197,7 @@ public Q_SLOTS:
     bool editorHideDbgMrk(const QString &fn, int line) override;
 
 
-    void exceptionOccured(std::shared_ptr<Base::Exception> exception) override;
+    void exceptionOccured(Base::Exception* exception) override;
     void exceptionCleared(const QString &fn, int line) override;
     void allExceptionsCleared() override;
 

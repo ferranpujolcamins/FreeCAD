@@ -43,7 +43,7 @@ QT_END_NAMESPACE
 
 namespace Gui {
 class SyntaxHighlighter;
-
+class EditorView;
 class EditorViewWrapper;
 class LineMarkerArea;
 class SyntaxHighlighter;
@@ -88,6 +88,8 @@ public:
 
     EditorViewWrapper* wrapper() const;
     void setWrapper(EditorViewWrapper *wrapper);
+    EditorView* view() const;
+
 
 
     void setCompleter(QCompleter *completer) const;
@@ -116,8 +118,11 @@ protected:
     void contextMenuEvent(QContextMenuEvent* e);
     virtual void drawMarker(int line, int x, int y, QPainter*);
     bool event(QEvent *event);
-    virtual bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);
-    virtual bool lineMarkerAreaToolTipEvent(QPoint pos, int line);
+
+    virtual bool editorToolTipEvent(QPoint pos, int line,  QString &toolTipTxt,
+                                    const QString &textUnderPos);
+    virtual bool lineMarkerAreaToolTipEvent(QPoint pos, int line, QString &toolTipTxt);
+
     /// creates a Menu to use when a contextMenu event occurs
     virtual void setUpMarkerAreaContextMenu(int line);
     /// after contextmenu for marker area has finished
@@ -142,9 +147,9 @@ protected:
 private:
     struct TextEditorP* d;
 
-    void paintIndentMarkers(QPaintEvent *e);
+    void paintIndentMarkers(QPainter *painter, QTextBlock& block, QRect& rowRect);
     void paintTextWidthMarker(QPaintEvent *e);
-    void paintFoldedTextMarker(QPaintEvent *e);
+    void paintFoldedTextMarker(QPainter *painter, QTextBlock &block, QRect &rowRect);
 
     friend class SyntaxHighlighter;
     friend class LineMarkerArea;

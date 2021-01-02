@@ -86,6 +86,7 @@ public:
     /** @name Standard actions of the editor */
     //@{
     virtual bool open   (const QString &f);
+    virtual bool openDlg(); /// open a file dialog and open it that way
     virtual bool save   ();
     virtual bool saveAs (const QString filename = QString());
     virtual void cut    ();
@@ -106,10 +107,12 @@ public:
     void setFilename(QString filename);
 
     const QList<AbstractLangPlugin*> currentPlugins() const;
+    const AbstractLangPlugin *currentPluginByName(const char *name);
 
     // sets a topbar widget
     void setTopbar(EditorViewTopBar* topBar);
     EditorViewTopBar* topBar();
+
 
 public Q_SLOTS:
     void setWindowModified(bool modified);
@@ -284,7 +287,7 @@ public:
      *         if null open in activeview, create a editorview if not opened
      * @return the editorView now open
      */
-    EditorView* openFile(const QString fn, EditorView* view = nullptr);
+    EditorView* openFile(const QString fn, EditorView* view = nullptr) const;
 
     /**
      * @brief getWrapper gets the EditViewWrapper for the file
@@ -292,14 +295,14 @@ public:
      * @param ownerView in which view to search
      * @return the wrapper for this file or nullptr if not found
      */
-    EditorViewWrapper* getWrapper(const QString &fn, EditorView* ownerView);
+    EditorViewWrapper* getWrapper(const QString &fn, EditorView* ownerView) const;
 
     /**
      * @brief getWrappers get a list of all global wrappers
      * @param fn filename to search for
      * @return list af all wrappers that matches fn
      */
-    QList<EditorViewWrapper*> getWrappers(const QString &fn);
+    QList<EditorViewWrapper*> getWrappers(const QString &fn) const;
 
     /**
      * @brief createWrapper create a new wrapper for fn
@@ -307,14 +310,15 @@ public:
      * @param editor (optional) if none it creates a new Editor
      * @return the fresh wrapper
      */
-    EditorViewWrapper* createWrapper(const QString &fn, QPlainTextEdit* editor = nullptr);
+    EditorViewWrapper* createWrapper(const QString &fn, QPlainTextEdit* editor = nullptr) const;
 
     /**
      * @brief createView create a new EditorView and attach it to MainWindow
      * @param edit optional QPlainTextEdit
+     * @param addToMainWindow add it to MainWindow
      * @return the created EditorView
      */
-    EditorView* createView(QPlainTextEdit *edit = nullptr);
+    EditorView* createView(QPlainTextEdit *edit = nullptr, bool addToMainWindow = false) const;
 
     /**
      * @brief createEditor create a new editor with type based on fn's mimetype.
@@ -336,41 +340,54 @@ public:
      * @param backSteps negative numer back from current accessed, ie -1 for previous
      * @return the corresponding EditorWrapper
      */
-    EditorViewWrapper* lastAccessed(EditorView* view, int backSteps = 0);
+    EditorViewWrapper* lastAccessedEditor(EditorView* view, int backSteps = 0) const;
 
     /**
      * @brief openedBySuffix gets wrappers opened differentiated by file suffixes
      * @param types list of file suffixes
      * @return a list of all EditorViewWrappers opened by mimetypes
      */
-    QList<const EditorViewWrapper*> openedBySuffix(QStringList types = QStringList());
+    QList<const EditorViewWrapper*> openedBySuffix(QStringList types = QStringList()) const;
+
+    /**
+     * @brief editorViews find all EditorViews in application
+     * @name  filter by objectname, ie all windows ehich has setObjectName set
+     * @return list of all EditorViews
+     */
+    QList<EditorView*> editorViews(const QString& name = QString()) const;
+
+    /**
+     * @brief activeView get current active view
+     * @return
+     */
+    EditorView* activeView() const;
 
 Q_SIGNALS:
     /**
      * @brief emitted when number of opened files has changed
      */
-    void openFilesChanged();
+    void openFilesChanged() const;
 
     /**
      * @brief emitted when editor document isModfied signal is emitted
      * @param fn = filename
      * @param changed = true if changed, false when not (such as undo)
      */
-    void modifiedChanged(const QString &fn, bool changed);
+    void modifiedChanged(const QString &fn, bool changed) const;
 
     /**
      * @brief emitted when all instances of file is closed
      * @param fn = filename
      */
-    void fileClosed(const QString &fn);
+    void fileClosed(const QString &fn) const;
     /**
      * @brief fileOpened emitted when first editor instance opened file
      * @param fn = filename
      */
-    void fileOpened(const QString &fn);
+    void fileOpened(const QString &fn) const;
 
 private Q_SLOTS:
-    void docModifiedChanged(bool changed);
+    void docModifiedChanged(bool changed) const;
     const EditorType *editorTypeForFile(const QString &fn) const;
 };
 

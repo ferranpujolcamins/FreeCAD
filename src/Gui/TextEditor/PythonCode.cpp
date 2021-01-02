@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  *   Copyright (c) 2004 Werner Mayer <wmayer[at]users.sourceforge.net>     *
  *   Copyright (c) 2017 Fredrik Johansson github.com/mumme74               *
  *                                                                         *
@@ -70,9 +70,452 @@ DBG_TOKEN_FILE
 # define PY_LONG_FROM_STRING PyInt_FromString
 # define PY_LONG_AS_LONG PyInt_AsLong
 #endif
+#define PY_FLOAT_FROM_STRING(str) PyFloat_FromDouble(strtod((str), nullptr))
+#define PY_BOOL_FROM_STRING(str) PyBool_FromLong(strcmp((str), "True") != 0)
+
+
 
 
 namespace Python {
+
+
+static const uint BufSize = 1024;
+
+class ParseTreeNode {
+    PyObject* vlu;
+public:
+    enum Type { Undefined, Root, Ident, Attribute, Int, Float, Bool, String,
+                // operator, and oter stuff from down
+                OperatorStart, BracketOpen,  BraceOpen,  ParenOpen,
+                BracketClose, BraceClose, ParenClose,
+                Dot, Operator, Delimiter };
+    ParseTreeNode *parent,
+            *next, // chain in object retrieval
+            *oper; // is for operator
+    const char* startPos, *endPos, *c_txt;
+    Type type;
+    explicit ParseTreeNode(const char* startPos, const char* endPos, Type type)
+        : vlu(nullptr)
+        , parent(nullptr)
+        , next(nullptr)
+        , oper(nullptr)
+        , startPos(startPos)
+        , endPos(endPos)
+        , type(type)
+    {
+        size_t len = static_cast<size_t>(endPos - startPos);
+        c_txt = static_cast<const char*>(calloc(len+1, sizeof(const char)));
+        strncpy(const_cast<char*>(c_txt), startPos, len);
+    }
+    ~ParseTreeNode()
+    {
+        delete next;
+        delete oper;
+        free(const_cast<char*>(c_txt));
+        Py_XDECREF(vlu);
+    }
+
+    void nodeAsChild(ParseTreeNode* node) {
+        node->parent = this;
+        next = node;
+    }
+    void nodeAsOperator(ParseTreeNode* node) {
+        node->parent = this;
+        oper = node;
+    }
+
+    int position(const char* lineStart) { return static_cast<int>(startPos - lineStart); }
+
+    QString txt() const {
+        return QString::fromLatin1(startPos, static_cast<int>(endPos - startPos));
+    }
+
+    void setPyObject(PyObject* value) { vlu = value; Py_XINCREF(vlu); }
+    PyObject *pyObject() { return vlu; }
+};
+
+bool parse(const char** iter, const char* end, ParseTreeNode* node);
+
+void skipUtf8(const char** iter, const char* end) {
+    while(*iter < end && **iter & 0x80)
+        ++(*iter);
+}
+
+bool parse_tailcall(const char** iter,  const char* end, const char* start,
+                    ParseTreeNode *parent, ParseTreeNode::Type type) {
+    if (*iter > start) {
+        if (type >= ParseTreeNode::BracketOpen) {
+            parent->nodeAsOperator(new ParseTreeNode(start, *iter, type));
+            return parse(iter, end, parent);
+        }
+
+        parent->nodeAsChild(new ParseTreeNode(start, *iter, type));
+        return parse(iter, end, parent->next);
+    }
+    return (*iter > start);
+}
+
+// parse 'True' or 'False'
+bool parse_bool(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    const char trueTok[] = "True", falseTok[] = "False";
+    if (*iter+4 <= end && strcmp(*iter, trueTok) == 0 &&
+        (isspace(*iter[5]) || ispunct(*iter[5])))
+    {
+        *iter += 4;
+    }
+    if (*iter+5 <= end && strcmp(*iter, falseTok) == 0 &&
+        (isspace(*iter[6]) || ispunct(*iter[6])))
+    {
+        *iter += 5;
+    }
+    if (*iter > start && !parse_tailcall(iter, end, start, parent, ParseTreeNode::Bool))
+        *iter = start;
+    return *iter > start;
+}
+
+// parses identifiers variables, properties and such
+bool parse_ident(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    for(; **iter !=0 && *iter < end; ++(*iter)) {
+        if (!isalpha(**iter)) {
+            if (isdigit(**iter) && *iter > start) // allow a980 as varname
+                continue;
+            else if (**iter == '_')
+                continue;
+            else if (**iter & 0x80)
+                skipUtf8(iter, end);
+            else
+                break;
+        }
+    }
+
+    ParseTreeNode::Type tp = parent->oper &&
+                             parent->oper->type == ParseTreeNode::Dot ?
+                                     ParseTreeNode::Attribute : ParseTreeNode::Ident;
+    return parse_tailcall(iter, end, start, parent, tp);
+}
+
+// parses numbers in source code
+bool parse_number(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    ParseTreeNode::Type type = ParseTreeNode::Int;
+    for(;**iter !=0 && *iter < end; ++(*iter)) {
+        if (!isdigit(**iter) && *iter > start) {
+            if (**iter == '.')
+            {   type = ParseTreeNode::Float; continue; }
+            else if (isalnum(**iter) && type != ParseTreeNode::Float) // allow a980 as varname
+                continue;
+            else if (isdigit(**iter))
+                continue;
+            else if (**iter == '_') // complex numbers in python
+                continue;
+        }
+        break;
+    }
+    return parse_tailcall(iter, end, start, parent, type);
+}
+
+// parses strings
+bool parse_string(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    char startingCh = 0;
+    for(;**iter !=0 && *iter < end; ++(*iter)) {
+        if ((**iter == '"' || **iter == '\'') && *iter == start)
+            startingCh = **iter;
+        else if (*iter > start) {
+            if (**iter == startingCh && *((*iter)-1) != '\\')
+                break;
+            else if (**iter == '\n') {// eol before ending char
+                *iter = start; // indicate failure
+                break;
+            }
+        }
+    }
+    return parse_tailcall(iter, end, start, parent, ParseTreeNode::String);
+}
+
+static char oppositeStack[BufSize];
+static size_t stackIdx = 0;
+
+// parse matching char '[', '(', '{'
+bool parse_opposite_open(const char** iter, const char openCh, const char closingCh,
+                   const char* end, ParseTreeNode* parent, ParseTreeNode::Type type) {
+    const char* start = *iter;
+    if (**iter == openCh) {
+        if (stackIdx == BufSize) return false;
+        oppositeStack[stackIdx++] = closingCh;
+        ++(*iter);
+        if (!parse_tailcall(iter, end, start, parent, type))
+            *iter = start;
+    }
+    return *iter > start;
+}
+// parse matching char ']', ')', '}'
+bool parse_opposite_close(const char** iter, const char openCh, const char closingCh,
+                   const char* end, ParseTreeNode* parent, ParseTreeNode::Type type) {
+    const char* start = *iter;
+    if (**iter == closingCh && stackIdx > 0) {
+        while(oppositeStack[--stackIdx] != openCh)
+            if (stackIdx == 0) {
+                if (oppositeStack[0] != closingCh)
+                    return false;
+                break;
+            }
+        ++(*iter);
+        if (!parse_tailcall(iter, end, start, parent, type))
+            *iter = start;
+        else
+            return true;
+    }
+    return *iter > start;
+}
+
+// parse '.'
+bool parse_dot(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    if (**iter == '.') {
+        ++(*iter);
+        if (!parse_tailcall(iter, end, start, parent, ParseTreeNode::Dot))
+            *iter = start;
+    }
+    return *iter > start;
+}
+
+// parse '=', '==' etc
+bool parse_operator(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    const char* ops[] {
+        // must be in most length first 2 chrs then 1
+        // 2 chars long
+        "==", "!=", ">=", "<=", "<<", ">>", "**", "//", ":="
+        // 1 char long
+        "^",  "<", ">", "=", "+", "-", "*", "/", "%", "&", "|", "^", "~", "@"
+    };
+    for (size_t i = 0; i < sizeof(ops) / sizeof(*ops); ++i) {
+        if (strncmp(*iter, ops[i], strlen(ops[i])) == 0) {
+            (*iter) += strlen(ops[i]);
+            if (!parse_tailcall(iter, end, start, parent, ParseTreeNode::Operator))
+                *iter = start;
+        }
+
+    }
+    return *iter > start;
+}
+
+bool parse_delimiter(const char** iter, const char* end, ParseTreeNode* parent) {
+    const char* start = *iter;
+    const char* delim[] {
+        // must be in most length first 3 char, the 2 then 1
+        "//=", "**=","//=",">>=", "<<=", "//=",
+        // 2 chars long
+        "->", "+=", "-=", "*=", "/=", "%=", "@=", "&=", "|=", "^=",
+        // 1 char long
+        ",", ":", ".", ";","@", "="
+    };
+    for (size_t i = 0; i < sizeof(delim) / sizeof(*delim); ++i) {
+        if (strncmp(*iter, delim[i], strlen(delim[i])) == 0) {
+            (*iter) += strlen(delim[i]);
+            if (!parse_tailcall(iter, end, start, parent, ParseTreeNode::Delimiter))
+                *iter = start;
+        }
+    }
+    return *iter > start;
+}
+
+
+// parse delegate function
+bool parse(const char** iter, const char* end, ParseTreeNode* node) {
+    const char* start = *iter;
+    bool success = true;
+
+    while (**iter != 0 && *iter < end && success) {
+        success = false;
+        if (isspace(**iter))
+            { ++(*iter); success = true; continue; }
+        if (**iter == 'T' || **iter == 'F')
+            success = parse_bool(iter, end, node);
+        if (!success )//&& isalpha(**iter))
+            success = parse_ident(iter, end, node);
+        if (!success )//&& isdigit(**iter))
+            success = parse_number(iter, end, node);
+        if (!success && **iter == '.')
+            success = parse_number(iter, end, node);
+        if (!success && **iter == '[')
+            success = parse_opposite_open(iter, '[', ']', end, node, ParseTreeNode::BracketOpen);
+        if (!success && **iter == ']')
+            success = parse_opposite_close(iter, '[', ']', end, node, ParseTreeNode::BracketClose);
+        if (!success && **iter == '(')
+            success = parse_opposite_open(iter, '(', ')', end, node, ParseTreeNode::ParenOpen);
+        if (!success && **iter == ')')
+            success = parse_opposite_close(iter, '(', ')', end, node, ParseTreeNode::ParenClose);
+        if (!success && **iter == '{')
+            success = parse_opposite_open(iter, '{', '}', end, node, ParseTreeNode::BraceOpen);
+        if (!success && **iter == '}')
+            success = parse_opposite_close(iter, '{', '}', end, node, ParseTreeNode::BraceOpen);
+        if (!success)
+            success = parse_operator(iter, end, node);
+        if (!success)
+            success = parse_delimiter(iter, end, node);
+        if (!success && **iter == '#')
+         {    success = true;  break; }// end of line
+        success = *iter == end;
+    }
+
+    if (!success)
+        *iter = start;
+
+    return (*iter == end) || (*iter > start);
+}
+
+// get the owner this attr
+PyObject* getOwnerForAttrObj(ParseTreeNode* attrNode) {
+    ParseTreeNode* owner = attrNode->parent;
+
+    if (owner) {
+        if (!owner->pyObject())
+            getOwnerForAttrObj(attrNode->parent); // look in parent
+
+        if (owner->pyObject()) {
+            auto key = PY_FROM_STRING(attrNode->c_txt);
+            if (PyObject_HasAttr(attrNode->pyObject(), key))
+                attrNode->setPyObject(PyObject_GetAttr(owner->pyObject(), key)); // ParseTreeNode handles refcnt
+            Py_XDECREF(key);
+            return attrNode->pyObject();
+        }
+    }
+    return nullptr;
+}
+
+// returns new reference
+PyObject* keyFromType(ParseTreeNode* node) {
+    if (!node) return nullptr;
+    switch (node->type) {
+    case ParseTreeNode::Int:
+        return PY_LONG_FROM_STRING(node->c_txt, nullptr, 0);
+    case ParseTreeNode::Float:
+        return PY_FLOAT_FROM_STRING(node->c_txt);
+    case ParseTreeNode::Bool:
+        return PY_BOOL_FROM_STRING(node->c_txt);
+    case ParseTreeNode::String:
+    case ParseTreeNode::Attribute:
+    case ParseTreeNode::Ident:
+        return PY_FROM_STRING(node->c_txt);
+    default:
+        return nullptr;
+    }
+}
+
+/// looks up identifier from currentframe
+bool lookupIdent(ParseTreeNode *ident) {
+
+    Base::PyGILStateLocker lock; (void)lock;
+    auto dbgr = App::Debugging::Python::Debugger::instance();
+    auto frame = dbgr->currentFrame();
+    PyObject* obj = nullptr;
+
+    auto key = keyFromType(ident); // returns new
+    if (key) {
+        // lookup through parent frames chain to top of stack
+        do {
+            PyFrame_FastToLocals(frame);
+            if (PyDict_Contains(frame->f_locals, key))
+                obj = PyDict_GetItem(frame->f_locals, key);
+        } while (!obj && (frame = frame->f_back));
+
+        // globals?
+        if (!obj) {
+            frame = dbgr->currentFrame();
+            if (PyDict_Contains(frame->f_globals, key))
+                obj = PyDict_GetItem(frame->f_globals, key);
+        }
+
+        // builtins?
+        if (!obj) {
+            if (PyDict_Contains(frame->f_builtins, key))
+                obj = PyDict_GetItem(frame->f_builtins, key);
+        }
+
+        Py_DECREF(key);
+
+        if (obj)
+            ident->setPyObject(obj);
+    }
+
+    return obj != nullptr;
+}
+
+/// get the value for node
+PyObject* getValue(ParseTreeNode* node) {
+    Base::PyGILStateLocker lock;(void)lock;
+    PyObject* ret = nullptr,
+            * self = node->pyObject();
+    // identifiers should already be looked up?
+    if (!self) {
+        if (node->type == ParseTreeNode::Ident) {
+            if (!lookupIdent(node))
+                return nullptr;
+
+        } else if (!self && node->type == ParseTreeNode::Attribute) {
+            auto owner = getOwnerForAttrObj(node);
+            auto key = keyFromType(node);
+            if (owner && PyObject_HasAttr(owner, key))
+                self = PyObject_GetAttr(owner, key);
+            Py_XDECREF(key);
+
+        } else if (node->type < ParseTreeNode::OperatorStart) {
+            // must be a string or number or bool
+            auto vlu = keyFromType(node);
+            node->setPyObject(vlu);
+            Py_XDECREF(vlu); // now owned by node
+            return node->pyObject();
+        }
+    }
+
+    if (!self)
+        return nullptr;
+
+    if (node->oper) {
+        PyObject* key = keyFromType(node->next);
+        Py_XINCREF(key);
+
+        if (node->oper->type == ParseTreeNode::BracketOpen) {
+            if (key) {
+                // look up value within brackets
+                if (node->next)
+                    ret = getValue(node->next);
+
+                // get value from our collection type
+                if (PyList_Check(self)) {
+                    if (PyLong_Check(key))
+                        ret = PyList_GET_ITEM(self, PyLong_AsLong(key));
+                } else if (PyTuple_Check(node)) {
+                    if (PyLong_Check(key))
+                        ret = PyTuple_GET_ITEM(self, PyLong_AsLong(key));
+                } else if (PyDict_Check(self)) {
+                    if (PyDict_Contains(self, key))
+                        ret = PyDict_GetItem(self, key);
+                }
+                // Set objects can't be accessed by []
+            }
+        } else if (node->oper->type == ParseTreeNode::Dot) {
+            if (PyAnySet_Check(node)) // named sets set.key
+                ret = PyObject_Repr(self);
+            else if (PyObject_HasAttr(self, key))
+                ret = PyObject_GetAttr(self, key);
+        } else {
+            // its not a container value
+            ret = self;
+        }
+
+        Py_XDECREF(key);
+    }
+
+    return ret;
+}
+
+
+
 class CodeP
 {
 public:
@@ -95,12 +538,13 @@ Python::Code::~Code()
     delete d;
 }
 
+
 /**
  * @brief deepcopys a object, caller takes ownership
  * @param obj to deep copy
  * @return the new obj, borrowed ref
  */
-PyObject *Python::Code::deepCopy(PyObject *obj)
+PyObject *Python::Code::deepCopy(PyObject *obj) const
 {
     Base::PyGILStateLocker lock;
     PyObject *deepCopyPtr = nullptr, *args = nullptr, *result = nullptr;
@@ -134,10 +578,75 @@ out:
     return result;
 }
 
+
+
+QString Python::Code::findFromCurrentFrame(const QString lineText, int pos, const QString word) const
+{
+    QString ret; // the text to return
+
+    // walk the line to see if we can intrep it
+
+    auto str = lineText.toStdString(); // need to take immidiery here
+    const char* chPtr = str.c_str();
+    const char* end = chPtr + strnlen(chPtr, BufSize);
+    const char* start = chPtr;
+
+    ParseTreeNode *root = new ParseTreeNode(start, start, ParseTreeNode::Root),
+                  *current = nullptr;
+
+    PyObject *vlu = nullptr;
+    bool success = false;
+
+    // Parse source code to tokens
+    success = parse(&chPtr, end, root);
+
+    //  we have parsed succesfully
+    if (success) {
+        current = root;
+
+        PyObject *initialType, *initialValue, *initialTraceback;
+        PyErr_Fetch(&initialType, &initialValue, &initialTraceback);
+
+
+        // goto end of tree, look up all litterals, insert into current
+        do {
+            if (current->type == ParseTreeNode::Ident)
+                lookupIdent(current);
+        } while(current->next && (current = current->next));
+
+        // goto the litteral we want
+        current = root;
+        while (current && static_cast<int>(current->startPos - start) < pos) {
+            if (static_cast<int>(current->endPos - start) > pos)
+                break;
+            current = current->next;
+        }
+
+        if (current) {
+            // we have found the litteral we want
+            vlu = getValue(current);
+
+            if (vlu) {
+                auto vluStr = PyObject_Str(vlu);
+                const char *msg = PY_AS_STRING(vluStr);
+                ret = QString::fromUtf8(msg);
+            }
+        }
+
+        PyErr_Clear();
+        PyErr_Restore(initialType, initialValue, initialTraceback);
+    }
+
+    delete root;
+
+    return ret;
+}
+
+
 // get thee root of the parent identifier ie os.path.join
 //                                                    ^
 // must traverse from os, then os.path before os.path.join
-QString Python::Code::findFromCurrentFrame(const Python::Token *tok)
+QString Python::Code::findFromCurrentFrame(const Python::Token *tok) const
 {
     auto debugger = App::Debugging::Python::Debugger::instance();
     Base::PyGILStateLocker locker;
@@ -202,7 +711,7 @@ QString Python::Code::findFromCurrentFrame(const Python::Token *tok)
  * @return Obj if found or nullptr
  */
 PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needleTok,
-                                    QString &foundKey)
+                                      QString &foundKey) const
 {
     DEFINE_DBG_VARS
 
