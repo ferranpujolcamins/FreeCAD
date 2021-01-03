@@ -94,6 +94,7 @@ public:
     virtual void paste  ();
     virtual void undo   ();
     virtual void redo   ();
+    virtual void newFile();
     void print  ();
     void printPdf();
     void printPreview();
@@ -205,9 +206,10 @@ private:
  * undo/ redo, timestamp etc
  */
 class EditorViewWrapperP;
-class GuiExport EditorViewWrapper
+class GuiExport EditorViewWrapper : public QObject
 {
     EditorViewWrapperP *d;
+    Q_OBJECT
 public:
     /// Constructor
     /// editor = pointer to a editor in heap, wrapper takes ownership
@@ -242,8 +244,17 @@ public:
     void setLocked(bool locked);
     bool isLocked() const;
 
+    /**
+     * @brief setMirrorDoc, mirror changes in doc in this editor
+     * @param doc
+     */
+    void setMirrorDoc(const QTextDocument* doc);
+
     QStringList &undos();
     QStringList &redos();
+
+private Q_SLOTS:
+    void mirrorDocChanged(int from, int charsRemoved, int charsAdded);
 };
 
 // ------------------------------------------------------------------------------------
@@ -290,19 +301,26 @@ public:
     EditorView* openFile(const QString fn, EditorView* view = nullptr) const;
 
     /**
-     * @brief getWrapper gets the EditViewWrapper for the file
+     * @brief wrapper gets the EditViewWrapper for the file
      * @param fn filename to search for
      * @param ownerView in which view to search
      * @return the wrapper for this file or nullptr if not found
      */
-    EditorViewWrapper* getWrapper(const QString &fn, EditorView* ownerView) const;
+    EditorViewWrapper* wrapper(const QString &fn, EditorView* ownerView) const;
 
     /**
-     * @brief getWrappers get a list of all global wrappers
-     * @param fn filename to search for
+     * @brief wrappers get a list of all global wrappers
+     * @param fn filename to search for, if empty get all wrappers
      * @return list af all wrappers that matches fn
      */
-    QList<EditorViewWrapper*> getWrappers(const QString &fn) const;
+    QList<EditorViewWrapper*> wrappers(const QString &fn = QString()) const;
+
+    /**
+     * @brief wrappersForView get a list of all wrappers for the view
+     * @param view = wrapers for this view
+     * @return list af all wrappers that view
+     */
+    QList<EditorViewWrapper*> wrappersForView(const EditorView* view) const;
 
     /**
      * @brief createWrapper create a new wrapper for fn
@@ -351,7 +369,7 @@ public:
 
     /**
      * @brief editorViews find all EditorViews in application
-     * @name  filter by objectname, ie all windows ehich has setObjectName set
+     * @name  filter by objectname, ie all windows which has setObjectName set
      * @return list of all EditorViews
      */
     QList<EditorView*> editorViews(const QString& name = QString()) const;

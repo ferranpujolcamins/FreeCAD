@@ -95,7 +95,7 @@ public:
         editWrapper(nullptr),
         topBar(nullptr)
     {
-        if (!EditorViewSingleton::instance()->getWrapper(QString(), view))
+        if (!EditorViewSingleton::instance()->wrapper(QString(), view))
             editWrapper = EditorViewSingleton::instance()->
                             createWrapper(QString(), editor);
     }
@@ -145,7 +145,14 @@ public:
     {}
     ~EditorViewWrapperP()
     {
-        delete plainEdit;
+        if (view && view->textEditor() && view->textEditor()->wrapper()) {
+            view->textEditor()->wrapper()->detach(view);
+            view = nullptr;
+        }
+        if (plainEdit)
+            plainEdit->deleteLater();
+        plainEdit = nullptr;
+
     }
     EditorView* view;
     QString filename,
@@ -311,8 +318,8 @@ EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
 /** Destroys the object and frees any allocated resources */
 EditorView::~EditorView()
 {
-    delete d;
     getWindowParameter()->Detach( this );
+    delete d;
 }
 
 QPlainTextEdit* EditorView::editor() const
@@ -545,22 +552,23 @@ bool EditorView::open(const QString& fileName)
 {
     EditorViewWrapper* oldWrapper = d->editWrapper,
                      * thisWrapper = nullptr,
+                     * otherViewWrapper = nullptr,
                      * newWrapper = nullptr;
 
-   auto editWrappers = EditorViewSingleton::instance()->getWrappers(fileName);
+   auto editWrappers = EditorViewSingleton::instance()->wrappers(fileName);
     for (auto wrap : editWrappers) {
         if (wrap->view() == this) {
             thisWrapper = wrap;
-            newWrapper = wrap;
+            otherViewWrapper = wrap;
             break;
         }
-        newWrapper = wrap;
+        otherViewWrapper = wrap;
     }
 
-    if (!thisWrapper && newWrapper) {
-        // file opened, but is it isn't is in this tab
-        auto isPyEdit = dynamic_cast<PythonEditor*>(newWrapper->editor()) != nullptr;
-        auto isTxtEdit = newWrapper->textEditor() != nullptr;
+    if (!thisWrapper && otherViewWrapper) {
+        // file opened, but is it isn't is in this view/tab
+        auto isPyEdit = dynamic_cast<PythonEditor*>(otherViewWrapper->editor()) != nullptr;
+        auto isTxtEdit = otherViewWrapper->textEditor() != nullptr;
         QPlainTextEdit* edit;
         if (isPyEdit)
             edit = new PythonEditor(this);
@@ -569,23 +577,29 @@ bool EditorView::open(const QString& fileName)
         else
             edit = new QPlainTextEdit(this);
 
-        // set document
-        edit->setDocument(newWrapper->editor()->document());
-        if (isTxtEdit) {
+        if (isTxtEdit) { // true for all but QPlainTextEditor
             auto ed = dynamic_cast<TextEditor*>(edit);
-            ed->setFilename(fileName);
-            ed->setSyntaxHighlighter(newWrapper->textEditor()->syntaxHighlighter());
+            if (ed) {
+                ed->setFilename(fileName);
+                //auto sh = newWrapper->textEditor()->syntaxHighlighter();
+                //ed->setSyntaxHighlighter(sh);
+            }
         }
 
         newWrapper = EditorViewSingleton::instance()->createWrapper(fileName, edit);
         if (!newWrapper)
             return false;
+        if (otherViewWrapper->editor() && newWrapper->editor()) {
+            newWrapper->setMirrorDoc(otherViewWrapper->editor()->document());
+            otherViewWrapper->setMirrorDoc(newWrapper->editor()->document());
+        }
 
     } else if (!newWrapper) { // not yet opened
         newWrapper = EditorViewSingleton::instance()->createWrapper(fileName);
         if (!newWrapper)
             return false;
-    }
+    } else if (oldWrapper == newWrapper)
+        return true;
 
     // opened in this View/tab
     // swap currently viewed editor
@@ -710,6 +724,13 @@ void EditorView::redo(void)
     }
     d->editWrapper->editor()->document()->redo();
     d->editWrapper->setLocked(false);
+}
+
+void EditorView::newFile()
+{
+    auto ews = Gui::EditorViewSingleton::instance();
+    auto editor = ews->createEditor(QString());
+    swapEditor(editor);
 }
 
 /**
@@ -925,7 +946,7 @@ bool EditorView::saveFile()
         textEditor->onSave();
 
     QFileInfo fi(d->editWrapper->filename());
-    for (auto wrap : EditorViewSingleton::instance()->getWrappers(
+    for (auto wrap : EditorViewSingleton::instance()->wrappers(
                                             d->editWrapper->filename()))
     {
         wrap->setTimestamp(fi.lastModified().toTime_t());
@@ -1193,8 +1214,9 @@ void PythonEditorView::hideDebugMarker(const QString &fileName, int line)
 
 // -------------------------------------------------------------------------------
 
-EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor, const QString &fn) :
-    d(new EditorViewWrapperP(editor))
+EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor, const QString &fn)
+    : QObject()
+    , d(new EditorViewWrapperP(editor))
 {
     d->plainEdit = editor;
     d->timestamp = 0;
@@ -1363,6 +1385,14 @@ bool EditorViewWrapper::isLocked() const
     return d->lock;
 }
 
+void EditorViewWrapper::setMirrorDoc(const QTextDocument *doc)
+{
+    auto edit = editor();
+    if (edit->document() != doc && doc != nullptr)
+        connect(doc, &QTextDocument::contentsChange,
+                this, &EditorViewWrapper::mirrorDocChanged);
+}
+
 QStringList &EditorViewWrapper::undos()
 {
     return d->undos;
@@ -1371,6 +1401,35 @@ QStringList &EditorViewWrapper::undos()
 QStringList &EditorViewWrapper::redos()
 {
     return d->redos;
+}
+
+void EditorViewWrapper::mirrorDocChanged(int from, int charsRemoved, int charsAdded)
+{
+    auto sendDoc = qobject_cast<QTextDocument*>(sender());
+    if (sendDoc && d->plainEdit && d->plainEdit->document()) {
+        auto thisDoc = d->plainEdit->document();
+        QTextCursor thisCursor(thisDoc),
+                    sendCursor(sendDoc);
+
+        // prevent this document form sending signals to sendDoc (prevent endless cycles)
+        bool previousBlock = thisDoc->blockSignals(true);
+
+        thisCursor.setPosition(from);
+        sendCursor.setPosition(from);
+
+        // text remove´
+        thisCursor.setPosition(from + charsRemoved, QTextCursor::KeepAnchor);
+        thisCursor.removeSelectedText();
+
+        // text insertion
+        sendCursor.setPosition(from - charsRemoved);
+        sendCursor.setPosition(from - charsRemoved + charsAdded,
+                               QTextCursor::KeepAnchor);
+        auto insertText = sendCursor.selectedText();
+        thisCursor.insertText(insertText);
+
+        thisDoc->blockSignals(previousBlock);
+    }
 }
 
 
@@ -1460,7 +1519,7 @@ EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view) co
 }
 
 EditorViewWrapper*
-EditorViewSingleton::getWrapper(const QString &fn, EditorView* ownerView) const
+EditorViewSingleton::wrapper(const QString &fn, EditorView* ownerView) const
 {
     for (auto editWrapper : d->wrappers) {
         if ((editWrapper->filename() == fn) &&
@@ -1478,11 +1537,22 @@ EditorViewSingleton::getWrapper(const QString &fn, EditorView* ownerView) const
 }
 
 QList<EditorViewWrapper*>
-EditorViewSingleton::getWrappers(const QString &fn) const
+EditorViewSingleton::wrappers(const QString &fn) const
 {
     QList<EditorViewWrapper*> wrappers;
     for (auto editWrapper : d->wrappers) {
-        if (editWrapper->filename() == fn)
+        if (editWrapper->filename() == fn || fn.isEmpty())
+            wrappers.append(editWrapper);
+    }
+
+    return wrappers;
+}
+
+QList<EditorViewWrapper *> EditorViewSingleton::wrappersForView(const EditorView *view) const
+{
+    QList<EditorViewWrapper*> wrappers;
+    for (auto editWrapper : d->wrappers) {
+        if (editWrapper->view() == view)
             wrappers.append(editWrapper);
     }
 
@@ -1572,7 +1642,7 @@ EditorViewSingleton::lastAccessedEditor(EditorView* view, int backSteps) const
 {
     int idx = d->accessOrder.size() + backSteps -1;
     if (idx >= 0 && d->accessOrder.size() > idx)
-        return getWrapper(d->accessOrder.at(idx), view);
+        return wrapper(d->accessOrder.at(idx), view);
     return nullptr;
 }
 
