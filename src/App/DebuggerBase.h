@@ -409,7 +409,7 @@ public:
 
 
 protected:
-    void setState(State::States state) { d->state = state; }
+    virtual void setState(State::States state) { d->state = state; }
 };
 
 

@@ -179,7 +179,6 @@ class AppExport Debugger : public AbstractDbgr<Debugger, BrkPnt, BrkPntFile>
     Q_OBJECT
 public:
     explicit Debugger(QObject *parent = nullptr);
-    //Debugger(const Debugger&) = delete;
     virtual ~Debugger();
 
     void runFile(const QString& fn);
@@ -236,7 +235,6 @@ private Q_SLOTS:
     void onAppQuit();
 
 Q_SIGNALS:
-    void _signalNextStep(); // used internally
     void started();
     void stopped();
     void nextInstruction();
@@ -249,6 +247,9 @@ Q_SIGNALS:
     void exceptionFatal(Base::PyExceptionInfo* exception);
     void clearException(const QString &fn, int line);
     void clearAllExceptions();
+
+protected:
+    void setState(State::States state) override;
 
 private:
     static int tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg);

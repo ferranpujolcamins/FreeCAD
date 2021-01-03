@@ -114,12 +114,14 @@ public:
     PyFrameObject* currentFrame;
     DebugExcept* pypde;
     QEventLoop loop;
+    QString tracerfile; // last filename to enter tracer_function
     int maxHaltLevel;
     int showStackLevel;
+    int tracerline;     // last line to tracer_function
     bool init, trystop; //, halted;
 
     DebuggerP(Debugger* that) :
-        maxHaltLevel(-1), showStackLevel(-1),
+        maxHaltLevel(-1), showStackLevel(-1), tracerline(0),
         init(false), trystop(false) //,halted(false)
     {
         out_o = nullptr;
@@ -483,7 +485,7 @@ Debugger::Debugger(QObject *parent)
   : AbstractDbgr<Debugger, BrkPnt, BrkPntFile>(parent)
   , d(new DebuggerP(this))
 {
-    connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(onAppQuit()));
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &Debugger::onAppQuit);
 
     typedef void (*STATICFUNC)( );
     STATICFUNC fp = Debugger::finalizeFunction;
@@ -561,7 +563,7 @@ void Debugger::runFile(const QString& fn)
 
             }
             setState(State::Stopped);
-            Q_EMIT stopped();
+            // Q_EMIT stopped(); // handled in setState
          } else
             Py_DECREF(result);
     }
@@ -573,9 +575,9 @@ void Debugger::runFile(const QString& fn)
         Base::Console().Warning("Unknown exception thrown during macro debugging\n");
     }
 
-    if (d->trystop) {
+    //if (d->trystop) {
         stop(); // de init tracer_function and reset object
-    }
+    //}
     setState(State::Stopped);
 }
 
@@ -613,7 +615,7 @@ bool Debugger::stop()
         return false;
     if (isHalted()) {
         d->trystop = true;
-        _signalNextStep();
+        d->loop.quit();
         return false;
     }
 
@@ -627,16 +629,15 @@ bool Debugger::stop()
         d->init = false;
     } // end thread lock code block
     d->currentFrame = nullptr;
-    setState(State::Stopped);
+    setState(State::Stopped); // also emit stop
     d->trystop = false;
-    Q_EMIT stopped();
     return true;
 }
 
 void Debugger::tryStop()
 {
     d->trystop = true;
-    _signalNextStep();
+    d->loop.quit();
 }
 
 void Debugger::haltOnNext()
@@ -649,13 +650,13 @@ void Debugger::stepOver()
 {
     setState(State::StepOver);
     d->maxHaltLevel = callDepth();
-    _signalNextStep();
+    d->loop.quit();
 }
 
 void Debugger::stepInto()
 {
     setState(State::SingleStep);
-    _signalNextStep();
+    d->loop.quit();
 }
 
 void Debugger::stepOut()
@@ -664,13 +665,13 @@ void Debugger::stepOut()
     d->maxHaltLevel = callDepth() -1;
     if (d->maxHaltLevel < 0)
         d->maxHaltLevel = 0;
-    _signalNextStep();
+    d->loop.quit();
 }
 
 void Debugger::stepContinue()
 {
     setState(State::Running);
-    _signalNextStep();
+    d->loop.quit();
 }
 
 void Debugger::sendClearException(const QString &fn, int line)
@@ -728,8 +729,9 @@ PyFrameObject *Debugger::currentFrame() const
 
 QString Debugger::currentFile() const
 {
-    if (d->currentFrame && isHalted()) {
-        const char *filename = PY_AS_C_STRING(d->currentFrame->f_code->co_filename);
+    auto frame = currentFrame();
+    if (frame && isHalted()) {
+        const char *filename = PY_AS_C_STRING(frame->f_code->co_filename);
         return QString::fromUtf8(filename);
     }
     return QString();
@@ -737,8 +739,9 @@ QString Debugger::currentFile() const
 
 int Debugger::currentLine() const
 {
-    if (d->currentFrame && isHalted()) {
-        return PyCode_Addr2Line(d->currentFrame->f_code, d->currentFrame->f_lasti);
+    auto frame = currentFrame();
+    if (frame && isHalted()) {
+        return PyCode_Addr2Line(frame->f_code, frame->f_lasti);
     }
     return -1;
 }
@@ -811,6 +814,33 @@ const char *Debugger::debuggerName() const {
     return "App::Debugging::Python::Debugger";
 }
 
+
+void Debugger::setState(State::States state)
+{
+    AbstractDbgr<Debugger, BrkPnt, BrkPntFile>::setState(state);
+    Base::PyGILStateLocker locker; // event recievers might do strange things
+                                   // TODO hide Python from usercode
+    PyObject *e, *tp, *tr;
+    PyErr_Fetch(&e, &tp, &tr);
+    try {
+        switch(state) {
+        case State::Stopped:
+            Q_EMIT stopped();
+            break;
+        case State::Halted:
+            Q_EMIT haltAt(d->tracerfile, d->tracerline);
+            Q_EMIT nextInstruction();
+         break;
+        case State::Running:
+            Q_EMIT releaseAt(d->tracerfile, d->tracerline);
+            break;
+        default: ; // pass
+        }
+    } catch(...) { }
+
+    PyErr_Restore(e, tp, tr);
+}
+
 // http://www.koders.com/cpp/fidBA6CD8A0FE5F41F1464D74733D9A711DA257D20B.aspx?s=PyEval_SetTrace
 // http://code.google.com/p/idapython/source/browse/trunk/python.cpp
 // http://www.koders.com/cpp/fid191F7B13CF73133935A7A2E18B7BF43ACC6D1784.aspx?s=PyEval_SetTrace
@@ -818,15 +848,19 @@ const char *Debugger::debuggerName() const {
 // static
 int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg)
 {
+
     DebuggerPy* self = static_cast<DebuggerPy*>(obj);
     Debugger* dbg = self->dbg;
+    QCoreApplication::processEvents(); // lets user quit a infinite loop (python can hang qt eventloop)
+
+    dbg->d->tracerfile = QString::fromUtf8(PY_AS_C_STRING(frame->f_code->co_filename));
+    dbg->d->tracerline = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
+
     if (dbg->d->trystop) {
         PyErr_SetInterrupt();
         dbg->setState(State::Stopped);
         return 0;
     }
-    QCoreApplication::processEvents();
-    QString file = QString::fromUtf8(PY_AS_C_STRING(frame->f_code->co_filename));
 
     switch (what) {
     case PyTrace_CALL:
@@ -854,8 +888,6 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
         return 0;
     case PyTrace_LINE:
         {
-
-            int line = PyCode_Addr2Line(frame->f_code, frame->f_lasti);
             bool halt = false;
             if (dbg->state() == State::SingleStep ||
                 dbg->state() == State::HaltOnNext)
@@ -867,7 +899,8 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
             {
                 halt = true;
             } else { // RunningState
-                auto bp = dbg->getBreakpoint(file, line);
+                auto bp = dbg->getBreakpoint(dbg->d->tracerfile,
+                                             dbg->d->tracerline);
                 if (bp != nullptr) {
                     auto condition = std::dynamic_pointer_cast<BrkPnt>(bp)->condition();
                     if (condition.size()) {
@@ -889,35 +922,28 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
                     QCoreApplication::processEvents();
                 }
 
-                QEventLoop loop;
                 {   // threadlock block
                     Base::PyGILStateLocker locker;
+                    Py_XDECREF(dbg->d->currentFrame);
                     dbg->d->currentFrame = frame;
+                    Py_XINCREF(dbg->d->currentFrame);
 
                     if (!dbg->isHalted()) {
                         try {
                             Q_EMIT dbg->functionCalled();
                         } catch (...) { }
                     }
-                    dbg->setState(State::Halted);
+                    dbg->setState(State::Halted); // also emits
+                }   // end threadlock block
+                dbg->d->loop.exec();
+                { // threadlock block
+                    Base::PyGILStateLocker locker;
                     try {
-                        Q_EMIT dbg->haltAt(file, line);
-                        Q_EMIT dbg->nextInstruction();
-                    } catch(...) {
+                        Q_EMIT dbg->releaseAt(dbg->d->tracerfile, dbg->d->tracerline);
+                    } catch (...) {
                         PyErr_Clear();
                     }
-                }   // end threadlock block
-                QObject::connect(dbg, SIGNAL(_signalNextStep()), &loop, SLOT(quit()));
-                loop.exec();
-                {   // threadlock block
-                    Base::PyGILStateLocker locker;
-                    dbg->setState(State::Running);
-                }   // end threadlock block
-                try {
-                    Q_EMIT dbg->releaseAt(file, line);
-                } catch (...) {
-                    PyErr_Clear();
-                }
+                } // end threadlock block
             }
 
             return 0;
@@ -925,28 +951,31 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
     case PyTrace_EXCEPTION:
         if (dbg->frameRelatedToOpenedFiles(frame)) {
             // is it within a try: block, might be in a parent frame
-            QRegExp re(QLatin1String("importlib\\._bootstrap"));
-            PyFrameObject *f = frame;
+            QRegExp re(QLatin1String("(^<.*frozen|^<.*built-in)"));
+            if (re.indexIn(dbg->d->tracerfile) > -1)
+                return 0;
 
-            while (f && f->f_iblock > 0) {
-                if (f->f_iblock > 0 && f->f_iblock <= CO_MAXBLOCKS) {
+            for (PyFrameObject *f = frame; f; f = f->f_back) {
+                if (f->f_iblock > 0) { // an exeption handler at this frame
                     int b_type = f->f_blockstack[f->f_iblock -1].b_type; // blockstackindex is +1 based
 #if PY_MAJOR_VERSION >= 3 and PY_MINOR_VERSION < 8
-                    if (b_type == SETUP_EXCEPT)
+                    if (b_type == SETUP_EXCEPT
 #else
-                    if (b_type == SETUP_FINALLY)
+                    if (b_type == EXCEPT_HANDLER ||
 #endif
+                        b_type == SETUP_FINALLY)
+                    {
                         return 0; // should be caught by a try .. except block
+                    }
                 }
-                const char *fn = PY_AS_C_STRING(f->f_code->co_filename);
-                if (re.indexIn(QLatin1String(fn)) > -1)
+
+                if (re.indexIn(dbg->d->tracerfile) > -1)
                     return 0; // its C-code that have called this frame,
                               // can never be certain how C code handles exceptions
-                f = f->f_back; // try with previous (calling) frame
             }
 
             auto exc = new Base::PyExceptionInfo(arg);
-            if (exc->isValid()) {
+            if (exc->isValid() && !exc->isKeyboardInterupt()) {
                 Q_EMIT dbg->exceptionOccured(exc);
 
                 // halt debugger so we can view stack?
@@ -977,46 +1006,43 @@ int Debugger::tracer_callback(PyObject *obj, PyFrameObject *frame, int what, PyO
 bool Debugger::evalCondition(const char *condition, PyFrameObject *frame)
 {
     /* Eval breakpoint condition */
-    PyObject *result;
+    PyObject *result, *e, *tp, *tr;
+    bool ret = false;
 
-    /* Use empty filename to avoid obj added to object entry table */
-    PyObject* exprobj = Py_CompileStringFlags(condition, "", Py_eval_input, NULL);
-    if (!exprobj) {
-        PyErr_Clear();
-        return false;
-    }
+    PyErr_Fetch(&e, &tp, &tr);
 
-    /* Clear flag use_tracing in current PyThreadState to avoid
-         tracing evaluation self
-      */
-#if PY_MAJOR_VERSION >= 3
-    PyThreadState* tstate = PyThreadState_GET();
-    tstate->use_tracing = 0;
-    result = PyEval_EvalCode(exprobj,
-                             frame->f_globals,
-                             frame->f_locals);
-    tstate->use_tracing = 1;
-#else
-    frame->f_tstate->use_tracing = 0;
-    result = PyEval_EvalCode((PyCodeObject*)exprobj,
-                             frame->f_globals,
-                             frame->f_locals);
-    frame->f_tstate->use_tracing = 1;
-#endif
-    Py_DecRef(exprobj);
+    do {
+        /* Use empty filename to avoid obj added to object entry table */
+        PyObject* exprobj = Py_CompileStringFlags(condition, "", Py_eval_input, NULL);
+        if (!exprobj)
+            break;
 
-    if (result == nullptr) {
-        PyErr_Clear();
-        return false;
-    }
+        /* Clear flag use_tracing in current PyThreadState to avoid
+             tracing evaluation self */
+    #if PY_MAJOR_VERSION >= 3
+        PyThreadState* tstate = PyThreadState_GET();
+        tstate->use_tracing = 0;
+        result = PyEval_EvalCode(exprobj, frame->f_globals, frame->f_locals);
+        tstate->use_tracing = 1;
+    #else
+        frame->f_tstate->use_tracing = 0;
+        result = PyEval_EvalCode((PyCodeObject*)exprobj,
+                                 frame->f_globals,
+                                 frame->f_locals);
+        frame->f_tstate->use_tracing = 1;
+    #endif
+        Py_DecRef(exprobj);
 
-    if (PyObject_IsTrue(result) != 1) {
+        if (result == nullptr)
+            break;
+
+        ret = PyObject_IsTrue(result) == 1;
         Py_DecRef(result);
-        return false;
-    }
-    Py_DecRef(result);
 
-    return true;
+    } while(false);
+
+    PyErr_Restore(e, tp, tr);
+    return ret;
 }
 
 // static
