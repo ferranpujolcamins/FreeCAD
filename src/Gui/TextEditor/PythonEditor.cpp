@@ -991,16 +991,15 @@ void PythonEditor::exception(Base::PyExceptionInfo* exc)
     ParameterGrp::handle hPrefGrp = getWindowParameter();
     if (hPrefGrp->GetBool("EnableScrollToExceptionLine", true)) {
         // scroll into view on exceptions
-        PythonEditorView *editView = PythonEditorView::setAsActive();
-        if (!editView)
+        if (!view())
             return;
 
-        editView->open(filename());
+        view()->open(filename());
 
         // scroll to view
-        QTextCursor cursor(editView->editor()->document()->
+        QTextCursor cursor(view()->editor()->document()->
                            findBlockByLineNumber(linenr - 1)); // ln-1 because line number starts from 0
-        editView->editor()->setTextCursor(cursor);
+        view()->editor()->setTextCursor(cursor);
     }
 
     if (exc->getFile() != filename().toStdString())

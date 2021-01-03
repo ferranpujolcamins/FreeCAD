@@ -473,7 +473,8 @@ PyObject* Application::sOpen(PyObject * /*self*/, PyObject *args)
         else if (ext == QLatin1String("py") || ext == QLatin1String("fcmacro") ||
                  ext == QLatin1String("fcscript"))
         {
-            PythonEditorView::setAsActive(fileName);
+            auto view = EditorViewSingleton::instance()->openFile(fileName);
+            view->editor()->setWindowIcon(Gui::BitmapFactory().iconFromTheme("applications-python"));
         }
         else {
             Base::Console().Error("File type '%s' not supported\n", ext.toLatin1().constData());

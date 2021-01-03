@@ -170,35 +170,6 @@ private:
     friend class EditorSearchBar;
 };
 
-
-// -----------------------------------------------------------------------------------
-
-class PythonEditor;
-class PythonEditorViewP;
-class GuiExport PythonEditorView : public EditorView
-{
-    Q_OBJECT
-
-public:
-    PythonEditorView(PythonEditor* editor, QWidget* parent);
-    ~PythonEditorView();
-
-    bool onMsg(const char* pMsg,const char** ppReturn);
-    bool onHasMsg(const char* pMsg) const;
-
-    static PythonEditorView *setAsActive(QString filename = QString());
-
-public Q_SLOTS:
-    void executeScript();
-    void startDebug();
-    void toggleBreakpoint();
-    void showDebugMarker(const QString &filename, int line);
-    void hideDebugMarker(const QString &filename, int line);
-
-private:
-    PythonEditorViewP *d;
-};
-
 // ----------------------------------------------------------------------------------
 
 /**
