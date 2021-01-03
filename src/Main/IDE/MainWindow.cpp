@@ -1,8 +1,9 @@
-
+﻿
 #include "MainWindow.h"
 #include "DlgPythonSettings.h"
 //#include <Python.h>
 #include <QtWidgets>
+#include <QSplitter>
 #include <Gui/TextEditor/TextEditor.h>
 #include <Gui/TextEditor/EditorView.h>
 #include <Gui/PythonDebuggerView.h>
@@ -15,9 +16,25 @@
 namespace Ide {
 
 
-MainWindow::MainWindow():
-    Gui::MainWindow(nullptr)
+MainWindow::MainWindow()
+    : Gui::MainWindow(nullptr)
+    , mdiArea(nullptr)
 {
+    // find the MDIarea, remove the tab, go to subwindow mode
+    for (auto wdgt : QApplication::topLevelWidgets()) {
+        auto v = wdgt->findChildren<QMdiArea*>();
+        for (auto a : v) {
+            mdiArea = qobject_cast<QMdiArea*>(a);
+            if (mdiArea)
+                mdiArea->setViewMode(QMdiArea::SubWindowView);
+        }
+    }
+
+    splitter = new QSplitter(Qt::Horizontal, this);
+    splitter->setCollapsible(0, false);
+    mdiArea->addSubWindow(splitter);
+    splitter->showMaximized();
+
     readSettings();
 
     if (Gui::EditorViewSingleton::instance()->editorViews().isEmpty())
@@ -37,7 +54,7 @@ MainWindow::MainWindow():
 
     createDockWindows();
 
-    statusBar()->hide();
+    //statusBar()->hide();
     connect(statusBar(), SIGNAL(messageChanged(const QString &message)),
             this, SLOT(showMessage(const QString &message, int timeout)));
 }
@@ -54,7 +71,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void MainWindow::newFile()
 {
-    newEditorView();
+    auto ews = Gui::EditorViewSingleton::instance();
+    auto *view = ews->activeView();
+    if (!view)
+        view = newEditorView();
+
+    view->newFile();
 }
 
 void MainWindow::open()
@@ -68,22 +90,23 @@ void MainWindow::open()
 
 void MainWindow::openFile(const QString& filename)
 {
-    auto editView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto ews = Gui::EditorViewSingleton::instance();
+    auto editView = ews->activeView();
     if (!editView)
         editView = newEditorView();
 
     // check if already openend
-    for (auto view : windows()) {
-        auto eView = dynamic_cast<Gui::EditorView*>(view);
-        if (eView && eView->filename() == filename) {
-
-            editView = eView;
-            break;
+    for (auto view : ews->editorViews()) {
+        if (view->filename() == filename) {
+            view->editor()->setFocus();
+            return;
         }
     }
 
-    setActiveWindow(editView);
-    loadFile(filename);
+    if (!editView)
+        editView = newEditorView();
+    editView->editor()->setFocus();
+    loadFile(filename); // error handling in here
 }
 
 bool MainWindow::save()
@@ -109,9 +132,7 @@ bool MainWindow::saveAs()
 void MainWindow::about()
 {
    QMessageBox::about(this, tr("About Application"),
-            tr("The <b>Application</b> example demonstrates how to "
-               "write modern GUI applications using Qt, with a menu bar, "
-               "toolbars, and a status bar."));
+            tr("This is an atempt to make an code editor IDE for FreeCAD"));
 }
 
 void MainWindow::cut()
@@ -255,6 +276,43 @@ void MainWindow::createActions()
     //connect(textEdit, &QPlainTextEdit::copyAvailable, cutAct, &QAction::setEnabled);
     //connect(textEdit, &QPlainTextEdit::copyAvailable, copyAct, &QAction::setEnabled);
 #endif // !QT_NO_CLIPBOARD
+
+
+
+    QToolBar *splitToolBar = addToolBar(tr("Split"));
+    QMenu *splitMenu = menuBar()->addMenu(tr("View"));
+    QAction *verticalAct = splitMenu->addAction(tr("Vertical"), [&](){
+        this->splitter->setOrientation(Qt::Vertical);
+    });
+    QAction *horizontalAct = splitMenu->addAction(tr("Horizontal"), [&](){
+        this->splitter->setOrientation(Qt::Horizontal);
+    });
+    QAction *split = splitMenu->addAction(tr("Split"), [&](){
+        if (splitter->count() > 2) return;
+        auto curView = Gui::EditorViewSingleton::instance()->activeView();
+        if (curView) {
+            auto view = this->newEditorView();
+            view->open(curView->filename());
+        }
+    });
+    QAction *join = splitMenu->addAction(tr("Join"), [&](){
+        if (splitter->count() < 2) return;
+        auto ews = Gui::EditorViewSingleton::instance();
+        for (auto view : ews->editorViews()) {
+            if (view != ews->activeView()) {
+                view->deleteLater();
+                break;
+            }
+        }
+    });
+
+    splitToolBar->addSeparator();
+    splitToolBar->addAction(split);
+    splitToolBar->addAction(join);
+    splitToolBar->addSeparator();
+
+    splitToolBar->addAction(verticalAct);
+    splitToolBar->addAction(horizontalAct);
 }
 
 void MainWindow::createStatusBar()
@@ -264,9 +322,6 @@ void MainWindow::createStatusBar()
 
 void MainWindow::readSettings()
 {
-    // must create here because smart pointer delete it otherwise
-    auto dbgr = App::Debugging::Python::Debugger::instance();
-
     // to make breakpoint streamable to be persitent between sessions
     qRegisterMetaTypeStreamOperators<App::Debugging::Python::BrkPntFile>("BrkPntFile");
 
@@ -283,9 +338,23 @@ void MainWindow::readSettings()
     }
 
     // restore opened files
-    auto files = settings.value(QLatin1String("openedfiles"), QStringList()).toStringList();
-    for (auto &fn : files)
-        openFile(fn);
+    int viewCnt = settings.value(QLatin1String("viewscnt"), 0).toInt();
+    for (int i = 0; i < viewCnt; ++i) {
+        auto view = newEditorView();
+        auto filesVar = settings.value(QString::fromLatin1("openedfiles_%1").arg(i), QStringList());
+        auto files = filesVar.toStringList();
+        for (auto &fn : files) {
+            if (!fn.isEmpty()) {
+                if (QFileInfo::exists(fn))
+                    view->open(fn);
+            }
+        }
+    }
+
+    // set last accessed
+    QString lastfile = settings.value(QLatin1String("lastopened"), QString()).toString();
+    if (!lastfile.isEmpty())
+        openFile(lastfile);
 
     // restore breakpoints
     // is actually done when first read to settings is made (deserialize stream)
@@ -307,15 +376,32 @@ void MainWindow::writeSettings()
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
     settings.setValue(QLatin1String("geometry"), saveGeometry());
 
-    // save opened files
-    auto editors = Gui::EditorViewSingleton::instance()->editorViews();
-    QStringList files;
-    for (auto edit : editors) {
-        if (!edit->filename().isEmpty())
-            files.push_back(edit->filename());
-    }
+    auto ews = Gui::EditorViewSingleton::instance();
 
-    settings.setValue(QLatin1String("openedfiles"), files);
+    // save opened files
+    auto views = ews->editorViews();
+    int i = 0;
+    for (auto view : views) {
+        QStringList files;
+        auto wrappers = ews->wrappersForView(view);
+        for (auto wrp : wrappers) {
+            if (!wrp->filename().isEmpty() && QFileInfo::exists(wrp->filename()))
+                files.push_back(wrp->filename());
+        }
+
+        auto viewName = QString::fromLatin1("openedfiles_%1").arg(i++);
+        settings.setValue(viewName, files);
+    }
+    settings.setValue(QLatin1String("viewscnt"), i);
+
+
+    auto view = Gui::EditorViewSingleton::instance()->activeView();
+    QString lastfile;
+    if (view && !view->filename().isEmpty())
+        lastfile = view->filename();
+
+    settings.setValue(QLatin1String("lastopened"), lastfile);
+
 
     // save breakpoints set
     QList<QVariant> bpFiles;
@@ -358,8 +444,8 @@ Gui::EditorView* MainWindow::newEditorView()
     editorView->resize(400, 300);
     editorView->setDisplayName(Gui::EditorView::FileName);
     //setCentralWidget(editorView);
-    addWindow(editorView);
-    setActiveWindow(editorView);
+    splitter->addWidget(editorView);
+    //setActiveWindow(editorView);
 
     connect(edit->document(), &QTextDocument::contentsChanged,
             this, &MainWindow::documentWasModified);
@@ -369,8 +455,7 @@ Gui::EditorView* MainWindow::newEditorView()
 
 void MainWindow::loadFile(const QString &fileName)
 {
-
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (!editorView)
         editorView = newEditorView();
 

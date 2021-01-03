@@ -15,6 +15,8 @@ class EditorView;
 
 QT_BEGIN_NAMESPACE
 class QListWidget;
+class QSplitter;
+class QMdiArea;
 QT_END_NAMESPACE
 
 namespace Ide {
@@ -66,6 +68,8 @@ private:
 
     QListWidget *customerList;
     QListWidget *paragraphsList;
+    QSplitter   *splitter;
+    QMdiArea    *mdiArea;
 };
 
 } // namespace IDE
