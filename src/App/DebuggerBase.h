@@ -348,7 +348,8 @@ public:
     explicit AbstractDbgr(QObject *parent = nullptr);
     virtual ~AbstractDbgr() { delete d; }
 
-    bool hasBreakpoint(const QString &fn) const;
+    bool hasBreakpointFile(const QString &fn) const;
+    bool hasBreakpoint(const QString &fn, int line) const;
     /**
      * @brief the total number of breakpoints
      */
@@ -707,10 +708,17 @@ AbstractDbgr<T_dbgr, T_bp, T_bpfile>::AbstractDbgr(QObject *parent)
 { }
 
 template<typename T_dbgr, typename T_bp, typename T_bpfile>
-bool AbstractDbgr<T_dbgr, T_bp, T_bpfile>::hasBreakpoint(const QString &fn) const {
-    for (auto bpf : d->bps)
-        if (fn == bpf->fileName())
-            return true;
+bool AbstractDbgr<T_dbgr, T_bp, T_bpfile>::hasBreakpointFile(const QString &fn) const {
+    auto bpf = getBreakpointFile(fn);
+    return bpf && fn == bpf->fileName();
+}
+
+template<typename T_dbgr, typename T_bp, typename T_bpfile>
+bool AbstractDbgr<T_dbgr, T_bp, T_bpfile>::hasBreakpoint(const QString &fn, int line) const
+{
+    auto bpf = getBreakpointFile(fn);
+    if (bpf)
+        return bpf->getBreakpoint(line) != nullptr;
     return false;
 }
 

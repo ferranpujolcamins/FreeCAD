@@ -1066,7 +1066,7 @@ bool Debugger::frameRelatedToOpenedFiles(const PyFrameObject *frame) const
     do {
         const char *fileName = PY_AS_C_STRING(frame->f_code->co_filename);
         QString file = QString::fromUtf8(fileName);
-        if (hasBreakpoint(file))
+        if (hasBreakpointFile(file))
             return true;
         if (file == QLatin1String("<string>"))
             return false; // eval-ed code
