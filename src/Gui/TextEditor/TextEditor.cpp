@@ -669,7 +669,7 @@ void TextEditor::OnChange(Base::Subject<const char*> &rCaller,const char* sReaso
     if (d->wrapper && d->wrapper->view()) {
         auto view = d->wrapper->view();
         for (auto plugin : d->wrapper->view()->currentPlugins())
-            plugin->OnChange(view, rCaller, sReason);
+            plugin->OnChange(this, rCaller, sReason);
 
     }
 }

@@ -78,8 +78,13 @@ public:
     virtual  bool textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
                                        int line, QString &toolTipStr) const = 0;
 
-    virtual void OnChange(EditorView *view, Base::Subject<const char *> &rCaller,
+    /// called by editor
+    virtual void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
                           const char *rcReason) const = 0;
+
+    /// called by view
+    virtual bool onMsg(const EditorView *view, const char* pMsg, const char** ppReturn) const = 0;
+    virtual bool onHasMsg(const EditorView *view, const char* pMsg) const = 0;
 
     virtual void paintEventTextArea(TextEditor *edit, QPainter* painter,
                                     const QTextBlock &block, QRect &coords) const = 0;
@@ -107,8 +112,8 @@ public:
 
     virtual App::Debugging::DebuggerBase* debugger() = 0;
 
-
-    void OnChange(EditorView *view, Base::Subject<const char *> &rCaller,
+    /// called by editor
+    void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
                   const char *rcReason) const override;
 
     /// returns the iconname to use for this exception, name as in resourcefile (qrc)
@@ -163,8 +168,13 @@ public:
     QStringList mimetypes() const override;
     QStringList suffixes() const override;
 
-    void OnChange(EditorView *view, Base::Subject<const char *> &rCaller,
+    /// called by editor
+    void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
                   const char *rcReason) const override;
+
+    /// called by view
+    bool onMsg(const EditorView *view, const char* pMsg, const char** ppReturn) const override;
+    bool onHasMsg(const EditorView *view, const char* pMsg) const override;
 
     const char *iconNameForException(const QString &fn, int line) const override;
 
@@ -175,13 +185,21 @@ public:
 
 
 
-    void contextMenuLineNr(EditorView *view, QMenu *menu, const QString &fn, int line) const override;
-    void contextMenuTextArea(EditorView *view, QMenu *menu, const QString &fn, int line) const override;
+    void contextMenuLineNr(EditorView *view, QMenu *menu,
+                           const QString &fn, int line) const override;
+    void contextMenuTextArea(EditorView *view, QMenu *menu,
+                             const QString &fn, int line) const override;
 
     void paintEventTextArea(TextEditor *edit, QPainter* painter,
                             const QTextBlock& block, QRect &coords) const override;
     void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
                                   const QTextBlock& block, QRect &coords) const override;
+
+    // from the old PythonEditorView
+    void executeScript() const;
+    void startDebug() const;
+    void toggleBreakpoint() const;
+
 
 public Q_SLOTS:
     /// render line marker area when these changes

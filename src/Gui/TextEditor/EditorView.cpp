@@ -145,10 +145,6 @@ public:
     {}
     ~EditorViewWrapperP()
     {
-        if (view && view->textEditor() && view->textEditor()->wrapper()) {
-            view->textEditor()->wrapper()->detach(view);
-            view = nullptr;
-        }
         if (plainEdit)
             plainEdit->deleteLater();
         plainEdit = nullptr;
@@ -368,7 +364,7 @@ void EditorView::checkTimestamp()
 /**
  * Runs the action specified by \a pMsg.
  */
-bool EditorView::onMsg(const char* pMsg,const char** /*ppReturn*/)
+bool EditorView::onMsg(const char* pMsg,const char** ppReturn)
 {
     if (strcmp(pMsg,"Save")==0){
         saveFile();
@@ -400,6 +396,12 @@ bool EditorView::onMsg(const char* pMsg,const char** /*ppReturn*/)
     } else if (strcmp(pMsg,"HideFindBar")==0){
         hideFindBar();
         return true;
+    }
+
+    // let our current plugins do its things
+    for (auto plug : d->currentPlugins) {
+        if (plug->onMsg(this, pMsg, ppReturn))
+            return true;
     }
 
     return false;
@@ -445,6 +447,12 @@ bool EditorView::onHasMsg(const char* pMsg) const
         return d->searchBar->isHidden();
     } else if (strcmp(pMsg,"HideFindBar")==0) {
         return !d->searchBar->isHidden();
+    }
+
+    // let our current plugins answer to
+    for (auto plug : d->currentPlugins) {
+        if (plug->onHasMsg(this, pMsg))
+            return true;
     }
 
     return false;
@@ -590,8 +598,8 @@ bool EditorView::open(const QString& fileName)
         if (!newWrapper)
             return false;
         if (otherViewWrapper->editor() && newWrapper->editor()) {
-            newWrapper->setMirrorDoc(otherViewWrapper->editor()->document());
-            otherViewWrapper->setMirrorDoc(newWrapper->editor()->document());
+            newWrapper->setMirrorDoc(otherViewWrapper);
+            otherViewWrapper->setMirrorDoc(newWrapper);
         }
 
     } else if (!newWrapper) { // not yet opened
@@ -1249,8 +1257,11 @@ EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor, const QString &fn)
 EditorViewWrapper::~EditorViewWrapper()
 {
     auto txtEdit = textEditor();
-    if (txtEdit)
+    if (txtEdit) {
         txtEdit->setWrapper(nullptr);
+    }
+    detach(d->view);
+    d->view = nullptr;
 
     EditorViewSingleton::instance()->removeWrapper(this);
     delete d;
@@ -1385,12 +1396,49 @@ bool EditorViewWrapper::isLocked() const
     return d->lock;
 }
 
-void EditorViewWrapper::setMirrorDoc(const QTextDocument *doc)
+void EditorViewWrapper::setMirrorDoc(EditorViewWrapper *senderWrp)
 {
-    auto edit = editor();
-    if (edit->document() != doc && doc != nullptr)
-        connect(doc, &QTextDocument::contentsChange,
+    auto edit = editor(); auto senderDoc = senderWrp->editor()->document();
+    if (edit->document() != senderDoc && senderDoc != nullptr) {
+        qDebug() << QLatin1String("setMirrorDoc sender:") << senderDoc
+                 << QLatin1String(" reciever doc:") << d->plainEdit->document()
+                 << QLatin1String(" this: ") << this
+                 << QLatin1String(" senderWrp: ") << senderWrp << endl;
+        connect(senderDoc, &QTextDocument::contentsChange,
                 this, &EditorViewWrapper::mirrorDocChanged);
+
+        auto self = this;
+        connect(edit->document(), &QTextDocument::destroyed, [=](QObject*){
+            if (!connect(senderDoc, &QTextDocument::contentsChange,
+                         self, &EditorViewWrapper::mirrorDocChanged))
+                qDebug() << QLatin1String("failed to disconnect from senderDoc");
+            else
+                qDebug() << QLatin1String("disconnected from senderDoc ") << senderDoc
+                         << QLatin1String(" this:") << this
+                         << QLatin1String(" senderWrp: ") << senderWrp << endl;
+        });
+
+        //connect(senderDoc, &QTextDocument::destroyed,
+        //        this, &EditorViewWrapper::disconnectDoc);
+        //senderWrp->connect(edit->document(), &QTextDocument::destroyed,
+        //        senderWrp, &EditorViewWrapper::disconnectDoc);
+    }
+}
+
+void EditorViewWrapper::unsetMirrorDoc(const QTextDocument *senderDoc)
+{
+    qDebug() << QLatin1String("unsetMirrorDoc sender:") << senderDoc
+             << QLatin1String(" reciever doc:") << ( d->plainEdit ? d->plainEdit->document() : nullptr);
+    if (!disconnect(senderDoc, &QTextDocument::contentsChange,
+               this, &EditorViewWrapper::mirrorDocChanged))
+        qDebug() << QLatin1String("failed disconnect senderDoc contentschange");
+    if (!disconnect(senderDoc, &QTextDocument::destroyed,
+               this, &EditorViewWrapper::disconnectDoc))
+        qDebug() << QLatin1String("failed to disconnet senderDoc from destryed");
+    //if (d->plainEdit)
+    //    disconnect(d->plainEdit->document(), &QTextDocument::destroyed,
+    //               this, &EditorViewWrapper::disconnectDoc);
+    qDebug() << endl;
 }
 
 QStringList &EditorViewWrapper::undos()
@@ -1406,11 +1454,14 @@ QStringList &EditorViewWrapper::redos()
 void EditorViewWrapper::mirrorDocChanged(int from, int charsRemoved, int charsAdded)
 {
     auto sendDoc = qobject_cast<QTextDocument*>(sender());
+    qDebug() << QLatin1String("mirrorDocChanged sender:") << sendDoc
+             << QLatin1String(" this: ") << this;
     if (sendDoc && d->plainEdit && d->plainEdit->document()) {
         auto thisDoc = d->plainEdit->document();
+        qDebug() << QLatin1String(" reciever:") << thisDoc << endl;
+
         QTextCursor thisCursor(thisDoc),
                     sendCursor(sendDoc);
-
         // prevent this document form sending signals to sendDoc (prevent endless cycles)
         bool previousBlock = thisDoc->blockSignals(true);
 
@@ -1430,6 +1481,13 @@ void EditorViewWrapper::mirrorDocChanged(int from, int charsRemoved, int charsAd
 
         thisDoc->blockSignals(previousBlock);
     }
+}
+
+void EditorViewWrapper::disconnectDoc(QObject *obj)
+{
+    auto doc = reinterpret_cast<QTextDocument*>(obj);
+    if (doc)
+        unsetMirrorDoc(doc);
 }
 
 

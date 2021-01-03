@@ -248,13 +248,16 @@ public:
      * @brief setMirrorDoc, mirror changes in doc in this editor
      * @param doc
      */
-    void setMirrorDoc(const QTextDocument* doc);
+    void setMirrorDoc(EditorViewWrapper *senderWrp);
+public Q_SLOT:
+    void unsetMirrorDoc(const QTextDocument *senderDoc);
 
     QStringList &undos();
     QStringList &redos();
 
 private Q_SLOTS:
     void mirrorDocChanged(int from, int charsRemoved, int charsAdded);
+    void disconnectDoc(QObject *obj);
 };
 
 // ------------------------------------------------------------------------------------

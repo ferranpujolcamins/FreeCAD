@@ -45,6 +45,8 @@
 #include "TextEditor/PythonSyntaxHighlighter.h"
 #include "BitmapFactory.h"
 #include "PythonCode.h"
+#include "Macro.h"
+#include "Application.h"
 
 using namespace Gui;
 
@@ -146,19 +148,17 @@ AbstractLangPluginDbg::~AbstractLangPluginDbg()
     delete d;
 }
 
-void AbstractLangPluginDbg::OnChange(EditorView *view, Base::Subject<const char *> &rCaller, const char *rcReason) const
+void AbstractLangPluginDbg::OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller, const char *rcReason) const
 {
     (void)rCaller;
     (void)rcReason;
 
     if (strcmp(rcReason, "FontSize") == 0 || strcmp(rcReason, "Font") == 0) {
-        int rowHeight = view->editor()->fontMetrics().height();
+        int rowHeight = editor->fontMetrics().height();
         d->loadIcons(rowHeight);
     } else if (strncmp(rcReason, "color_", 6) == 0) {
         // is a color change
-        auto textEdit = dynamic_cast<TextEditor*>(view->editor());
-        if (!textEdit) return;
-        auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(textEdit->syntaxHighlighter());
+        auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(editor->syntaxHighlighter());
         if (highlighter)
             highlighter->loadSettings();
     }
@@ -280,10 +280,42 @@ QStringList PythonLangPluginDbg::suffixes() const
     return suff;
 }
 
-void PythonLangPluginDbg::OnChange(EditorView *view, Base::Subject<const char *> &rCaller, const char *rcReason) const
+/// called by editor
+void PythonLangPluginDbg::OnChange(TextEditor *editor,
+                                   Base::Subject<const char *> &rCaller,
+                                   const char *rcReason) const
 {
+    (void)editor;
     (void)rCaller;
     (void)rcReason;
+}
+
+/// called by view
+bool PythonLangPluginDbg::onMsg(const EditorView *view, const char *pMsg, const char **ppReturn) const
+{
+
+    if (strcmp(pMsg, "Run")==0) {
+        executeScript();
+        return true;
+    }
+    else if (strcmp(pMsg,"StartDebug")==0) {
+        QTimer::singleShot(300, this, SLOT(startDebug()));
+        return true;
+    }
+    else if (strcmp(pMsg,"ToggleBreakpoint")==0) {
+        toggleBreakpoint();
+        return true;
+    }
+    return false;
+}
+
+/// called by editor, if true, it runs onMsg(...)
+bool PythonLangPluginDbg::onHasMsg(const EditorView *view, const char *pMsg) const
+{
+    if (strcmp(pMsg,"Run")==0)  return true;
+    if (strcmp(pMsg,"StartDebug")==0)  return true;
+    if (strcmp(pMsg,"ToggleBreakpoint")==0)  return true;
+    return false;
 }
 
 const char *PythonLangPluginDbg::iconNameForException(const QString &fn, int line) const
@@ -349,16 +381,6 @@ bool PythonLangPluginDbg::textAreaToolTipEvent(TextEditor *edit, const QPoint &p
         toolTipStr += codeInspector.findFromCurrentFrame(
                             lineText, chrInLine, cursor.selectedText());
 
-
-//        if (!tok->isCode())
-//            return false;
-
-
-//        // TODO figure out how to extract attribute / item chain for objects, dicts and lists
-//        // using tokens from syntaxhighlighter
-
-//        QString str = d->pythonCode->findFromCurrentFrame(tok);
-//        QToolTip::showText(tooltipPos, str, this);
         return true;
     }
     return false;
@@ -635,6 +657,67 @@ void PythonLangPluginDbg::paintEventLineNumberArea(TextEditor *edit, QPainter *p
     // debugger marker
     if (debugger->currentLine() == line) {
         painter->drawPixmap(baseX, baseY, debugMarkerIcon());
+    }
+}
+
+void PythonLangPluginDbg::executeScript() const
+{
+    auto view = EditorViewSingleton::instance()->activeView();
+    if (view && view->textEditor() &&
+        matchesMimeType(view->filename(), view->textEditor()->mimetype()))
+    {
+        auto doc = view->editor()->document();
+        if (doc->isModified())
+            view->save();
+
+        try {
+            Gui::Application::Instance->macroManager()->run(
+                        Gui::MacroManager::File, view->filename().toUtf8());
+        }
+        catch (const Base::SystemExitException&) {
+            // handle SystemExit exceptions
+            Base::PyGILStateLocker locker;
+            Base::PyException e;
+            e.ReportException();
+        }
+    }
+}
+
+void PythonLangPluginDbg::startDebug() const
+{
+    auto view = EditorViewSingleton::instance()->activeView();
+    if (view && view->textEditor() &&
+        matchesMimeType(view->filename(), view->textEditor()->mimetype()))
+    {
+        auto doc = view->editor()->document();
+        if (doc->isModified())
+            view->save();
+
+        auto dbgr = App::Debugging::Python::Debugger::instance();
+        dbgr->runFile(view->filename());
+    }
+}
+
+void PythonLangPluginDbg::toggleBreakpoint() const
+{
+    auto view = EditorViewSingleton::instance()->activeView();
+    if (view && view->textEditor() &&
+        matchesMimeType(view->filename(), view->textEditor()->mimetype()))
+    {
+        auto textEdit = view->textEditor();
+        if (textEdit) {
+            auto cursor = textEdit->textCursor();
+            int line = cursor.block().blockNumber();
+
+            auto dbgr = App::Debugging::Python::Debugger::instance();
+            auto bp = dbgr->getBreakpoint(view->filename(), line);
+            if (bp)
+                dbgr->removeBreakpoint(bp);
+            else
+                dbgr->setBreakpoint(view->filename(), line);
+
+            textEdit->lineMarkerArea()->repaint();
+        }
     }
 }
 
