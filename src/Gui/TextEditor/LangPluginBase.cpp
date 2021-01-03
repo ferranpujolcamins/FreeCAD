@@ -392,17 +392,17 @@ bool PythonLangPluginDbg::editorShowDbgMrk(const QString &fn, int line)
     bool ret = false;
     for (auto edit : editors()) {
         if (edit->view()
-             == MainWindow::getInstance()->activeWindow())
+             == EditorViewSingleton::instance()->activeView())
         {
             // load this file into view
             edit->view()->open(fn);
-        }
 
-        if (edit->filename() == fn) {
-            scrollToPos(edit, line);
+            if (edit->filename() == fn) {
+                scrollToPos(edit, line);
 
-            edit->lineMarkerArea()->update();
-            ret = true;
+                edit->lineMarkerArea()->update();
+                ret = true;
+            }
         }
     }
 
@@ -433,7 +433,7 @@ void PythonLangPluginDbg::exceptionOccured(Base::Exception* exception)
             if (editor->filename().toStdString() == excPyinfo->getFile())
                 editor->lineMarkerArea()->update();
             else if (editor->view() &&
-                     editor->view() == MainWindow::getInstance()->activeWindow())
+                     editor->view() == EditorViewSingleton::instance()->activeView())
             {
                 editor->view()->open(QString::fromStdString(excPyinfo->getFile()));
                 scrollToPos(editor, excPyinfo->getLine());
