@@ -203,53 +203,17 @@ void PyException::_init()
 
         // linenr global space
         if (_line == 0) {
-//            PyObject *lineobj = PyObject_GetAttrString(_pyValue, "lineno"); // new ref
-//            if (lineobj) {
-//                long line = PY_AS_LONG(lineobj);
-//                Py_DECREF(lineobj);
-//                _line = static_cast<int>(line);
-//            } else
-//                PyErr_Clear();
             _line = _getAttrAsInt(_pyValue, "lineno");
         }
 
         // fileName global space
         if (_file.empty()) {
-//            PyObject *filenameobj = PyObject_GetAttrString(_pyValue, "filename"); // new ref
-//            if (filenameobj) {
-//                if (PyBytes_Check(filenameobj)) {
-//                    const char *msg = PyBytes_AS_STRING(filenameobj);
-//                    _file = msg;
-//                } else if (PyUnicode_Check(filenameobj)) {
-//#if PY_MAJOR_VERSION >= 3
-//                    const char *msg = PyUnicode_AsUTF8(filenameobj);
-//#else
-//                    PyObject *pyBytes = PyUnicode_AsUTF8String(filenameobj);
-//                    const char *msg = PyBytes_AsString(pyBytes);
-//                    Py_XDECREF(pyBytes);
-//#endif
-//                    _file = msg;
-//                }
-//                Py_XDECREF(filenameobj);
-//            } else
-//                PyErr_Clear();
             _file = _getAttrAsString(_pyValue, "filename");
         }
     }
 
     if (_pyValue) {
 //        // we get here regardless of traceback or not
-//#if PY_MAJOR_VERSION >= 3
-//        // hack, py3.7 needs to call args before filename?
-//        PyObject *vlu = PyObject_GetAttrString(_pyValue, "args");
-//        Py_XDECREF(vlu);
-//#endif
-//        PyObject *offsetobj = PyObject_GetAttrString(_pyValue, "offset"); // new ref
-//        if (offsetobj) {
-//            long offset = PY_AS_LONG(offsetobj);
-//            _offset = static_cast<int>(offset);
-//        } else
-//            PyErr_Clear();
         _offset = _getAttrAsInt(_pyValue, "offset");
     }
     // must restore for PP_Fetch_Error_Text()
@@ -484,7 +448,7 @@ PyExceptionInfo::PyExceptionInfo(const PyExceptionInfo &other) :
     _cloneExcInfo(other);
 }
 
-PyExceptionInfo::~PyExceptionInfo() throw()
+PyExceptionInfo::~PyExceptionInfo() noexcept
 {
 }
 
