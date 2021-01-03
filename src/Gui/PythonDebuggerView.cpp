@@ -58,6 +58,7 @@
 #include <QHeaderView>
 #include <QFileDialog>
 #include <QSplitter>
+#include <QMessageBox>
 #include <QMenu>
 #include <QDebug>
 
@@ -270,18 +271,20 @@ void PythonDebuggerView::changeEvent(QEvent *e)
 void PythonDebuggerView::startDebug()
 {
 
-    EditorView* view = dynamic_cast<EditorView*>(MainWindow::getInstance()->activeWindow());
-    if (!view) {
-        auto views = EditorViewSingleton::instance()->editorViews();
-        if (views.isEmpty()) {
-            auto edit = new TextEditor(nullptr);
-            view = EditorViewSingleton::instance()->createView(edit);
-            if (!view->openDlg()) {
-                MainWindow::getInstance()->removeWindow(view, false);
-                delete view;
-                return;
-            }
+    auto view = EditorViewSingleton::instance()->activeView();
+    if (!view)
+        return;
+
+    if (view->editor()) {
+        QFileInfo fi(view->filename());
+        if (fi.suffix().toLower() != QLatin1String("py") &&
+            fi.suffix().toLower() != QLatin1String("fcmacro"))
+        {
+            QMessageBox::information(this, tr("Not a Python file!"),
+                                     tr("Active editor does not seem to have a python filename"));
+            return;
         }
+
     }
 
     view->setFocus();
@@ -299,26 +302,13 @@ void PythonDebuggerView::enableButtons()
     auto debugger = PyDebugger::instance();
     bool running = debugger->isRunning();
     bool halted = debugger->isHalted();
-    if (d->m_startDebugBtn->isEnabled() != !running)
-        d->m_startDebugBtn->setEnabled(!running);
-
-    if (d->m_continueBtn->isEnabled() != running)
-        d->m_continueBtn->setEnabled(running);
-
-    if (d->m_stopDebugBtn->isEnabled() != running)
-        d->m_stopDebugBtn->setEnabled(running);
-
-    if (d->m_stepIntoBtn->isEnabled() != halted)
-        d->m_stepIntoBtn->setEnabled(halted);
-
-    if (d->m_stepOverBtn->isEnabled() != halted)
-        d->m_stepOverBtn->setEnabled(halted);
-
-    if (d->m_stepOutBtn->isEnabled() != halted)
-        d->m_stepOutBtn->setEnabled(halted);
-
-    if (d->m_haltOnNextBtn->isEnabled() != running && !debugger->isHaltOnNext() && !halted)
-        d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
+    d->m_startDebugBtn->setEnabled(!running && !halted);
+    d->m_continueBtn->setEnabled(running || halted);
+    d->m_stopDebugBtn->setEnabled(running || halted);
+    d->m_stepIntoBtn->setEnabled(halted);
+    d->m_stepOverBtn->setEnabled(halted);
+    d->m_stepOutBtn->setEnabled(halted);
+    d->m_haltOnNextBtn->setEnabled(running && !debugger->isHaltOnNext() && !halted);
 }
 
 void PythonDebuggerView::stackViewCurrentChanged(const QModelIndex &current,
@@ -1081,6 +1071,7 @@ VariableTreeItem::VariableTreeItem(const QList<QVariant> &data,
 
 VariableTreeItem::~VariableTreeItem()
 {
+    Base::PyGILStateLocker lock;(void)lock;
     qDeleteAll(childItems);
 }
 
@@ -1116,6 +1107,7 @@ void VariableTreeItem::addChild(VariableTreeItem *item)
 
 bool VariableTreeItem::removeChild(int row)
 {
+    Base::PyGILStateLocker lock;(void)lock;
     if (row > -1 && row < childItems.size()) {
         VariableTreeItem *item = childItems.takeAt(row);
         item->parentItem = nullptr;
@@ -1132,6 +1124,7 @@ bool VariableTreeItem::removeChildren(int row, int nrRows)
     if (row + nrRows > childItems.size())
         return false;
 
+    Base::PyGILStateLocker lock;(void)lock;
     for (int i = row; i < row + nrRows; ++i) {
         VariableTreeItem *item = childItems.takeAt(row);
         delete item;
@@ -1287,6 +1280,7 @@ VarTreeModelBase::VarTreeModelBase(QObject *parent) :
 
 VarTreeModelBase::~VarTreeModelBase()
 {
+    Base::PyGILStateLocker lock;(void)lock;
     delete m_rootItem; // root item handles delete of children
 }
 
@@ -1490,6 +1484,8 @@ void VarTreeModelBase::lazyLoad(VariableTreeItem *parentItem)
 void VarTreeModelBase::scanObject(PyObject *startObject, VariableTreeItem *parentItem,
                                    int depth, bool noBuiltins)
 {
+    Base::PyGILStateLocker lock;(void)lock;
+
     // avoid cyclic recursion
     static const int maxDepth = 15;
     if (depth > maxDepth)
