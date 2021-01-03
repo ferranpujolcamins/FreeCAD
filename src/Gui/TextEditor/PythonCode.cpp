@@ -71,7 +71,7 @@ DBG_TOKEN_FILE
 # define PY_LONG_AS_LONG PyInt_AsLong
 #endif
 #define PY_FLOAT_FROM_STRING(str) PyFloat_FromDouble(strtod((str), nullptr))
-#define PY_BOOL_FROM_STRING(str) PyBool_FromLong(strcmp((str), "True") != 0)
+#define PY_BOOL_FROM_STRING(str) PyBool_FromLong(strcmp((str), "True") == 0)
 
 
 
@@ -81,14 +81,68 @@ namespace Python {
 
 static const uint BufSize = 1024;
 
+/**
+ * @brief The Haystack struct, compile time known strings to search for
+ */
+struct Haystack {
+    Haystack(const char** items, size_t sz) : items(items), sz(sz) {}
+    const char** items;
+    const size_t sz;
+};
+
+static const char* _operators[] {
+    // must be in most length first 2 chrs then 1
+    // 2 chars long
+    "==", "!=", ">=", "<=", "<<", ">>", "**", "//", ":="
+    // 1 char long
+    "^",  "<",  ">",  "=",  "+",  "-",  "*",  "/",  "%", "&", "|", "^", "~", "@"
+};
+static Haystack operStrs(_operators,  sizeof(_operators) / sizeof(*_operators));
+
+
+static const char* _delimiters[] {
+    // must be in most length first 3 char, the 2 then 1
+    "//=", "**=","//=",">>=", "<<=", "//=",
+    // 2 chars long
+    "->",  "+=", "-=", "*=",  "/=",  "%=", "@=", "&=", "|=", "^=",
+    // 1 char long
+    ",", ":", ".", ";","@", "="
+};
+static Haystack delimStrs(_delimiters,  sizeof(_delimiters) / sizeof(*_delimiters));
+
+static const char* _bool[] { "True", "False" };
+static Haystack boolStrs(_bool, sizeof(_bool) / sizeof(*_bool));
+
+static const char* _none[] { "None" };
+static Haystack noneStrs(_none, sizeof(_none) / sizeof(*_none));
+
+static const char* _keywords[] {
+    "False",    "await",     "else",    "import",    "pass"
+    "None",     "break",     "except",  "in",        "raise"
+    "True",     "class",     "finally", "is",        "return"
+    "and",      "continue",  "for",     "lambda",    "try"
+    "as",       "def",       "from",    "nonlocal",  "while"
+    "assert",   "del"        "global"   "not"        "with"
+    "async",    "elif"       "if"       "or"         "yield"
+};
+static Haystack keywordStrs(_keywords, sizeof(_keywords) / sizeof(*_keywords));
+
+
+/**
+ * @brief The ParseTreeNode class base for our parse tree
+ */
 class ParseTreeNode {
     PyObject* vlu;
 public:
-    enum Type { Undefined, Root, Ident, Attribute, Int, Float, Bool, String,
-                // operator, and oter stuff from down
-                OperatorStart, BracketOpen,  BraceOpen,  ParenOpen,
+    enum Type { Undefined, Root, Identifier, Attribute, Int,
+                Float, Bool, String, None, Keyword,
+                // delimiters and other stuff from down
+                DelimiterStart, BracketOpen,  BraceOpen,  ParenOpen,
                 BracketClose, BraceClose, ParenClose,
-                Dot, Operator, Delimiter };
+                Dot, Delimiter,
+                // operators
+                OperatorStart, Operator
+              };
     ParseTreeNode *parent,
             *next, // chain in object retrieval
             *oper; // is for operator
@@ -155,25 +209,6 @@ bool parse_tailcall(const char** iter,  const char* end, const char* start,
     return (*iter > start);
 }
 
-// parse 'True' or 'False'
-bool parse_bool(const char** iter, const char* end, ParseTreeNode* parent) {
-    const char* start = *iter;
-    const char trueTok[] = "True", falseTok[] = "False";
-    if (*iter+4 <= end && strcmp(*iter, trueTok) == 0 &&
-        (isspace(*iter[5]) || ispunct(*iter[5])))
-    {
-        *iter += 4;
-    }
-    if (*iter+5 <= end && strcmp(*iter, falseTok) == 0 &&
-        (isspace(*iter[6]) || ispunct(*iter[6])))
-    {
-        *iter += 5;
-    }
-    if (*iter > start && !parse_tailcall(iter, end, start, parent, ParseTreeNode::Bool))
-        *iter = start;
-    return *iter > start;
-}
-
 // parses identifiers variables, properties and such
 bool parse_ident(const char** iter, const char* end, ParseTreeNode* parent) {
     const char* start = *iter;
@@ -192,7 +227,7 @@ bool parse_ident(const char** iter, const char* end, ParseTreeNode* parent) {
 
     ParseTreeNode::Type tp = parent->oper &&
                              parent->oper->type == ParseTreeNode::Dot ?
-                                     ParseTreeNode::Attribute : ParseTreeNode::Ident;
+                                     ParseTreeNode::Attribute : ParseTreeNode::Identifier;
     return parse_tailcall(iter, end, start, parent, tp);
 }
 
@@ -282,43 +317,17 @@ bool parse_dot(const char** iter, const char* end, ParseTreeNode* parent) {
     return *iter > start;
 }
 
-// parse '=', '==' etc
-bool parse_operator(const char** iter, const char* end, ParseTreeNode* parent) {
+// parse '=', '==' etc operartors, delimiters, keywords etc
+bool parse_tokens(const char** iter, const char* end, Haystack& s,
+                  ParseTreeNode* parent, ParseTreeNode::Type type) {
     const char* start = *iter;
-    const char* ops[] {
-        // must be in most length first 2 chrs then 1
-        // 2 chars long
-        "==", "!=", ">=", "<=", "<<", ">>", "**", "//", ":="
-        // 1 char long
-        "^",  "<", ">", "=", "+", "-", "*", "/", "%", "&", "|", "^", "~", "@"
-    };
-    for (size_t i = 0; i < sizeof(ops) / sizeof(*ops); ++i) {
-        if (strncmp(*iter, ops[i], strlen(ops[i])) == 0) {
-            (*iter) += strlen(ops[i]);
-            if (!parse_tailcall(iter, end, start, parent, ParseTreeNode::Operator))
+    for (size_t i = 0; i < s.sz; ++i) {
+        if (strncmp(*iter, s.items[i], strlen(s.items[i])) == 0) {
+            (*iter) += strlen(s.items[i]);
+            if (!parse_tailcall(iter, end, start, parent, type))
                 *iter = start;
         }
 
-    }
-    return *iter > start;
-}
-
-bool parse_delimiter(const char** iter, const char* end, ParseTreeNode* parent) {
-    const char* start = *iter;
-    const char* delim[] {
-        // must be in most length first 3 char, the 2 then 1
-        "//=", "**=","//=",">>=", "<<=", "//=",
-        // 2 chars long
-        "->", "+=", "-=", "*=", "/=", "%=", "@=", "&=", "|=", "^=",
-        // 1 char long
-        ",", ":", ".", ";","@", "="
-    };
-    for (size_t i = 0; i < sizeof(delim) / sizeof(*delim); ++i) {
-        if (strncmp(*iter, delim[i], strlen(delim[i])) == 0) {
-            (*iter) += strlen(delim[i]);
-            if (!parse_tailcall(iter, end, start, parent, ParseTreeNode::Delimiter))
-                *iter = start;
-        }
     }
     return *iter > start;
 }
@@ -333,14 +342,8 @@ bool parse(const char** iter, const char* end, ParseTreeNode* node) {
         success = false;
         if (isspace(**iter))
             { ++(*iter); success = true; continue; }
-        if (**iter == 'T' || **iter == 'F')
-            success = parse_bool(iter, end, node);
-        if (!success )//&& isalpha(**iter))
-            success = parse_ident(iter, end, node);
-        if (!success )//&& isdigit(**iter))
-            success = parse_number(iter, end, node);
         if (!success && **iter == '.')
-            success = parse_number(iter, end, node);
+            success = parse_dot(iter, end, node);
         if (!success && **iter == '[')
             success = parse_opposite_open(iter, '[', ']', end, node, ParseTreeNode::BracketOpen);
         if (!success && **iter == ']')
@@ -353,10 +356,19 @@ bool parse(const char** iter, const char* end, ParseTreeNode* node) {
             success = parse_opposite_open(iter, '{', '}', end, node, ParseTreeNode::BraceOpen);
         if (!success && **iter == '}')
             success = parse_opposite_close(iter, '{', '}', end, node, ParseTreeNode::BraceOpen);
+        if (!success && (**iter == 'T' || **iter == 'F'))
+            success = parse_tokens(iter, end, boolStrs, node, ParseTreeNode::Bool);
         if (!success)
-            success = parse_operator(iter, end, node);
+            success = parse_tokens(iter, end, operStrs, node, ParseTreeNode::Operator);
         if (!success)
-            success = parse_delimiter(iter, end, node);
+            success = parse_tokens(iter, end, delimStrs, node, ParseTreeNode::Delimiter);
+        if (!success)
+            success = parse_tokens(iter, end, noneStrs, node, ParseTreeNode::None);
+        if (!success)
+            success = parse_tokens(iter, end, keywordStrs, node, ParseTreeNode::Keyword);
+        if (!success )
+            success = parse_ident(iter, end, node);
+        if (!success )
         if (!success && **iter == '#')
          {    success = true;  break; }// end of line
         success = *iter == end;
@@ -399,7 +411,7 @@ PyObject* keyFromType(ParseTreeNode* node) {
         return PY_BOOL_FROM_STRING(node->c_txt);
     case ParseTreeNode::String:
     case ParseTreeNode::Attribute:
-    case ParseTreeNode::Ident:
+    case ParseTreeNode::Identifier:
         return PY_FROM_STRING(node->c_txt);
     default:
         return nullptr;
@@ -452,7 +464,7 @@ PyObject* getValue(ParseTreeNode* node) {
             * self = node->pyObject();
     // identifiers should already be looked up?
     if (!self) {
-        if (node->type == ParseTreeNode::Ident) {
+        if (node->type == ParseTreeNode::Identifier) {
             if (!lookupIdent(node))
                 return nullptr;
 
@@ -463,7 +475,7 @@ PyObject* getValue(ParseTreeNode* node) {
                 self = PyObject_GetAttr(owner, key);
             Py_XDECREF(key);
 
-        } else if (node->type < ParseTreeNode::OperatorStart) {
+        } else if (node->type < ParseTreeNode::DelimiterStart) {
             // must be a string or number or bool
             auto vlu = keyFromType(node);
             node->setPyObject(vlu);
@@ -602,6 +614,7 @@ QString Python::Code::findFromCurrentFrame(const QString lineText, int pos, cons
 
     //  we have parsed succesfully
     if (success) {
+        Base::PyGILStateLocker lock; (void)lock;
         current = root;
 
         PyObject *initialType, *initialValue, *initialTraceback;
@@ -610,7 +623,7 @@ QString Python::Code::findFromCurrentFrame(const QString lineText, int pos, cons
 
         // goto end of tree, look up all litterals, insert into current
         do {
-            if (current->type == ParseTreeNode::Ident)
+            if (current->type == ParseTreeNode::Identifier)
                 lookupIdent(current);
         } while(current->next && (current = current->next));
 
