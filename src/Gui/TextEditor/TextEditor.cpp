@@ -592,9 +592,17 @@ void TextEditor::keyPressEvent (QKeyEvent * e)
             ITERATE_CODE_PLUGINS(onColonPressed) break;
         case Qt::Key_Semicolon:
             ITERATE_CODE_PLUGINS(onSemiColonPressed) break;
-        default: ; // pass
+        default: ;
+            if (view()) {
+                for (auto plugin : view()->currentPlugins()) {
+                    auto plug = dynamic_cast<AbstractLangPluginCode*>(plugin);
+                    if (plug && plug->onKeyPress(this, e))
+                        return;
+                }
+            }
         }
     }
+    // if we get here all plugins have rejected this event
     QPlainTextEdit::keyPressEvent( e );
 }
 

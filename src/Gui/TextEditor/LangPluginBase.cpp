@@ -552,7 +552,7 @@ bool CommonCodeLangPlugin::onTabPressed(TextEditor *edit) const
 {
     ParameterGrp::handle hPrefGrp = edit->getWindowParameter();
     int indent = static_cast<int>(hPrefGrp->GetInt("IndentSize", 4));
-    bool space = hPrefGrp->GetBool( "Spaces", false );
+    bool space = hPrefGrp->GetBool( "Spaces", true );
     QString ch = space ? QString(indent, QLatin1Char(' '))
                        : QString::fromLatin1("\t");
 

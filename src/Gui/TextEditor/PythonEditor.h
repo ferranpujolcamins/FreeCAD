@@ -80,36 +80,36 @@ public Q_SLOTS:
     /** Inserts a '#' at the beginning of each selected line or the current line if 
      * nothing is selected
      */
-    void onComment();// plugin TODO
+    void onComment();// plugin implemented auto comment
     /**
      * Removes the leading '#' from each selected line or the current line if
      * nothing is selected. In case a line hasn't a leading '#' then
      * this line is skipped.
      */
-    void onUncomment();// plugin TODO
+    void onUncomment();// plugin implemented, auto comment
     /**
      * @brief onAutoIndent
      * Indents selected codeblock
      */
-    void onAutoIndent();// plugin TODO
+    void onAutoIndent();// plugin implemented
 
     void setFilename(const QString&); // finished
-    void startDebug(); // not through editor
+    void startDebug(); // not through editor (although view can trigger through a plugin)
 
     void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
     void cut();// plugin TODO
-    void paste();// plugin TODO
+    void paste();// plugin TODO (Might not be a good Idea, but try to autoindent paste )
 
 protected:
     /** Pops up the context menu with some extensions */
     void contextMenuEvent ( QContextMenuEvent* e ); // plugin finished
     void drawMarker(int line, int x, int y, QPainter*);// plugin finished
-    void keyPressEvent(QKeyEvent * e);// plugin TODO
-    bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);// plugin TODO
+    void keyPressEvent(QKeyEvent * e);// plugin most things done, some code that handles calltips not moved to plugin
+    bool editorToolTipEvent(QPoint pos, const QString &textUnderPos);// plugin Mostly done
     bool lineMarkerAreaToolTipEvent(QPoint pos, int line); // plugin finished
-    void setUpMarkerAreaContextMenu(int line);
-    void handleMarkerAreaContextMenu(QAction *res, int line);
+    void setUpMarkerAreaContextMenu(int line);  // reimpleented in another way
+    void handleMarkerAreaContextMenu(QAction *res, int line);// reimpleented in another way
 
 private Q_SLOTS:
     void breakpointAdded(size_t uniqueId); // plugin finished
@@ -119,8 +119,8 @@ private Q_SLOTS:
 
 
 private:
-    void breakpointPasteOrCut(bool doCut);
-    QString introspect(QString varName);
+    void breakpointPasteOrCut(bool doCut); // not sure how to do this, maybe save pos in TextBlockUSerData
+    //QString introspect(QString varName); // not in this class?
     void renderExceptionExtraSelections(); // plugin finished
     struct PythonEditorP* d;
 };

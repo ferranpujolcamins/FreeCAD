@@ -124,12 +124,29 @@ public:
     virtual QStringList mimetypes() const override;
     virtual QStringList suffixes() const override;
 
+    virtual bool onPaste(TextEditor *edit) const override;
+
+    virtual bool onEnterPressed(TextEditor *edit) const override;
+    virtual bool onParenLeftPressed(TextEditor *edit) const override;
+    virtual bool onParenRightPressed(TextEditor *edit) const override;
+    virtual bool onBracketLeftPressed(TextEditor *edit) const  override;
+    virtual bool onBracketRightPressed(TextEditor *edit) const override;
+    virtual bool onBraceLeftPressed(TextEditor *edit) const override;
+    virtual bool onBraceRightPressed(TextEditor *edit) const override;
+    virtual bool onQuoteDblPressed(TextEditor *edit) const override;
+    virtual bool onQuoteSglPressed(TextEditor *edit) const override;
+
 
     void contextMenuTextArea(TextEditor *edit, QMenu *menu,
                              const QString &fn, int line) const override;
 
 private Q_SLOTS:
     void toggleComment(TextEditor *edit) const;
+    void onAutoIndent(TextEditor *edit) const;
+
+private:
+    bool insertOpeningChar(TextEditor *edit, const QString &insertTxt) const;
+    bool insertClosingChar(TextEditor *edit, const QString &insertTxt) const;
 
 };
 

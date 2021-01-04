@@ -651,14 +651,106 @@ QStringList PythonLangPluginCode::suffixes() const
     return suff;
 }
 
+bool PythonLangPluginCode::onPaste(TextEditor *edit) const
+{
+    (void)edit; // TODO figure out how to autoindent pasted code
+    return false;
+}
+
+bool PythonLangPluginCode::onEnterPressed(TextEditor *edit) const
+{
+    // auto indent
+    auto cursor = edit->textCursor();
+    ParameterGrp::handle hPrefGrp = edit->getWindowParameter();
+    if (hPrefGrp->GetBool( "EnableAutoIndent", true)) {
+        cursor.beginEditBlock();
+        int indent = static_cast<int>(hPrefGrp->GetInt( "IndentSize", 4 ));
+        bool space = hPrefGrp->GetBool( "Spaces", true );
+        QString ch = space ? QString(indent, QLatin1Char(' '))
+                           : QString::fromLatin1("\t");
+
+        // get leading indent of row before newline
+        QRegExp rx(QString::fromLatin1("^(\\s*)"));
+        int pos = rx.indexIn(cursor.block().text());
+        QString ind = pos > -1 ? rx.cap(1) : QString();
+
+        QRegExp re(QLatin1String("[:{\\[]\\s*$"));
+        if (re.indexIn(cursor.block().text()) > -1)
+        {
+            // begin new block, line ends with a ':'
+            ind += ch;
+        }
+        // insert block and indent, move to top of new line
+        cursor.insertBlock();
+        //cursor.movePosition(QTextCursor::NextBlock);
+        cursor.insertText(ind);
+        //cursor.movePosition(QTextCursor::EndOfLine);
+        edit->setTextCursor(cursor);
+        cursor.endEditBlock();
+        return true;
+    }
+    return false;
+}
+
+bool PythonLangPluginCode::onParenLeftPressed(TextEditor *edit) const
+{
+    return insertOpeningChar(edit, QLatin1String("()"));
+}
+
+bool PythonLangPluginCode::onParenRightPressed(TextEditor *edit) const
+{
+    return insertClosingChar(edit, QLatin1String("()"));
+}
+
+bool PythonLangPluginCode::onBracketLeftPressed(TextEditor *edit) const
+{
+    return insertOpeningChar(edit, QLatin1String("[]"));
+}
+
+bool PythonLangPluginCode::onBracketRightPressed(TextEditor *edit) const
+{
+    return insertClosingChar(edit, QLatin1String("[]"));
+}
+
+bool PythonLangPluginCode::onBraceLeftPressed(TextEditor *edit) const
+{
+    return insertOpeningChar(edit, QLatin1String("{}"));
+}
+
+bool PythonLangPluginCode::onBraceRightPressed(TextEditor *edit) const
+{
+    return insertClosingChar(edit, QLatin1String("{}"));
+}
+
+bool PythonLangPluginCode::onQuoteDblPressed(TextEditor *edit) const
+{
+    auto cursor = edit->textCursor();
+    cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+    if (cursor.selectedText() == QLatin1String("\""))
+        return false;
+    return insertOpeningChar(edit, QLatin1String("\"\""));
+}
+
+bool PythonLangPluginCode::onQuoteSglPressed(TextEditor *edit) const
+{
+    auto cursor = edit->textCursor();
+    cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+    if (cursor.selectedText() == QLatin1String("'"))
+        return false;
+    return insertOpeningChar(edit, QLatin1String("''"));
+}
+
 void PythonLangPluginCode::contextMenuTextArea(TextEditor *edit, QMenu *menu, const QString &fn, int line) const
 {
     auto commentAct = new QAction(tr("Toggle comment"), menu);
     menu->addAction(commentAct);
     connect(commentAct, &QAction::triggered, [=]() { toggleComment(edit); });
 
-    CommonCodeLangPlugin::contextMenuTextArea(edit, menu, fn, line);
+    auto autoIndent = new QAction(tr("Auto indent"), menu);
+    menu->addAction(autoIndent);
+    connect(autoIndent, &QAction::triggered, [=](){ onAutoIndent(edit); });
 
+    CommonCodeLangPlugin::contextMenuTextArea(edit, menu, fn, line);
 }
 
 void PythonLangPluginCode::toggleComment(TextEditor *edit) const
@@ -707,6 +799,132 @@ void PythonLangPluginCode::toggleComment(TextEditor *edit) const
         }
     }
     cursor.endEditBlock();
+}
+
+void PythonLangPluginCode::onAutoIndent(TextEditor *edit) const
+{
+    QTextCursor cursor = edit->textCursor();
+    int selStart = cursor.selectionStart();
+    int selEnd = cursor.selectionEnd();
+    QList<int> indentLevel;// level of indentation at different indentaions
+
+    QTextBlock block;
+    QRegExp reNewBlock(QLatin1String("[:{]\\s*#*.*$"));
+    QChar mCommentChr(0);
+    int mCommentIndents = 0;
+
+    ParameterGrp::handle hPrefGrp = edit->getWindowParameter();
+    int indentSize = static_cast<int>(hPrefGrp->GetInt( "IndentSize", 4 ));
+    bool useSpaces = hPrefGrp->GetBool( "Spaces", true );
+    QString space = useSpaces ? QString(indentSize, QLatin1Char(' '))
+                       : QString::fromLatin1("\t");
+
+    cursor.beginEditBlock();
+    for (block = edit->document()->begin(); block.isValid(); block = block.next()) {
+        // get this rows indent
+        int chrCount = 0, blockIndent = 0;
+        bool textRow = false, mayIndent = false;
+        for (int i = 0; i < block.text().size(); ++i) {
+            QChar ch = block.text()[i];
+            if (ch == QLatin1Char(' ')) {
+                ++chrCount;
+            } else if (ch == QLatin1Char('\t')) {
+                chrCount += indentSize;
+            } else if (ch == QLatin1Char('#')) {
+                textRow = true;
+                break; // comment row
+            } else if (ch == QLatin1Char('\'') || ch == QLatin1Char('"')) {
+                if (block.text().size() > i + 2 &&
+                    block.text()[i +1] == ch && block.text()[i +2] == ch)
+                {
+                    if (mCommentChr.isNull()) {
+                        mCommentChr = ch;// start a multiline comment
+                    } else if (mCommentChr == ch) {
+                        mCommentChr = 0;// end multiline comment
+                        while (mCommentIndents > 0 && indentLevel.size()) {
+                            indentLevel.removeLast();
+                            --mCommentIndents;
+                        }
+                    }
+                    textRow = true;
+                    break;
+                }
+            } /*else if (mCommentChr != QChar(0)) {
+                textRow = true;
+                break; // inside multiline comment
+            }*/ else if (ch.isLetterOrNumber()) {
+                mayIndent = true;
+                textRow = true;
+                break; // text started
+            }
+        }
+        if (!textRow) continue;
+
+        // cancel a indent block
+        while (indentLevel.size() > 0 && chrCount <= indentLevel.last()){
+            // stop current indent block
+            indentLevel.removeLast();
+            if (!mCommentChr.isNull())
+                --mCommentIndents;
+        }
+
+        // start a new indent block?
+        QString txt = block.text();
+        if (mayIndent && reNewBlock.indexIn(txt) > -1) {
+            indentLevel.append(chrCount);
+            blockIndent = -1; // don't indent this row
+            if (!mCommentChr.isNull())
+                ++mCommentIndents;
+        }
+
+        int pos = block.position();
+        int off = block.length()-1;
+        // at least one char of the block is part of the selection
+        if ( pos >= selStart || pos+off >= selStart) {
+            if ( pos+1 > selEnd )
+                break; // end of selection reached
+            int i = 0;
+            for (QChar ch : block.text()) {
+                if (!ch.isSpace())
+                    break;
+                cursor.setPosition(block.position());
+                cursor.deleteChar();
+                ++i;
+            }
+            for (i = 0; i < indentLevel.size() + blockIndent; ++i) {
+                cursor.setPosition(block.position());
+                cursor.insertText(space);
+            }
+        }
+    }
+    cursor.endEditBlock();
+}
+
+bool PythonLangPluginCode::insertOpeningChar(TextEditor *edit, const QString &insertTxt) const
+{
+    auto cursor = edit->textCursor();
+    cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+    if (cursor.selectedText() == insertTxt.left(1))
+        return false;
+    cursor.beginEditBlock();
+    cursor = edit->textCursor();
+    cursor.insertText(insertTxt);
+    cursor.movePosition(QTextCursor::Left);
+    edit->setTextCursor(cursor);
+    cursor.endEditBlock();
+    return true;
+}
+
+bool PythonLangPluginCode::insertClosingChar(TextEditor *edit, const QString &insertTxt) const
+{
+    auto cursor = edit->textCursor();
+    cursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor);
+    if (cursor.selectedText() == insertTxt.right(1)) {
+        cursor.movePosition(QTextCursor::Right);
+        edit->setTextCursor(cursor);
+        return true; // snatch this keypress from bubble through
+    }
+    return false;
 }
 
 /***************************************************************************
