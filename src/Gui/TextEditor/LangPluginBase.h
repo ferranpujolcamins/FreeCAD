@@ -68,33 +68,45 @@ public:
     virtual QStringList suffixes() const = 0; /// used to determine if we should load plugin with these fileendings
     bool matchesMimeType(const QString &fn, const QString &mime = QString()) const;
 
-    virtual void contextMenuLineNr(EditorView *view, QMenu *menu,
+    /// called by editor
+    virtual void contextMenuLineNr(TextEditor *edit, QMenu *menu,
                                    const QString &fn, int line) const = 0;
-    virtual void contextMenuTextArea(EditorView *view, QMenu *menu,
+    virtual void contextMenuTextArea(TextEditor *edit, QMenu *menu,
                                      const QString &fn, int line) const = 0;
 
     virtual  bool lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
-                                     int line, QString &toolTipStr) const = 0;
+                                     int line, QString &toolTipStr) const;
     virtual  bool textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
-                                       int line, QString &toolTipStr) const = 0;
+                                       int line, QString &toolTipStr) const;
 
-    /// called by editor
     virtual void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
-                          const char *rcReason) const = 0;
+                          const char *rcReason) const;
+
+
+    virtual void paintEventTextArea(TextEditor *edit, QPainter* painter,
+                                    const QTextBlock &block, QRect &coords) const;
+    virtual void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
+                                          const QTextBlock &block, QRect &coords) const;
+
+    virtual bool onCut(TextEditor *edit) const;
+    virtual bool onPaste(TextEditor *edit) const;
+    virtual bool onCopy(TextEditor *edit) const;
+
 
     /// called by view
     virtual bool onMsg(const EditorView *view, const char* pMsg, const char** ppReturn) const = 0;
     virtual bool onHasMsg(const EditorView *view, const char* pMsg) const = 0;
 
-    virtual void paintEventTextArea(TextEditor *edit, QPainter* painter,
-                                    const QTextBlock &block, QRect &coords) const = 0;
-    virtual void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
-                                          const QTextBlock &block, QRect &coords) const = 0;
+protected:
+    /// returns a list with all TextEditor derived editors
+    /// that currentsly shown in editorViews
+    QList<TextEditor*> editors(const QString &fn = QString()) const;
 
 
 public: // Q_SLOTS
-    virtual void onFileOpened(const QString& fn) = 0;
-    virtual void onFileClosed(const QString& fn) = 0;
+    virtual void onFileOpened(const QString& fn);
+    virtual void onFileClosed(const QString& fn);
+
 };
 
 // ---------------------------------------------------------------------
@@ -108,25 +120,23 @@ class AbstractLangPluginDbg : public AbstractLangPlugin
     AbstractLangPluginDbgP *d;
 public:
     explicit AbstractLangPluginDbg(const char* langName);
-    ~AbstractLangPluginDbg();
+    ~AbstractLangPluginDbg() override;
+
+    virtual void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
+                          const char *rcReason) const override;
 
     virtual App::Debugging::DebuggerBase* debugger() = 0;
-
-    /// called by editor
-    void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
-                  const char *rcReason) const override;
 
     /// returns the iconname to use for this exception, name as in resourcefile (qrc)
     virtual const char* iconNameForException(const QString &fn, int excNr)  const = 0;
 
-    /// returns a list with all TextEditor derived editors
-    /// that currentsly shown in editorViews
-    QList<TextEditor*> editors(const QString &fn = QString()) const;
-
-
     const QPixmap& breakpointIcon() const;
     const QPixmap& breakpointDisabledIcon() const;
     const QPixmap& debugMarkerIcon() const;
+
+
+    //virtual bool onCut(TextEditor *edit) const;
+    //virtual bool onPaste(TextEditor *edit) const;
 
 public: // Q_SLOTS:
     /// render line marker area when these changes
@@ -149,6 +159,68 @@ public: // Q_SLOTS:
 protected:
     /// scrolls to line
     void scrollToPos(TextEditor *edit, int line) const;
+
+    virtual const QColor &exceptionScrollbarMarkerColor() const;
+    virtual const QColor &breakpointScrollbarMarkerColor() const;
+    //void breakpointPasteOrCut(TextEditor *edit, bool doCut) const;
+};
+
+// ---------------------------------------------------------------------
+
+class AbstractLangPluginCodeP;
+class AbstractLangPluginCode : public AbstractLangPlugin
+{
+    AbstractLangPluginCodeP *d;
+public:
+    explicit AbstractLangPluginCode(const char *pluginName);
+    ~AbstractLangPluginCode() override;
+
+    virtual bool onTabPressed(TextEditor *edit) const;
+    virtual bool onDelPressed(TextEditor *edit) const;
+    virtual bool onBacktabPressed(TextEditor *edit) const; // shift + tab
+    virtual bool onSpacePressed(TextEditor *edit) const;
+    virtual bool onEnterPressed(TextEditor *edit) const;
+    virtual bool onPeriodPressed(TextEditor *edit) const;
+
+    // get called before the above, takes precedece, if returns true above won't be called
+    virtual bool onKeyPress(TextEditor *edit, QKeyEvent *evt) const = 0;
+};
+
+// ---------------------------------------------------------------------
+
+class CommonCodeLangPluginP;
+class CommonCodeLangPlugin : public QObject,
+                             public AbstractLangPluginCode
+{
+    Q_OBJECT
+    CommonCodeLangPluginP *d;
+public:
+    CommonCodeLangPlugin(const char* pluginName = "commoncode");
+    ~CommonCodeLangPlugin() override;
+
+    virtual QStringList mimetypes() const override;
+    virtual QStringList suffixes() const override;
+
+    /// called by editor
+    void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
+                  const char *rcReason) const override;
+
+    virtual bool onTabPressed(TextEditor *edit) const override;
+    virtual bool onBacktabPressed(TextEditor *edit) const override;
+
+    virtual bool onKeyPress(TextEditor *edit, QKeyEvent *evt) const override;
+
+
+    virtual void contextMenuLineNr(TextEditor *view, QMenu *menu,
+                                   const QString &fn, int line) const;
+    virtual void contextMenuTextArea(TextEditor *edit, QMenu *menu,
+                                     const QString &fn, int line) const;
+
+
+    /// called by view
+    virtual bool onMsg(const EditorView *view, const char* pMsg,
+                       const char** ppReturn) const;
+    virtual bool onHasMsg(const EditorView *view, const char* pMsg) const;
 };
 
 // ---------------------------------------------------------------------
@@ -185,9 +257,9 @@ public:
 
 
 
-    void contextMenuLineNr(EditorView *view, QMenu *menu,
+    void contextMenuLineNr(TextEditor *edit, QMenu *menu,
                            const QString &fn, int line) const override;
-    void contextMenuTextArea(EditorView *view, QMenu *menu,
+    void contextMenuTextArea(TextEditor *edit, QMenu *menu,
                              const QString &fn, int line) const override;
 
     void paintEventTextArea(TextEditor *edit, QPainter* painter,

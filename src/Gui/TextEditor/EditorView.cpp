@@ -215,7 +215,6 @@ public:
     QComboBox    *openFiles;
     QPushButton  *closeFile;
 };
-};
 
 // ------------------------------------------------------------
 
@@ -232,7 +231,7 @@ static struct _PyEditorRegister
                 QLatin1String("text/x-script.phyton") <<
                 QLatin1String("text/x-python");
 
-        QTimer::singleShot(0, [&](){
+        QTimer::singleShot(0, [=](){
             EditorViewSingleton::registerTextEditorType(
                  reinterpret_cast<EditorViewSingleton::createT>(&createPythonEditor),
                              QLatin1String("PythonEditor"),
@@ -242,7 +241,9 @@ static struct _PyEditorRegister
             );
         });
     }
-} _pyEditorRegisterSingleton;
+}_pyEditorRegisterSingleton;
+
+}; // namespace Gui
 
 // -------------------------------------------------------
 
@@ -1338,11 +1339,15 @@ void EditorViewWrapper::disconnectDoc(QObject *obj)
 EditorViewSingleton::EditorViewSingleton() :
     d(new EditorViewSingletonP())
 {
+    _PyEditorRegister();
+
     // do these after eventloop is running
     QTimer::singleShot(0, []{
         auto pydbg = new PythonLangPluginDbg();
         registerLangPlugin(pydbg);
-    });
+        auto  commonCode = new CommonCodeLangPlugin();
+        registerLangPlugin(commonCode);
+    }); // now done i LangPluginBase.cpp
 }
 
 EditorViewSingleton::~EditorViewSingleton()

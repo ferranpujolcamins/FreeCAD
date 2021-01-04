@@ -64,6 +64,8 @@ public:
 class AbstractLangPluginDbgP {
 public:
     QPixmap breakpoint, breakpointDisabled, debugMarker;
+    const QColor breakPointScrollBarMarkerColor = QColor(242, 58, 82); // red
+    const QColor exceptionScrollBarMarkerColor = QColor(252, 172, 0); // red-orange
     explicit AbstractLangPluginDbgP()
     {
         QTimer::singleShot(0, [&](){
@@ -91,8 +93,24 @@ public:
     ~PythonLangPluginDbgP() {}
 };
 
+// ------------------------------------------------------------------
+class AbstractLangPluginCodeP {
+public:
+    explicit AbstractLangPluginCodeP() {}
+    ~AbstractLangPluginCodeP() {}
+};
 
-}
+// ------------------------------------------------------------------
+
+class CommonCodeLangPluginP {
+public:
+    explicit CommonCodeLangPluginP() {}
+    ~CommonCodeLangPluginP() {}
+};
+
+// ------------------------------------------------------------------
+
+} // namespace Gui
 
 // -----------------------------------------------------------------
 
@@ -134,6 +152,127 @@ bool AbstractLangPlugin::matchesMimeType(const QString& fn,
     return false;
 }
 
+bool AbstractLangPlugin::lineNrToolTipEvent(TextEditor *edit, const QPoint &pos, int line, QString &toolTipStr) const
+{
+    (void)edit;(void)pos;
+    (void)line;(void)toolTipStr;
+    return false;
+}
+
+bool AbstractLangPlugin::textAreaToolTipEvent(TextEditor *edit, const QPoint &pos, int line, QString &toolTipStr) const
+{
+    (void)edit;(void)pos;
+    (void)line;(void)toolTipStr;
+    return false;
+}
+
+void AbstractLangPlugin::OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller, const char *rcReason) const
+{
+    (void)editor;(void)rCaller;
+    (void)rcReason;
+}
+
+void AbstractLangPlugin::paintEventTextArea(TextEditor *edit, QPainter *painter, const QTextBlock &block, QRect &coords) const
+{
+    (void)edit;(void)painter;
+    (void)block;(void)coords;
+}
+
+void AbstractLangPlugin::paintEventLineNumberArea(TextEditor *edit, QPainter *painter, const QTextBlock &block, QRect &coords) const
+{
+    (void)edit;(void)painter;
+    (void)block;(void)coords;
+}
+
+bool AbstractLangPlugin::onCut(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPlugin::onPaste(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPlugin::onCopy(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+QList<TextEditor *> AbstractLangPlugin::editors(const QString &fn) const
+{
+    QList<TextEditor*> retLst;
+    for (auto edit : EditorViewSingleton::instance()->editorViews()) {
+        auto editor = edit->textEditor();
+        if (editor && (fn.isEmpty() || fn == editor->filename()))
+            retLst.push_back(editor);
+    }
+    return retLst;
+}
+
+void AbstractLangPlugin::onFileOpened(const QString &fn)
+{
+    (void)fn;
+}
+
+void AbstractLangPlugin::onFileClosed(const QString &fn)
+{
+    (void)fn;
+}
+
+// -------------------------------------------------------------------
+
+
+AbstractLangPluginCode::AbstractLangPluginCode(const char *pluginName)
+    : AbstractLangPlugin(pluginName)
+    , d(new AbstractLangPluginCodeP())
+{
+}
+
+AbstractLangPluginCode::~AbstractLangPluginCode()
+{
+    delete d;
+}
+
+bool AbstractLangPluginCode::onTabPressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPluginCode::onDelPressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPluginCode::onBacktabPressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPluginCode::onSpacePressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPluginCode::onEnterPressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
+bool AbstractLangPluginCode::onPeriodPressed(TextEditor *edit) const
+{
+    (void)edit;
+    return false;
+}
+
 // -------------------------------------------------------------------
 
 
@@ -148,32 +287,15 @@ AbstractLangPluginDbg::~AbstractLangPluginDbg()
     delete d;
 }
 
-void AbstractLangPluginDbg::OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller, const char *rcReason) const
+void AbstractLangPluginDbg::OnChange(TextEditor *editor,
+                                     Base::Subject<const char *> &rCaller,
+                                     const char *rcReason) const
 {
     (void)rCaller;
-    (void)rcReason;
-
     if (strcmp(rcReason, "FontSize") == 0 || strcmp(rcReason, "Font") == 0) {
         int rowHeight = editor->fontMetrics().height();
         d->loadIcons(rowHeight);
-    } else if (strncmp(rcReason, "color_", 6) == 0) {
-        // is a color change
-        auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(editor->syntaxHighlighter());
-        if (highlighter)
-            highlighter->loadSettings();
     }
-}
-
-
-QList<TextEditor *> AbstractLangPluginDbg::editors(const QString &fn) const
-{
-    QList<TextEditor*> retLst;
-    for (auto edit : EditorViewSingleton::instance()->editorViews()) {
-        auto editor = edit->textEditor();
-        if (editor && (fn.isEmpty() || fn == editor->filename()))
-            retLst.push_back(editor);
-    }
-    return retLst;
 }
 
 void AbstractLangPluginDbg::scrollToPos(TextEditor* edit, int line) const
@@ -198,6 +320,43 @@ void AbstractLangPluginDbg::scrollToPos(TextEditor* edit, int line) const
     //edit->setTextCursor(cursor);
 }
 
+const QColor &AbstractLangPluginDbg::exceptionScrollbarMarkerColor() const
+{
+    return d->exceptionScrollBarMarkerColor;
+}
+
+const QColor &AbstractLangPluginDbg::breakpointScrollbarMarkerColor() const
+{
+    return d->breakPointScrollBarMarkerColor;
+}
+
+/* broken algorithm
+void AbstractLangPluginDbg::breakpointPasteOrCut(TextEditor *edit, bool doCut) const
+{
+    // track breakpoint movements
+    QTextCursor cursor = edit->textCursor();
+    auto debugger = App::Debugging::Python::Debugger::instance();
+    int beforeLineNr = cursor.block().blockNumber();
+    if (cursor.hasSelection()) {
+        int posEnd = qMax(cursor.selectionEnd(), cursor.selectionStart());
+        beforeLineNr = edit->document()->findBlock(posEnd).blockNumber();
+    }
+
+    if (doCut)
+        TextEditor::cut();
+    else
+        TextEditor::paste();
+
+    int currentLineNr = edit->textCursor().block().blockNumber();
+    if (beforeLineNr != currentLineNr) {
+        int move = beforeLineNr - currentLineNr;
+        auto bp = debugger->getBreakpointFile(edit->filename());
+        if (bp)
+            bp->moveLines(beforeLineNr, move);
+    }
+}
+*/
+
 const QPixmap &AbstractLangPluginDbg::breakpointIcon() const
 {
     return d->breakpoint;
@@ -213,6 +372,222 @@ const QPixmap &AbstractLangPluginDbg::debugMarkerIcon() const
     return d->debugMarker;
 }
 
+/*
+bool AbstractLangPluginDbg::onCut(TextEditor *edit) const
+{
+    // track breakpoint movements
+    breakpointPasteOrCut(true);
+}
+
+bool AbstractLangPluginDbg::onPaste(TextEditor *edit) const
+{
+    // track breakpoint movements
+    breakpointPasteOrCut(false);
+}
+*/
+
+// -----------------------------------------------------------------------
+
+
+CommonCodeLangPlugin::CommonCodeLangPlugin(const char *pluginName)
+    : QObject()
+    , AbstractLangPluginCode(pluginName)
+    , d(new CommonCodeLangPluginP())
+{
+}
+
+CommonCodeLangPlugin::~CommonCodeLangPlugin()
+{
+    delete d;
+}
+
+QStringList CommonCodeLangPlugin::mimetypes() const
+{
+    static QMimeDatabase db;
+    static QString pyMimeDb = db.mimeTypeForFile(QLatin1String("test.py")).name();
+    static const QStringList mimes {
+            QLatin1String("text/fcmacro"),
+            QLatin1String("text/python"),
+            QLatin1String("text/x-script.python"),
+            pyMimeDb,
+            QLatin1String("application/x-script.python")
+            ,QLatin1String("text/html") // only for debug linkin
+    };
+    return mimes;
+}
+
+QStringList CommonCodeLangPlugin::suffixes() const
+{
+    static const QStringList suff {
+        QLatin1String("py"),
+        QLatin1String("fcmacro"),
+    };
+    return suff;
+}
+
+void CommonCodeLangPlugin::OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller, const char *rcReason) const
+{
+    (void)rCaller;
+    (void)rcReason;
+
+    if (strncmp(rcReason, "color_", 6) == 0) {
+        // is a color change
+        auto highlighter = dynamic_cast<PythonSyntaxHighlighter*>(editor->syntaxHighlighter());
+        if (highlighter)
+            highlighter->loadSettings();
+    }
+}
+
+bool CommonCodeLangPlugin::onTabPressed(TextEditor *edit) const
+{
+    ParameterGrp::handle hPrefGrp = edit->getWindowParameter();
+    int indent = static_cast<int>(hPrefGrp->GetInt("IndentSize", 4));
+    bool space = hPrefGrp->GetBool( "Spaces", false );
+    QString ch = space ? QString(indent, QLatin1Char(' '))
+                       : QString::fromLatin1("\t");
+
+    QTextCursor cursor = edit->textCursor();
+    if (!cursor.hasSelection()) {
+        // insert a single tab or several spaces
+        cursor.beginEditBlock();
+        // move cursor to start of text and adjust indentation
+        int oldPos = cursor.position();
+        int startPos = cursor.block().position();
+        QString line = cursor.block().text();
+        QRegExp re(QLatin1String("^(\\s*)"));
+        if (re.indexIn(line) > -1 && space && indent > 0 &&
+                re.cap(1).size() + startPos >= oldPos)
+        {
+            // cursor are in indent whitespace
+            int diff = re.cap(1).size() % indent;
+            ch.remove(ch.size() - diff, diff); // resize indetation to match even indentation size
+            cursor.setPosition(startPos + re.cap(1).size()); // to end of current indentation
+        }
+
+        cursor.insertText(ch);
+        cursor.endEditBlock();
+        edit->setTextCursor(cursor);
+    } else {
+        // for each selected block insert a tab or spaces
+        int selStart = cursor.selectionStart();
+        int selEnd = cursor.selectionEnd();
+        QTextBlock block;
+        cursor.beginEditBlock();
+        for (block = edit->document()->begin(); block.isValid(); block = block.next()) {
+            int pos = block.position();
+            int off = block.length()-1;
+            // at least one char of the block is part of the selection
+            if ( pos >= selStart || pos+off >= selStart) {
+                if ( pos+1 > selEnd )
+                    break; // end of selection reached
+                cursor.setPosition(block.position());
+                cursor.insertText(ch);
+                    selEnd += ch.length();
+            }
+        }
+
+        cursor.endEditBlock();
+    }
+
+    return true;
+}
+
+bool CommonCodeLangPlugin::onBacktabPressed(TextEditor *edit) const
+{
+    QTextCursor cursor = edit->textCursor();
+    if (!cursor.hasSelection())
+        return false; // Shift+Tab should not do anything, let other plugins have their say
+    // If some text is selected we remove a leading tab or
+    // spaces from each selected block
+    ParameterGrp::handle hPrefGrp = edit->getWindowParameter();
+    int indent = static_cast<int>(hPrefGrp->GetInt("IndentSize", 4));
+
+    int selStart = cursor.selectionStart();
+    int selEnd = cursor.selectionEnd();
+    QTextBlock block;
+    cursor.beginEditBlock();
+    for (block = edit->document()->begin(); block.isValid(); block = block.next()) {
+        int pos = block.position();
+        int off = block.length()-1;
+        // at least one char of the block is part of the selection
+        if ( pos >= selStart || pos+off >= selStart) {
+            if ( pos+1 > selEnd )
+                break; // end of selection reached
+            // if possible remove one tab or several spaces
+            QString text = block.text();
+            if (text.startsWith(QLatin1String("\t"))) {
+                cursor.setPosition(block.position());
+                cursor.deleteChar();
+                selEnd--;
+            }
+            else {
+                cursor.setPosition(block.position());
+                for (int i=0; i<indent; i++) {
+                    if (!text.startsWith(QLatin1String(" ")))
+                        break;
+                    text = text.mid(1);
+                    cursor.deleteChar();
+                    selEnd--;
+                }
+            }
+        }
+    }
+
+    cursor.endEditBlock();
+    return true;
+}
+
+bool CommonCodeLangPlugin::onKeyPress(TextEditor *edit, QKeyEvent *evt) const
+{
+    (void)edit; (void)evt;
+    return false;
+}
+
+void CommonCodeLangPlugin::contextMenuLineNr(TextEditor *edit, QMenu *menu, const QString &fn, int line) const
+{
+    (void)edit;(void)menu;
+    (void)fn;(void)line;
+}
+
+void CommonCodeLangPlugin::contextMenuTextArea(TextEditor *edit, QMenu *menu, const QString &fn, int line) const
+{
+    (void)fn; (void)line;
+    menu->addSeparator();
+    auto cursor = edit->textCursor();
+    bool disable = !cursor.hasSelection();
+
+    auto indentAct = new QAction(tr("Indent"), menu);
+    indentAct->setDisabled(disable);
+    connect(indentAct, &QAction::triggered, [=](){ onTabPressed(edit); });
+    menu->addAction(indentAct);
+
+    auto dedentAct = new QAction(tr("Dedent"), menu);
+    dedentAct->setDisabled(disable);
+    connect(dedentAct, &QAction::triggered, [=] (){ onBacktabPressed(edit); });
+    menu->addAction(dedentAct);
+}
+
+bool CommonCodeLangPlugin::onMsg(const EditorView *view, const char *pMsg, const char **ppReturn) const
+{
+    (void)ppReturn; (void)view;
+    if (strcmp(pMsg, "Indent")==0) {
+        onBacktabPressed(view->textEditor());
+        return true;
+    }
+    else if (strcmp(pMsg,"Dedent")==0) {
+        onTabPressed(view->textEditor());
+        return true;
+    }
+    return false;
+}
+
+bool CommonCodeLangPlugin::onHasMsg(const EditorView *view, const char *pMsg) const
+{
+    (void)view;
+    if (strcmp(pMsg,"Indent")==0)  return view->textEditor() != nullptr; // might be QPlainTextEdit
+    if (strcmp(pMsg,"Dedent")==0)  return view->textEditor() != nullptr;
+    return false;
+}
 
 // ------------------------------------------------------------------------
 
@@ -293,7 +668,7 @@ void PythonLangPluginDbg::OnChange(TextEditor *editor,
 /// called by view
 bool PythonLangPluginDbg::onMsg(const EditorView *view, const char *pMsg, const char **ppReturn) const
 {
-
+    (void)ppReturn; (void)view;
     if (strcmp(pMsg, "Run")==0) {
         executeScript();
         return true;
@@ -312,6 +687,7 @@ bool PythonLangPluginDbg::onMsg(const EditorView *view, const char *pMsg, const 
 /// called by editor, if true, it runs onMsg(...)
 bool PythonLangPluginDbg::onHasMsg(const EditorView *view, const char *pMsg) const
 {
+    (void)view;
     if (strcmp(pMsg,"Run")==0)  return true;
     if (strcmp(pMsg,"StartDebug")==0)  return true;
     if (strcmp(pMsg,"ToggleBreakpoint")==0)  return true;
@@ -337,6 +713,7 @@ const char *PythonLangPluginDbg::iconNameForException(const QString &fn, int lin
 bool PythonLangPluginDbg::lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
                                              int line, QString &toolTipStr) const
 {
+    (void)pos;
     auto exc = exceptionFor(edit->filename(), line);
     if (exc) {
         QString srcText = QString::fromStdWString(exc->text());
@@ -365,6 +742,7 @@ bool PythonLangPluginDbg::lineNrToolTipEvent(TextEditor *edit, const QPoint &pos
 bool PythonLangPluginDbg::textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
                                                int line, QString &toolTipStr) const
 {
+    (void)line;
     auto debugger = App::Debugging::Python::Debugger::instance();
     if (debugger->isHalted() && debugger->currentFile() == edit->filename()) {
         // debugging state
@@ -402,8 +780,18 @@ void PythonLangPluginDbg::onBreakPointChanged(size_t uniqueId)
     auto bp = debugger()->getBreakpointFromUniqueId(uniqueId);
     if (!bp) return;
 
-    for (auto edit : editors())
-        edit->lineMarkerArea()->update();
+    for (auto edit : editors()) {
+        if (bp->bpFile()->fileName() == edit->filename()) {
+            edit->lineMarkerArea()->update();
+            auto vBar = qobject_cast<AnnotatedScrollBar*>(edit->verticalScrollBar());
+            if (vBar) {
+                QList<int> lines;
+                for (auto b : *bp->bpFile())
+                    lines.push_back(b->lineNr());
+                vBar->resetMarkers(lines, breakpointScrollbarMarkerColor());
+            }
+        }
+    }
 }
 
 bool PythonLangPluginDbg::editorShowDbgMrk(const QString &fn, int line)
@@ -452,8 +840,12 @@ void PythonLangPluginDbg::exceptionOccured(Base::Exception* exception)
         d->exceptions.push_back(excPyinfo);
         /// repaint
         for (auto editor : editors()) {
-            if (editor->filename().toStdString() == excPyinfo->getFile())
+            if (editor->filename().toStdString() == excPyinfo->getFile()) {
                 editor->lineMarkerArea()->update();
+                auto vBar = qobject_cast<AnnotatedScrollBar*>(editor->verticalScrollBar());
+                if (vBar)
+                    vBar->setMarker(excPyinfo->getLine(), exceptionScrollbarMarkerColor());
+            }
             else if (editor->view() &&
                      editor->view() == EditorViewSingleton::instance()->activeView())
             {
@@ -477,18 +869,30 @@ void PythonLangPluginDbg::exceptionCleared(const QString &fn, int line)
 
     if (repaint) {
         for (auto edit : editors(fn)){
-            if (edit->filename() == fn)
+            if (edit->filename() == fn) {
                 edit->lineMarkerArea()->update();
+
+                auto vBar = qobject_cast<AnnotatedScrollBar*>(edit->verticalScrollBar());
+                if (vBar)
+                    vBar->clearMarker(line, exceptionScrollbarMarkerColor());
+            }
         }
     }
 }
 
 void PythonLangPluginDbg::allExceptionsCleared()
 {
-    d->exceptions.clear();
-    for (auto edit : editors()){
-        edit->lineMarkerArea()->update();
+    for (auto edit : editors()) {
+        auto vBar = qobject_cast<AnnotatedScrollBar*>(edit->verticalScrollBar());
+        if (vBar) {
+            for (auto exc : d->exceptions)
+                vBar->clearMarker(exc->getLine(), exceptionScrollbarMarkerColor());
+        }
     }
+
+    d->exceptions.clear();
+    for (auto edit : editors())
+        edit->lineMarkerArea()->update();
 }
 
 void PythonLangPluginDbg::onFileOpened(const QString &fn)
@@ -517,10 +921,9 @@ Base::PyExceptionInfo *PythonLangPluginDbg::exceptionFor(const QString &fn, int 
     return nullptr;
 }
 
-void PythonLangPluginDbg::contextMenuLineNr(EditorView *view, QMenu *menu, const QString &fn, int line) const
+void PythonLangPluginDbg::contextMenuLineNr(TextEditor *edit, QMenu *menu, const QString &fn, int line) const
 {
-    auto editor = dynamic_cast<TextEditor*>(view->editor());
-    if (editor && editor->filename() != fn)
+    if (edit->filename() != fn)
         return;
 
     // set default inherited context menu
@@ -538,7 +941,7 @@ void PythonLangPluginDbg::contextMenuLineNr(EditorView *view, QMenu *menu, const
     }
 
     auto debugger = App::Debugging::Python::Debugger::instance();
-    auto bpl = debugger->getBreakpoint(editor->filename(), line);
+    auto bpl = debugger->getBreakpoint(edit->filename(), line);
     if (bpl != nullptr) {
         QAction *disableBrkPnt =
                     new QAction(BitmapFactory().iconFromTheme("breakpoint-disabled"),
@@ -553,7 +956,7 @@ void PythonLangPluginDbg::contextMenuLineNr(EditorView *view, QMenu *menu, const
         QAction *editBrkPnt = new QAction(BitmapFactory().iconFromTheme("preferences-general"),
                                    tr("Edit breakpoint"), menu);
         connect(editBrkPnt, &QAction::triggered, [=](bool) {
-            auto dlg = new PythonBreakpointDlg(editor, bpl);
+            auto dlg = new PythonBreakpointDlg(edit, bpl);
             dlg->exec();
         });
         menu->addAction(editBrkPnt);
@@ -569,17 +972,16 @@ void PythonLangPluginDbg::contextMenuLineNr(EditorView *view, QMenu *menu, const
         QAction *createBrkPnt = new QAction(BitmapFactory().iconFromTheme("breakpoint"),
                                       tr("Add breakpoint"), menu);
         connect(createBrkPnt, &QAction::triggered, [=](bool) {
-            debugger->setBreakpoint(editor->filename(), line);
+            debugger->setBreakpoint(edit->filename(), line);
         });
         menu->addAction(createBrkPnt);
     }
 }
 
-void PythonLangPluginDbg::contextMenuTextArea(EditorView *view, QMenu *menu, const QString &fn, int line) const
+void PythonLangPluginDbg::contextMenuTextArea(TextEditor *edit, QMenu *menu, const QString &fn, int line) const
 {
     (void)line;
-    auto editor = dynamic_cast<TextEditor*>(view->editor());
-    if (editor && editor->filename() != fn)
+    if (edit->filename() != fn)
         return;
 
     // set default inherited context menu
@@ -791,6 +1193,25 @@ void PythonBreakpointDlg::accept()
 
     QDialog::accept();
 }
+
+// ------------------------------------------------------------------------
+
+// ************************************************************************
+
+///  this thing does nothing more than register our default plugins
+//namespace Gui {
+//static struct LangPluginRegistrator {
+//    LangPluginRegistrator() {
+//        auto ews = EditorViewSingleton::instance();
+//        QTimer::singleShot(1000, [=](){
+//            ews->registerLangPlugin(new CommonCodeLangPlugin());
+//            ews->registerLangPlugin(new PythonLangPluginDbg());
+//        });
+//    }
+
+//} _LangPluginRestratorLangPluginBase;
+//} // namespace Gui
+
 
 // ------------------------------------------------------------------------
 

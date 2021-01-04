@@ -104,6 +104,10 @@ public Q_SLOTS:
     // set syntax definitions, does nothing if built without KSyntaxtHighlighter
     bool setSyntax(const QString &defName);
 
+    void cut();
+    void copy();
+    void paste();
+
 private Q_SLOTS:
     void updateLineNumberAreaWidth(int newBlockCount);
     void updateLineNumberArea(const QRect &, int);
@@ -218,8 +222,8 @@ public:
     void setMarker(int line, QColor color);
 
     /**
-     * @brief resetMarkers clears markers och color and sets new ones found in color
-     * @param color
+     * @brief resetMarkers clears markers and color and sets new ones found in color
+     * @param color, used as both filter to clear old ones as well as setting the new
      */
     void resetMarkers(QList<int> newMarkers, QColor color);
     /**

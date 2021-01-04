@@ -331,8 +331,6 @@ void PythonEditor::paste()
     breakpointPasteOrCut(false);
 }
 
-
-
 void PythonEditor::toggleBreakpoint()
 {
     QTextCursor cursor = textCursor();
