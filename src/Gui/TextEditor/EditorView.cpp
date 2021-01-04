@@ -485,6 +485,10 @@ bool EditorView::canClose(void)
 bool EditorView::closeFile()
 {
     if (canClose()) {
+        // let plugins know
+        for (auto plug : currentPlugins())
+            plug->onFileClose(this, d->editWrapper->filename());
+
         auto oldWrapper = d->editWrapper;
         auto newWrapper = EditorViewSingleton::instance()->lastAccessedEditor(this, -1);
 
@@ -644,6 +648,11 @@ bool EditorView::open(const QString& fileName)
 
     Q_EMIT switchedFile(fi.absoluteFilePath());
     setCurrentFileName(fi.absoluteFilePath());
+
+    // let plugins do whitespace trim etc
+    for (auto plug : currentPlugins())
+        plug->onFileOpen(this, d->editWrapper->filename());
+
     return true;
 }
 
@@ -899,50 +908,15 @@ bool EditorView::saveFile()
     if (d->editWrapper->filename().isEmpty())
         return saveAs();
 
+    // let plugins do whitespace trim etc
+    for (auto plug : currentPlugins())
+        plug->onFileSave(this, d->editWrapper->filename());
+
     QFile file(d->editWrapper->filename());
     if (!file.open(QFile::WriteOnly))
         return false;
 
     auto editor = d->editWrapper->editor();
-
-    // trim trailing whitespace?
-    // NOTE! maybe whitestrip should move to TextEditor instead?
-    ParameterGrp::handle hPrefGrp = getWindowParameter();
-    if (hPrefGrp->GetBool("EnableTrimTrailingWhitespaces", true )) {
-        // to restore cursor and scroll position
-        QTextCursor cursor = editor->textCursor();
-        int oldPos = cursor.position(),
-            vScroll = editor->verticalScrollBar()->value(),
-            hScroll = editor->horizontalScrollBar()->value();
-
-        QTextBlock block = editor->document()->firstBlock();
-        int delCount = 0, chPos = -1;
-
-        while (block.isValid()) {
-            QString row = block.text();
-            ++chPos; // for the newline
-            int j =  row.size();
-            while(j > 0 && row[j - 1].isSpace())
-                --j;
-            if (chPos + row.size() - j <= oldPos) // for restore cursorposition
-                delCount += row.size() - j;
-            chPos += row.size();
-            int removeChrs = row.size() - j;
-            if (removeChrs > 0) {
-                row.remove(j, removeChrs);
-                cursor.setPosition(block.position(), QTextCursor::MoveAnchor);
-                cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
-                cursor.insertText(row);
-            }
-            block = block.next();
-        }
-
-        // restore cursor and scroll position
-        editor->verticalScrollBar()->setValue(vScroll);
-        editor->horizontalScrollBar()->setValue(hScroll);
-        cursor.setPosition(oldPos - delCount);
-        editor->setTextCursor(cursor);
-    }
 
     QTextStream ts(&file);
     ts.setCodec(QTextCodec::codecForName("UTF-8"));
@@ -1342,12 +1316,7 @@ EditorViewSingleton::EditorViewSingleton() :
     _PyEditorRegister();
 
     // do these after eventloop is running
-    QTimer::singleShot(0, []{
-        auto pydbg = new PythonLangPluginDbg();
-        registerLangPlugin(pydbg);
-        auto  commonCode = new CommonCodeLangPlugin();
-        registerLangPlugin(commonCode);
-    }); // now done i LangPluginBase.cpp
+    AbstractLangPlugin::registerBuildInPlugins();
 }
 
 EditorViewSingleton::~EditorViewSingleton()

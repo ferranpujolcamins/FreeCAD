@@ -86,6 +86,7 @@ SET(TextEditor_CPP_SRCS
     LangPluginBase.cpp
     PythonCode.cpp
     PythonEditor.cpp
+    PythonLangPlugin.cpp
     PythonSyntaxHighlighter.cpp
     SyntaxHighlighter.cpp
     TextDocumentEditorView.cpp
@@ -97,6 +98,7 @@ SET(TextEditor_HPP_SRCS
     LangPluginBase.h
     PythonCode.h
     PythonEditor.h
+    PythonLangPlugin.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
     TextDocumentEditorView.h
@@ -108,6 +110,7 @@ SET(TextEditor_MOC_HDRS
     LangPluginBase.h
     PythonCode.h
     PythonEditor.h
+    PythonLangPlugin.h
     PythonSyntaxHighlighter.h
     SyntaxHighlighter.h
     TextDocumentEditorView.h

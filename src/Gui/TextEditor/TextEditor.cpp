@@ -47,6 +47,14 @@
 
 #include <QDebug>
 
+
+#define ITERATE_CODE_PLUGINS(METHOD) \
+    for (auto plugin : view()->currentPlugins()) { \
+        auto codePlug = dynamic_cast<AbstractLangPluginCode*>(plugin); \
+        if (codePlug && codePlug->METHOD(this)) \
+            return; \
+    }
+
 using namespace Gui;
 
 namespace Gui {
@@ -87,6 +95,7 @@ struct TextEditorP
     EditorViewWrapper *wrapper;
     SyntaxHighlighter* highlighter;
     LineMarkerArea* lineNumberArea;
+    // TODO this should be changeable through color dialog
     const QColor bookmarkScrollBarMarkerColor = QColor(72, 108, 165); // blue-ish
     int lastSavedRevision;
     bool showIndentMarkers,
@@ -538,27 +547,54 @@ void TextEditor::keyPressEvent (QKeyEvent * e)
         }
     }
 
-    if ( e->key() == Qt::Key_Tab ) {
-        // let our plugins know
-        if (view()) {
-            for (auto plugin : view()->currentPlugins()) {
-                auto codePlug = dynamic_cast<AbstractLangPluginCode*>(plugin);
-                if (codePlug && codePlug->onTabPressed(this))
-                    return;
-            }
-        }
-
-    } else if (e->key() == Qt::Key_Backtab) {
-        // let our plugins know
-        if (view()) {
-            for (auto plugin : view()->currentPlugins()) {
-                auto codePlug = dynamic_cast<AbstractLangPluginCode*>(plugin);
-                if (codePlug && codePlug->onBacktabPressed(this))
-                    return;
-            }
+    // let our plugins know, view handles plugins
+    if (view()) {
+        switch (e->key()){
+        case Qt::Key_Tab:
+            ITERATE_CODE_PLUGINS(onTabPressed) break;
+        case Qt::Key_Backtab:
+            ITERATE_CODE_PLUGINS(onBacktabPressed) break;
+        case Qt::Key_Delete:
+            ITERATE_CODE_PLUGINS(onDelPressed) break;
+        case Qt::Key_Backspace:
+            ITERATE_CODE_PLUGINS(onBackspacePressed) break;
+        case Qt::Key_Space:
+            ITERATE_CODE_PLUGINS(onSpacePressed) break;
+        case Qt::Key_Enter: case Qt::Key_Return:
+            ITERATE_CODE_PLUGINS(onEnterPressed) break;
+        case Qt::Key::Key_Escape:
+            ITERATE_CODE_PLUGINS(onEscPressed) break;
+        case Qt::Key_Period:
+            ITERATE_CODE_PLUGINS(onPeriodPressed) break;
+        case Qt::Key_ParenLeft:
+            ITERATE_CODE_PLUGINS(onParenLeftPressed) break;
+        case Qt::Key_ParenRight:
+            ITERATE_CODE_PLUGINS(onParenRightPressed) break;
+        case Qt::Key_BraceLeft:
+            ITERATE_CODE_PLUGINS(onBraceLeftPressed) break;
+        case Qt::Key_BraceRight:
+            ITERATE_CODE_PLUGINS(onBraceRightPressed) break;
+        case Qt::Key_BracketLeft:
+            ITERATE_CODE_PLUGINS(onBracketLeftPressed) break;
+        case Qt::Key_BracketRight:
+            ITERATE_CODE_PLUGINS(onBracketRightPressed) break;
+        case Qt::Key_At:
+            ITERATE_CODE_PLUGINS(onAtPressed) break;
+        case Qt::Key_QuoteDbl:
+            ITERATE_CODE_PLUGINS(onQuoteDblPressed) break;
+        case Qt::Key_Apostrophe:
+            ITERATE_CODE_PLUGINS(onQuoteSglPressed) break;
+        case Qt::Key_Ampersand:
+            ITERATE_CODE_PLUGINS(onAmpersandPressed) break;
+        case Qt::Key_Comma:
+            ITERATE_CODE_PLUGINS(onCommaPressed) break;
+        case Qt::Key_Colon:
+            ITERATE_CODE_PLUGINS(onColonPressed) break;
+        case Qt::Key_Semicolon:
+            ITERATE_CODE_PLUGINS(onSemiColonPressed) break;
+        default: ; // pass
         }
     }
-
     QPlainTextEdit::keyPressEvent( e );
 }
 

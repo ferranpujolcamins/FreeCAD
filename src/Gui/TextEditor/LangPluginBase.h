@@ -26,8 +26,6 @@
 #include <memory>
 #include <QObject>
 #include <App/DebuggerBase.h>
-#include <App/PythonDebugger.h>
-#include <QDialog>
 #include <QTextBlock>
 
 #include "EditorView.h"
@@ -37,16 +35,10 @@
  * can be common between langages to a separate class
  * such as breakpoint, debugger hide/show markers
  *
- * TextEdit can then reach these through a smart pointer
+ * TextEdit can then reach these through a pointer
  * ie load a python file, then a javascript file,
  *   same editor different behaviour regarding indent new line
  */
-
-QT_BEGIN_NAMESPACE
-class QSpinBox;
-class QLineEdit;
-class QCheckBox;
-QT_END_NAMESPACE
 
 namespace Gui {
 
@@ -62,17 +54,24 @@ public:
     explicit AbstractLangPlugin(const char *langName);
     virtual ~AbstractLangPlugin();
 
+    /// name of plugin
     const char* name() const;
 
+    /// call to this registers all build in plugins to EditorViewSingleton
+    static void registerBuildInPlugins();
+
+    /// mimetypes that matches this plugin
     virtual QStringList mimetypes() const = 0; /// used to identify if should load plugin fro this mimetype
+    /// filesuffixes that matches this plugin
     virtual QStringList suffixes() const = 0; /// used to determine if we should load plugin with these fileendings
-    bool matchesMimeType(const QString &fn, const QString &mime = QString()) const;
+    /// true if fn or mime matches this plugin
+    virtual bool matchesMimeType(const QString &fn, const QString &mime = QString()) const;
 
     /// called by editor
     virtual void contextMenuLineNr(TextEditor *edit, QMenu *menu,
-                                   const QString &fn, int line) const = 0;
+                                   const QString &fn, int line) const;
     virtual void contextMenuTextArea(TextEditor *edit, QMenu *menu,
-                                     const QString &fn, int line) const = 0;
+                                     const QString &fn, int line) const;
 
     virtual  bool lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
                                      int line, QString &toolTipStr) const;
@@ -96,16 +95,14 @@ public:
     /// called by view
     virtual bool onMsg(const EditorView *view, const char* pMsg, const char** ppReturn) const = 0;
     virtual bool onHasMsg(const EditorView *view, const char* pMsg) const = 0;
+    virtual void onFileOpen(const EditorView *view, const QString& fn) const;
+    virtual void onFileSave(const EditorView *view, const QString& fn) const;
+    virtual void onFileClose(const EditorView *view, const QString& fn) const;
 
 protected:
     /// returns a list with all TextEditor derived editors
     /// that currentsly shown in editorViews
     QList<TextEditor*> editors(const QString &fn = QString()) const;
-
-
-public: // Q_SLOTS
-    virtual void onFileOpened(const QString& fn);
-    virtual void onFileClosed(const QString& fn);
 
 };
 
@@ -125,7 +122,7 @@ public:
     virtual void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
                           const char *rcReason) const override;
 
-    virtual App::Debugging::DebuggerBase* debugger() = 0;
+    virtual App::Debugging::DebuggerBase* debugger() const = 0;
 
     /// returns the iconname to use for this exception, name as in resourcefile (qrc)
     virtual const char* iconNameForException(const QString &fn, int excNr)  const = 0;
@@ -177,16 +174,34 @@ public:
 
     virtual bool onTabPressed(TextEditor *edit) const;
     virtual bool onDelPressed(TextEditor *edit) const;
-    virtual bool onBacktabPressed(TextEditor *edit) const; // shift + tab
+    virtual bool onBacktabPressed(TextEditor *edit) const;      // shift + tab
+    virtual bool onBackspacePressed(TextEditor *edit) const;
     virtual bool onSpacePressed(TextEditor *edit) const;
     virtual bool onEnterPressed(TextEditor *edit) const;
-    virtual bool onPeriodPressed(TextEditor *edit) const;
+    virtual bool onPeriodPressed(TextEditor *edit) const;       // .
+    virtual bool onEscPressed(TextEditor *edit) const;
+    virtual bool onParenLeftPressed(TextEditor *edit) const;    // (
+    virtual bool onParenRightPressed(TextEditor *edit) const;   // )
+    virtual bool onBraceLeftPressed(TextEditor *edit) const;    // {
+    virtual bool onBraceRightPressed(TextEditor *edit) const;   // }
+    virtual bool onBracketLeftPressed(TextEditor *edit) const;  // [
+    virtual bool onBracketRightPressed(TextEditor *edit) const; // }
+    virtual bool onAtPressed(TextEditor *edit) const;           // @
+    virtual bool onQuoteSglPressed(TextEditor *edit) const;     // '
+    virtual bool onQuoteDblPressed(TextEditor *edit) const;     // "
+    virtual bool onAmpersandPressed(TextEditor *edit) const;    // #
+    virtual bool onCommaPressed(TextEditor *edit) const;        // ,
+    virtual bool onColonPressed(TextEditor *edit) const;        // :
+    virtual bool onSemiColonPressed(TextEditor *edit) const;    // ;
+
 
     // get called before the above, takes precedece, if returns true above won't be called
-    virtual bool onKeyPress(TextEditor *edit, QKeyEvent *evt) const = 0;
+    virtual bool onKeyPress(TextEditor *edit, QKeyEvent *evt) const;
 };
 
 // ---------------------------------------------------------------------
+
+// *********************** Actually working plugins from here down ********
 
 class CommonCodeLangPluginP;
 class CommonCodeLangPlugin : public QObject,
@@ -208,118 +223,20 @@ public:
     virtual bool onTabPressed(TextEditor *edit) const override;
     virtual bool onBacktabPressed(TextEditor *edit) const override;
 
-    virtual bool onKeyPress(TextEditor *edit, QKeyEvent *evt) const override;
-
-
-    virtual void contextMenuLineNr(TextEditor *view, QMenu *menu,
-                                   const QString &fn, int line) const;
     virtual void contextMenuTextArea(TextEditor *edit, QMenu *menu,
-                                     const QString &fn, int line) const;
+                                     const QString &fn, int line) const override;
 
 
     /// called by view
     virtual bool onMsg(const EditorView *view, const char* pMsg,
-                       const char** ppReturn) const;
-    virtual bool onHasMsg(const EditorView *view, const char* pMsg) const;
+                       const char** ppReturn) const override;
+    virtual bool onHasMsg(const EditorView *view, const char* pMsg) const override;
+
+    virtual void onFileSave(const EditorView *view, const QString &fn) const override;
 };
 
 // ---------------------------------------------------------------------
 
-class PythonLangPluginDbgP;
-class PythonLangPluginDbg : public QObject,
-                          public AbstractLangPluginDbg
-{
-    Q_OBJECT
-    PythonLangPluginDbgP *d;
-public:
-    explicit PythonLangPluginDbg();
-    ~PythonLangPluginDbg() override;
-
-    App::Debugging::Python::Debugger* debugger() override;
-
-    QStringList mimetypes() const override;
-    QStringList suffixes() const override;
-
-    /// called by editor
-    void OnChange(TextEditor *editor, Base::Subject<const char *> &rCaller,
-                  const char *rcReason) const override;
-
-    /// called by view
-    bool onMsg(const EditorView *view, const char* pMsg, const char** ppReturn) const override;
-    bool onHasMsg(const EditorView *view, const char* pMsg) const override;
-
-    const char *iconNameForException(const QString &fn, int line) const override;
-
-    bool lineNrToolTipEvent(TextEditor *edit, const QPoint &pos,
-                            int line, QString &toolTipStr) const;
-    bool textAreaToolTipEvent(TextEditor *edit, const QPoint &pos,
-                              int line, QString &toolTipStr) const;
-
-
-
-    void contextMenuLineNr(TextEditor *edit, QMenu *menu,
-                           const QString &fn, int line) const override;
-    void contextMenuTextArea(TextEditor *edit, QMenu *menu,
-                             const QString &fn, int line) const override;
-
-    void paintEventTextArea(TextEditor *edit, QPainter* painter,
-                            const QTextBlock& block, QRect &coords) const override;
-    void paintEventLineNumberArea(TextEditor *edit, QPainter* painter,
-                                  const QTextBlock& block, QRect &coords) const override;
-
-    // from the old PythonEditorView
-    void executeScript() const;
-    void startDebug() const;
-    void toggleBreakpoint() const;
-
-
-public Q_SLOTS:
-    /// render line marker area when these changes
-    void onBreakpointAdded(size_t uniqueId) override;
-    void onBreakPointClear(size_t uniqueId) override;
-    void onBreakPointChanged(size_t uniqueId) override;
-
-    // haltAt and releaseAt slots
-    /// shows the debug marker arrow in filename editor at line
-    bool editorShowDbgMrk(const QString &fn, int line) override;
-
-    /// hides the debug marker arrow in filename  editor
-    bool editorHideDbgMrk(const QString &fn, int line) override;
-
-
-    void exceptionOccured(Base::Exception* exception) override;
-    void exceptionCleared(const QString &fn, int line) override;
-    void allExceptionsCleared() override;
-
-    void onFileOpened(const QString &fn) override;
-    void onFileClosed(const QString &fn) override;
-
-private:
-    Base::PyExceptionInfo* exceptionFor(const QString &fn, int line) const;
-};
-
-
-/************************************************************************
- * Gui things such as dialogs from here on
- ***********************************************************************/
-
-class PythonBreakpointDlg : public QDialog
-{
-    Q_OBJECT
-public:
-    PythonBreakpointDlg(QWidget *parent,
-                        std::shared_ptr<App::Debugging::Python::BrkPnt> bp);
-    ~PythonBreakpointDlg();
-protected:
-    void accept();
- private:
-    std::shared_ptr<App::Debugging::Python::BrkPnt> m_bpl;
-
-    QSpinBox  *m_ignoreToHits;
-    QSpinBox  *m_ignoreFromHits;
-    QLineEdit *m_condition;
-    QCheckBox *m_enabled;
-};
 
 
 
