@@ -4,6 +4,7 @@
 //#include <Python.h>
 #include <QtWidgets>
 #include <QSplitter>
+#include <QDialogButtonBox>
 #include <Gui/TextEditor/TextEditor.h>
 #include <Gui/TextEditor/EditorView.h>
 #include <Gui/PythonDebuggerView.h>
@@ -111,7 +112,7 @@ void MainWindow::openFile(const QString& filename)
 
 bool MainWindow::save()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView && !editorView->save())
         return false;
 
@@ -121,7 +122,7 @@ bool MainWindow::save()
 
 bool MainWindow::saveAs()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView && !editorView->saveAs())
         return false;
 
@@ -137,7 +138,7 @@ void MainWindow::about()
 
 void MainWindow::cut()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView) {
         editorView->cut();
     }
@@ -145,14 +146,14 @@ void MainWindow::cut()
 
 void MainWindow::copy()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView) {
         editorView->copy();
     }
 }
 void MainWindow::paste()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView  = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView) {
         editorView->paste();
     }
@@ -160,7 +161,7 @@ void MainWindow::paste()
 
 void MainWindow::documentWasModified()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView  = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView)
         setWindowModified(editorView->editor()->document()->isModified());
 }
@@ -233,7 +234,7 @@ void MainWindow::createActions()
     copyAct->setStatusTip(tr("Copy the current selection's contents to the "
                              "clipboard"));
 
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (editorView) {
         connect(cutAct, &QAction::triggered, this, &MainWindow::cut);
         editMenu->addAction(cutAct);
@@ -255,10 +256,17 @@ void MainWindow::createActions()
     }
 
     menuBar()->addSeparator();
+    auto viewMenu = menuBar()->addMenu(tr("&View"));
 
-    QAction *optionAct = new QAction(tr("&options"), this);
+    auto editorOptions = new QAction(tr("&Editor options"), this);
+    viewMenu->addAction(editorOptions);
+    connect(editorOptions, &QAction::triggered, [=](){
+        DlgEditorSettings dlg(this);
+        dlg.exec();
+    });
+    QAction *optionAct = new QAction(tr("&Options"), this);
     connect(optionAct, &QAction::triggered, this, &MainWindow::showOptions);
-    editMenu->addAction(optionAct);
+    viewMenu->addAction(optionAct);
 
 #endif // !QT_NO_CLIPBOARD
 
@@ -418,9 +426,10 @@ void MainWindow::writeSettings()
 
 bool MainWindow::maybeSave()
 {
-    auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
+    auto editorView = Gui::EditorViewSingleton::instance()->activeView();
     if (!editorView || !editorView->editor()->document()->isModified())
-        return true;
+        return false;
+
     const QMessageBox::StandardButton ret
         = QMessageBox::warning(this, tr("Application"),
                                tr("The document has been modified.\n"

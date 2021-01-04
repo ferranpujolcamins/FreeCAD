@@ -4,10 +4,13 @@
 
 INCLUDE_DIRECTORIES(
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Gui
     ${PYTHON_INCLUDE_DIRS}
 )
+set(Gui_SRCS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../Gui)
+
 FILE(GLOB CMakeCache RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/CMakeCache.txt)
 
 
@@ -39,14 +42,6 @@ if (BUILD_QT5)
         ${Qt5PrintSupport_LIBRARIES}
         ${Qt5UiTools_LIBRARIES}
     )
-else()
-    include_directories(
-        ${QT_INCLUDE_DIR}
-    )
-    list(APPEND Common_LIBS
-        ${QT_LIBRARIES}
-        ${QT_QTUITOOLS_LIBRARY}
-    )
 endif()
 
 # dependencies
@@ -69,12 +64,18 @@ set(IDE_MOC_HDRS
     DlgPythonSettings.h
 )
 
+set(IDE_UIC_SRCS
+    ${Gui_SRCS_DIR}/DlgEditor.ui
+)
+
 fc_wrap_cpp(IDE_MOC_SRCS ${IDE_MOC_HDRS})
+QT5_WRAP_UI(IDE_UIC_HDRS ${IDE_UIC_SRCS})
 
 set(IDE_SRCS
     ${IDE_CPP_SRCS}
     ${IDE_HPP_SRCS}
     ${IDE_MOC_HDRS}
+    ${IDE_UIC_HDRS}
 )
 
 source_group("IDE" FILES ${IDE_SRCS})
@@ -91,7 +92,7 @@ if (FREECAD_BUILD_IDE)
     if (BUILD_QT5)
         QT5_ADD_RESOURCES(IDE_QRC_SRCS ${IDE_RES_SRCS})
     else(BUILD_QT5)
-        QT4_ADD_RESOURCES(IDE_QRC_SRCS ${IDE_RES_SRCS})
+        message(WARNING "Qt4 not supported for IDE")
     endif(BUILD_QT5)
 
     list(APPEND IDE_SRCS ${IDE_QRC_SRCS})

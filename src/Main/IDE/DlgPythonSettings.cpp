@@ -1,6 +1,6 @@
 
-#include "DlgPythonSettings.h"
 
+#include "DlgPythonSettings.h"
 
 #include <QGridLayout>
 #include <QLabel>
@@ -8,12 +8,15 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <Gui/DlgEditorImp.h>
 
 #include <Gui/TextEditor/PythonSource/PythonToken.h>
 #include <Gui/TextEditor/EditorView.h>
 #include <Gui/TextEditor/PythonEditor.h>
 
+
 using namespace Gui;
+using namespace Ide;
 
 DlgPythonSettings::DlgPythonSettings(QDialog *parent) :
     QDialog(parent)
@@ -65,4 +68,41 @@ void DlgPythonSettings::accept()
     QDialog::accept();
 }
 
+
+// -----------------------------------------------------------------------------------
+
+
+DlgEditorSettings::DlgEditorSettings(QWidget *parent)
+    : QDialog(parent)
+    , m_dlgEditor(new Gui::Dialog::DlgSettingsEditorImp())
+{
+    m_dlgEditor->loadSettings();
+    QLayout *editLayout = new QVBoxLayout;
+    editLayout->addWidget(m_dlgEditor);
+    auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok |
+                                        QDialogButtonBox::Cancel, this);
+    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    editLayout->addWidget(buttons);
+    auto sizePolicy = new QSizePolicy(QSizePolicy::Expanding,
+                                      QSizePolicy::Expanding);
+    setSizePolicy(*sizePolicy);
+    setLayout(editLayout);
+}
+
+DlgEditorSettings::~DlgEditorSettings()
+{
+    m_dlgEditor->deleteLater();
+}
+
+void DlgEditorSettings::accept()
+{
+     m_dlgEditor->saveSettings();
+     QDialog::accept();
+}
+
+
+
 #include "moc_DlgPythonSettings.cpp"
+
