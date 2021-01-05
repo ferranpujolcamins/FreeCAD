@@ -733,17 +733,30 @@ bool PythonEditor::editorToolTipEvent(QPoint pos, const QString &textUnderPos)
     QToolTip::setFont(font());
 
     auto debugger = App::Debugging::Python::Debugger::instance();
-    if (debugger->isHalted()) {
-        // debugging state
-        if (!tok->isCode())
+    if (debugger->isHalted() && debugger->currentFile() == filename()) {
+
+        QTextCursor cursor = cursorForPosition(pos);
+        int chrInLine = cursor.position() - cursor.block().position();
+        auto lineText = cursor.block().text();
+
+        cursor.select(QTextCursor::WordUnderCursor);
+        if (!cursor.hasSelection())
             return false;
+
+        Python::Code codeInspector;
+
+        QString toolTipStr = codeInspector.findFromCurrentFrame(
+                                lineText, chrInLine, cursor.selectedText());
+        // debugging state
+        //if (!tok->isCode())
+        //    return false;
 
 
         // TODO figure out how to extract attribute / item chain for objects, dicts and lists
         // using tokens from syntaxhighlighter
 
-        QString str = d->pythonCode->findFromCurrentFrame(tok);
-        QToolTip::showText(tooltipPos, str, this);
+        //QString str = d->pythonCode->findFromCurrentFrame(tok);
+        QToolTip::showText(tooltipPos, toolTipStr, this);
         return true;
     } else {
         // coding state

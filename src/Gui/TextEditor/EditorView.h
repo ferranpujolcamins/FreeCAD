@@ -34,9 +34,6 @@
 QT_BEGIN_NAMESPACE
 class QPlainTextEdit;
 class QPrinter;
-class QLabel;
-class QPushButton;
-class QComboBox;
 QT_END_NAMESPACE
 
 namespace Gui {
@@ -44,10 +41,31 @@ namespace Gui {
 class EditorViewP;
 class EditorViewTopBar;
 class EditorViewWrapper;
-class EditorSearchClearEdit;
 class TextEditor;
 class EditorType;
 class AbstractLangPlugin;
+
+
+/// different types of editors, could have a special editor for it, xml for example
+/// or Py for that matter
+class EditorTypeP;
+class EditorType {
+    EditorTypeP *d;
+public:
+    typedef QPlainTextEdit* (*createT)();
+    explicit EditorType(createT factory, const QString &name,
+               const QStringList &suffixes, const QStringList &mimetypes,
+               const QString &iconStr);
+    virtual ~EditorType();
+    createT factory() const;
+    QPlainTextEdit* create() const;
+    const QString name() const;
+    const QStringList& suffixes() const;
+    const QStringList& mimetypes() const;
+    const QString iconStr() const;
+};
+
+// ---------------------------------------------------------------------------
 
 /**
  * A special view class which sends the messages from the application to
@@ -58,6 +76,9 @@ class GuiExport EditorView : public MDIView, public WindowParameter,
                              public std::enable_shared_from_this<EditorView>
 {
     Q_OBJECT
+    EditorViewP* d;
+    friend class EditorSearchBar;
+    friend class EditorViewWrapper;
 
 public:
     enum DisplayName {
@@ -66,17 +87,27 @@ public:
         BaseName
     };
 
-    explicit EditorView(QPlainTextEdit* editor, QWidget* parent);
+    explicit EditorView(QPlainTextEdit* editor,
+                        const QString &fn = QString(),
+                        QWidget* parent = nullptr);
     ~EditorView();
 
+    /// get reference to currently used editor or nullptr
     QPlainTextEdit *editor() const;
-    TextEditor* textEditor() const;
-    void setDisplayName(DisplayName);
-    void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
 
+    /// same as editor() but casted to TextEditor
+    TextEditor* textEditor() const;
+
+
+    /// set if should show filenmae filename, fullpath or just basename
+    void setDisplayName(DisplayName);
+
+    /// event system from FreeCAD calls this
+    void OnChange(Base::Subject<const char*> &rCaller,const char* rcReason);
+    /// also FreeCAD internal
     const char *getName(void) const {return "EditorView";}
     void onUpdate(void){}
-
+    /// FreeCAD commands calls these
     bool onMsg(const char* pMsg, const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
 
@@ -85,7 +116,7 @@ public:
 
     /** @name Standard actions of the editor */
     //@{
-    virtual bool open   (const QString &f);
+    virtual bool open   (const QString &fn);
     virtual bool openDlg(); /// open a file dialog and open it that way
     virtual bool save   ();
     virtual bool saveAs (const QString filename = QString());
@@ -115,6 +146,27 @@ public:
     EditorViewTopBar* topBar();
 
 
+    /// a wrapper allow different types of editors to be attached to view
+    /// could be a specialiced xml editor or for that matter a simple QPlainTextEdit
+    /// returns the currently used wrapper. Every file opens in a separate editor
+    /// wrapped in i EditViewWrapper
+    EditorViewWrapper* wrapper() const;
+
+    /**
+     * @brief wrapper gets the EditViewWrapper for the file
+     * @param fn filename to search for
+     * @return the wrapper for this file or nullptr if not found
+     */
+    EditorViewWrapper* wrapper(const QString &fn) const;
+
+    /**
+     * @brief wrappers get a list of all wrappers
+     * @param fn filename to search for, if empty get all wrappers
+     * @return list af all wrappers that matches fn
+     */
+    QList<EditorViewWrapper*> wrappers(const QString &fn = QString()) const;
+
+
 public Q_SLOTS:
     void setWindowModified(bool modified);
     void print(QPrinter*);
@@ -130,7 +182,11 @@ protected:
     void insertWidget(QWidget *wgt, int index = -1);
     EditorViewWrapper* editorWrapper() const;
 
+    /// switches to view this wrapper instead
+    void setActiveWrapper(EditorViewWrapper *wrp);
 
+    /// remove wrapper, called from  ~EditViewWrapper()
+    bool closeWrapper(EditorViewWrapper *wrapper);
 
 private Q_SLOTS:
     void checkTimestamp();
@@ -161,13 +217,10 @@ Q_SIGNALS:
     void modifiedChanged(bool unsaved);
 
 private:
-    void setCurrentFileName(const QString &filename);
+    void showCurrentFileName();
     bool saveFile();
     QPlainTextEdit* swapEditor(QPlainTextEdit* newEditor);
 
-private:
-    EditorViewP* d;
-    friend class EditorSearchBar;
 };
 
 // ----------------------------------------------------------------------------------
@@ -185,22 +238,19 @@ public:
     /// Constructor
     /// editor = pointer to a editor in heap, wrapper takes ownership
     /// fn = filename
-    explicit EditorViewWrapper(QPlainTextEdit* editor, const QString &fn);
+    explicit EditorViewWrapper(QPlainTextEdit* editor, EditorView* view, const QString &fn);
     virtual ~EditorViewWrapper();
 
     /**
      * @brief attach/detach from EditorView
-     * @param sharedOwner, current view
      */
-    void attach(EditorView* sharedOwner);
-    void detach(EditorView* sharedOwner);
+    void attach();
+    void detach();
     /**
      * @brief detaches from sharedOwner and if file has no other owners,
      *      editor gets destroyed
-     * @param sharedOwner, ownerView
-     * @return true if editor gets destoyed (no other shared owners)
      */
-    bool close(EditorView* sharedOwner);
+    void close();
 
     QPlainTextEdit* editor() const;
     TextEditor* textEditor() const;
@@ -210,8 +260,8 @@ public:
 
     const QString& mimetype() const;
     void setMimetype(QString mime);
-    uint timestamp() const;
-    void setTimestamp(uint timestamp);
+    int64_t timestamp() const;
+    void setTimestamp(int64_t timestamp);
     void setLocked(bool locked);
     bool isLocked() const;
 
@@ -248,16 +298,18 @@ class GuiExport EditorViewSingleton : public QObject
     //friend class EditorViewWrapper;
     EditorViewSingletonP *d;
 public:
-    typedef QPlainTextEdit* (*createT)();
 
     EditorViewSingleton();
     ~EditorViewSingleton();
-    static bool registerTextEditorType(createT factory, const QString &name,
-                                       const QStringList &suffixes, const QStringList &mimetypes,
-                                       const QString &icon = QLatin1String("accessories-text-editor"));
+    bool registerTextEditorType(EditorType::createT factory,
+                                       const QString &name,
+                                       const QStringList &suffixes,
+                                       const QStringList &mimetypes,
+                                       const QString &icon =
+                                                QLatin1String("accessories-text-editor"));
 
     // register new plugin. takes ownership
-    static void registerLangPlugin(AbstractLangPlugin *plugin);
+    void registerLangPlugin(AbstractLangPlugin *plugin);
 
     /**
      * @brief instance, gets the singleton
@@ -274,35 +326,14 @@ public:
      */
     EditorView* openFile(const QString fn, EditorView* view = nullptr) const;
 
-    /**
-     * @brief wrapper gets the EditViewWrapper for the file
-     * @param fn filename to search for
-     * @param ownerView in which view to search
-     * @return the wrapper for this file or nullptr if not found
-     */
-    EditorViewWrapper* wrapper(const QString &fn, EditorView* ownerView) const;
 
     /**
-     * @brief wrappers get a list of all global wrappers
-     * @param fn filename to search for, if empty get all wrappers
-     * @return list af all wrappers that matches fn
+     * @brief EditorViewSingleton::wrappers get all wrappers with fn open
+     *          Might be open in many different views
+     * @param fn the filename sto search for
+     * @return List of wrappers
      */
-    QList<EditorViewWrapper*> wrappers(const QString &fn = QString()) const;
-
-    /**
-     * @brief wrappersForView get a list of all wrappers for the view
-     * @param view = wrapers for this view
-     * @return list af all wrappers that view
-     */
-    QList<EditorViewWrapper*> wrappersForView(const EditorView* view) const;
-
-    /**
-     * @brief createWrapper create a new wrapper for fn
-     * @param fn filename
-     * @param editor (optional) if none it creates a new Editor
-     * @return the fresh wrapper
-     */
-    EditorViewWrapper* createWrapper(const QString &fn, QPlainTextEdit* editor = nullptr) const;
+    QList<EditorViewWrapper*> wrappers(const QString &fn) const;
 
     /**
      * @brief createView create a new EditorView and attach it to MainWindow
@@ -320,12 +351,6 @@ public:
      */
     QPlainTextEdit* createEditor(const QString &fn) const;
 
-    /**
-     * @brief removeWrapper removes the wrapper from global store
-     * @param ew the EditViewWrapper to remove
-     * @return true if successfull (found and removed)
-     */
-    bool removeWrapper(EditorViewWrapper* ew);
 
     /**
      * @brief lastAccessed gets the last accessed EditorWrapper
@@ -354,6 +379,13 @@ public:
      */
     EditorView* activeView() const;
 
+    /**
+     * @brief editorTypeForFile finds the editorType that should open this file
+     * @param fn, filename to search for
+     * @return the editorType registered for this filesuffix
+     */
+    const EditorType *editorTypeForFile(const QString &fn) const;
+
 Q_SIGNALS:
     /**
      * @brief emitted when number of opened files has changed
@@ -378,9 +410,8 @@ Q_SIGNALS:
      */
     void fileOpened(const QString &fn) const;
 
-private Q_SLOTS:
+public Q_SLOTS:
     void docModifiedChanged(bool changed) const;
-    const EditorType *editorTypeForFile(const QString &fn) const;
 };
 
 // ---------------------------------------------------------------------------
@@ -417,9 +448,11 @@ private:
  * @brief The EditorSearchBar class
  * holds the widgets in the search/find in document
  */
+class EditorSearchBarP;
 class EditorSearchBar : public QFrame
 {
     Q_OBJECT
+    EditorSearchBarP *d;
 public:
     EditorSearchBar(EditorView *parent, EditorViewP *editorViewP);
     ~EditorSearchBar();
@@ -438,18 +471,7 @@ private Q_SLOTS:
     void showSettings();
 
 private:
-    EditorViewP *d;
-    QLabel                  *m_foundCountLabel;
-    EditorSearchClearEdit   *m_searchEdit;
-    QPushButton             *m_searchButton;
-    QPushButton             *m_upButton;
-    QPushButton             *m_downButton;
-    QPushButton             *m_hideButton;
-    EditorSearchClearEdit   *m_replaceEdit;
-    QPushButton             *m_replaceButton;
-    QPushButton             *m_replaceAndNextButton;
-    QPushButton             *m_replaceAllButton;
-    QTextDocument::FindFlags m_findFlags;
+    EditorViewP *viewD;
 };
 
 // ---------------------------------------------------------------------------------

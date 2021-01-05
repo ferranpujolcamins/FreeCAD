@@ -4,7 +4,6 @@
 //#include <Python.h>
 #include <QtWidgets>
 #include <QSplitter>
-#include <QDialogButtonBox>
 #include <Gui/TextEditor/TextEditor.h>
 #include <Gui/TextEditor/EditorView.h>
 #include <Gui/PythonDebuggerView.h>
@@ -172,6 +171,12 @@ void MainWindow::showOptions()
     dlg.exec();
 }
 
+void MainWindow::showEditorOptions()
+{
+    DlgEditorSettings dlg(this);
+    dlg.exec();
+}
+
 void MainWindow::createActions()
 {
 
@@ -213,7 +218,8 @@ void MainWindow::createActions()
     fileMenu->addSeparator();
 
     const QIcon exitIcon = QIcon::fromTheme(QLatin1String("application-exit"));
-    QAction *exitAct = fileMenu->addAction(exitIcon, tr("E&xit"), this, &QWidget::close);
+    QAction *exitAct = fileMenu->addAction(exitIcon, tr("E&xit"),[=](){
+        close(); });
     exitAct->setShortcuts(QKeySequence::Quit);
     exitAct->setStatusTip(tr("Exit the application"));
 
@@ -260,10 +266,7 @@ void MainWindow::createActions()
 
     auto editorOptions = new QAction(tr("&Editor options"), this);
     viewMenu->addAction(editorOptions);
-    connect(editorOptions, &QAction::triggered, [=](){
-        DlgEditorSettings dlg(this);
-        dlg.exec();
-    });
+    connect(editorOptions, &QAction::triggered, this, &MainWindow::showEditorOptions);
     QAction *optionAct = new QAction(tr("&Options"), this);
     connect(optionAct, &QAction::triggered, this, &MainWindow::showOptions);
     viewMenu->addAction(optionAct);
@@ -288,7 +291,7 @@ void MainWindow::createActions()
 
 
     QToolBar *splitToolBar = addToolBar(tr("Split"));
-    QMenu *splitMenu = menuBar()->addMenu(tr("View"));
+    QMenu *splitMenu = menuBar()->addMenu(tr("Split"));
     QAction *verticalAct = splitMenu->addAction(tr("Vertical"), [&](){
         this->splitter->setOrientation(Qt::Vertical);
     });
@@ -391,8 +394,7 @@ void MainWindow::writeSettings()
     int i = 0;
     for (auto view : views) {
         QStringList files;
-        auto wrappers = ews->wrappersForView(view);
-        for (auto wrp : wrappers) {
+        for (auto wrp : view->wrappers()) {
             if (!wrp->filename().isEmpty() && QFileInfo::exists(wrp->filename()))
                 files.push_back(wrp->filename());
         }
@@ -449,7 +451,7 @@ bool MainWindow::maybeSave()
 Gui::EditorView* MainWindow::newEditorView()
 {
     auto edit = new Gui::TextEditor(this);
-    auto editorView = new Gui::EditorView(edit, this);
+    auto editorView = new Gui::EditorView(edit, QString(), this);
     editorView->resize(400, 300);
     editorView->setDisplayName(Gui::EditorView::FileName);
     //setCentralWidget(editorView);

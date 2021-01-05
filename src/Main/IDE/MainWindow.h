@@ -47,6 +47,7 @@ private Q_SLOTS:
     void paste();
     void documentWasModified();
     void showOptions();
+    void showEditorOptions();
 #ifndef QT_NO_SESSIONMANAGER
     void commitData(QSessionManager &);
 #endif

@@ -114,12 +114,12 @@ const char *AbstractLangPlugin::name() const
 void AbstractLangPlugin::registerBuildInPlugins()
 {
     //  this thing does nothing more than register our default plugins
-    QTimer::singleShot(0, [=](){
+    //QTimer::singleShot(0, [=](){
         auto ews = EditorViewSingleton::instance();
         ews->registerLangPlugin(new CommonCodeLangPlugin());
         ews->registerLangPlugin(new PythonLangPluginDbg());
         ews->registerLangPlugin(new PythonLangPluginCode());
-    });
+    //});
 }
 
 bool AbstractLangPlugin::matchesMimeType(const QString& fn,

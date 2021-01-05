@@ -82,8 +82,39 @@
 using namespace Gui;
 namespace Gui {
 
+
+class EditorSearchClearEdit;
+
+
 /// list of plugins for language, file scope on this one so all classes can access it
 static QList<AbstractLangPlugin*> langPlugins; // deleted in EditorViewSingletonP
+
+/// factory methods to create build in editortypes
+static QPlainTextEdit* createQPlainTextEdit() { return new QPlainTextEdit(); }
+static QPlainTextEdit* createTextEditor() { return new TextEditor(); }
+static QPlainTextEdit* createPythonEditor() { return new PythonEditor(); }
+
+// -----------------------------------------------------------------------------------
+
+class EditorTypeP {
+public:
+    EditorTypeP(EditorType::createT factory, const QString name,
+                QStringList suffixes, QStringList mimetypes, const QString icon) :
+        name(name),
+        suffixes(suffixes),
+        mimetypes(mimetypes),
+        iconStr(icon),
+        factory(factory)
+    {}
+    ~EditorTypeP() {}
+    const QString name;
+    const QStringList suffixes,
+                      mimetypes;
+    const QString iconStr;
+    EditorType::createT factory;
+};
+
+// --------------------------------------------------------------------------------
 
 class EditorViewP {
 public:
@@ -92,12 +123,8 @@ public:
         searchBar(nullptr),
         activityTimer(new QTimer()),
         centralLayout(nullptr),
-        editWrapper(nullptr),
         topBar(nullptr)
     {
-        if (!EditorViewSingleton::instance()->wrapper(QString(), view))
-            editWrapper = EditorViewSingleton::instance()->
-                            createWrapper(QString(), editor);
     }
     ~EditorViewP()
     {
@@ -105,30 +132,79 @@ public:
             activityTimer->stop();
             delete activityTimer;
         }
-        EditorViewSingleton::instance()->removeWrapper(editWrapper);
-        // delete editWrapper; // owned by EditorWrapperSingelton
+        qDeleteAll(wrappers);
+    }
+
+    /// gets the curently viewed wrapper
+    EditorViewWrapper* wrapper() {
+        if (wrappers.isEmpty())
+            return nullptr;
+        return wrappers.last();
+    }
+
+    EditorViewWrapper* wrapperForFile(const QString &fn) {
+        EditorViewWrapper* wrapper = nullptr;
+        for(auto wrp : wrappers) {
+            if (wrp->filename() == fn) {
+                wrapper = wrp;
+                // update access order
+                wrappers.removeAll(wrp);
+                wrappers.append(wrp);
+            }
+        }
+        return wrapper;
+    }
+
+    EditorViewWrapper* createWrapper(const QString &fn, QPlainTextEdit *editor) {
+        EditorViewWrapper* ew = nullptr;
+        QString icon(QLatin1String("accessories-text-editor"));
+
+        auto et = EditorViewSingleton::instance()->editorTypeForFile(fn);
+        if (!et && !editor)
+            return nullptr;
+
+        if (!editor)
+            editor = et->create();
+
+        ew = new EditorViewWrapper(editor, view, fn);
+
+        wrappers.push_back(ew);
+
+        // set icon for this type
+        if (editor->windowIcon().isNull())
+            editor->setWindowIcon(Gui::BitmapFactory().iconFromTheme(
+                                        et->iconStr().toLatin1()));
+        auto edit = ew->textEditor();
+        if (edit)
+            edit->setFilename(fn);
+
+        auto ews = EditorViewSingleton::instance();
+        view->connect(editor, &QPlainTextEdit::modificationChanged,
+                      ews, &EditorViewSingleton::docModifiedChanged);
+        Q_EMIT ews->openFilesChanged();
+        Q_EMIT ews->fileOpened(fn);
+        return ew;
+    }
+    bool closeWrapper(EditorViewWrapper* wrap) {
+        int idx = wrappers.indexOf(wrap);
+        if (idx > -1) {
+            wrappers.takeAt(idx);
+            auto ews = EditorViewSingleton::instance();
+            view->disconnect(wrap->editor(), &QPlainTextEdit::modificationChanged,
+                             ews, &EditorViewSingleton::docModifiedChanged);
+        }
+
+        return idx > -1;
     }
 
     QList<AbstractLangPlugin*> currentPlugins;
+    QList<EditorViewWrapper*> wrappers;
     EditorView *view;
     EditorSearchBar* searchBar;
     QTimer*  activityTimer;
     QVBoxLayout *centralLayout;
-    EditorViewWrapper* editWrapper; // owned by EditorViewSingelton, avoid circular depedencies
     EditorViewTopBar* topBar;
     EditorView::DisplayName displayName;
-};
-
-class PythonEditorViewP {
-public:
-    PythonEditorViewP(/*PythonEditorView *parent*/)
-     //  : topBar(new EditorViewTopBar(parent))
-    { }
-    ~PythonEditorViewP()
-    {
-    //    delete topBar;
-    }
-    //EditorViewTopBar *topBar;
 };
 
 /**
@@ -137,8 +213,8 @@ public:
  */
 class EditorViewWrapperP {
 public:
-    EditorViewWrapperP(QPlainTextEdit* editor)
-        : view(nullptr)
+    EditorViewWrapperP(QPlainTextEdit* editor, EditorView *view)
+        : view(view)
         , plainEdit(editor)
         , timestamp(0)
         , lock(false)
@@ -156,27 +232,9 @@ public:
     QStringList undos;
     QStringList redos;
     QPlainTextEdit* plainEdit;
-    uint timestamp;
+    int64_t timestamp;
     bool lock;
 };
-
-
-/// different types of editors, could have a special editor for xml for example
-/// or Py for that matter
-struct EditorType {
-    EditorType(EditorViewSingleton::createT factory, const QString &name,
-               const QStringList &suffixes, const QStringList &mimetypes,
-               const QString &icon) :
-        factory(factory), name(name), suffixes(suffixes),
-        mimetypes(mimetypes), iconName(icon)
-    { }
-    EditorViewSingleton::createT factory;
-    const QString name;
-    const QStringList suffixes,
-                      mimetypes;
-    const QString iconName;
-};
-
 
 /**
  * @brief The EditorViewSingletonP a singleton which owns all
@@ -189,14 +247,10 @@ class EditorViewSingletonP {
 public:
     QList<EditorType*> editorTypes;
 
-    QList<EditorViewWrapper*> wrappers;
-    QList<QString> accessOrder;
-
     EditorViewSingletonP() { }
     ~EditorViewSingletonP()
     {
         qDeleteAll(editorTypes);
-        qDeleteAll(wrappers);
         qDeleteAll(langPlugins);
     }
 };
@@ -216,54 +270,105 @@ public:
     QPushButton  *closeFile;
 };
 
+class EditorSearchBarP
+{
+public:
+    explicit EditorSearchBarP() : findFlags(nullptr) {}
+    ~EditorSearchBarP() {}
+    QLabel                  *foundCountLabel;
+    EditorSearchClearEdit   *searchEdit;
+    QPushButton             *searchButton;
+    QPushButton             *upButton;
+    QPushButton             *downButton;
+    QPushButton             *hideButton;
+    EditorSearchClearEdit   *replaceEdit;
+    QPushButton             *replaceButton;
+    QPushButton             *replaceAndNextButton;
+    QPushButton             *replaceAllButton;
+    QTextDocument::FindFlags findFlags;
+};
+
 // ------------------------------------------------------------
 
 // ** register default editors, other editor types should register like this
 // in there own cpp files
-static struct _PyEditorRegister
+/*static struct _PyEditorRegister
 {
-    static QPlainTextEdit* createPythonEditor() { return new PythonEditor(); }
-    _PyEditorRegister() {
-        QStringList suffix;
-        suffix <<  QLatin1String("py") << QLatin1String("fcmacro");
-        QStringList mime;
-        mime << QLatin1String("text/x-script.python") <<
-                QLatin1String("text/x-script.phyton") <<
-                QLatin1String("text/x-python");
 
-        QTimer::singleShot(0, [=](){
-            EditorViewSingleton::registerTextEditorType(
-                 reinterpret_cast<EditorViewSingleton::createT>(&createPythonEditor),
-                             QLatin1String("PythonEditor"),
-                             suffix,
-                             mime,
-                             QLatin1String("applications-python")
-            );
-        });
+    _PyEditorRegister() {
     }
 }_pyEditorRegisterSingleton;
-
+*/
 }; // namespace Gui
 
 // -------------------------------------------------------
 
 /* TRANSLATOR Gui::EditorView */
 
+
+EditorType::EditorType(createT factory, const QString &name,
+                       const QStringList &suffixes,
+                       const QStringList &mimetypes,
+                       const QString &iconStr)
+    : d(new EditorTypeP(factory, name, suffixes, mimetypes, iconStr))
+{
+}
+
+EditorType::~EditorType()
+{
+}
+
+EditorType::createT EditorType::factory() const
+{
+    return d->factory;
+}
+
+QPlainTextEdit *EditorType::create() const
+{
+    return d->factory();
+}
+
+const QString EditorType::name() const
+{
+    return d->name;
+}
+
+const QStringList &EditorType::suffixes() const
+{
+    return d->suffixes;
+}
+
+const QStringList &EditorType::mimetypes() const
+{
+    return d->mimetypes;
+}
+
+const QString EditorType::iconStr() const
+{
+    return d->iconStr;
+}
+
+// ---------------------------------------------------------
+
 /**
  *  Constructs a EditorView which is a child of 'parent', with the
  *  name 'name'.
  */
-EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
-    : MDIView(nullptr, parent, nullptr), WindowParameter( "Editor" )
+EditorView::EditorView(QPlainTextEdit *editor,
+                       const QString &fn,
+                       QWidget* parent)
+    : MDIView(nullptr, parent, nullptr)
+    , WindowParameter( "Editor" )
+    , d(new EditorViewP(this, editor))
 {
-    // we must have a editor
-    if (!editor)
-        editor = new TextEditor(this);
-
-    // create d pointer obj and init viewData obj (switches when switching file)
-    d = new EditorViewP(this, editor);
+    // name in tabwidget
     d->displayName = EditorView::FullName;
 
+    // create a wrapper for this editor
+    if (editor) {
+        auto  editWrapper = d->createWrapper(fn, editor);
+        d->wrappers.push_back(editWrapper);
+    }
 
     // create searchbar
     d->searchBar = new EditorSearchBar(this, d);
@@ -273,16 +378,20 @@ EditorView::EditorView(QPlainTextEdit *editor, QWidget* parent)
     QFrame*     vbox = new QFrame(this);
     d->centralLayout->setMargin(0);
 
-    d->editWrapper->attach(this);
+    if (d->wrapper())
+        d->wrapper()->attach();
 
-    d->centralLayout->addWidget(editor);
-    editor->setParent(this);
+    if (editor) {
+        d->centralLayout->addWidget(editor);
+        editor->setParent(this);
+    }
+
     d->centralLayout->addWidget(d->searchBar);
     vbox->setLayout(d->centralLayout);
 
     editor->setParent(vbox);
     editor->document()->setModified(false);
-    setCurrentFileName(QString());
+    //setCurrentFileName(fn);
     editor->setFocus();
 
     setWindowIcon(editor->windowIcon());
@@ -321,13 +430,16 @@ EditorView::~EditorView()
 
 QPlainTextEdit* EditorView::editor() const
 {
-    return d->editWrapper->editor();
+    if (d->wrappers.isEmpty())
+        return nullptr;
+    return d->wrappers.last()->editor();
 }
 
 TextEditor *EditorView::textEditor() const
 {
-    return dynamic_cast<TextEditor*>(d->editWrapper->editor());
+    return dynamic_cast<TextEditor*>(editor());
 }
+
 
 void EditorView::OnChange(Base::Subject<const char*> &rCaller,const char* rcReason)
 {
@@ -340,20 +452,22 @@ void EditorView::OnChange(Base::Subject<const char*> &rCaller,const char* rcReas
 
 void EditorView::checkTimestamp()
 {
-    QFileInfo fi(d->editWrapper->filename());
-    uint timeStamp =  fi.lastModified().toTime_t();
-    if (fi.exists() && timeStamp != d->editWrapper->timestamp()) {
+    auto wrapper = d->wrapper();
+    if (!wrapper) return;
+    QFileInfo fi(wrapper->filename());
+    uint64_t timeStamp = fi.lastModified().toLocalTime().secsTo(QDateTime());
+    if (fi.exists() && timeStamp != wrapper->timestamp()) {
         switch( QMessageBox::question( this, tr("Modified file"), 
                 tr("%1.\n\nThis has been modified outside of the source editor. Do you want to reload it?")
-                    .arg(d->editWrapper->filename()),
+                    .arg(wrapper->filename()),
                 QMessageBox::Yes|QMessageBox::Default, QMessageBox::No|QMessageBox::Escape) )
         {
             case QMessageBox::Yes:
                 // updates time stamp and timer
-                open(d->editWrapper->filename());
+                open(wrapper->filename());
                 return;
             case QMessageBox::No:
-                d->editWrapper->setTimestamp(timeStamp);
+                wrapper->setTimestamp(timeStamp);
                 break;
         }
     }
@@ -414,6 +528,9 @@ bool EditorView::onMsg(const char* pMsg,const char** ppReturn)
  */
 bool EditorView::onHasMsg(const char* pMsg) const
 {
+    auto wrp = d->wrapper();
+    if (!wrp) return false;
+
     if (strcmp(pMsg,"Run")==0)  return true;
     if (strcmp(pMsg,"DebugStart")==0)  return true;
     if (strcmp(pMsg,"DebugStop")==0)  return true;
@@ -422,14 +539,15 @@ bool EditorView::onHasMsg(const char* pMsg) const
     if (strcmp(pMsg,"PrintPreview")==0) return true;
     if (strcmp(pMsg,"PrintPdf")==0) return true;
     if (strcmp(pMsg,"Save")==0) { 
-        return d->editWrapper->editor()->document()->isModified();
+
+        return wrp->editor()->document()->isModified();
     } else if (strcmp(pMsg,"Cut")==0) {
-        bool canWrite = !d->editWrapper->editor()->isReadOnly();
-        return (canWrite && (d->editWrapper->editor()->textCursor().hasSelection()));
+        bool canWrite = !wrp->editor()->isReadOnly();
+        return (canWrite && (wrp->editor()->textCursor().hasSelection()));
     } else if (strcmp(pMsg,"Copy")==0) {
-        if (d->editWrapper->editor() &&
-            d->editWrapper->editor()->document())
-            return d->editWrapper->editor()->textCursor().hasSelection();
+        if (wrp->editor() &&
+            wrp->editor()->document())
+            return wrp->editor()->textCursor().hasSelection();
         return false;
     } else if (strcmp(pMsg,"Paste")==0) {
         QClipboard *cb = QApplication::clipboard();
@@ -438,12 +556,12 @@ bool EditorView::onHasMsg(const char* pMsg) const
         // Copy text from the clipboard (paste)
         text = cb->text();
 
-        bool canWrite = !d->editWrapper->editor()->isReadOnly();
+        bool canWrite = !wrp->editor()->isReadOnly();
         return ( !text.isEmpty() && canWrite );
     } else if (strcmp(pMsg,"Undo")==0) {
-        return d->editWrapper->editor()->document()->isUndoAvailable ();
+        return wrp->editor()->document()->isUndoAvailable ();
     } else if (strcmp(pMsg,"Redo")==0) {
-        return d->editWrapper->editor()->document()->isRedoAvailable ();
+        return wrp->editor()->document()->isRedoAvailable ();
     } else if (strcmp(pMsg,"ShowFindBar")==0) {
         return d->searchBar->isHidden();
     } else if (strcmp(pMsg,"HideFindBar")==0) {
@@ -462,7 +580,10 @@ bool EditorView::onHasMsg(const char* pMsg) const
 /** Checking on close state. */
 bool EditorView::canClose(void)
 {
-    if (!d->editWrapper->editor()->document()->isModified())
+    auto wrp = d->wrapper();
+    if (!wrp ||
+        (!wrp->editor() && wrp->editor()->document() &&
+         wrp->editor()->document()->isModified()))
         return true;
     this->setFocus(); // raises the view to front
     switch(QMessageBox::question(this, tr("Unsaved document"),
@@ -484,38 +605,28 @@ bool EditorView::canClose(void)
 
 bool EditorView::closeFile()
 {
+    auto wrp = d->wrapper();
+    if (!wrp) return true;
+
     if (canClose()) {
         // let plugins know
         for (auto plug : currentPlugins())
-            plug->onFileClose(this, d->editWrapper->filename());
+            plug->onFileClose(this, wrp->filename());
 
-        auto oldWrapper = d->editWrapper;
-        auto newWrapper = EditorViewSingleton::instance()->lastAccessedEditor(this, -1);
+        Q_EMIT closedFile(wrp->filename());
 
-        bool created = false;
-        if (!newWrapper || oldWrapper == newWrapper) {
-            newWrapper = EditorViewSingleton::instance()->createWrapper(QString());
-            created = true;
-        }
+        d->centralLayout->removeWidget(wrp->editor());
 
-        auto old = swapEditor(newWrapper->editor());
-        if (!old) {
-            if (created) {
-                newWrapper->close(this);
-                delete newWrapper;
-            }
-            return false;
-        }
+        EditorViewWrapper *nextWrapper = nullptr;
+        if (!d->wrappers.isEmpty())
+            nextWrapper = d->wrappers.back();
 
-        if (oldWrapper)
-            Q_EMIT closedFile(oldWrapper->filename());
-        if (newWrapper)
-            Q_EMIT switchedFile(newWrapper->filename());
+        if (!nextWrapper)
+            return true;
 
-        d->editWrapper = newWrapper;
-        newWrapper->attach(this);
-        oldWrapper->close(this);
-        delete oldWrapper;
+        setActiveWrapper(nextWrapper);
+
+        delete wrp;
         return true;
     }
     return false;
@@ -531,8 +642,8 @@ void EditorView::setDisplayName(EditorView::DisplayName type)
  */
 bool EditorView::saveAs(QString fn)
 {
-    if (fn.isEmpty()) {
-        auto ew = d->editWrapper;
+    auto ew = d->wrapper();
+    if (fn.isEmpty() && ew) {
         QFileInfo currentName(ew->filename());
         QStringList types;
         types << QLatin1String("all files (*.*)");
@@ -548,110 +659,62 @@ bool EditorView::saveAs(QString fn)
         fn = FileDialog::getSaveFileName(this, QObject::tr("Save file"),
                                     currentName.filePath(),
                                     types.join(QLatin1String(";;")));
-    }
-    if (fn.isEmpty())
-        return false;
+        if (fn.isEmpty())
+            return false;
 
-    if (!d->editWrapper)
-        d->editWrapper->editor()->document()->setModified(false);
-    setCurrentFileName(fn);
-    return saveFile();
+        ew->setFilename(fn);
+        return saveFile();
+    }
+
+    if (ew && ew->editor() && ew->editor()->document()) {
+        ew->editor()->document()->setModified(false);
+        return saveFile();
+    }
+    return false;
 }
 
 /**
- * Opens the file \a fileName.
+ * Switches to the editor that has filename open, or create a new editor with this filename
  */
-bool EditorView::open(const QString& fileName)
+bool EditorView::open(const QString& fn)
 {
-    EditorViewWrapper* oldWrapper = d->editWrapper,
-                     * thisWrapper = nullptr,
-                     * otherViewWrapper = nullptr,
-                     * newWrapper = nullptr;
-
-   auto editWrappers = EditorViewSingleton::instance()->wrappers(fileName);
-    for (auto wrap : editWrappers) {
-        if (wrap->view() == this) {
-            thisWrapper = wrap;
-            otherViewWrapper = wrap;
-            break;
-        }
-        otherViewWrapper = wrap;
+    QString absPath = fn;
+    if (!fn.isEmpty()) {
+        absPath = QFileInfo(fn).absoluteFilePath();
     }
 
-    if (!thisWrapper && otherViewWrapper) {
-        // file opened, but is it isn't is in this view/tab
-        auto isPyEdit = dynamic_cast<PythonEditor*>(otherViewWrapper->editor()) != nullptr;
-        auto isTxtEdit = otherViewWrapper->textEditor() != nullptr;
-        QPlainTextEdit* edit;
-        if (isPyEdit)
-            edit = new PythonEditor(this);
-        else if (isTxtEdit)
-            edit = new TextEditor(this);
-        else
-            edit = new QPlainTextEdit(this);
+    auto wrp = wrapper(fn);
+    if (fn.isEmpty() || !wrp) {
+        // create a new empty editor or
+        // has filename but not yet opened in this view
+        auto editor = EditorViewSingleton::instance()->createEditor(fn);
+        wrp = d->createWrapper(absPath, editor);
 
-        if (isTxtEdit) { // true for all but QPlainTextEditor
-            auto ed = dynamic_cast<TextEditor*>(edit);
-            if (ed) {
-                ed->setFilename(fileName);
-                //auto sh = newWrapper->textEditor()->syntaxHighlighter();
-                //ed->setSyntaxHighlighter(sh);
-            }
+        if (!fn.isEmpty()) {
+            QFileInfo fi(fn);
+            int64_t timestamp = fi.lastModified().toLocalTime().secsTo(QDateTime());
+            wrp->setTimestamp(timestamp);
         }
-
-        newWrapper = EditorViewSingleton::instance()->createWrapper(fileName, edit);
-        if (!newWrapper)
-            return false;
-        if (otherViewWrapper->editor() && newWrapper->editor()) {
-            newWrapper->setMirrorDoc(otherViewWrapper);
-            otherViewWrapper->setMirrorDoc(newWrapper);
-        }
-
-    } else if (!newWrapper) { // not yet opened
-        newWrapper = EditorViewSingleton::instance()->createWrapper(fileName);
-        if (!newWrapper)
-            return false;
-    } else if (oldWrapper == newWrapper)
-        return true;
-
-    // opened in this View/tab
-    // swap currently viewed editor
-    QPlainTextEdit *old = swapEditor(newWrapper->editor());
-    if (!old) {
-        newWrapper->close(this); // memory collect
-        delete newWrapper;
-        return false;
     }
 
-    // swap out
-    d->editWrapper = newWrapper;
-    newWrapper->attach(this);
-    if (oldWrapper->filename().isEmpty() &&
-        !oldWrapper->editor()->document()->isModified())
-    {   // close the autogenerated editor from construction if its empty
-        oldWrapper->close(this);
-        delete oldWrapper;
-    } else {
-        oldWrapper->detach(this);
-    }
-
-    QFileInfo fi(fileName);
-    newWrapper->setTimestamp(fi.lastModified().toTime_t());
 
     // untitled files should be writable
-    bool writable = (!fi.isWritable() && fileName.isEmpty()) ||
-            !fi.isWritable();
-    newWrapper->editor()->setReadOnly(writable);
+    bool writable = fn.isEmpty();
+    if (writable && !QFileInfo(fn).isWritable())
+        writable = false;
+    wrp->editor()->setReadOnly(writable);
 
     d->activityTimer->setSingleShot(true);
     d->activityTimer->start(3000);
 
-    Q_EMIT switchedFile(fi.absoluteFilePath());
-    setCurrentFileName(fi.absoluteFilePath());
+    setActiveWrapper(wrp);
+
+    Q_EMIT switchedFile(absPath);
+    showCurrentFileName();
 
     // let plugins do whitespace trim etc
     for (auto plug : currentPlugins())
-        plug->onFileOpen(this, d->editWrapper->filename());
+        plug->onFileOpen(this, d->wrapper()->filename());
 
     return true;
 }
@@ -694,7 +757,8 @@ bool EditorView::save()
  */
 void EditorView::cut(void)
 {
-    d->editWrapper->editor()->cut();
+    if (d->wrapper() && d->wrapper()->editor())
+        d->wrapper()->editor()->cut();
 }
 
 /**
@@ -702,7 +766,8 @@ void EditorView::cut(void)
  */
 void EditorView::copy(void)
 {
-    d->editWrapper->editor()->copy();
+    if (d->wrapper() && d->wrapper()->editor())
+        d->wrapper()->editor()->copy();
 }
 
 /**
@@ -711,7 +776,8 @@ void EditorView::copy(void)
  */
 void EditorView::paste(void)
 {
-    d->editWrapper->editor()->paste();
+    if (d->wrapper() && d->wrapper()->editor())
+        d->wrapper()->editor()->paste();
 }
 
 /**
@@ -720,13 +786,16 @@ void EditorView::paste(void)
  */
 void EditorView::undo(void)
 {
-    d->editWrapper->setLocked(true);
-    if (!d->editWrapper->undos().isEmpty()) {
-        d->editWrapper->redos() << d->editWrapper->undos().back();
-        d->editWrapper->undos().pop_back();
+    auto wrp = d->wrapper();
+    if (wrp && wrp->editor()) {
+        wrp->setLocked(true);
+        if (!wrp->undos().isEmpty()) {
+            wrp->redos() << wrp->undos().back();
+            wrp->undos().pop_back();
+        }
+        wrp->editor()->document()->undo();
+        wrp->setLocked(false);
     }
-    d->editWrapper->editor()->document()->undo();
-    d->editWrapper->setLocked(false);
 }
 
 /**
@@ -735,20 +804,24 @@ void EditorView::undo(void)
  */
 void EditorView::redo(void)
 {
-    d->editWrapper->setLocked(true);
-    if (!d->editWrapper->redos().isEmpty()) {
-        d->editWrapper->undos() << d->editWrapper->redos().back();
-        d->editWrapper->redos().pop_back();
+    auto wrp = d->wrapper();
+    if (wrp && wrp->editor()) {
+        wrp->setLocked(true);
+        if (!wrp->redos().isEmpty()) {
+            wrp->undos() << wrp->redos().back();
+            wrp->redos().pop_back();
+        }
+        wrp->editor()->document()->redo();
+        wrp->setLocked(false);
     }
-    d->editWrapper->editor()->document()->redo();
-    d->editWrapper->setLocked(false);
 }
 
 void EditorView::newFile()
 {
     auto ews = Gui::EditorViewSingleton::instance();
     auto editor = ews->createEditor(QString());
-    swapEditor(editor);
+    auto wrp = d->createWrapper(QString(), editor);
+    setActiveWrapper(wrp);
 }
 
 /**
@@ -756,11 +829,14 @@ void EditorView::newFile()
  */
 void EditorView::print()
 {
+    if (!editor() || !editor()->document())
+        throw Base::FileException("No wrapper attached, can't print EditorView::print()");
+
     QPrinter printer(QPrinter::ScreenResolution);
     printer.setFullPage(true);
     QPrintDialog dlg(&printer, this);
     if (dlg.exec() == QDialog::Accepted)
-        d->editWrapper->editor()->document()->print(&printer);
+        d->wrapper()->editor()->document()->print(&printer);
 }
 
 void EditorView::printPreview()
@@ -774,15 +850,18 @@ void EditorView::printPreview()
 
 void EditorView::print(QPrinter* printer)
 {
-    d->editWrapper->editor()->document()->print(printer);
+    if (!editor() || !editor()->document())
+        throw Base::FileException("No wrapper attached, can't print EditorView::print(printer)");
+
+    d->wrapper()->editor()->document()->print(printer);
 }
 
 void EditorView::refreshLangPlugins()
 {
-    if (!d->editWrapper)
+    if (!d->wrapper())
         return;
 
-    auto editor = dynamic_cast<TextEditor*>(d->editWrapper->editor());
+    auto editor = dynamic_cast<TextEditor*>(d->wrapper()->editor());
     if (!editor)
         return;
 
@@ -808,28 +887,29 @@ void EditorView::hideFindBar()
  */
 void EditorView::printPdf()
 {
+    if (!editor() || !editor()->document())
+        throw Base::FileException("No wrapper attached, can't print EditorView::printPdf()");
+
     QString fileName = FileDialog::getSaveFileName(this, tr("Export PDF"), QString(),
         QString::fromLatin1("%1 (*.pdf)").arg(tr("PDF file")));
     if (!fileName.isEmpty()) {
         QPrinter printer(QPrinter::ScreenResolution);
         printer.setOutputFormat(QPrinter::PdfFormat);
         printer.setOutputFileName(fileName);
-        d->editWrapper->editor()->document()->print(&printer);
+        d->wrapper()->editor()->document()->print(&printer);
     }
 }
 
-void EditorView::setCurrentFileName(const QString &fileName)
+void EditorView::showCurrentFileName()
 {
-    if (d->editWrapper->filename() != fileName)
-        Q_EMIT changeFileName(fileName);
-
-    d->editWrapper->setFilename(fileName);
+    if (!editor() || !editor()->document())
+        return;
 
     QString name;
-    QFileInfo fi(fileName);
+    QFileInfo fi(d->wrapper()->filename());
     switch (d->displayName) {
     case FullName:
-        name = fileName;
+        name = fi.absoluteFilePath();
         break;
     case FileName:
         name = fi.fileName();
@@ -840,32 +920,34 @@ void EditorView::setCurrentFileName(const QString &fileName)
     }
 
     QString shownName;
-    if (fileName.isEmpty())
+    if (name.isEmpty())
         shownName = tr("untitled[*]");
     else
         shownName = QString::fromLatin1("%1[*]").arg(name);
 
-    if (d->editWrapper->editor()->isReadOnly())
+    if (d->wrapper()->editor()->isReadOnly())
         shownName += tr(" - Read-only");
     else
         shownName += tr(" - Editor");
 
     setWindowTitle(shownName);
-    if (!d->editWrapper->editor()->document())
-        d->editWrapper->editor()->setDocument(new QTextDocument(d->editWrapper->editor()));
-    setWindowModified(d->editWrapper->editor()->document()->isModified());
+    editor()->setDocument(new QTextDocument(editor()));
+    setWindowModified(d->wrapper()->editor()->document()->isModified());
 
     refreshLangPlugins();
 }
 
 QString EditorView::filename() const
 {
-    return d->editWrapper->filename();
+    if (d->wrapper())
+        return d->wrapper()->filename();
+    return QString();
 }
 
 void EditorView::setFilename(QString fileName)
 {
-    d->editWrapper->setFilename(fileName);
+    if (d->wrapper())
+        d->wrapper()->setFilename(fileName);
 }
 
 const QList<AbstractLangPlugin *> EditorView::currentPlugins() const
@@ -894,6 +976,29 @@ EditorViewTopBar* EditorView::topBar()
     return d->topBar;
 }
 
+EditorViewWrapper *EditorView::wrapper() const
+{
+    return d->wrapper();
+}
+
+EditorViewWrapper *EditorView::wrapper(const QString &fn) const
+{
+    for (auto editWrapper : d->wrappers) {
+        if (editWrapper->filename() == fn)
+            return editWrapper;
+    }
+    return nullptr;
+}
+
+QList<EditorViewWrapper *> EditorView::wrappers(const QString &fn) const
+{
+    QList<EditorViewWrapper*> ret;
+    for (auto wrp : d->wrappers)
+        if (fn.isEmpty() || fn == wrp->filename())
+            ret.push_back(wrp);
+    return ret;
+}
+
 void EditorView::setWindowModified(bool modified)
 {
     MDIView::setWindowModified(modified);
@@ -905,18 +1010,20 @@ void EditorView::setWindowModified(bool modified)
  */
 bool EditorView::saveFile()
 {
-    if (d->editWrapper->filename().isEmpty())
+    if (!d->wrapper() || !d->wrapper()->editor())
+        return false;
+    if (d->wrapper()->filename().isEmpty())
         return saveAs();
 
     // let plugins do whitespace trim etc
     for (auto plug : currentPlugins())
-        plug->onFileSave(this, d->editWrapper->filename());
+        plug->onFileSave(this, d->wrapper()->filename());
 
-    QFile file(d->editWrapper->filename());
+    QFile file(d->wrapper()->filename());
     if (!file.open(QFile::WriteOnly))
         return false;
 
-    auto editor = d->editWrapper->editor();
+    auto editor = d->wrapper()->editor();
 
     QTextStream ts(&file);
     ts.setCodec(QTextCodec::codecForName("UTF-8"));
@@ -928,78 +1035,109 @@ bool EditorView::saveFile()
     if (textEditor)
         textEditor->onSave();
 
-    QFileInfo fi(d->editWrapper->filename());
+    // notify all other possibly open editors with the same file, that this has changed
+    QFileInfo fi(d->wrapper()->filename());
     for (auto wrap : EditorViewSingleton::instance()->wrappers(
-                                            d->editWrapper->filename()))
+                                            d->wrapper()->filename()))
     {
-        wrap->setTimestamp(fi.lastModified().toTime_t());
+        wrap->setTimestamp(fi.lastModified().toLocalTime().secsTo(QDateTime()));
     }
 #ifdef BUILD_PYTHON_DEBUGTOOLS
         {
             //DumpSyntaxTokens tok(editor->document()->begin());
             Python::DumpModule dMod(Python::SourceRoot::instance()->moduleFromPath(
-                                        d->editWrapper->filename().toStdString()));
+                                        d->wrapper()->filename().toStdString()));
         }
 #endif
     return true;
 }
 
+void EditorView::setActiveWrapper(EditorViewWrapper *wrp)
+{
+    if (!wrp) return;
+    auto old = d->wrapper();
+    if (old)
+        old->detach();
+    // change access order
+    d->wrappers.removeOne(wrp);
+    d->wrappers.push_back(wrp);
+
+    swapEditor(wrp->editor());
+    wrp->attach();
+
+    Q_EMIT switchedFile(wrp->filename());
+}
+
+bool EditorView::closeWrapper(EditorViewWrapper *wrapper)
+{
+    return d->closeWrapper(wrapper);
+}
+
 QPlainTextEdit *EditorView::swapEditor(QPlainTextEdit* newEditor)
 {
-    // find and replace texteditor widget
-    for (int i =0; i < d->centralLayout->count(); ++i) {
-        // first check if its the text editor
-        QWidget *itm = qobject_cast<QPlainTextEdit*>(
-                            d->centralLayout->itemAt(i)->widget());
-        if (!itm)
-            continue;
-
-        itm = d->centralLayout->takeAt(i)->widget();
-        if (!itm)
-            return nullptr;
-        else
-            itm->hide();
-
-        // remove, and let EditorViewSingleton handle memory cleanup
-        d->centralLayout->insertWidget(i, newEditor);
-        newEditor->setParent(static_cast<QWidget*>(d->centralLayout->parent()));
-        newEditor->setFocus();
-        setWindowIcon(newEditor->windowIcon());
-        newEditor->show();
-
-        return qobject_cast<QPlainTextEdit*>(itm);
+    QPlainTextEdit *old = nullptr;
+    int posEdit = -100, posTop = -100, posSearch = -100;
+    for (int i = 0; i < d->centralLayout->count(); ++i) {
+        if (dynamic_cast<QPlainTextEdit*>(d->centralLayout->itemAt(i)->widget()))
+            posEdit = i;
+        if (dynamic_cast<EditorSearchBar*>(d->centralLayout->itemAt(i)->widget()))
+            posSearch = i;
+        if (dynamic_cast<EditorViewTopBar*>(d->centralLayout->itemAt(i)->widget()))
+            posTop = i;
     }
 
-    return nullptr;
+    if (posEdit > -100) {
+        auto oldItem = d->centralLayout->takeAt(posEdit);
+        d->centralLayout->insertWidget(posEdit, newEditor);
+        old = dynamic_cast<QPlainTextEdit*>(oldItem->widget());
+        old->setVisible(false);
+    } else if (posTop > -100) {
+        d->centralLayout->insertWidget(posTop+1, newEditor);
+    } else if (posEdit > -100) {
+        d->centralLayout->insertWidget(posSearch, newEditor);
+    } else {
+        d->centralLayout->addWidget(newEditor);
+    }
+
+    newEditor->setVisible(true);
+    newEditor->setParent(static_cast<QWidget*>(d->centralLayout->parent()));
+    newEditor->setFocus();
+    setWindowIcon(newEditor->windowIcon());
+    newEditor->show();
+
+    return old;
 }
 
 void EditorView::undoAvailable(bool undo)
 {
     Q_UNUSED(undo)
-    d->editWrapper->undos().clear();
+    if (d->wrapper())
+        d->wrapper()->undos().clear();
 }
 
 void EditorView::redoAvailable(bool redo)
 {
-    if (!redo)
-        d->editWrapper->redos().clear();
+    if (!redo && d->wrapper())
+        d->wrapper()->redos().clear();
 }
 
 void EditorView::contentsChange(int position, int charsRemoved, int charsAdded)
 {
     Q_UNUSED(position)
+    auto wrp = d->wrapper();
+    if (!wrp) return;
 
-    if (d->editWrapper->isLocked())
+    if (wrp->isLocked())
         return;
     if (charsRemoved > 0 && charsAdded > 0)
         return; // syntax highlighting
     else if (charsRemoved > 0)
-        d->editWrapper->undos() << tr("%1 chars removed").arg(charsRemoved);
+        wrp->undos() << tr("%1 chars removed").arg(charsRemoved);
     else if (charsAdded > 0)
-        d->editWrapper->undos() << tr("%1 chars added").arg(charsAdded);
+        wrp->undos() << tr("%1 chars added").arg(charsAdded);
     else
-        d->editWrapper->undos() << tr("Formatted");
-    d->editWrapper->redos().clear();
+        wrp->undos() << tr("Formatted");
+    wrp->redos().clear();
 }
 
 /**
@@ -1007,7 +1145,10 @@ void EditorView::contentsChange(int position, int charsRemoved, int charsAdded)
  */
 QStringList EditorView::undoActions() const
 {
-    return d->editWrapper->undos();
+    auto wrp = d->wrapper();
+    if (wrp)
+        return wrp->undos();
+    return QStringList();
 }
 
 /**
@@ -1015,12 +1156,18 @@ QStringList EditorView::undoActions() const
  */
 QStringList EditorView::redoActions() const
 {
-    return d->editWrapper->redos();
+    auto wrp = d->wrapper();
+    if (wrp && wrp->editor())
+        return wrp->redos();
+    return QStringList();
 }
 
 void EditorView::focusInEvent (QFocusEvent *)
 {
-    d->editWrapper->editor()->setFocus();
+    auto wrp = d->wrapper();
+    if (wrp && wrp->editor())
+        return wrp->editor()->setFocus();
+    return;
 }
 
 void EditorView::insertWidget(QWidget *wgt, int index)
@@ -1034,14 +1181,16 @@ void EditorView::insertWidget(QWidget *wgt, int index)
 
 EditorViewWrapper* EditorView::editorWrapper() const
 {
-    return d->editWrapper;
+    return d->wrapper();
 }
 
 // -------------------------------------------------------------------------------
 
-EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor, const QString &fn)
+EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor,
+                                     EditorView *view,
+                                     const QString &fn)
     : QObject()
-    , d(new EditorViewWrapperP(editor))
+    , d(new EditorViewWrapperP(editor, view))
 {
     d->plainEdit = editor;
     d->timestamp = 0;
@@ -1077,18 +1226,15 @@ EditorViewWrapper::~EditorViewWrapper()
     if (txtEdit) {
         txtEdit->setWrapper(nullptr);
     }
-    detach(d->view);
+    close();
+    if (d->view)
+        d->view->closeWrapper(this);
     d->view = nullptr;
-
-    EditorViewSingleton::instance()->removeWrapper(this);
     delete d;
 }
 
-void EditorViewWrapper::attach(EditorView* sharedOwner)
+void EditorViewWrapper::attach()
 {
-    // handles automatic clenup
-    d->view = sharedOwner;
-
     if (d->view) {
         // hook up signals with view
         QObject::connect(d->plainEdit->document(), SIGNAL(modificationChanged(bool)),
@@ -1099,16 +1245,14 @@ void EditorViewWrapper::attach(EditorView* sharedOwner)
                 d->view, SLOT(redoAvailable(bool)));
         QObject::connect(d->plainEdit->document(), SIGNAL(contentsChange(int, int, int)),
                 d->view, SLOT(contentsChange(int, int, int)));
-    }
 
-    sharedOwner->setWindowModified(d->plainEdit->document()->isModified());
+        if (d->plainEdit && d->plainEdit->document())
+            d->view->setWindowModified(d->plainEdit->document()->isModified());
+    }
 }
 
-void EditorViewWrapper::detach(EditorView* sharedOwner)
+void EditorViewWrapper::detach()
 {
-    // handles automatic clenup
-    d->view = sharedOwner;
-
     if (d->view) {
         // disconnect signals from view
         QObject::disconnect(d->plainEdit->document(), SIGNAL(modificationChanged(bool)),
@@ -1122,22 +1266,21 @@ void EditorViewWrapper::detach(EditorView* sharedOwner)
     }
 }
 
-bool EditorViewWrapper::close(EditorView* sharedOwner)
+void EditorViewWrapper::close()
 {
-    detach(sharedOwner);
-
-    d->plainEdit->setParent(nullptr);
+    detach();
 
     // cleanup and memory release
-    EditorViewSingleton::instance()->removeWrapper(this);
+    if (d->view)
+        d->view->closeWrapper(this);
     if (d->plainEdit)
-        d->plainEdit->setDocument(nullptr);
+        d->plainEdit->deleteLater();
+
+    d->plainEdit = nullptr;
 
     // emit changes
     Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
     Q_EMIT EditorViewSingleton::instance()->fileClosed(d->filename);
-
-    return true;
 }
 
 QPlainTextEdit* EditorViewWrapper::editor() const
@@ -1178,6 +1321,11 @@ void EditorViewWrapper::setFilename(const QString &fn)
     auto textEdit = textEditor();
     if (textEdit)
         textEdit->setFilename(fn);
+
+    if (d->view) {
+        d->view->showCurrentFileName();
+        Q_EMIT d->view->changeFileName(fn);
+    }
 }
 
 const QString &EditorViewWrapper::mimetype() const
@@ -1193,12 +1341,12 @@ void EditorViewWrapper::setMimetype(QString mime)
         edit->setMimetype(mime);
 }
 
-uint EditorViewWrapper::timestamp() const
+int64_t EditorViewWrapper::timestamp() const
 {
     return d->timestamp;
 }
 
-void EditorViewWrapper::setTimestamp(uint timestamp)
+void EditorViewWrapper::setTimestamp(int64_t timestamp)
 {
     d->timestamp = timestamp;
 }
@@ -1309,14 +1457,60 @@ void EditorViewWrapper::disconnectDoc(QObject *obj)
 
 
 // -------------------------------------------------------------------
+// sort of private, outside of class to prevent deadlock when code
+// in constructor ends up calling constructor again
+static EditorViewSingleton *_EditorViewInstance = nullptr;
 
 EditorViewSingleton::EditorViewSingleton() :
     d(new EditorViewSingletonP())
 {
-    _PyEditorRegister();
+    _EditorViewInstance = this;
 
-    // do these after eventloop is running
-    AbstractLangPlugin::registerBuildInPlugins();
+    //_PyEditorRegister();
+
+    // register default build in types
+    QStringList plainSuffix { QLatin1String("*") };
+    QStringList plainMime { QLatin1String("empty") };
+
+    QStringList txtSuffix { QLatin1String("*") };
+    QStringList txtMime {
+        QLatin1String("text/text"),
+        QLatin1String("text/*")
+    };
+
+    QStringList pySuffix { QLatin1String("py"), QLatin1String("fcmacro") };
+    QStringList pyMime {
+        QLatin1String("text/x-script.python"),
+        QLatin1String("text/x-script.phyton"),
+        QLatin1String("text/x-python")
+    };
+// disable for now, source parser is broken
+//    registerTextEditorType(
+//         reinterpret_cast<EditorType::createT>(&createPythonEditor),
+//                QLatin1String("PythonEditor"),
+//                pySuffix,
+//                pyMime,
+//                QLatin1String("document-python")
+//    );
+    registerTextEditorType(
+         reinterpret_cast<EditorType::createT>(&createTextEditor),
+                QLatin1String("TextEditor"),
+                txtSuffix,
+                txtMime,
+                QLatin1String("TextDocument")
+    );
+    registerTextEditorType(
+         reinterpret_cast<EditorType::createT>(&createQPlainTextEdit),
+                QLatin1String("QPlainTextEdit"),
+                plainSuffix,
+                plainMime,
+                QLatin1String("applications-new")
+    );
+
+    // our language plugins, must doi these after eventloop is started
+    QTimer::singleShot(0, []() {
+        AbstractLangPlugin::registerBuildInPlugins();
+    });
 }
 
 EditorViewSingleton::~EditorViewSingleton()
@@ -1324,22 +1518,20 @@ EditorViewSingleton::~EditorViewSingleton()
     delete d;
 }
 
-/* static */
-bool EditorViewSingleton::registerTextEditorType(EditorViewSingleton::createT factory,
+bool EditorViewSingleton::registerTextEditorType(EditorType::createT factory,
                                                  const QString &name,
                                                  const QStringList &suffixes,
                                                  const QStringList &mimetypes,
                                                  const QString &icon)
 {
-    EditorViewSingleton *me = EditorViewSingleton::instance();
-    for (auto et : me->d->editorTypes) {
-        if (et->name == name)
+    for (auto et : d->editorTypes) {
+        if (et->name() == name)
             return false; // already registered
     }
 
     // new editor type, register
     auto editType = new EditorType(factory, name, suffixes, mimetypes, icon);
-    me->d->editorTypes.append(editType);
+    d->editorTypes.append(editType);
     return true;
 }
 
@@ -1357,10 +1549,12 @@ void EditorViewSingleton::registerLangPlugin(AbstractLangPlugin *plugin)
     if (qApp->startingUp())
         return; // cant refresh a non created view
 
-    for(const auto &wrp : instance()->d->wrappers) {
-        if (wrp && wrp->editor() == wrp->view()->editor()) {
-            if (plugin->matchesMimeType(wrp->filename(), wrp->mimetype()))
-                wrp->view()->refreshLangPlugins();
+    for (auto view : editorViews()) {
+        for(const auto &wrp : view->wrappers()) {
+            if (wrp && wrp->editor() == wrp->view()->editor()) {
+                if (plugin->matchesMimeType(wrp->filename(), wrp->mimetype()))
+                    wrp->view()->refreshLangPlugins();
+            }
         }
     }
 }
@@ -1368,8 +1562,7 @@ void EditorViewSingleton::registerLangPlugin(AbstractLangPlugin *plugin)
 /* static */
 EditorViewSingleton* EditorViewSingleton::instance()
 {
-    static EditorViewSingleton* _instance = new EditorViewSingleton();
-    return _instance;
+    return _EditorViewInstance ? _EditorViewInstance : new EditorViewSingleton();
 }
 
 EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view) const
@@ -1392,88 +1585,28 @@ EditorView* EditorViewSingleton::openFile(const QString fn, EditorView* view) co
     return view;
 }
 
-EditorViewWrapper*
-EditorViewSingleton::wrapper(const QString &fn, EditorView* ownerView) const
-{
-    for (auto editWrapper : d->wrappers) {
-        if ((editWrapper->filename() == fn) &&
-            (editWrapper->view() == ownerView))
-        {
-            // move to top of access stack
-            d->accessOrder.removeAll(fn);
-            d->accessOrder.append(fn);
-
-            return editWrapper;
-        }
-    }
-
-    return nullptr;
-}
-
 QList<EditorViewWrapper*>
 EditorViewSingleton::wrappers(const QString &fn) const
 {
     QList<EditorViewWrapper*> wrappers;
-    for (auto editWrapper : d->wrappers) {
-        if (editWrapper->filename() == fn || fn.isEmpty())
-            wrappers.append(editWrapper);
-    }
-
-    return wrappers;
-}
-
-QList<EditorViewWrapper *> EditorViewSingleton::wrappersForView(const EditorView *view) const
-{
-    QList<EditorViewWrapper*> wrappers;
-    for (auto editWrapper : d->wrappers) {
-        if (editWrapper->view() == view)
-            wrappers.append(editWrapper);
-    }
-
-    return wrappers;
-}
-
-EditorViewWrapper*
-EditorViewSingleton::createWrapper(const QString &fn, QPlainTextEdit* editor) const
-{
-    EditorViewWrapper* ew = nullptr;
-    QString icon(QLatin1String("accessories-text-editor"));
-
-    if (editor) {
-        ew = new EditorViewWrapper(editor, fn);
-    } else {
-        auto et = editorTypeForFile(fn);
-        if (et) {
-            // create on a special editor
-            ew = new EditorViewWrapper(et->factory(), fn);
-            icon = et->iconName;
-        } else {
-            // default to TextEditor
-            ew = new EditorViewWrapper(new TextEditor(), fn);
+    for (auto view : editorViews()) {
+        for (auto editWrapper : view->wrappers()) {
+            if (editWrapper->filename() == fn || fn.isEmpty())
+                wrappers.append(editWrapper);
         }
     }
 
-    d->accessOrder.append(fn);
-
-    // set icon for this type
-    ew->editor()->setWindowIcon(Gui::BitmapFactory().iconFromTheme(icon.toLatin1()));
-    auto edit = ew->textEditor();
-    if (edit)
-        edit->setFilename(fn);
-
-    d->wrappers.append(ew);
-
-    connect(ew->editor(), &QPlainTextEdit::modificationChanged,
-            this, &EditorViewSingleton::docModifiedChanged);
-    Q_EMIT openFilesChanged();
-    Q_EMIT fileOpened(fn);
-    return ew;
+    return wrappers;
 }
 
 EditorView *EditorViewSingleton::createView(QPlainTextEdit *edit, bool addToMainWindow) const
 {
-    auto mainWindow = MainWindow::getInstance();
-    auto editorView = new EditorView(edit, mainWindow);
+    auto mainWindow = addToMainWindow ? MainWindow::getInstance() : nullptr;
+    QString fn;
+    auto textEdit = dynamic_cast<TextEditor*>(edit);
+    if (textEdit)
+        fn = textEdit->filename();
+    auto editorView = new EditorView(edit, fn, mainWindow);
     editorView->setDisplayName(EditorView::FileName);
     if (addToMainWindow)
         MainWindow::getInstance()->addWindow(editorView);
@@ -1484,39 +1617,21 @@ QPlainTextEdit *EditorViewSingleton::createEditor(const QString &fn) const
 {
     auto et = editorTypeForFile(fn);
     if (et)
-        return et->factory();
+        return et->create();
     return new TextEditor();
-}
-
-bool EditorViewSingleton::removeWrapper(EditorViewWrapper* ew)
-{
-    disconnect(ew->editor(), &QPlainTextEdit::modificationChanged,
-               this, &EditorViewSingleton::docModifiedChanged);
-    bool rm = false;
-    for(int i = 0; i < d->accessOrder.size(); ++i) {
-        if (d->accessOrder[i] == ew->filename())
-            rm = true;
-        // remove all after first found
-        if (rm) {
-            d->accessOrder.removeAt(i);
-            --i;
-        }
-    }
-
-    auto beforeSize = d->wrappers.size();
-    for (auto &wrp : d->wrappers)
-        if (wrp == ew)
-            d->wrappers.removeOne(wrp);
-
-    return beforeSize != d->wrappers.size();
 }
 
 EditorViewWrapper*
 EditorViewSingleton::lastAccessedEditor(EditorView* view, int backSteps) const
 {
-    int idx = d->accessOrder.size() + backSteps -1;
-    if (idx >= 0 && d->accessOrder.size() > idx)
-        return wrapper(d->accessOrder.at(idx), view);
+    for (auto v : editorViews()) {
+        if (view == v) {
+            auto wrappers = view->wrappers();
+            int idx = wrappers.size() + backSteps -1;
+            if (idx >= 0 && idx < wrappers.size())
+                return wrappers.at(idx);
+        }
+    }
     return nullptr;
 }
 
@@ -1524,10 +1639,12 @@ QList<const EditorViewWrapper*>
 EditorViewSingleton::openedBySuffix(QStringList types) const
 {
     QList<const EditorViewWrapper*> res;
-    for (auto editWrapper : d->wrappers) {
-        QFileInfo fi(editWrapper->filename());
-        if (types.size() == 0 || types.contains(fi.suffix(), Qt::CaseInsensitive))
-            res.append(editWrapper);
+    for (auto view : editorViews()) {
+        for (auto editWrapper : view->wrappers()) {
+            QFileInfo fi(editWrapper->filename());
+            if (types.size() == 0 || types.contains(fi.suffix(), Qt::CaseInsensitive))
+                res.append(editWrapper);
+        }
     }
     return res;
 }
@@ -1560,9 +1677,11 @@ EditorView *EditorViewSingleton::activeView() const
 void EditorViewSingleton::docModifiedChanged(bool changed) const
 {
     QObject *obj = sender();
-    for (auto ew : d->wrappers) {
-        if (ew->editor() == obj)
-            Q_EMIT modifiedChanged(ew->filename(), changed);
+    for (auto view : editorViews()) {
+        for (auto ew : view->wrappers()) {
+            if (ew->editor() == obj)
+                Q_EMIT modifiedChanged(ew->filename(), changed);
+        }
     }
 }
 
@@ -1573,33 +1692,44 @@ const EditorType *EditorViewSingleton::editorTypeForFile(const QString &fn) cons
     QString suffix = fi.suffix().toLower();
     if (suffix == QLatin1String("fcmacro")) {
         mime = QLatin1String("text/x-script.python");
-    } else {
+    } else if (fi.isFile()) {
         QMimeDatabase db;
         QMimeType type = db.mimeTypeForFile(fn);
         if (type.isValid())
             mime = type.name();
     }
 
-    // first find via file suffix, ie .py
-    for (const auto et : d->editorTypes)
-        if (et->suffixes.contains(fi.suffix(), Qt::CaseInsensitive))
-            return et;
+    for (const auto et : d->editorTypes) {
+        for (auto suf : et->suffixes()) {
+            // first find via file suffix, ie .py or wildcard ht* matches html and htm and hta etc
+            auto fiSuf = fi.suffix().toLower();
+            if ((suf == fiSuf) ||
+                (suf.right(1) == QLatin1String("*") &&
+                suf.left(suf.length()-1) == fiSuf.left(suf.length()-1)))
+            {
+                return et;
+            }
+        }
 
-    // find the registered editor for this mimetype
-    for (auto et : d->editorTypes)
-        if (et->mimetypes.contains(mime, Qt::CaseInsensitive))
-            return et;
-
+        // find the registered editor for this mimetype also match wildcard at the end
+        for (auto mi : et->mimetypes()) {
+            if (mi == mime ||
+                (mi.right(1) == QLatin1String("*") &&
+                 mi.left(mi.length()-1) == mime.left(mi.length()-1)))
+            {
+                return et;
+            }
+        }
+    }
     return nullptr;
 }
 
 // -------------------------------------------------------------------------------------
 
-EditorViewTopBar::EditorViewTopBar(EditorView *parent):
-    QWidget(parent)
+EditorViewTopBar::EditorViewTopBar(EditorView *parent)
+    : QWidget(parent)
+    , d(new EditorViewTopBarP)
 {
-    d = new EditorViewTopBarP;
-
     QHBoxLayout *hLayout = new QHBoxLayout;
     hLayout->setContentsMargins(0,0,0,0);
     d->openFiles = new QComboBox(this);
@@ -1794,77 +1924,76 @@ EditorSearchClearEdit::~EditorSearchClearEdit()
 
 // -------------------------------------------------------------------------------------
 
-EditorSearchBar::EditorSearchBar(EditorView *parent, EditorViewP *editorViewP) :
-    QFrame(parent),
-    d(editorViewP),
-    m_findFlags(nullptr)
+EditorSearchBar::EditorSearchBar(EditorView *parent, EditorViewP *editorViewP)
+    : QFrame(parent)
+    , d(new EditorSearchBarP())
+    , viewD(editorViewP)
 {
     // find row
     QGridLayout *layout  = new QGridLayout(this);
     QLabel      *lblFind = new QLabel(this);
-    m_foundCountLabel    = new QLabel(this);
-    m_searchEdit         = new EditorSearchClearEdit(this, true);
-    m_searchButton       = new QPushButton(this);
-    m_upButton           = new QPushButton(this);
-    m_downButton         = new QPushButton(this);
-    m_hideButton         = new QPushButton(this);
+    d->foundCountLabel    = new QLabel(this);
+    d->searchEdit         = new EditorSearchClearEdit(this, true);
+    d->searchButton       = new QPushButton(this);
+    d->upButton           = new QPushButton(this);
+    d->downButton         = new QPushButton(this);
+    d->hideButton         = new QPushButton(this);
 
 
     lblFind->setText(tr("Find:"));
-    m_searchButton->setText(tr("Search"));
-    m_upButton->setIcon(BitmapFactory().iconFromTheme("button_left"));
-    m_downButton->setIcon(BitmapFactory().iconFromTheme("button_right"));
-    m_searchEdit->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
-    m_foundCountLabel->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
-    m_hideButton->setIcon(BitmapFactory().iconFromTheme("delete"));
+    d->searchButton->setText(tr("Search"));
+    d->upButton->setIcon(BitmapFactory().iconFromTheme("button_left"));
+    d->downButton->setIcon(BitmapFactory().iconFromTheme("button_right"));
+    d->searchEdit->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
+    d->foundCountLabel->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
+    d->hideButton->setIcon(BitmapFactory().iconFromTheme("delete"));
 
     // add widgets to bar
     layout->addWidget(lblFind, 0, 0);
-    layout->addWidget(m_searchEdit, 0, 1);
-    layout->addWidget(m_searchButton, 0, 2);
-    layout->addWidget(m_foundCountLabel, 0, 3);
-    layout->addWidget(m_upButton, 0, 4);
-    layout->addWidget(m_downButton, 0, 5);
-    layout->addWidget(m_hideButton, 0, 6);
+    layout->addWidget(d->searchEdit, 0, 1);
+    layout->addWidget(d->searchButton, 0, 2);
+    layout->addWidget(d->foundCountLabel, 0, 3);
+    layout->addWidget(d->upButton, 0, 4);
+    layout->addWidget(d->downButton, 0, 5);
+    layout->addWidget(d->hideButton, 0, 6);
 
     // replace row
     QLabel *lblReplace     = new QLabel(this);
-    m_replaceEdit          = new EditorSearchClearEdit(this, false);
-    m_replaceButton        = new QPushButton(this);
-    m_replaceAndNextButton = new QPushButton(this);
-    m_replaceAllButton     = new QPushButton(this);
+    d->replaceEdit          = new EditorSearchClearEdit(this, false);
+    d->replaceButton        = new QPushButton(this);
+    d->replaceAndNextButton = new QPushButton(this);
+    d->replaceAllButton     = new QPushButton(this);
     QHBoxLayout *buttonBox = new QHBoxLayout;
 
     lblReplace->setText(tr("Replace:"));
-    m_replaceEdit->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
+    d->replaceEdit->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
     layout->addWidget(lblReplace, 1, 0);
-    layout->addWidget(m_replaceEdit, 1, 1);
+    layout->addWidget(d->replaceEdit, 1, 1);
 
-    m_replaceButton->setText(tr("Replace"));
-    m_replaceAndNextButton->setText(tr("Replace & find"));
-    m_replaceAllButton->setText(tr("Replace All"));
-    buttonBox->addWidget(m_replaceButton);
-    buttonBox->addWidget(m_replaceAndNextButton);
-    buttonBox->addWidget(m_replaceAllButton);
+    d->replaceButton->setText(tr("Replace"));
+    d->replaceAndNextButton->setText(tr("Replace & find"));
+    d->replaceAllButton->setText(tr("Replace All"));
+    buttonBox->addWidget(d->replaceButton);
+    buttonBox->addWidget(d->replaceAndNextButton);
+    buttonBox->addWidget(d->replaceAllButton);
     layout->addLayout(buttonBox, 1, 2, 1, 5);
 
     setLayout(layout);
 
-    connect(m_hideButton, SIGNAL(clicked()), this, SLOT(hide()));
-    connect(m_upButton, SIGNAL(clicked()), this, SLOT(upSearch()));
-    connect(m_downButton, SIGNAL(clicked()), this, SLOT(downSearch()));
-    connect(m_searchButton, SIGNAL(clicked()), this, SLOT(downSearch()));
-    connect(m_searchEdit, SIGNAL(returnPressed()), this, SLOT(downSearch()));
-    connect(m_searchEdit, SIGNAL(textChanged(QString)),
+    connect(d->hideButton, SIGNAL(clicked()), this, SLOT(hide()));
+    connect(d->upButton, SIGNAL(clicked()), this, SLOT(upSearch()));
+    connect(d->downButton, SIGNAL(clicked()), this, SLOT(downSearch()));
+    connect(d->searchButton, SIGNAL(clicked()), this, SLOT(downSearch()));
+    connect(d->searchEdit, SIGNAL(returnPressed()), this, SLOT(downSearch()));
+    connect(d->searchEdit, SIGNAL(textChanged(QString)),
                         this, SLOT(searchChanged(QString)));
-    connect(m_searchEdit, SIGNAL(showSettings()), this, SLOT(showSettings()));
+    connect(d->searchEdit, SIGNAL(showSettings()), this, SLOT(showSettings()));
 
-    connect(m_replaceButton, SIGNAL(clicked()), this, SLOT(replace()));
-    connect(m_replaceAndNextButton, SIGNAL(clicked()),
+    connect(d->replaceButton, SIGNAL(clicked()), this, SLOT(replace()));
+    connect(d->replaceAndNextButton, SIGNAL(clicked()),
                         this, SLOT(replaceAndFind()));
-    connect(m_replaceAllButton, SIGNAL(clicked()),
+    connect(d->replaceAllButton, SIGNAL(clicked()),
                         this, SLOT(replaceAll()));
-
 
     hide();
 }
@@ -1876,114 +2005,136 @@ EditorSearchBar::~EditorSearchBar()
 void EditorSearchBar::show()
 {
     QFrame::show();
-    m_searchEdit->setFocus();
+    d->searchEdit->setFocus();
 }
 
 void EditorSearchBar::upSearch(bool cycle)
 {
-    if (m_searchEdit->text().size()) {
-        if (!d->editWrapper->editor()->find(
-                    m_searchEdit->text(), m_findFlags & QTextDocument::FindBackward)
+    if (!viewD->wrapper() || !viewD->wrapper()->editor() ||
+        !viewD->wrapper()->editor()->document())
+        return;
+
+    if (d->searchEdit->text().size()) {
+        if (!viewD->wrapper()->editor()->find(
+                    d->searchEdit->text(), d->findFlags & QTextDocument::FindBackward)
             && cycle)
         {
             // start over
-            QTextCursor cursor = d->editWrapper->editor()->textCursor();
+            QTextCursor cursor = viewD->wrapper()->editor()->textCursor();
             if (!cursor.isNull()) {
                 cursor.movePosition(QTextCursor::End);
-                d->editWrapper->editor()->setTextCursor(cursor);
+                viewD->wrapper()->editor()->setTextCursor(cursor);
             }
             return upSearch(false);
         }
     }
-    d->editWrapper->editor()->repaint();
-    m_searchEdit->setFocus();
+    viewD->wrapper()->editor()->repaint();
+    d->searchEdit->setFocus();
 }
 
 void EditorSearchBar::downSearch(bool cycle)
 {
-    if (m_searchEdit->text().size()) {
-        if (!d->editWrapper->editor()->find(m_searchEdit->text(), m_findFlags) && cycle) {
+    if (!viewD->wrapper() || !viewD->wrapper()->editor() ||
+        !viewD->wrapper()->editor()->document())
+        return;
+
+    if (d->searchEdit->text().size()) {
+        if (!viewD->wrapper()->editor()->find(d->searchEdit->text(), d->findFlags) && cycle) {
             // start over
-            QTextCursor cursor = d->editWrapper->editor()->textCursor();
+            QTextCursor cursor = viewD->wrapper()->editor()->textCursor();
             if (!cursor.isNull()) {
                 cursor.movePosition(QTextCursor::Start);
-                d->editWrapper->editor()->setTextCursor(cursor);
+                viewD->wrapper()->editor()->setTextCursor(cursor);
             }
             return downSearch(false);
         }
     }
-    d->editWrapper->editor()->repaint();
-    m_searchEdit->setFocus();
+    viewD->wrapper()->editor()->repaint();
+    d->searchEdit->setFocus();
 }
 
 void EditorSearchBar::foundCount(int foundOcurrences)
 {
     // color red if not found
     if (foundOcurrences <= 0)
-        m_searchEdit->setStyleSheet(QLatin1String("QLineEdit {color: red}"));
+        d->searchEdit->setStyleSheet(QLatin1String("QLineEdit {color: red}"));
     else
-        m_searchEdit->setStyleSheet(QLatin1String(""));
+        d->searchEdit->setStyleSheet(QLatin1String(""));
 
     QString found = QString::number(foundOcurrences);
-    m_foundCountLabel->setText(tr("Found: %1 occurrences").arg(found));
+    d->foundCountLabel->setText(tr("Found: %1 occurrences").arg(found));
 }
 
 void EditorSearchBar::searchChanged(const QString &str)
 {
+    if (!viewD->wrapper() || !viewD->wrapper()->editor() ||
+        !viewD->wrapper()->editor()->document())
+        return;
+
     int found = 0;
-    auto edit = d->editWrapper->textEditor();
+    auto edit = viewD->wrapper()->textEditor();
     if (edit) {
         // editor based on TextEditor, able to highlight
-        found = edit->findAndHighlight(str, m_findFlags);
-        d->editWrapper->editor()->repaint();
+        found = edit->findAndHighlight(str, d->findFlags);
+        viewD->wrapper()->editor()->repaint();
         foundCount(found);
     } else {
-        d->editWrapper->editor()->find(str, m_findFlags);
+        viewD->wrapper()->editor()->find(str, d->findFlags);
     }
 }
 
 void EditorSearchBar::replace()
 {
-    if (!m_replaceEdit->text().size() || !m_searchEdit->text().size())
+    if (!d->replaceEdit->text().size() || !d->searchEdit->text().size())
         return;
 
-    QTextCursor cursor = d->editWrapper->editor()->textCursor();
+    if (!viewD->wrapper() || !viewD->wrapper()->editor())
+        return;
+
+    QTextCursor cursor = viewD->wrapper()->editor()->textCursor();
     if (cursor.hasSelection()) {
-        cursor.insertText(m_replaceEdit->text());
-        searchChanged(m_searchEdit->text());
+        cursor.insertText(d->replaceEdit->text());
+        searchChanged(d->searchEdit->text());
     }
 }
 
 void EditorSearchBar::replaceAndFind()
 {
-    if (!m_replaceEdit->text().size() || !m_searchEdit->text().size())
+    if (!d->replaceEdit->text().size() || !d->searchEdit->text().size())
+        return;
+
+    if (!viewD->wrapper() || !viewD->wrapper()->editor())
         return;
 
     replace();
-    d->editWrapper->editor()->find(m_searchEdit->text(), m_findFlags);
+    viewD->wrapper()->editor()->find(d->searchEdit->text(), d->findFlags);
 }
 
 void EditorSearchBar::replaceAll()
 {
-    if (!m_replaceEdit->text().size() || !m_searchEdit->text().size())
+    if (!d->replaceEdit->text().size() || !d->searchEdit->text().size())
         return;
 
-    QTextCursor cursor = d->editWrapper->editor()->textCursor();
+    if (!viewD->wrapper() || !viewD->wrapper()->editor() ||
+        !viewD->wrapper()->editor()->document())
+        return;
+
+    QTextCursor cursor = viewD->wrapper()->editor()->textCursor();
     int oldPos = cursor.position();
 
-    cursor = d->editWrapper->editor()->document()->find(
-                m_searchEdit->text(), m_findFlags);
+    cursor = viewD->wrapper()->editor()->document()->find(
+                d->searchEdit->text(), d->findFlags);
 
     while (!cursor.isNull()) {
-        cursor.insertText(m_replaceEdit->text());
-        cursor = d->editWrapper->editor()->document()->find(
-                    m_searchEdit->text(), cursor, m_findFlags);
+        cursor.insertText(d->replaceEdit->text());
+        cursor = viewD->wrapper()->editor()->document()->find(
+                    d->searchEdit->text(), cursor, d->findFlags);
     }
 
-    searchChanged(m_searchEdit->text());
+    searchChanged(d->searchEdit->text());
 
     cursor.setPosition(oldPos);
-    d->editWrapper->editor()->setTextCursor(cursor);
+    viewD->wrapper()->editor()->setTextCursor(cursor);
 }
 
 void EditorSearchBar::showSettings()
@@ -1991,26 +2142,26 @@ void EditorSearchBar::showSettings()
     QMenu menu;
     QAction caseSensitive(tr("Case sensitive"), &menu);
     caseSensitive.setCheckable(true);
-    caseSensitive.setChecked(m_findFlags & QTextDocument::FindCaseSensitively);
+    caseSensitive.setChecked(d->findFlags & QTextDocument::FindCaseSensitively);
     menu.addAction(&caseSensitive);
 
     QAction wholeWords(tr("Find whole words"), &menu);
     wholeWords.setCheckable(true);
-    wholeWords.setChecked(m_findFlags & QTextDocument::FindWholeWords);
+    wholeWords.setChecked(d->findFlags & QTextDocument::FindWholeWords);
     menu.addAction(&wholeWords);
 
 
     QAction *res = menu.exec(QCursor::pos());
     if (res == &caseSensitive) {
         if (res->isChecked())
-            m_findFlags |= QTextDocument::FindCaseSensitively;
+            d->findFlags |= QTextDocument::FindCaseSensitively;
         else
-            m_findFlags &= ~(QTextDocument::FindCaseSensitively);
+            d->findFlags &= ~(QTextDocument::FindCaseSensitively);
     } else if (res == &wholeWords) {
         if (res->isChecked())
-            m_findFlags |= QTextDocument::FindWholeWords;
+            d->findFlags |= QTextDocument::FindWholeWords;
         else
-            m_findFlags &= ~(QTextDocument::FindWholeWords);
+            d->findFlags &= ~(QTextDocument::FindWholeWords);
     }
 }
 
