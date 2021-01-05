@@ -132,7 +132,10 @@ public:
             activityTimer->stop();
             delete activityTimer;
         }
-        qDeleteAll(wrappers);
+        while (wrappers.size()) {
+            auto wrp = wrappers.takeFirst();
+            delete wrp;
+        }
     }
 
     /// gets the curently viewed wrapper
@@ -455,7 +458,7 @@ void EditorView::checkTimestamp()
     auto wrapper = d->wrapper();
     if (!wrapper) return;
     QFileInfo fi(wrapper->filename());
-    uint64_t timeStamp = fi.lastModified().toLocalTime().secsTo(QDateTime());
+    int64_t timeStamp = fi.lastModified().toLocalTime().secsTo(QDateTime());
     if (fi.exists() && timeStamp != wrapper->timestamp()) {
         switch( QMessageBox::question( this, tr("Modified file"), 
                 tr("%1.\n\nThis has been modified outside of the source editor. Do you want to reload it?")
@@ -581,10 +584,11 @@ bool EditorView::onHasMsg(const char* pMsg) const
 bool EditorView::canClose(void)
 {
     auto wrp = d->wrapper();
-    if (!wrp ||
-        (!wrp->editor() && wrp->editor()->document() &&
-         wrp->editor()->document()->isModified()))
+    if (!wrp || !wrp->editor() || !wrp->editor()->document())
         return true;
+    if (!wrp->editor()->document()->isModified())
+        return true;
+
     this->setFocus(); // raises the view to front
     switch(QMessageBox::question(this, tr("Unsaved document"),
                                     tr("The document has been modified.\n"
@@ -618,8 +622,8 @@ bool EditorView::closeFile()
         d->centralLayout->removeWidget(wrp->editor());
 
         EditorViewWrapper *nextWrapper = nullptr;
-        if (!d->wrappers.isEmpty())
-            nextWrapper = d->wrappers.back();
+        if (d->wrappers.size() > 1)
+            nextWrapper = d->wrappers.at(d->wrappers.size()-2);
 
         if (!nextWrapper)
             return true;
@@ -1189,7 +1193,7 @@ EditorViewWrapper* EditorView::editorWrapper() const
 EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor,
                                      EditorView *view,
                                      const QString &fn)
-    : QObject()
+    : QObject(view)
     , d(new EditorViewWrapperP(editor, view))
 {
     d->plainEdit = editor;
@@ -1199,6 +1203,10 @@ EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor,
     auto textEdit = textEditor();
     if (textEdit)
         textEdit->setWrapper(this);
+
+    // destroy me if the texteditor is destroyed
+    connect(d->plainEdit, &QPlainTextEdit::destroyed,
+            this, &EditorViewWrapper::editorDestroyed);
 
     if (QFile::exists(d->filename)) {
         QFile file(d->filename);
@@ -1222,6 +1230,9 @@ EditorViewWrapper::EditorViewWrapper(QPlainTextEdit *editor,
 
 EditorViewWrapper::~EditorViewWrapper()
 {
+    disconnect(d->plainEdit, &QPlainTextEdit::destroyed,
+               this, &EditorViewWrapper::editorDestroyed);
+
     auto txtEdit = textEditor();
     if (txtEdit) {
         txtEdit->setWrapper(nullptr);
@@ -1273,10 +1284,10 @@ void EditorViewWrapper::close()
     // cleanup and memory release
     if (d->view)
         d->view->closeWrapper(this);
-    if (d->plainEdit)
+    if (d->plainEdit) {
         d->plainEdit->deleteLater();
-
-    d->plainEdit = nullptr;
+        d->plainEdit = nullptr;
+    }
 
     // emit changes
     Q_EMIT EditorViewSingleton::instance()->openFilesChanged();
@@ -1453,6 +1464,11 @@ void EditorViewWrapper::disconnectDoc(QObject *obj)
     auto doc = reinterpret_cast<QTextDocument*>(obj);
     if (doc)
         unsetMirrorDoc(doc);
+}
+
+void EditorViewWrapper::editorDestroyed()
+{
+    delete this;
 }
 
 
@@ -1665,12 +1681,12 @@ EditorView *EditorViewSingleton::activeView() const
 {
     auto views = editorViews();
     for (auto view : editorViews()) {
-        if (view->editor()->hasFocus())
+        if (view->editor() && view->editor()->hasFocus())
             return view;
     }
 
     if (views.isEmpty())
-        return createView();
+        return nullptr; //return createView();
     return views.last();
 }
 

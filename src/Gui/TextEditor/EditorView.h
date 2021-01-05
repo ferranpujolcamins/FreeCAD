@@ -279,6 +279,7 @@ public Q_SLOT:
 private Q_SLOTS:
     void mirrorDocChanged(int from, int charsRemoved, int charsAdded);
     void disconnectDoc(QObject *obj);
+    void editorDestroyed();
 };
 
 // ------------------------------------------------------------------------------------
