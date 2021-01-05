@@ -45,7 +45,7 @@ struct DlgSettingsEditorP
     ~DlgSettingsEditorP()
     {
         if (pythonSyntax)
-            delete pythonSyntax;
+            pythonSyntax->deleteLater();
     }
 
     Gui::PythonSyntaxHighlighter* pythonSyntax;

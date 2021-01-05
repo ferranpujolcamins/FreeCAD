@@ -112,7 +112,7 @@ struct TextEditorP
     }
     ~TextEditorP()
     {
-        delete highlighter;
+        highlighter->deleteLater();
     }
 };
 
