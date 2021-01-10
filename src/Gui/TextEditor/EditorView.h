@@ -79,6 +79,7 @@ class GuiExport EditorView : public MDIView, public WindowParameter,
     EditorViewP* d;
     friend class EditorSearchBar;
     friend class EditorViewWrapper;
+    void _init(QPlainTextEdit *editor, const QString &fn);
 
 public:
     enum DisplayName {
@@ -87,8 +88,8 @@ public:
         BaseName
     };
 
-    explicit EditorView(QPlainTextEdit* editor,
-                        const QString &fn = QString(),
+    explicit EditorView(QPlainTextEdit* editor, QWidget* parent = nullptr);
+    explicit EditorView(QPlainTextEdit* editor, const QString &fn,
                         QWidget* parent = nullptr);
     ~EditorView();
 

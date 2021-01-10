@@ -357,12 +357,25 @@ const QString EditorType::iconStr() const
  *  Constructs a EditorView which is a child of 'parent', with the
  *  name 'name'.
  */
+EditorView::EditorView(QPlainTextEdit *editor, QWidget *parent)
+    : MDIView(nullptr, parent, nullptr)
+    , WindowParameter( "Editor" )
+    , d(new EditorViewP(this, editor))
+{
+    _init(editor, QString());
+}
+
 EditorView::EditorView(QPlainTextEdit *editor,
                        const QString &fn,
                        QWidget* parent)
     : MDIView(nullptr, parent, nullptr)
     , WindowParameter( "Editor" )
     , d(new EditorViewP(this, editor))
+{
+    _init(editor, fn);
+}
+
+void EditorView::_init(QPlainTextEdit *editor, const QString &fn)
 {
     // name in tabwidget
     d->displayName = EditorView::FullName;
@@ -392,12 +405,14 @@ EditorView::EditorView(QPlainTextEdit *editor,
     d->centralLayout->addWidget(d->searchBar);
     vbox->setLayout(d->centralLayout);
 
-    editor->setParent(vbox);
-    editor->document()->setModified(false);
-    //setCurrentFileName(fn);
-    editor->setFocus();
+    if (editor) {
+        editor->setParent(vbox);
+        editor->document()->setModified(false);
+        //setCurrentFileName(fn);
+        editor->setFocus();
 
-    setWindowIcon(editor->windowIcon());
+        setWindowIcon(editor->windowIcon());
+    }
 
 
     // file selection drop down at top of widget
