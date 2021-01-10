@@ -48,16 +48,13 @@ private Q_SLOTS:
     void documentWasModified();
     void showOptions();
     void showEditorOptions();
-#ifndef QT_NO_SESSIONMANAGER
-    void commitData(QSessionManager &);
-#endif
 
 private:
     void createActions();
     void createStatusBar();
     void readSettings();
     void writeSettings();
-    bool maybeSave();
+    void maybeSave();
     Gui::EditorView* newEditorView();
     //bool saveFile(const QString &fileName);
     void createDockWindows();

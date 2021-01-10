@@ -8,6 +8,7 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QDialogButtonBox>
 #include <Gui/DlgEditorImp.h>
 
 #include <Gui/TextEditor/PythonSource/PythonToken.h>
@@ -93,7 +94,7 @@ DlgEditorSettings::DlgEditorSettings(QWidget *parent)
 
 DlgEditorSettings::~DlgEditorSettings()
 {
-    m_dlgEditor->deleteLater();
+     m_dlgEditor->deleteLater();
 }
 
 void DlgEditorSettings::accept()

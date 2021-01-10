@@ -556,6 +556,7 @@ Python::Code::~Code()
  * @param obj to deep copy
  * @return the new obj, borrowed ref
  */
+/*
 PyObject *Python::Code::deepCopy(PyObject *obj) const
 {
     Base::PyGILStateLocker lock;
@@ -589,11 +590,12 @@ out:
 
     return result;
 }
-
+*/
 
 
 QString Python::Code::findFromCurrentFrame(const QString lineText, int pos, const QString word) const
 {
+    (void)word;
     QString ret; // the text to return
 
     // walk the line to see if we can intrep it
@@ -655,7 +657,7 @@ QString Python::Code::findFromCurrentFrame(const QString lineText, int pos, cons
     return ret;
 }
 
-
+/*
 // get thee root of the parent identifier ie os.path.join
 //                                                    ^
 // must traverse from os, then os.path before os.path.join
@@ -712,7 +714,7 @@ QString Python::Code::findFromCurrentFrame(const Python::Token *tok) const
                     .arg(QLatin1String(valueStr))
                     .arg(QLatin1String(reprStr));
 }
-
+/*
   /**
  * @brief PythonCode::findObjFromFrame
  * get thee root of the parent identifier ie os.path.join
@@ -722,7 +724,7 @@ QString Python::Code::findFromCurrentFrame(const Python::Token *tok) const
  * @param obj: Search in obj as a root
  * @param key: name of var to find
  * @return Obj if found or nullptr
- */
+ *//*
 PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needleTok,
                                       QString &foundKey) const
 {
@@ -835,7 +837,7 @@ PyObject *Python::Code::getDeepObject(PyObject *obj, const Python::Token *needle
 out:
     Py_XINCREF(outObj);
     return outObj;
-}
+}*/
 
 
 #include "moc_PythonCode.cpp"

@@ -57,16 +57,16 @@ public:
 
 
     // copies object and all subobjects
-    PyObject* deepCopy(PyObject *obj) const;
+    //PyObject* deepCopy(PyObject *obj) const;
 
     QString findFromCurrentFrame(const QString lineText, int pos, const QString word) const;
 
-    QString findFromCurrentFrame(const Python::Token *tok) const;
+    //QString findFromCurrentFrame(const Python::Token *tok) const;
 
     // get the root of the parent identifier ie os.path.join
     //                                                    ^
     // must traverse from os, then os.path before os.path.join
-    PyObject *getDeepObject(PyObject *obj, const Python::Token *needleTok, QString &foundKey) const;
+    //PyObject *getDeepObject(PyObject *obj, const Python::Token *needleTok, QString &foundKey) const;
 
 private:
     Python::CodeP *d;

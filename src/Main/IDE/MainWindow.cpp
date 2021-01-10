@@ -1,7 +1,6 @@
 ﻿
 #include "MainWindow.h"
 #include "DlgPythonSettings.h"
-//#include <Python.h>
 #include <QtWidgets>
 #include <QSplitter>
 #include <Gui/TextEditor/TextEditor.h>
@@ -43,12 +42,6 @@ MainWindow::MainWindow()
     createActions();
     createStatusBar();
 
-#ifndef QT_NO_SESSIONMANAGER
-    QGuiApplication::setFallbackSessionManagementEnabled(false);
-    connect(qApp, &QGuiApplication::commitDataRequest,
-            this, &MainWindow::commitData);
-#endif
-
     setUnifiedTitleAndToolBarOnMac(true);
 
 
@@ -61,12 +54,10 @@ MainWindow::MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (maybeSave()) {
-        writeSettings();
-        event->accept();
-    } else {
-        event->ignore();
-    }
+    writeSettings();
+    maybeSave();
+
+    Gui::MainWindow::closeEvent(event);
 }
 
 void MainWindow::newFile()
@@ -219,7 +210,9 @@ void MainWindow::createActions()
 
     const QIcon exitIcon = QIcon::fromTheme(QLatin1String("application-exit"));
     QAction *exitAct = fileMenu->addAction(exitIcon, tr("E&xit"),[=](){
-        close(); });
+        close();
+        qApp->quit();
+    });
     exitAct->setShortcuts(QKeySequence::Quit);
     exitAct->setStatusTip(tr("Exit the application"));
 
@@ -355,10 +348,8 @@ void MainWindow::readSettings()
         auto filesVar = settings.value(QString::fromLatin1("openedfiles_%1").arg(i), QStringList());
         auto files = filesVar.toStringList();
         for (auto &fn : files) {
-            if (!fn.isEmpty()) {
-                if (QFileInfo::exists(fn))
-                    view->open(fn);
-            }
+            if (!fn.isEmpty() && QFileInfo::exists(fn))
+                view->open(fn);
         }
     }
 
@@ -426,26 +417,24 @@ void MainWindow::writeSettings()
     auto var = settings.value(QLatin1String("pybreakpoints"));
 }
 
-bool MainWindow::maybeSave()
+void MainWindow::maybeSave()
 {
     auto editorView = Gui::EditorViewSingleton::instance()->activeView();
-    if (!editorView || !editorView->editor()->document()->isModified())
-        return false;
+    if (!editorView || !editorView->editor() ||
+        !editorView->editor()->document() ||
+        !editorView->editor()->document()->isModified())
+    {
+        return;
+    }
 
     const QMessageBox::StandardButton ret
         = QMessageBox::warning(this, tr("Application"),
                                tr("The document has been modified.\n"
                                   "Do you want to save your changes?"),
                                QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-    switch (ret) {
-    case QMessageBox::Save:
-        return save();
-    case QMessageBox::Cancel:
-        return false;
-    default:
-        break;
-    }
-    return true;
+
+    if (ret == QMessageBox::Save)
+        save();
 }
 
 Gui::EditorView* MainWindow::newEditorView()
@@ -483,20 +472,6 @@ QString MainWindow::strippedName(const QString &fullFileName)
 {
     return QFileInfo(fullFileName).fileName();
 }
-#ifndef QT_NO_SESSIONMANAGER
-void MainWindow::commitData(QSessionManager &manager)
-{
-    if (manager.allowsInteraction()) {
-        if (!maybeSave())
-            manager.cancel();
-    } else {
-        // Non-interactive: save without asking
-        auto editorView = dynamic_cast<Gui::EditorView*>(activeWindow());
-        if (editorView && editorView->editor()->document()->isModified())
-            save();
-    }
-}
-#endif
 
 void MainWindow::createDockWindows()
 {
