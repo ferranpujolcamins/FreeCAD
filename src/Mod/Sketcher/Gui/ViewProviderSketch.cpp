@@ -70,6 +70,7 @@
 # include <QPainter>
 # include <QTextStream>
 # include <QKeyEvent>
+# include <QDesktopWidget>
 
 # include <boost_bind_bind.hpp>
 # include <boost/scoped_ptr.hpp>
@@ -149,7 +150,7 @@ SbColor ViewProviderSketch::CurveColor                              (1.0f,1.0f,1
 SbColor ViewProviderSketch::CurveDraftColor                         (0.0f,0.0f,0.86f);    // #0000DC -> (  0,  0,220)
 SbColor ViewProviderSketch::CurveExternalColor                      (0.8f,0.2f,0.6f);     // #CC3399 -> (204, 51,153)
 SbColor ViewProviderSketch::CrossColorH                             (0.8f,0.4f,0.4f);     // #CC6666 -> (204,102,102)
-SbColor ViewProviderSketch::CrossColorV                             (0.4f,0.8f,0.4f);     // #66CC66 -> (102,204,102)
+SbColor ViewProviderSketch::CrossColorV                             (0.47f,1.0f,0.51f);   // #83FF83 -> (120,255,131)
 SbColor ViewProviderSketch::FullyConstrainedColor                   (0.0f,1.0f,0.0f);     // #00FF00 -> (  0,255,  0)
 SbColor ViewProviderSketch::ConstrDimColor                          (1.0f,0.149f,0.0f);   // #FF2600 -> (255, 38,  0)
 SbColor ViewProviderSketch::ConstrIcoColor                          (1.0f,0.149f,0.0f);   // #FF2600 -> (255, 38,  0)
@@ -187,9 +188,11 @@ struct EditData {
     PreselectCurve(-1),
     PreselectCross(-1),
     MarkerSize(7),
+    coinFontSize(11), // default of 11 points (not pixels)
+    constraintIconSize(15), // 11 points @ 96 ppi where 72 points = 1 inch
     blockedPreselection(false),
     FullyConstrained(false),
-    //ActSketch(0), // if you are wondering, it went to SketchObject, accessible via getSketchObject()->getSolvedSketch()
+    //ActSketch(0), // if you are wondering, it went to SketchObject, accessible via getSolvedSketch() and via SketchObject interface as appropriate
     EditRoot(0),
     PointsMaterials(0),
     CurvesMaterials(0),
@@ -207,7 +210,13 @@ struct EditData {
     textPos(0),
     constrGroup(0),
     infoGroup(0),
-    pickStyleAxes(0)
+    pickStyleAxes(0),
+    PointsDrawStyle(0),
+    CurvesDrawStyle(0),
+    RootCrossDrawStyle(0),
+    EditCurvesDrawStyle(0),
+    ConstraintDrawStyle(0),
+    InformationDrawStyle(0)
     {}
 
     // pointer to the active handler for new sketch objects
@@ -227,6 +236,9 @@ struct EditData {
     int PreselectCurve;
     int PreselectCross;
     int MarkerSize;
+    int coinFontSize;
+    int constraintIconSize;
+    double pixelScalingFactor;
     std::set<int> PreselectConstraintSet;
     bool blockedPreselection;
     bool FullyConstrained;
@@ -272,6 +284,13 @@ struct EditData {
     SmSwitchboard *constrGroup;
     SoGroup       *infoGroup;
     SoPickStyle   *pickStyleAxes;
+
+    SoDrawStyle * PointsDrawStyle;
+    SoDrawStyle * CurvesDrawStyle;
+    SoDrawStyle * RootCrossDrawStyle;
+    SoDrawStyle * EditCurvesDrawStyle;
+    SoDrawStyle * ConstraintDrawStyle;
+    SoDrawStyle * InformationDrawStyle;
 };
 
 
@@ -289,7 +308,7 @@ const Part::Geometry* GeoById(const std::vector<Part::Geometry*> GeoList, int Id
 
 /* TRANSLATOR SketcherGui::ViewProviderSketch */
 
-PROPERTY_SOURCE(SketcherGui::ViewProviderSketch, PartGui::ViewProvider2DObjectGrid)
+PROPERTY_SOURCE_WITH_EXTENSIONS(SketcherGui::ViewProviderSketch, PartGui::ViewProvider2DObjectGrid)
 
 
 ViewProviderSketch::ViewProviderSketch()
@@ -301,6 +320,8 @@ ViewProviderSketch::ViewProviderSketch()
     isShownVirtualSpace(false),
     listener(0)
 {
+    PartGui::ViewProviderAttachExtension::initExtension(this);
+
     ADD_PROPERTY_TYPE(Autoconstraints,(true),"Auto Constraints",(App::PropertyType)(App::Prop_None),"Create auto constraints");
     ADD_PROPERTY_TYPE(AvoidRedundant,(true),"Auto Constraints",(App::PropertyType)(App::Prop_None),"Avoid redundant autoconstraint");
     ADD_PROPERTY_TYPE(TempoVis,(Py::None()),"Visibility automation",(App::PropertyType)(App::Prop_None),"Object that handles hiding and showing other objects when entering/leaving sketch.");
@@ -370,11 +391,14 @@ ViewProviderSketch::ViewProviderSketch()
 
     //rubberband selection
     rubberband = new Gui::Rubberband();
+
+    subscribeToParameters();
 }
 
 ViewProviderSketch::~ViewProviderSketch()
 {
     delete rubberband;
+    unsubscribeToParameters();
 }
 
 void ViewProviderSketch::slotUndoDocument(const Gui::Document& /*doc*/)
@@ -1139,7 +1163,7 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
             }
             return false;
         case STATUS_SELECT_Point:
-            if (!getSketchObject()->getSolvedSketch().hasConflicts() &&
+            if (!getSolvedSketch().hasConflicts() &&
                 edit->PreselectPoint != -1 && edit->DragPoint != edit->PreselectPoint) {
                 Mode = STATUS_SKETCH_DragPoint;
                 edit->DragPoint = edit->PreselectPoint;
@@ -1147,7 +1171,7 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
                 Sketcher::PointPos PosId;
                 getSketchObject()->getGeoVertexIndex(edit->DragPoint, GeoId, PosId);
                 if (GeoId != Sketcher::Constraint::GeoUndef && PosId != Sketcher::none) {
-                    getSketchObject()->getSolvedSketch().initMove(GeoId, PosId, false);
+                    getSketchObject()->initTemporaryMove(GeoId, PosId, false);
                     relative = false;
                     xInit = 0;
                     yInit = 0;
@@ -1161,7 +1185,7 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
             edit->PreselectConstraintSet.clear();
             return true;
         case STATUS_SELECT_Edge:
-            if (!getSketchObject()->getSolvedSketch().hasConflicts() &&
+            if (!getSolvedSketch().hasConflicts() &&
                 edit->PreselectCurve != -1 && edit->DragCurve != edit->PreselectCurve) {
                 Mode = STATUS_SKETCH_DragCurve;
                 edit->DragCurve = edit->PreselectCurve;
@@ -1183,7 +1207,7 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
 
                         // The B-Spline is constrained to be non-rational (equal weights), moving produces a bad effect
                         // because OCCT will normalize the values of the weights.
-                        auto grp = getSketchObject()->getSolvedSketch().getDependencyGroup(edit->DragCurve, Sketcher::none);
+                        auto grp = getSolvedSketch().getDependencyGroup(edit->DragCurve, Sketcher::none);
 
                         int bsplinegeoid = -1;
 
@@ -1231,8 +1255,6 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
 
                 }
 
-                getSketchObject()->getSolvedSketch().initMove(edit->DragCurve, Sketcher::none, false);
-
                 if (geo->getTypeId() == Part::GeomLineSegment::getClassTypeId() ||
                     geo->getTypeId() == Part::GeomBSplineCurve::getClassTypeId()) {
                     relative = true;
@@ -1249,6 +1271,9 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
                     xInit = 0;
                     yInit = 0;
                 }
+
+                getSketchObject()->initTemporaryMove(edit->DragCurve, Sketcher::none, false);
+
             } else {
                 Mode = STATUS_NONE;
             }
@@ -1273,12 +1298,12 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
                 getSketchObject()->getGeoVertexIndex(edit->DragPoint, GeoId, PosId);
                 Base::Vector3d vec(x,y,0);
                 if (GeoId != Sketcher::Constraint::GeoUndef && PosId != Sketcher::none) {
-                    if (getSketchObject()->getSolvedSketch().movePoint(GeoId, PosId, vec, false) == 0) {
+                    if (getSketchObject()->moveTemporaryPoint(GeoId, PosId, vec, false) == 0) {
                         setPositionText(Base::Vector2d(x,y));
                         draw(true,false);
-                        signalSolved(QString::fromLatin1("Solved in %1 sec").arg(getSketchObject()->getSolvedSketch().SolveTime));
+                        signalSolved(QString::fromLatin1("Solved in %1 sec").arg(getSolvedSketch().getSolveTime()));
                     } else {
-                        signalSolved(QString::fromLatin1("Unsolved (%1 sec)").arg(getSketchObject()->getSolvedSketch().SolveTime));
+                        signalSolved(QString::fromLatin1("Unsolved (%1 sec)").arg(getSolvedSketch().getSolveTime()));
                         //Base::Console().Log("Error solving:%d\n",ret);
                     }
                 }
@@ -1314,12 +1339,12 @@ bool ViewProviderSketch::mouseMove(const SbVec2s &cursorPos, Gui::View3DInventor
                     vec = center + dir / scalefactor;
                 }
 
-                if (getSketchObject()->getSolvedSketch().movePoint(edit->DragCurve, Sketcher::none, vec, relative) == 0) {
+                if (getSketchObject()->moveTemporaryPoint(edit->DragCurve, Sketcher::none, vec, relative) == 0) {
                     setPositionText(Base::Vector2d(x,y));
                     draw(true,false);
-                    signalSolved(QString::fromLatin1("Solved in %1 sec").arg(getSketchObject()->getSolvedSketch().SolveTime));
+                    signalSolved(QString::fromLatin1("Solved in %1 sec").arg(getSolvedSketch().getSolveTime()));
                 } else {
-                    signalSolved(QString::fromLatin1("Unsolved (%1 sec)").arg(getSketchObject()->getSolvedSketch().SolveTime));
+                    signalSolved(QString::fromLatin1("Unsolved (%1 sec)").arg(getSolvedSketch().getSolveTime()));
                 }
             }
             return true;
@@ -1380,7 +1405,7 @@ void ViewProviderSketch::moveConstraint(int constNum, const Base::Vector2d &toPo
 #endif
 
     // with memory allocation
-    const std::vector<Part::Geometry *> geomlist = getSketchObject()->getSolvedSketch().extractGeometry(true, true);
+    const std::vector<Part::Geometry *> geomlist = getSolvedSketch().extractGeometry(true, true);
 
 #ifdef _DEBUG
     assert(int(geomlist.size()) == extGeoCount + intGeoCount);
@@ -1393,10 +1418,10 @@ void ViewProviderSketch::moveConstraint(int constNum, const Base::Vector2d &toPo
 
         Base::Vector3d p1(0.,0.,0.), p2(0.,0.,0.);
         if (Constr->SecondPos != Sketcher::none) { // point to point distance
-            p1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
-            p2 = getSketchObject()->getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
+            p1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+            p2 = getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
         } else if (Constr->Second != Constraint::GeoUndef) { // point to line distance
-            p1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+            p1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
             const Part::Geometry *geo = GeoById(geomlist, Constr->Second);
             if (geo->getTypeId() == Part::GeomLineSegment::getClassTypeId()) {
                 const Part::GeomLineSegment *lineSeg = static_cast<const Part::GeomLineSegment *>(geo);
@@ -1408,7 +1433,7 @@ void ViewProviderSketch::moveConstraint(int constNum, const Base::Vector2d &toPo
             } else
                 return;
         } else if (Constr->FirstPos != Sketcher::none) {
-            p2 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+            p2 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
         } else if (Constr->First != Constraint::GeoUndef) {
             const Part::Geometry *geo = GeoById(geomlist, Constr->First);
             if (geo->getTypeId() == Part::GeomLineSegment::getClassTypeId()) {
@@ -1534,11 +1559,11 @@ void ViewProviderSketch::moveConstraint(int constNum, const Base::Vector2d &toPo
                     factor = factor * Base::sgn<double>((dir1+dir2) * vec);
                 }
             } else {//angle-via-point
-                Base::Vector3d p = getSketchObject()->getSolvedSketch().getPoint(Constr->Third, Constr->ThirdPos);
+                Base::Vector3d p = getSolvedSketch().getPoint(Constr->Third, Constr->ThirdPos);
                 p0 = Base::Vector3d(p.x, p.y, 0);
-                dir1 = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->First, p.x, p.y);
+                dir1 = getSolvedSketch().calculateNormalAtPoint(Constr->First, p.x, p.y);
                 dir1.RotateZ(-M_PI/2);//convert to vector of tangency by rotating
-                dir2 = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->Second, p.x, p.y);
+                dir2 = getSolvedSketch().calculateNormalAtPoint(Constr->Second, p.x, p.y);
                 dir2.RotateZ(-M_PI/2);
 
                 Base::Vector3d vec = Base::Vector3d(toPos.x, toPos.y, 0) - p0;
@@ -3032,7 +3057,7 @@ void ViewProviderSketch::updateColor(void)
             } else if (type == Sketcher::Coincident) {
                 auto selectpoint = [this, pcolor, PtNum](int geoid, Sketcher::PointPos pos){
                     if(geoid >= 0) {
-                        int index = getSketchObject()->getSolvedSketch().getPointId(geoid, pos) + 1;
+                        int index = getSolvedSketch().getPointId(geoid, pos) + 1;
                         if (index >= 0 && index < PtNum)
                             pcolor[index] = SelectColor;
                     }
@@ -3060,7 +3085,7 @@ void ViewProviderSketch::updateColor(void)
                     case EllipseFocus1:
                     case EllipseFocus2:
                     {
-                        int index = getSketchObject()->getSolvedSketch().getPointId(constraint->First, constraint->FirstPos) + 1;
+                        int index = getSolvedSketch().getPointId(constraint->First, constraint->FirstPos) + 1;
                         if (index >= 0 && index < PtNum) pcolor[index] = SelectColor;
                     }
                     break;
@@ -3187,6 +3212,13 @@ QString ViewProviderSketch::getPresentationString(const Constraint *constraint)
         }
     }
 
+    if (constraint->Type == Sketcher::Diameter){
+        userStr.insert(0, QChar(8960)); // Diameter sign
+    }
+    else if (constraint->Type == Sketcher::Radius){
+        userStr.insert(0, QChar(82)); // Capital letter R
+    }
+
     return userStr;
 }
 
@@ -3195,25 +3227,25 @@ QString ViewProviderSketch::iconTypeFromConstraint(Constraint *constraint)
     /*! TODO: Consider pushing this functionality up into Constraint */
     switch(constraint->Type) {
     case Horizontal:
-        return QString::fromLatin1("small/Constraint_Horizontal_sm");
+        return QString::fromLatin1("Constraint_Horizontal");
     case Vertical:
-        return QString::fromLatin1("small/Constraint_Vertical_sm");
+        return QString::fromLatin1("Constraint_Vertical");
     case PointOnObject:
-        return QString::fromLatin1("small/Constraint_PointOnObject_sm");
+        return QString::fromLatin1("Constraint_PointOnObject");
     case Tangent:
-        return QString::fromLatin1("small/Constraint_Tangent_sm");
+        return QString::fromLatin1("Constraint_Tangent");
     case Parallel:
-        return QString::fromLatin1("small/Constraint_Parallel_sm");
+        return QString::fromLatin1("Constraint_Parallel");
     case Perpendicular:
-        return QString::fromLatin1("small/Constraint_Perpendicular_sm");
+        return QString::fromLatin1("Constraint_Perpendicular");
     case Equal:
-        return QString::fromLatin1("small/Constraint_EqualLength_sm");
+        return QString::fromLatin1("Constraint_EqualLength");
     case Symmetric:
-        return QString::fromLatin1("small/Constraint_Symmetric_sm");
+        return QString::fromLatin1("Constraint_Symmetric");
     case SnellsLaw:
-        return QString::fromLatin1("small/Constraint_SnellsLaw_sm");
+        return QString::fromLatin1("Constraint_SnellsLaw");
     case Block:
-        return QString::fromLatin1("small/Constraint_Block_sm");
+        return QString::fromLatin1("Constraint_Block");
     default:
         return QString();
     }
@@ -3448,7 +3480,7 @@ void ViewProviderSketch::combineConstraintIcons(IconQueue iconQueue)
         iconQueue.pop_back();
 
         // we group only icons not being Symmetry icons, because we want those on the line
-        if(init.type != QString::fromLatin1("small/Constraint_Symmetric_sm")){
+        if(init.type != QString::fromLatin1("Constraint_Symmetric")){
 
             IconQueue::iterator i = iconQueue.begin();
             while(i != iconQueue.end()) {
@@ -3457,7 +3489,7 @@ void ViewProviderSketch::combineConstraintIcons(IconQueue iconQueue)
                 for(IconQueue::iterator j = thisGroup.begin();
                     j != thisGroup.end(); ++j) {
                     float distSquared = pow(i->position[0]-j->position[0],2) + pow(i->position[1]-j->position[1],2);
-                    if(distSquared <= maxDistSquared && (*i).type != QString::fromLatin1("small/Constraint_Symmetric_sm")) {
+                    if(distSquared <= maxDistSquared && (*i).type != QString::fromLatin1("Constraint_Symmetric")) {
                         // Found an icon in iconQueue that's close enough to
                         // a member of thisGroup, so move it into thisGroup
                         thisGroup.push_back(*i);
@@ -3643,10 +3675,10 @@ QImage ViewProviderSketch::renderConstrIcon(const QString &type,
     // Constants to help create constraint icons
     QString joinStr = QString::fromLatin1(", ");
 
-    QImage icon = Gui::BitmapFactory().pixmap(type.toLatin1()).toImage();
+    QImage icon = Gui::BitmapFactory().pixmapFromSvg(type.toLatin1().data(),QSizeF(edit->constraintIconSize,edit->constraintIconSize)).toImage();
 
     QFont font = QApplication::font();
-    font.setPixelSize(11);
+    font.setPixelSize(static_cast<int>(0.8 * edit->constraintIconSize));
     font.setBold(true);
     QFontMetrics qfm = QFontMetrics(font);
 
@@ -3745,6 +3777,105 @@ float ViewProviderSketch::getScaleFactor()
     }
 }
 
+void ViewProviderSketch::OnChange(Base::Subject<const char*> &rCaller, const char * sReason)
+{
+    (void) rCaller;
+    //ParameterGrp& rclGrp = ((ParameterGrp&)rCaller);
+    if (strcmp(sReason, "ViewScalingFactor") == 0   ||
+        strcmp(sReason, "MarkerSize") == 0          ||
+        strcmp(sReason, "EditSketcherFontSize") == 0 ) {
+        if(edit) { // only if in edit mode, if not it gets updated when entering edit mode
+            initItemsSizes();
+            updateInventorNodeSizes();
+            rebuildConstraintsVisual();
+            draw();
+        }
+    }
+}
+
+void ViewProviderSketch::subscribeToParameters()
+{
+     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+     hGrp->Attach(this);
+}
+
+void ViewProviderSketch::unsubscribeToParameters()
+{
+     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+     hGrp->Detach(this);
+}
+
+void ViewProviderSketch::updateInventorNodeSizes()
+{
+    assert(edit);
+    edit->PointsDrawStyle->pointSize = std::lround(8 * edit->pixelScalingFactor);
+    edit->PointSet->markerIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex("CIRCLE_FILLED", edit->MarkerSize);
+    edit->CurvesDrawStyle->lineWidth = std::lround(3 * edit->pixelScalingFactor);
+    edit->RootCrossDrawStyle->lineWidth = std::lround(2 * edit->pixelScalingFactor);
+    edit->EditCurvesDrawStyle->lineWidth = std::lround(3 * edit->pixelScalingFactor);
+    edit->ConstraintDrawStyle->lineWidth = std::lround(1 * edit->pixelScalingFactor);
+    edit->InformationDrawStyle->lineWidth = std::lround(1 * edit->pixelScalingFactor);
+}
+
+void ViewProviderSketch::initItemsSizes()
+{
+    //Add scaling to Constraint icons
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    double viewScalingFactor = hGrp->GetFloat("ViewScalingFactor", 1.0);
+    viewScalingFactor = Base::clamp<double>(viewScalingFactor, 0.5, 5.0);
+    int markersize = hGrp->GetInt("MarkerSize", 7);
+
+    int defaultFontSizePixels = QApplication::fontMetrics().height(); // returns height in pixels, not points
+    int sketcherfontSize = hGrp->GetInt("EditSketcherFontSize", defaultFontSizePixels);
+
+    auto pixelsToPoints = [](int pixels, int dpi) {
+        return pixels*72/dpi; // definition of point, 72 points = 1 inch
+    };
+
+    // coin takes the font size in points, not pixels
+    // the coin FontSize in points from the system font, taking into account the application scaling factor is:
+    // -> pixelsToPoints(defaultFontSizePixels * viewScalingFactor, dpi)
+
+    int dpi = QApplication::desktop()->logicalDpiX();
+
+    if(edit) {
+        // simple scaling factor for hardcoded pixel values in the Sketcher
+        edit->pixelScalingFactor = viewScalingFactor * dpi / 96; // 96 ppi is the standard pixel density for which pixel quantities were calculated
+
+        edit->coinFontSize = pixelsToPoints(sketcherfontSize, dpi);
+        edit->constraintIconSize = std::lround(0.8 * sketcherfontSize);
+
+        // The global default is used.
+        //
+        // Rationale:
+        // -> Other WBs use the default value as is
+        // -> If a user has a HDPI, he will eventually change the value for the other WBs
+        // -> If we correct the value here in addition, we would get two times a resize
+
+        edit->MarkerSize = markersize;
+
+        // This commented code would find a the closest supported marker value to a provided value.
+        // It may be useful if a different global marker size implementation is provided.
+        //
+        // Here marker size is used as a ratio to the default of 7 px (as a second scaling factor)
+        // the default marker size is 30% of the view3dFontPixels
+        // NOTE: Not all marker sizes are supported, grab the closest supported one.
+        /*
+        std::vector<int> supportedsizes {5, 7, 9, 11, 13, 15};
+        int calculatedmarker = std::lround(0.3*view3dFontPixels*markersize/7.0);
+
+        auto pos = std::upper_bound(supportedsizes.begin(), supportedsizes.end(), calculatedmarker);
+
+        if(pos == supportedsizes.end())
+            edit->MarkerSize = *std::prev(supportedsizes.end());
+        else if(pos == supportedsizes.begin())
+            edit->MarkerSize = *supportedsizes.begin();
+        else
+            edit->MarkerSize = (*pos - calculatedmarker > calculatedmarker - *std::prev(pos))?*std::prev(pos):*pos;
+        */
+    }
+}
+
 void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer /*=true*/)
 {
     assert(edit);
@@ -3760,7 +3891,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
     const std::vector<Part::Geometry *> *geomlist;
     std::vector<Part::Geometry *> tempGeo;
     if (temp)
-        tempGeo = getSketchObject()->getSolvedSketch().extractGeometry(true, true); // with memory allocation
+        tempGeo = getSolvedSketch().extractGeometry(true, true); // with memory allocation
     else
         tempGeo = getSketchObject()->getCompleteGeometry(); // without memory allocation
     geomlist = &tempGeo;
@@ -3780,9 +3911,6 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
         Gui::coinRemoveAllChildren(edit->infoGroup);
     }
 
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
-    int fontSize = hGrp->GetInt("EditSketcherFontSize", 17);
-
     int currentInfoNode = 0;
 
     ParameterGrp::handle hGrpsk = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher/General");
@@ -3795,6 +3923,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
 
     int GeoId = 0;
 
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
     int stdcountsegments = hGrp->GetInt("SegmentsPerGeometry", 50);
     // value cannot be smaller than 3
     if (stdcountsegments < 3)
@@ -3880,7 +4009,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
                                 auto vpext = std::make_unique<SketcherGui::ViewProviderSketchGeometryExtension>();
                                 vpext->setRepresentationFactor(scalefactor);
 
-                                getSketchObject()->getSolvedSketch().updateExtension(GeoId, std::move(vpext));
+                                getSketchObject()->updateSolverExtension(GeoId, std::move(vpext));
                             }
 
                             if(!circle->hasExtension(SketcherGui::ViewProviderSketchGeometryExtension::getClassTypeId()))
@@ -4225,7 +4354,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
 
             SoFont *font = new SoFont;
             font->name.setValue("Helvetica");
-            font->size.setValue(fontSize);
+            font->size.setValue(edit->coinFontSize);
 
             SoText2 *degreetext = new SoText2;
             degreetext->string = SbString(spline->getDegree());
@@ -4504,7 +4633,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
 
                 SoFont *font = new SoFont;
                 font->name.setValue("Helvetica");
-                font->size.setValue(fontSize);
+                font->size.setValue(edit->coinFontSize);
 
                 SoText2 *degreetext = new SoText2;
                 degreetext->string = SbString("(") + SbString(*itm) + SbString(")");
@@ -4571,7 +4700,7 @@ void ViewProviderSketch::draw(bool temp /*=false*/, bool rebuildinformationlayer
 
                 SoFont* font = new SoFont;
                 font->name.setValue("Helvetica");
-                font->size.setValue(fontSize);
+                font->size.setValue(edit->coinFontSize);
 
                 translate->translation.setValue(poleposition.x, poleposition.y, zInfo);
 
@@ -4881,12 +5010,12 @@ Restart:
                             Base::Vector3d midpos2, dir2, norm2;
 
                             if (temp)
-                                midpos1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+                                midpos1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
                             else
                                 midpos1 = getSketchObject()->getPoint(Constr->First, Constr->FirstPos);
 
                             if (temp)
-                                midpos2 = getSketchObject()->getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
+                                midpos2 = getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
                             else
                                 midpos2 = getSketchObject()->getPoint(Constr->Second, Constr->SecondPos);
 
@@ -4938,11 +5067,11 @@ Restart:
                                 assert(0);//no point found!
                             } while (false);
                             if (temp)
-                                midpos1 = getSketchObject()->getSolvedSketch().getPoint(ptGeoId, ptPosId);
+                                midpos1 = getSolvedSketch().getPoint(ptGeoId, ptPosId);
                             else
                                 midpos1 = getSketchObject()->getPoint(ptGeoId, ptPosId);
 
-                            norm1 = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->Second, midpos1.x, midpos1.y);
+                            norm1 = getSolvedSketch().calculateNormalAtPoint(Constr->Second, midpos1.x, midpos1.y);
                             norm1.Normalize();
                             dir1 = norm1; dir1.RotateZ(-M_PI/2.0);
 
@@ -5206,15 +5335,15 @@ Restart:
                         Base::Vector3d pnt1(0.,0.,0.), pnt2(0.,0.,0.);
                         if (Constr->SecondPos != Sketcher::none) { // point to point distance
                             if (temp) {
-                                pnt1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
-                                pnt2 = getSketchObject()->getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
+                                pnt1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+                                pnt2 = getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
                             } else {
                                 pnt1 = getSketchObject()->getPoint(Constr->First, Constr->FirstPos);
                                 pnt2 = getSketchObject()->getPoint(Constr->Second, Constr->SecondPos);
                             }
                         } else if (Constr->Second != Constraint::GeoUndef) { // point to line distance
                             if (temp) {
-                                pnt1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+                                pnt1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
                             } else {
                                 pnt1 = getSketchObject()->getPoint(Constr->First, Constr->FirstPos);
                             }
@@ -5230,7 +5359,7 @@ Restart:
                                 break;
                         } else if (Constr->FirstPos != Sketcher::none) {
                             if (temp) {
-                                pnt2 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+                                pnt2 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
                             } else {
                                 pnt2 = getSketchObject()->getPoint(Constr->First, Constr->FirstPos);
                             }
@@ -5301,9 +5430,9 @@ Restart:
                                 if (ptPosId != Sketcher::none) break;
                                 assert(0);//no point found!
                             } while (false);
-                            pos = getSketchObject()->getSolvedSketch().getPoint(ptGeoId, ptPosId);
+                            pos = getSolvedSketch().getPoint(ptGeoId, ptPosId);
 
-                            Base::Vector3d norm = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->Second, pos.x, pos.y);
+                            Base::Vector3d norm = getSolvedSketch().calculateNormalAtPoint(Constr->Second, pos.x, pos.y);
                             norm.Normalize();
                             Base::Vector3d dir = norm; dir.RotateZ(-M_PI/2.0);
 
@@ -5429,8 +5558,8 @@ Restart:
                         assert(Constr->First >= -extGeoCount && Constr->First < intGeoCount);
                         assert(Constr->Second >= -extGeoCount && Constr->Second < intGeoCount);
 
-                        Base::Vector3d pnt1 = getSketchObject()->getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
-                        Base::Vector3d pnt2 = getSketchObject()->getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
+                        Base::Vector3d pnt1 = getSolvedSketch().getPoint(Constr->First, Constr->FirstPos);
+                        Base::Vector3d pnt2 = getSolvedSketch().getPoint(Constr->Second, Constr->SecondPos);
 
                         SbVec3f p1(pnt1.x,pnt1.y,zConstr);
                         SbVec3f p2(pnt2.x,pnt2.y,zConstr);
@@ -5513,11 +5642,11 @@ Restart:
                                 startangle = atan2(dir1.y,dir1.x);
                             }
                             else {//angle-via-point
-                                Base::Vector3d p = getSketchObject()->getSolvedSketch().getPoint(Constr->Third, Constr->ThirdPos);
+                                Base::Vector3d p = getSolvedSketch().getPoint(Constr->Third, Constr->ThirdPos);
                                 p0 = SbVec3f(p.x, p.y, 0);
-                                dir1 = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->First, p.x, p.y);
+                                dir1 = getSolvedSketch().calculateNormalAtPoint(Constr->First, p.x, p.y);
                                 dir1.RotateZ(-M_PI/2);//convert to vector of tangency by rotating
-                                dir2 = getSketchObject()->getSolvedSketch().calculateNormalAtPoint(Constr->Second, p.x, p.y);
+                                dir2 = getSolvedSketch().calculateNormalAtPoint(Constr->Second, p.x, p.y);
                                 dir2.RotateZ(-M_PI/2);
 
                                 startangle = atan2(dir1.y,dir1.x);
@@ -5745,9 +5874,6 @@ void ViewProviderSketch::rebuildConstraintsVisual(void)
     Gui::coinRemoveAllChildren(edit->constrGroup);
     edit->vConstrType.clear();
 
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
-    int fontSize = hGrp->GetInt("EditSketcherFontSize", 17);
-
     for (std::vector<Sketcher::Constraint *>::const_iterator it=constrlist.begin(); it != constrlist.end(); ++it) {
         // root separator for one constraint
         SoSeparator *sep = new SoSeparator();
@@ -5792,7 +5918,8 @@ void ViewProviderSketch::rebuildConstraintsVisual(void)
                                             ConstrDimColor
                                             :NonDrivingConstrDimColor)
                                         :DeactivatedConstrDimColor;
-                text->size.setValue(fontSize);
+                text->size.setValue(edit->coinFontSize);
+                text->lineWidth = std::lround(2 * edit->pixelScalingFactor);
                 text->useAntialiasing = false;
                 SoAnnotation *anno = new SoAnnotation();
                 anno->renderCaching = SoSeparator::OFF;
@@ -5895,6 +6022,7 @@ void ViewProviderSketch::rebuildConstraintsVisual(void)
                 arrows->norm.setValue(norm);
                 arrows->string = "";
                 arrows->textColor = ConstrDimColor;
+                arrows->lineWidth = std::lround(2 * edit->pixelScalingFactor);
 
                 // #define CONSTRAINT_SEPARATOR_INDEX_MATERIAL_OR_DATUMLABEL 0
                 sep->addChild(arrows);
@@ -6001,7 +6129,7 @@ void ViewProviderSketch::updateData(const App::Property *prop)
         UpdateSolverInformation(); // just update the solver window with the last SketchObject solving information
 
         if(getSketchObject()->getExternalGeometryCount()+getSketchObject()->getHighestCurveIndex() + 1 ==
-            getSketchObject()->getSolvedSketch().getGeometrySize()) {
+            getSolvedSketch().getGeometrySize()) {
             Gui::MDIView *mdi = Gui::Application::Instance->editDocument()->getActiveView();
             if (mdi->isDerivedFrom(Gui::View3DInventor::getClassTypeId()))
                 draw(false,true);
@@ -6082,8 +6210,8 @@ bool ViewProviderSketch::setEdit(int ModNum)
     assert(!edit);
     edit = new EditData();
 
-    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
-    edit->MarkerSize = hGrp->GetInt("MarkerSize", 7);
+    // Init icon, font and marker sizes
+    initItemsSizes();
 
     ParameterGrp::handle hSketch = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
     edit->handleEscapeButton = !hSketch->GetBool("LeaveSketchWithEscape", true);
@@ -6138,6 +6266,7 @@ bool ViewProviderSketch::setEdit(int ModNum)
 
     float transparency;
 
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
     // set the point color
     unsigned long color = (unsigned long)(VertexColor.getPackedValue());
     color = hGrp->GetUnsigned("EditedVertexColor", color);
@@ -6255,8 +6384,7 @@ bool ViewProviderSketch::setEdit(int ModNum)
     // Enable solver initial solution update while dragging.
     ParameterGrp::handle hGrp2 = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
 
-    getSketchObject()->getSolvedSketch().RecalculateInitialSolutionWhileMovingPoint = hGrp2->GetBool("RecalculateInitialSolutionWhileDragging",true);
-
+    getSketchObject()->setRecalculateInitialSolutionWhileMovingPoint(hGrp2->GetBool("RecalculateInitialSolutionWhileDragging",true));
 
     // intercept del key press from main app
     listener = new ShortcutListener(this);
@@ -6268,35 +6396,40 @@ bool ViewProviderSketch::setEdit(int ModNum)
 
 QString ViewProviderSketch::appendConflictMsg(const std::vector<int> &conflicting)
 {
-    QString msg;
-    QTextStream ss(&msg);
-    if (conflicting.size() > 0) {
-        if (conflicting.size() == 1)
-            ss << tr("Please remove the following constraint:");
-        else
-            ss << tr("Please remove at least one of the following constraints:");
-        ss << "\n";
-        ss << conflicting[0];
-        for (unsigned int i=1; i < conflicting.size(); i++)
-            ss << ", " << conflicting[i];
-        ss << "\n";
-    }
-    return msg;
+    return appendConstraintMsg(tr("Please remove the following constraint:"),
+                        tr("Please remove at least one of the following constraints:"),
+                        conflicting);
 }
 
 QString ViewProviderSketch::appendRedundantMsg(const std::vector<int> &redundant)
 {
+    return appendConstraintMsg(tr("Please remove the following redundant constraint:"),
+                        tr("Please remove the following redundant constraints:"),
+                        redundant);
+}
+
+QString ViewProviderSketch::appendMalformedMsg(const std::vector<int> &malformed)
+{
+    return appendConstraintMsg(tr("Please remove the following malformed constraint:"),
+                        tr("Please remove the following malformed constraints:"),
+                        malformed);
+}
+
+QString ViewProviderSketch::appendConstraintMsg(const QString & singularmsg,
+                            const QString & pluralmsg,
+                            const std::vector<int> &vector)
+{
     QString msg;
     QTextStream ss(&msg);
-    if (redundant.size() > 0) {
-        if (redundant.size() == 1)
-            ss << tr("Please remove the following redundant constraint:");
+    if (vector.size() > 0) {
+        if (vector.size() == 1)
+            ss << singularmsg;
         else
-            ss << tr("Please remove the following redundant constraints:");
+            ss << pluralmsg;
         ss << "\n";
-        ss << redundant[0];
-        for (unsigned int i=1; i < redundant.size(); i++)
-            ss << ", " << redundant[i];
+        ss << vector[0];
+        for (unsigned int i=1; i < vector.size(); i++)
+            ss << ", " << vector[i];
 
         ss << "\n";
     }
@@ -6309,6 +6442,7 @@ void ViewProviderSketch::UpdateSolverInformation()
     int dofs = getSketchObject()->getLastDoF();
     bool hasConflicts = getSketchObject()->getLastHasConflicts();
     bool hasRedundancies = getSketchObject()->getLastHasRedundancies();
+    bool hasMalformed    = getSketchObject()->getLastHasMalformedConstraints();
 
     if (getSketchObject()->Geometry.getSize() == 0) {
         signalSetUp(tr("Empty sketch"));
@@ -6321,6 +6455,13 @@ void ViewProviderSketch::UpdateSolverInformation()
                     .arg(tr("Over-constrained sketch "))
                     .arg(tr("(click to select)"))
                     .arg(QString::fromStdString(msg)));
+        signalSolved(QString());
+    }
+    else if (hasMalformed) { // malformed constraints
+        signalSetUp(QString::fromLatin1("<font color='red'>%1<a href=\"#malformed\"><span style=\" text-decoration: underline; color:#0000ff; background-color: #F8F8FF;\">%2</span></a><br/>%3</font><br/>")
+                    .arg(tr("Sketch contains malformed constraints "))
+                    .arg(tr("(click to select)"))
+                    .arg(appendMalformedMsg(getSketchObject()->getLastMalformedConstraints())));
         signalSolved(QString());
     }
     else if (hasConflicts) { // conflicting constraints
@@ -6340,7 +6481,7 @@ void ViewProviderSketch::UpdateSolverInformation()
         if (getSketchObject()->getLastSolverStatus() == 0) {
             if (dofs == 0) {
                 // color the sketch as fully constrained if it has geometry (other than the axes)
-                if(getSketchObject()->getSolvedSketch().getGeometrySize()>2)
+                if(getSolvedSketch().getGeometrySize()>2)
                     edit->FullyConstrained = true;
 
                 if (!hasRedundancies) {
@@ -6389,10 +6530,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     edit->PointsCoordinate->setName("PointsCoordinate");
     pointsRoot->addChild(edit->PointsCoordinate);
 
-    SoDrawStyle *drawStyle = new SoDrawStyle;
-    drawStyle->setName("PointsDrawStyle");
-    drawStyle->pointSize = 8;
-    pointsRoot->addChild(drawStyle);
+    edit->PointsDrawStyle = new SoDrawStyle;
+    edit->PointsDrawStyle->setName("PointsDrawStyle");
+    edit->PointsDrawStyle->pointSize = std::lround(8 * edit->pixelScalingFactor);
+    pointsRoot->addChild(edit->PointsDrawStyle);
 
     edit->PointSet = new SoMarkerSet;
     edit->PointSet->setName("PointSet");
@@ -6415,10 +6556,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     edit->CurvesCoordinate->setName("CurvesCoordinate");
     curvesRoot->addChild(edit->CurvesCoordinate);
 
-    drawStyle = new SoDrawStyle;
-    drawStyle->setName("CurvesDrawStyle");
-    drawStyle->lineWidth = 3;
-    curvesRoot->addChild(drawStyle);
+    edit->CurvesDrawStyle = new SoDrawStyle;
+    edit->CurvesDrawStyle->setName("CurvesDrawStyle");
+    edit->CurvesDrawStyle->lineWidth = std::lround(3 * edit->pixelScalingFactor);
+    curvesRoot->addChild(edit->CurvesDrawStyle);
 
     edit->CurveSet = new SoLineSet;
     edit->CurveSet->setName("CurvesLineSet");
@@ -6435,10 +6576,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     MtlBind->value = SoMaterialBinding::PER_FACE;
     crossRoot->addChild(MtlBind);
 
-    drawStyle = new SoDrawStyle;
-    drawStyle->setName("RootCrossDrawStyle");
-    drawStyle->lineWidth = 2;
-    crossRoot->addChild(drawStyle);
+    edit->RootCrossDrawStyle = new SoDrawStyle;
+    edit->RootCrossDrawStyle->setName("RootCrossDrawStyle");
+    edit->RootCrossDrawStyle->lineWidth = std::lround(2 * edit->pixelScalingFactor);
+    crossRoot->addChild(edit->RootCrossDrawStyle);
 
     edit->RootCrossMaterials = new SoMaterial;
     edit->RootCrossMaterials->setName("RootCrossMaterials");
@@ -6465,10 +6606,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     edit->EditCurvesCoordinate->setName("EditCurvesCoordinate");
     editCurvesRoot->addChild(edit->EditCurvesCoordinate);
 
-    drawStyle = new SoDrawStyle;
-    drawStyle->setName("EditCurvesDrawStyle");
-    drawStyle->lineWidth = 3;
-    editCurvesRoot->addChild(drawStyle);
+    edit->EditCurvesDrawStyle = new SoDrawStyle;
+    edit->EditCurvesDrawStyle->setName("EditCurvesDrawStyle");
+    edit->EditCurvesDrawStyle->lineWidth = std::lround(3 * edit->pixelScalingFactor);
+    editCurvesRoot->addChild(edit->EditCurvesDrawStyle);
 
     edit->EditCurveSet = new SoLineSet;
     edit->EditCurveSet->setName("EditCurveLineSet");
@@ -6493,10 +6634,9 @@ void ViewProviderSketch::createEditInventorNodes(void)
     CoordTextMaterials->diffuseColor = cursorTextColor;
     Coordsep->addChild(CoordTextMaterials);
 
-    int fontSize = hGrp->GetInt("EditSketcherFontSize", 17);
-
     SoFont *font = new SoFont();
-    font->size.setValue(fontSize);
+    font->size.setValue(edit->coinFontSize);
+
     Coordsep->addChild(font);
 
     edit->textPos = new SoTranslation();
@@ -6515,10 +6655,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     edit->EditRoot->addChild(MtlBind);
 
     // use small line width for the Constraints
-    drawStyle = new SoDrawStyle;
-    drawStyle->setName("ConstraintDrawStyle");
-    drawStyle->lineWidth = 1;
-    edit->EditRoot->addChild(drawStyle);
+    edit->ConstraintDrawStyle = new SoDrawStyle;
+    edit->ConstraintDrawStyle->setName("ConstraintDrawStyle");
+    edit->ConstraintDrawStyle->lineWidth = std::lround(1 * edit->pixelScalingFactor);
+    edit->EditRoot->addChild(edit->ConstraintDrawStyle);
 
     // add the group where all the constraints has its SoSeparator
     edit->constrGroup = new SmSwitchboard();
@@ -6532,10 +6672,10 @@ void ViewProviderSketch::createEditInventorNodes(void)
     edit->EditRoot->addChild(MtlBind);
 
     // use small line width for the information visual
-    drawStyle = new SoDrawStyle;
-    drawStyle->setName("InformationDrawStyle");
-    drawStyle->lineWidth = 1;
-    edit->EditRoot->addChild(drawStyle);
+    edit->InformationDrawStyle = new SoDrawStyle;
+    edit->InformationDrawStyle->setName("InformationDrawStyle");
+    edit->InformationDrawStyle->lineWidth = std::lround(1 * edit->pixelScalingFactor);
+    edit->EditRoot->addChild(edit->InformationDrawStyle);
 
     // add the group where all the information entity has its SoSeparator
     edit->infoGroup = new SoGroup();
@@ -6826,6 +6966,11 @@ Sketcher::SketchObject *ViewProviderSketch::getSketchObject(void) const
     return dynamic_cast<Sketcher::SketchObject *>(pcObject);
 }
 
+const Sketcher::Sketch &ViewProviderSketch::getSolvedSketch(void) const
+{
+    return const_cast<const Sketcher::SketchObject *>(getSketchObject())->getSolvedSketch();
+}
+
 void ViewProviderSketch::deleteSelected()
 {
     std::vector<Gui::SelectionObject> selection;
@@ -6867,8 +7012,9 @@ bool ViewProviderSketch::onDelete(const std::vector<std::string> &subList)
         for (std::vector<std::string>::const_iterator it=SubNames.begin(); it != SubNames.end(); ++it) {
             if (it->size() > 4 && it->substr(0,4) == "Edge") {
                 int GeoId = std::atoi(it->substr(4,4000).c_str()) - 1;
-                if( GeoId >= 0 )
+                if( GeoId >= 0 ) {
                     delInternalGeometries.insert(GeoId);
+                }
                 else
                     delExternalGeometries.insert(Sketcher::GeoEnum::RefExt - GeoId);
             } else if (it->size() > 12 && it->substr(0,12) == "ExternalEdge") {
@@ -6937,13 +7083,26 @@ bool ViewProviderSketch::onDelete(const std::vector<std::string> &subList)
             }
         }
 
-        for (rit = delInternalGeometries.rbegin(); rit != delInternalGeometries.rend(); ++rit) {
+        if(!delInternalGeometries.empty()) {
+            std::stringstream stream;
+
+            // NOTE: SketchObject delGeometries will sort the array, so filling it here with a reverse iterator would
+            // lead to the worst case scenario for sorting.
+            auto endit = std::prev(delInternalGeometries.end());
+            for (auto it = delInternalGeometries.begin(); it != endit; ++it) {
+                stream << *it << ",";
+            }
+
+            stream << *endit;
+
             try {
-                Gui::cmdAppObjectArgs(getObject(), "delGeometry(%i)", *rit);
+                Gui::cmdAppObjectArgs(getObject(), "delGeometries([%s])", stream.str().c_str());
             }
             catch (const Base::Exception& e) {
                 Base::Console().Error("%s\n", e.what());
             }
+
+            stream.str(std::string());
         }
 
         for (rit = delExternalGeometries.rbegin(); rit != delExternalGeometries.rend(); ++rit) {
@@ -6998,4 +7157,34 @@ void ViewProviderSketch::showRestoreInformationLayer() {
 
     visibleInformationChanged = true ;
     draw(false,false);
+}
+
+QIcon ViewProviderSketch::mergeColorfulOverlayIcons (const QIcon & orig) const
+{
+    QIcon mergedicon = orig;
+
+    if(!getSketchObject()->FullyConstrained.getValue()) {
+        QPixmap px;
+
+        static const char * const sketcher_notfullyconstrained_xpm[]={
+            "9 9 3 1",
+            ". c None",
+            "# c #dbaf00",
+            "a c #ffcc00",
+            "##.....##",
+            "#a#...#a#",
+            "#aa#.#aa#",
+            ".#a#.#a#.",
+            ".#a#.#a#.",
+            ".#a#.#a#.",
+            "#aa#.#aa#",
+            "#a#...#a#",
+            "##.....##"};
+        px = QPixmap( sketcher_notfullyconstrained_xpm );
+
+        mergedicon = Gui::BitmapFactoryInst::mergePixmap(mergedicon, px, Gui::BitmapFactoryInst::BottomRight);
+
+    }
+
+    return Gui::ViewProvider::mergeColorfulOverlayIcons (mergedicon);
 }
