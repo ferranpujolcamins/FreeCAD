@@ -2,6 +2,8 @@
 #define PYTHONSOURCE_H
 
 #include <string>
+#include <list>
+#include <vector>
 
 #if __cplusplus >= 201703L && __has_cpp_attribute(fallthrough)
 # define FALLTHROUGH [[fallthrough]];
