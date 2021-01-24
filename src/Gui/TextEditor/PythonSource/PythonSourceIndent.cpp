@@ -1,5 +1,6 @@
 #include "PythonSourceIndent.h"
 #include "PythonSource.h"
+#include "PythonToken.h"
 
 
 DBG_TOKEN_FILE
